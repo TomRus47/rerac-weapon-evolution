@@ -1,6 +1,6 @@
 # ReRAC Weapon Evolution
 
-Weapon Evolution **v0.1.6.39**, with the English preset launcher **v0.5.1**, built on the supplied ReRAC **0.3.4** source snapshot.
+Weapon Evolution **v0.1.6.40**, with the English preset launcher **v0.5.1**, built on the supplied ReRAC **0.3.4** source snapshot.
 
 **Runtime compatibility: ReRAC 0.3.4-alpha**, using the modified game runtime supplied with Weapon Evolution or built from this repository.
 
@@ -9,6 +9,8 @@ Weapon Evolution **v0.1.6.39**, with the English preset launcher **v0.5.1**, bui
 This is a source repository. It contains the modified Rust workspace, launcher source, approved default weapon configuration, tests and Windows build tools. The game data, compiled game, compiled launcher, saves and local settings are excluded.
 
 The full ReRAC source base is included because the mod integrates with many gameplay and rendering systems. No earlier patch installation is required. [MOD_FILES.md](MOD_FILES.md) identifies the mod modules and integration points; [mod/source-map.json](mod/source-map.json) provides their hashes.
+
+See [v40 combat fixes and audio investigation](docs/mod/COMBAT_AUDIO_V40.md) for the current changes, regression cases and remaining audio evidence.
 
 ## Features
 

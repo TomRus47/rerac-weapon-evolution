@@ -106,7 +106,7 @@ class DefaultWorkflowTests(unittest.TestCase):
         self.assertEqual((self.kit/'weapons.ini').read_bytes(),self.raw)
         self.assertFalse((self.kit/'defaults-installed-v05.json').exists())
     def test_manual_game_launcher_also_injects_real_hp_only_into_the_session_copy(self):
-        (self.exe.parent/'build-info.json').write_text(json.dumps({'mode':'editable','mod_version':'0.1.6.39','root':str(self.kit)}))
+        (self.exe.parent/'build-info.json').write_text(json.dumps({'mode':'editable','mod_version':'0.1.6.40','root':str(self.kit)}))
         observed={}
         def run(args,**kwargs):
             observed.update(kwargs['env'])

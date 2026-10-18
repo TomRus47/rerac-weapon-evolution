@@ -18,3 +18,9 @@ The normal editable gameplay code is the v39 code confirmed working by the user.
 Rust/Cargo and Windows are unavailable in the export environment. The Rust tests, full Windows compilation, frozen EXE generation and gameplay have not been rerun on this exported checkout here. Run `01_BUILD_GAME.bat` and test the generated runtime on Windows before publishing a new binary release.
 
 The prepared Git commit records a source export, not reconstructed upstream history. See `mod/provenance.json` and `docs/mod/PUBLISHING.md`.
+
+## v40 follow-up verification
+
+On the follow-up source branch, Rust 1.99.1 on Linux x64 ran `cargo test --release --locked --no-default-features -p rc-game --lib`: **905 passed, 0 failed**, including the new stream, staged-amoeboid, missile-expiry and transport-loop regressions. The normal parallel test command also passed. The launcher suite passed **66 tests**. The v40 patch installer passed **7 tests**, plus an apply/reapply/byte-exact restore exercise using all 13 actual v39 source payloads. The source checker validates 1174 tracked files, 146 indexed source hashes and the same 888 default INI values.
+
+No Windows game executable was compiled here. The Windows helper runs the Rust tests before building/staging `rerac.exe`; gameplay and audio listening tests remain required. Missing rain/taxi playback is still under investigation and requires the optional diagnostic log from the affected level data.

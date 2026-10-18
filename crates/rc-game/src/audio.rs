@@ -22,6 +22,7 @@
 //! core), noise voices, voice pitch modulation (PMON), the 989snd RPC layer itself.
 
 pub mod class_sounds;
+mod diagnostics;
 pub mod grain_vm;
 pub mod music;
 pub mod reverb;
@@ -569,6 +570,7 @@ pub struct AudioSystem {
 impl AudioSystem {
     pub fn new(data: LevelAudio) -> Self {
         let emitters = Emitters::new(data.instances.clone(), &data.instance_pvars);
+        diagnostics::inventory(&data, &emitters);
         let boxes = data
             .instances
             .iter()
@@ -653,6 +655,7 @@ impl AudioSystem {
         }
         self.scene_frame();
         self.emitters.update(&mut self.slots, &self.data.sounds, &l, rng);
+        diagnostics::emitters(&self.data, &self.emitters, &self.slots, &l, frame);
         // The reverb boxes (sound instance class 3) test the hero position 0x13f3d0.
         for b in &mut self.reverb_boxes { b.update(input.hero_pos, &mut self.reverb); }
         self.sound_update_with(input, frame, rng, owner_pos);

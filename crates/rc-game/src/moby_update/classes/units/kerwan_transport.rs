@@ -190,9 +190,10 @@ fn lock_hero(w: &mut World) {
 
 /// The follower `0x2d3918(m, path, &voice)` (module table): true once the path's last point was reached.
 pub fn follow(w: &mut World, id: MobyId, path: i32) -> bool {
-    let Some(p) = spline(w, path) else { return true };
+    let Some(p) = spline(w, path) else { engine_loop(w, id, false); return true };
     let n = w.svc.splines[p].len();
     let i = pi(w, id, pv::INDEX).max(0) as usize;
+    if n == 0 || i >= n { engine_loop(w, id, false); return true; }
     let target = point(w, p, i);
     let pos = c::pos(w, id);
     let d = c::sub(target, pos);
@@ -226,8 +227,15 @@ pub fn follow(w: &mut World, id: MobyId, path: i32) -> bool {
     turn_axis(w, 2, pv::YAW_V, yaw, k::YAW_ACC * k::DEG * DT2);
     let roll = c::pf(w, id, pv::YAW_V) * c::pf(w, id, pv::SPEED) * k::ROLL;
     turn_axis(w, 0, pv::ROLL_V, roll, k::ROLL_ACC * k::DEG * DT2);
+    engine_loop(w, id, !done);
+    done
+}
+
+/// Refresh while travelling, release on every completion path, including missing
+/// or already completed splines. Never release a slot reassigned to another moby.
+fn engine_loop(w: &mut World, id: MobyId, moving: bool) {
     let voice = pi(w, id, pv::VOICE);
-    if !done {
+    if moving {
         if !w.sound_alive(voice, id) {
             let s = w.play_sound_as(0, 4, id, PLATFORM);
             c::set_pi32(w, id, pv::VOICE, s);
@@ -236,7 +244,6 @@ pub fn follow(w: &mut World, id: MobyId, path: i32) -> bool {
         if voice != -1 && w.sound_owner(voice) == Some(id) && w.sound_alive(voice, id) { w.release_sound(voice, id); }
         c::set_pi32(w, id, pv::VOICE, -1);
     }
-    done
 }
 
 /// The bob and the wobble after the states (`0x2d3c40` / `0x2dd0f0`), then `CarryRiders(+0x20, position − old, old
@@ -452,6 +459,41 @@ pub fn update_1012(w: &mut World, id: MobyId) {
 mod tests {
     use super::*;
     use crate::moby_runtime::{Moby, MobyTable};
+
+    #[test]
+    fn engine_sound_starts_once_and_stops_on_missing_or_finished_paths() {
+        use crate::moby_update::services::{SoundEvent, SoundSink};
+        #[derive(Default)]
+        struct Sink { playing: bool, starts: usize, stops: usize }
+        impl SoundSink for Sink {
+            fn play_class_sound(&mut self, ev: &SoundEvent, _: &mut crate::rng::Rng) -> i32 {
+                assert_eq!((ev.sound_class, ev.index, ev.flags), (816, 0, 4));
+                self.starts += 1; self.playing = true; 7
+            }
+            fn alive(&self, slot: i32, _: MobyId) -> bool { slot == 7 && self.playing }
+            fn slot_owner(&self, slot: i32) -> Option<(MobyId, u16)> {
+                (slot == 7 && self.playing).then_some((0, 0))
+            }
+            fn release(&mut self, slot: i32, _: MobyId) {
+                assert_eq!(slot, 7); self.stops += 1; self.playing = false;
+            }
+        }
+        let mut table = MobyTable::new(vec![Moby { o_class: 1012, state: 3, pvars: vec![0; p1012::SIZE], ..Default::default() }], 4);
+        let hero = crate::hero::Hero::new(); let mut rng = crate::rng::Rng::new();
+        let classes = crate::moby_update::ClassTable::default();
+        let mut svc = crate::moby_update::Services::new(); let mut sink = Sink::default();
+        {
+            let mut w = World::new(&mut table, &hero, &mut rng, &classes, &mut svc, 1);
+            w.sound = Some(&mut sink);
+            c::set_pi32(&mut w, 0, pv::VOICE, -1);
+            engine_loop(&mut w, 0, true); engine_loop(&mut w, 0, true);
+            assert!(follow(&mut w, 0, -1));
+            assert_eq!(pi(&w, 0, pv::VOICE), -1);
+            engine_loop(&mut w, 0, true); engine_loop(&mut w, 0, false);
+        }
+        assert_eq!((sink.starts, sink.stops), (2, 2));
+        assert!(!sink.playing);
+    }
 
     /// The update ends in `CarryRiders` (0x24ee28): a parked platform's bob is published in its block (+0x20), so the
     /// hero's platform carry moves a rider with it.
