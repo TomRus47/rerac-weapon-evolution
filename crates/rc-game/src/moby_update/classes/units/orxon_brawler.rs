@@ -258,12 +258,12 @@ fn tick(w: &mut World, id: MobyId) {
         if w.svc.level == 10 && attacker_class == Some(k::SEE_THROUGH) && c::pi32(w, id, pv::ALERT) != 0 {
             crate::moby_update::story::award_skill_point(w, crate::moby_update::story::skill_index(0x13_d419));
         }
-        if c::pi16(w, id, pv::COOLDOWN) != 0 && h.b28 == 0 {
+        if h.evolution.is_none() && c::pi16(w, id, pv::COOLDOWN) != 0 && h.b28 == 0 {
             reaction = 0xb;
             if dmg < 3.0 { dmg = 0.0; }
         }
         let comet = w.hero.state == 0x20 || (w.hero.prev_state == 0x20 && w.hero.timer < w.ticks(0x1e));
-        if comet && 2.0 < dmg { dmg = 2.0; }
+        if h.evolution.is_none() && comet && 2.0 < dmg { dmg = 2.0; }
         if h.h2a as i16 == own {
             dmg = 0.0;
             reaction = 0xb;

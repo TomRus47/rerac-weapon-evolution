@@ -1069,3 +1069,33 @@ fn taunter_freeze_does_not_make_creatures_invulnerable_or_remove_the_stun() {
     assert_eq!(pf(&w,1,0x20),8.5);
     assert!(w.svc.evo_stuns.frozen(1,577,1));
 }
+
+
+#[test]
+fn gaspar_enemies_keep_taking_stream_damage_during_hurt_recovery() {
+    for class in [193, 1023] {
+        for item in [16, 19] {
+            let mut s = real_hp_sim(class, 10.0);
+            s.table.mobys[1].visible = 1; // Exercise combat, not the off-camera sleep gate.
+            s.svc.bomb_evo.pyro.enabled = true;
+            s.svc.bomb_evo.pyro.xp_required = [10000.0; 4];
+            s.svc.bomb_evo.damage_hp[item][0] = Some(6000.0); // 100 HP per contact tick
+            for _ in 0..5 {
+                {
+                    let mut w = World::new(&mut s.table, &s.hero, &mut s.rng, &s.classes, &mut s.svc, s.counter);
+                    let mut t = real_bullet(0);
+                    t.h1a = if item == 16 { 176 } else { 177 };
+                    t.b18 = 5;
+                    t.b19 = if item == 16 { 1 } else { 2 };
+                    t.dir[3] = Pf::f(crate::hero::damage::EXACT_PUSH_W);
+                    w.deliver_hit(1, &t);
+                }
+                s.tick();
+            }
+            assert!((doom_hp(&s) - 5.0).abs() < 0.001, "class {class}, weapon {item}: {}", doom_hp(&s));
+            let xp = if item == 16 { s.svc.bomb_evo.pyro.xp }
+                else { s.svc.bomb_evo.extras.iter().find(|t| t.id == 19).unwrap().xp };
+            assert!((xp - 50.0).abs() < 0.001, "class {class}, weapon {item}: XP {xp}");
+        }
+    }
+}

@@ -170,10 +170,12 @@ fn pre(w: &mut World, id: MobyId) -> Option<target::Target> {
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
     c::dec_timer_pvar_s16(w, id, pv::COOLDOWN);
     let cool = c::pi16(w, id, pv::COOLDOWN);
-    if (cool as i32) < w.ticks(0x2d) {
+    let quiet = res.hit.is_some_and(|h| h.damage_only() || (h.evolution.is_some() && cool != 0))
+        && damage::quiet_damage(w, id, res.hit, pv::D);
+    if !quiet && ((cool as i32) < w.ticks(0x2d) || res.hit.is_some_and(|h| h.evolution.is_some())) {
         if let Some(h) = res.hit {
             let mut dmg = f32::from_bits(h.damage.0);
-            if h.attacker_class(w.table).is_some_and(|class| (class as u16).wrapping_sub(0xb0) < 2) {
+            if h.evolution.is_none() && h.attacker_class(w.table).is_some_and(|class| (class as u16).wrapping_sub(0xb0) < 2) {
                 dmg = if cool == 0 { 1.0 } else { 0.0 };
             }
             group_call(w, id);

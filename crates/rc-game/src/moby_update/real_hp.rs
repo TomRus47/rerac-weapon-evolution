@@ -138,11 +138,15 @@ impl Events {
             damage = pulse.damage;
             *pulse = StreamPulse::default();
         }
+        // The port uses Ratchet's moby as the source of both continuous weapons.
+        // Preserve his position/ownership, but expose the weapon class to native
+        // enemy filters: otherwise fire/electricity is mistaken for the wrench.
+        let stream_class = match item { 16 => Some(176), 19 => Some(177), _ => None };
         let r = HitRecord { pos, dir: t.dir, attacker: t.attacker, flags: t.flags,
-            b28: t.b18, b29: t.b19, h2a: t.h1a, damage: Pf::f(damage), w30: t.w20,
+            b28: t.b18, b29: t.b19, h2a: stream_class.unwrap_or(t.h1a as i16) as u16, damage: Pf::f(damage), w30: t.w20,
             target, prim, doom_explosion: 0,
             evolution: Some(Attack { instance, weapon: item, damage, damage_only: false,
-                origin: table.mobys.get(attacker).map(|m| Origin { class: m.o_class, position: m.position }) }) };
+                origin: table.mobys.get(attacker).map(|m| Origin { class: stream_class.unwrap_or(m.o_class), position: m.position }) }) };
         self.pending.entry(target).or_default().push_back(r);
         true
     }
@@ -274,6 +278,22 @@ mod tests {
         for tick in 0..60 { e.begin_frame(tick); for _ in 0..20 { e.queue(&t,0,&template(177,10),false,[Pf::ZERO;4],0); }
             damage+=e.take(0,u32::MAX).unwrap().damage.to_f32(); assert!(e.take(0,u32::MAX).is_none()); }
         assert!((damage*HP_SCALE-240.0).abs()<0.001);
+    }
+    #[test]
+    fn continuous_weapon_identity_is_not_ratchets_body_or_the_wrench() {
+        for (item, class) in [(16, 176), (19, 177)] {
+            let mut t = table();
+            t.mobys.push(Moby { o_class: 0, state: 1, position: [10.0; 4], ..Default::default() });
+            let mut e = Events { enabled: true, hero: Some(1), stream_intervals: [1; 2], ..Default::default() };
+            let mut tmpl = template(class, 1); tmpl.b18 = 5;
+            if item == 16 { tmpl.h1a = 0; } // direct nozzle hit
+            e.queue(&t, 0, &tmpl, false, [Pf::ZERO; 4], 0);
+            let hit = e.take(0, u32::MAX).unwrap();
+            assert_eq!(hit.h2a, class);
+            assert_eq!(hit.attacker_class(&t), Some(class as i16));
+            assert_eq!(hit.attacker_position(&t), Some([10.0; 4]));
+            assert_eq!(hit.evolution.unwrap().weapon, item);
+        }
     }
     fn flow_template(class: u16) -> HitTemplate {
         let mut t = template(class, 10);

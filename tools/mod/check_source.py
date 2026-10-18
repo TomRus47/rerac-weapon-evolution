@@ -42,7 +42,7 @@ def check():
     for name in ['rc-game','rc-engine','rc-formats','rc-data','rc-video','rc-extract']:
         if not (ROOT/'crates'/name/'Cargo.toml').is_file():raise ValueError('Missing workspace crate: '+name)
     cap=(ROOT/'crates/rc-engine/src/disc_source.rs').read_text()
-    if '"weapon_evolution_config":39' not in cap:raise ValueError('Missing v39 runtime capability.')
+    if '"weapon_evolution_config":40' not in cap:raise ValueError('Missing v40 runtime capability.')
     local=['target/release/rerac.exe','extracted/toc.bin','launcher/runtime/rerac.exe',
         'launcher/launcher-settings.json','launcher/weapons.ini','launcher/presets/Personal.ini',
         'launcher/runs/session/weapons.ini','launcher/.launcher-tools/venv/python.exe',

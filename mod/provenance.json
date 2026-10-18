@@ -1,6 +1,6 @@
 {
   "base_workspace_version": "0.3.4",
-  "gameplay_version": "0.1.6.39",
+  "gameplay_version": "0.1.6.40",
   "launcher_version": "0.5.1",
   "supplied_source_archive_sha256": "691ec727930a62463c6bdb9e3161e77f4ce906ec9209a5274cf31bddd4400592",
   "upstream_git_revision": null,

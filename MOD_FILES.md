@@ -291,3 +291,21 @@ The full Rust workspace is included so this checkout builds without historical p
 
 
 The complete launcher implementation, tests and release tools are in [launcher/](launcher/). Build entry points and repository checks are documented in [README.md](README.md).
+
+## v40 follow-up
+
+The combat/audio audit is documented in [COMBAT_AUDIO_V40.md](docs/mod/COMBAT_AUDIO_V40.md). The updated machine-readable map now indexes 146 files. The historical delta below remains the original source-export comparison; use Git commits for subsequent changes.
+
+- `crates/rc-engine/src/disc_source.rs`
+- `crates/rc-game/src/audio.rs`
+- `crates/rc-game/src/audio/class_sounds.rs`
+- `crates/rc-game/src/audio/diagnostics.rs`
+- `crates/rc-game/src/moby_update/classes/amoeboid.rs`
+- `crates/rc-game/src/moby_update/classes/devastator_missile.rs`
+- `crates/rc-game/src/moby_update/classes/units/hop_gunner.rs`
+- `crates/rc-game/src/moby_update/classes/units/kerwan_transport.rs`
+- `crates/rc-game/src/moby_update/classes/units/orxon_brawler.rs`
+- `crates/rc-game/src/moby_update/classes/units/pack_biter.rs`
+- `crates/rc-game/src/moby_update/classes/units/pokitaru_biter.rs`
+- `crates/rc-game/src/moby_update/creature/tests.rs`
+- `crates/rc-game/src/moby_update/real_hp.rs`

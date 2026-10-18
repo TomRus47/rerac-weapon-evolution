@@ -68,9 +68,13 @@ impl AudioSystem {
     pub fn play_class_sound(&mut self, ev: &SoundEvent, hero: Option<MobyId>, listener: &Listener, rng: &mut Rng) -> i32 {
         self.stats.class_sounds += 1;
         let Ok(local) = usize::try_from(ev.index) else { return -1 };
-        let Some(def) = self.data.sounds.def(SoundOwner::Class(ev.sound_class as i32), local).copied() else { return -1 };
+        let Some(def) = self.data.sounds.def(SoundOwner::Class(ev.sound_class as i32), local).copied() else {
+            super::diagnostics::class_play(&self.data, ev, None, -1);
+            return -1;
+        };
         let owner = Owner { id: ev.moby as u32, privileged: Some(ev.moby) == hero || ev.o_class == PRIVILEGED_CLASS };
         let k = self.slots.play(&def, ev.flags as u8, Some(owner), Some(ev.pos), None, 0x400, listener, rng);
+        super::diagnostics::class_play(&self.data, ev, Some(&def), k);
         if k >= 0 {
             self.slots.slots[k as usize].class_index = ev.index as u16;
             self.stats.class_slots += 1;

@@ -32,7 +32,7 @@ def prepare_local_ini(kit: Path) -> Path:
     prefix = b'\xef\xbb\xbf' if converted.startswith(b'\xef\xbb\xbf') else b''
     updated = prefix + ''.join(kept).encode('utf-8')
     if updated != raw:
-        backup = kit/'weapons.ini.prima_v39.bak'
+        backup = kit/'weapons.ini.prima_v40.bak'
         if not backup.exists():
             with backup.open('xb') as stream: stream.write(raw)
         atomic_write(path,updated)
@@ -54,8 +54,8 @@ def editable_version(exe: Path) -> dict:
         raise ValueError('Unrecognized ReRAC executable.')
     if str(version['version']).endswith('-fixed'):
         raise ValueError('This is a fixed-profile build. Rebuild with 01_RICOMPILA_E_PROVA.bat.')
-    if version.get('weapon_evolution_config',0) < 39:
-        raise ValueError('This executable lacks v39 HP support. Rebuild the v39 game.')
+    if version.get('weapon_evolution_config',0) < 40:
+        raise ValueError('This executable lacks v40 HP support. Rebuild the v40 game.')
     return version
 
 def ensure_closed() -> None:
@@ -77,7 +77,7 @@ def stage_runtime(root: Path, kit: Path, exe: Path) -> Path:
         for shader in shaders:
             shutil.copy2(shader,stage/'assets/shaders'/shader.name)
         (stage/'build-info.json').write_text(json.dumps({'mode':'editable','root':str(root.resolve()),
-            'version':version['version'],'mod_version':'0.1.6.39'},indent=2)+'\n',encoding='utf-8')
+            'version':version['version'],'mod_version':'0.1.6.40'},indent=2)+'\n',encoding='utf-8')
         runtime = kit/'runtime'
         previous = kit/'runtime_previous'
         if previous.exists():
@@ -103,7 +103,7 @@ def build(root: Path, kit: Path) -> Path:
     validate(kit/'weapons.ini')
     ensure_closed()
     check_source_root(root)
-    print('Building Weapon Evolution v39 from this source checkout.',flush=True)
+    print('Building Weapon Evolution v40 from this source checkout.',flush=True)
     # An explicit target dir also prevents a user-wide CARGO_TARGET_DIR from picking a stale executable.
     common = ['--release','--locked','--no-default-features','--target-dir',str(root/'target')]
     for args in [['cargo','test',*common,'-p','rc-game','--lib'],
@@ -144,7 +144,7 @@ def launch(kit: Path, root_override: Path | None = None) -> int:
         raise ValueError('First run 01_RICOMPILA_E_PROVA.bat once.')
     editable_version(runtime/'rerac.exe')
     info = json.loads((runtime/'build-info.json').read_text(encoding='utf-8'))
-    if info.get('mode') != 'editable' or info.get('mod_version') != '0.1.6.39': raise ValueError('This build does not support editable configurations.')
+    if info.get('mode') != 'editable' or info.get('mod_version') != '0.1.6.40': raise ValueError('This build does not support editable configurations.')
     root = root_override or Path(info['root'])
     env = runtime_environment(kit,os.environ)
     from migrate_ini import runtime_profile
@@ -175,7 +175,7 @@ def launch(kit: Path, root_override: Path | None = None) -> int:
     return result.returncode
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Weapon Evolution v39 editable')
+    parser = argparse.ArgumentParser(description='Weapon Evolution v40 editable')
     parser.add_argument('action',choices=['build','run','build-and-run'])
     parser.add_argument('root',nargs='?',type=Path)
     args = parser.parse_args()

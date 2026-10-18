@@ -74,6 +74,8 @@ pub mod pv {
     pub const BLASTS: usize = 0x40;
     pub const BLAST_T: usize = 0x44;
     pub const RANGE: usize = 0x48;
+    /// Port-only distance travelled since launch (the owner may keep moving).
+    pub const TRAVELLED: usize = 0x4c;
 }
 
 /// `0x20aa50` / `0x20aa68`: the rings' and puffs' colours (`randi(6)` each).
@@ -112,6 +114,7 @@ pub fn spawn(table: &mut crate::moby_runtime::MobyTable, env: &crate::hero::item
     p::set_ff(&mut m.pvars, pv::TOP, top * speed_mod);
     p::set_i32(&mut m.pvars, pv::LEAD, lead);
     p::set_ff(&mut m.pvars, pv::RANGE, range * range_mod);
+    p::set_ff(&mut m.pvars, pv::TRAVELLED, 0.0);
     p::set_ff(&mut m.pvars, pv::YAW_VEL, 0.0);
     p::set_ff(&mut m.pvars, pv::PITCH_VEL, 0.0);
     p::set_i32(&mut m.pvars, pv::TARGET, target.map_or(0, |t| t as i32 + 1));
@@ -141,6 +144,16 @@ pub fn spawn(table: &mut crate::moby_runtime::MobyTable, env: &crate::hero::item
 
 fn v3(a: [f32; 4]) -> [f32; 3] { [a[0], a[1], a[2]] }
 fn v4(a: [f32; 3]) -> [f32; 4] { [a[0], a[1], a[2], 0.0] }
+
+/// Clip the last segment before probing collision, so objects beyond the range
+/// cannot intercept the missile. The terminal point still produces a real blast.
+fn range_step(step: [f32; 3], travelled: f32, range: f32) -> ([f32; 3], bool) {
+    let remaining = (range - travelled).max(0.0);
+    let length = len3(step);
+    if length >= remaining {
+        (if length > 0.0 { scale3(step, remaining / length) } else { [0.0; 3] }, true)
+    } else { (step, false) }
+}
 
 /// `0x2c5b70`.
 pub fn update(w: &mut World, id: MobyId) {
@@ -211,7 +224,14 @@ pub fn update(w: &mut World, id: MobyId) {
     let step = polar(speed, yaw, -pitch);
     // The trail every tick (every other one under load).
     if !throttle || w.counter & 1 == 0 { trail(w, id, step, speed, &TRAIL); }
-    let dir = add3(step, motion);
+    let (dir, range_expired) = range_step(add3(step, motion),
+        p::ff(&w.m(id).pvars, pv::TRAVELLED), p::ff(&w.m(id).pvars, pv::RANGE));
+    let distance = p::ff(&w.m(id).pvars, pv::TRAVELLED) + len3(dir);
+    p::set_ff(&mut w.mm(id).pvars, pv::TRAVELLED, distance);
+    let mut remaining_life = life;
+    let life_expired = crate::hero::guns::dec(&mut remaining_life);
+    p::set_i32(&mut w.mm(id).pvars, pv::LIFE, remaining_life);
+    let expired = range_expired || life_expired;
     let pos = add3(pos0, dir);
     { let m = w.mm(id); m.position = [pos[0], pos[1], pos[2], m.position[3]]; }
     if pos[0] < 0.0 || pos[1] < 0.0 || pos[2] < 0.0 {
@@ -226,23 +246,7 @@ pub fn update(w: &mut World, id: MobyId) {
     let mut last_moby: Option<MobyId> = None;
     let mut kind = w.m(id).cmd;
     match sv::line_hit_in(w.table, w.svc, w.classes, w.coll, f4(pos0), f4(pos), 0, w.hero_moby, &tmpl) {
-        None => {
-            if kind == 0 {
-                let mut l = life;
-                let out = crate::hero::guns::dec(&mut l);
-                p::set_i32(&mut w.mm(id).pvars, pv::LIFE, l);
-                let hero = w.hero_moby.map_or(pos0, |h| v3(w.m(h).position));
-                let d = ((pos[0] - hero[0]).powi(2) + (pos[1] - hero[1]).powi(2)).sqrt();
-                if out || p::ff(&w.m(id).pvars, pv::RANGE) < d {
-                    // Not gold: deleted without a blast; the gold missile explodes where it is.
-                    if gold == 0 {
-                        w.delete_moby(id);
-                        return;
-                    }
-                    kind = 1;
-                }
-            }
-        }
+        None => {}
         Some(h) => {
             let edge = sub3(h.tri[0], h.tri[1]);
             match h.moby {
@@ -265,6 +269,7 @@ pub fn update(w: &mut World, id: MobyId) {
             }
         }
     }
+    if expired && kind == 0 { kind = 1; }
     if kind == 0 {
         blast_timer(w, id);
         return;
@@ -274,7 +279,7 @@ pub fn update(w: &mut World, id: MobyId) {
     explode(w, id, kind, with_len(edge, 1.0), with_len(normal, 1.0), drift, throttle, gold);
     let blasts = p::i32(&w.m(id).pvars, pv::BLASTS) + 1;
     p::set_i32(&mut w.mm(id).pvars, pv::BLASTS, blasts);
-    if gold == 0 || blasts == 3 {
+    if expired || gold == 0 || blasts == 3 {
         w.delete_moby(id);
         return;
     }
@@ -566,6 +571,39 @@ fn blast_radius(gold: u8, multiplier: f32) -> f32 {
 #[cfg(test)]
 mod evolution_blast_tests {
     use super::*;
+    #[test]
+    fn range_expiry_runs_the_normal_explosion_and_deletes_both_variants() {
+        use crate::moby_runtime::{Moby, MobyTable};
+        for gold in [0, 1] {
+            let mut m = Moby { o_class: CLASS, state: 0, position: [100.0, 100.0, 50.0, 1.0],
+                pvars: vec![0; 0x80], ..Default::default() };
+            p::set_i32(&mut m.pvars, pv::LIFE, 300);
+            for (field, value) in [(pv::SPEED, 2.0), (pv::TOP, 2.0), (pv::RANGE, 1.0)] {
+                p::set_ff(&mut m.pvars, field, value);
+            }
+            let mut table = MobyTable::new(vec![m], 4);
+            let mut hero = crate::hero::Hero::new(); hero.weapons.gold[11] = gold;
+            let mut rng = crate::rng::Rng::new();
+            let classes = crate::moby_update::ClassTable::default();
+            let mut svc = sv::Services::new();
+            let mut w = World::new(&mut table, &hero, &mut rng, &classes, &mut svc, 1);
+            update(&mut w, 0);
+            assert!(w.m(0).state >= 0x80, "expired gold variant {gold} must stop");
+            assert!((w.m(0).position[0] - 101.0).abs() < 0.00001);
+            assert!(w.svc.sounds.iter().any(|s| s.index == 0 && s.sound_class == CLASS), "normal blast sound/effects path");
+            assert_eq!(p::i32(&w.m(0).pvars, pv::BLASTS), 1);
+        }
+    }
+    #[test]
+    fn last_segment_is_clipped_in_three_dimensions() {
+        let (d, expired) = range_step([3.0, 4.0, 0.0], 68.0, 70.0);
+        assert!(expired);
+        assert!((len3(d) - 2.0).abs() < 0.00001);
+        let (d, expired) = range_step([0.0, 0.0, 4.0], 69.0, 70.0);
+        assert!(expired); assert_eq!(d, [0.0, 0.0, 1.0]);
+        assert_eq!(range_step([1.0, 0.0, 0.0], 0.0, 70.0), ([1.0, 0.0, 0.0], false));
+        assert_eq!(range_step([1.0, 0.0, 0.0], 70.0, 70.0), ([0.0; 3], true));
+    }
     #[test]
     fn radius_scales_native_and_gold_blasts() {
         assert_eq!(blast_radius(0, 1.0), 2.0);

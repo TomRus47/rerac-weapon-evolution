@@ -9,6 +9,9 @@
 //! off the push (`15·dt` out, `5·dt` up, state 8), drops the parent's bolts (`SetDeathBits`) and deletes the parent.
 //! The last hit (health 0) only bursts it into goo (`0x2ef770`: 20 × 10 type-2 blobs) and deletes it.
 //!
+//! **Weapon Evolution:** each size instead has 300 / 200 / 100 HP. Only exhausting a stage wakes its two
+//! children; excess damage never skips a size. Damage and XP remain active during the children's throw.
+//!
 //! **Behaviour.** Keep to the arena (path +0x240; its walls, [`region`]) and move through the waypoint graph (path
 //! +0x244) towards Ratchet while he is inside the arena polygon (path +0x24c) and within the range (+0x224, +20
 //! after an alert) of home: wander (2, 1-in-4 line-of-sight checks), chase (4, `4π` turn rate, ±20° offset, doubled
@@ -34,6 +37,11 @@ use std::f32::consts::PI;
 
 pub const UPDATE_FN: u32 = 0x2edca0;
 pub const CLASSES: [i16; 3] = [0x23c, 0x361, 0x362];
+
+/// Native units: displayed/configured HP are multiplied by 100.
+fn stage_health(class: i16) -> f32 {
+    match class { 0x23c => 3.0, 0x361 => 2.0, _ => 1.0 }
+}
 
 const D: usize = 0x20;
 const ALERT: usize = 0x38;
@@ -364,6 +372,7 @@ fn init(w: &mut World, id: MobyId) {
         c::set_pi32(w, id, BIG, 1);
         1.0
     };
+    let h = if w.svc.bomb_evo.real_hp_enabled() { stage_health(w.m(id).o_class) } else { h };
     c::set_pf(w, id, D, h);
     if c::pf(w, id, RANGE0) == 0.0 { c::set_pf(w, id, RANGE0, 15.0); }
     walker::seed(&mut w.mm(id).pvars, J);
@@ -394,11 +403,10 @@ fn pre(w: &mut World, id: MobyId) -> bool {
     if let Some(h) = hit {
         let p = c::pos(w, id);
         let z0 = [p[0], p[1], p[2] + 0.5, p[3]];
-        let src: c::V = match h.attacker {
-            None => h.pos.map(|x| f32::from_bits(x.0)),
-            Some(a) if w.m(a).o_class == 0x47 => w.hero.body_point.map(|x| f32::from_bits(x.0)),
-            Some(a) if w.m(a).o_class == 0xba => z0,
-            Some(a) => w.m(a).position,
+        let src: c::V = match h.attacker_class(w.table) {
+            Some(0x47) => w.hero.body_point.map(|x| f32::from_bits(x.0)),
+            Some(0xba) => z0,
+            _ => h.attacker_position(w.table).unwrap_or_else(|| h.pos.map(|x| f32::from_bits(x.0))),
         };
         if c::dist3(z0, src) < 24.0 && w.line(crate::moby_update::services::pv(z0), crate::moby_update::services::pv(src), 2, Some(id)).is_some() {
             hit = None;
@@ -406,49 +414,54 @@ fn pre(w: &mut World, id: MobyId) -> bool {
     }
     let res = damage::resolve(w, id, hit, D, 0, 4);
     let s = st(w, id);
-    if res.out5 != 1 && res.damage != 0.0 && !matches!(s, 0xb | 0xa | 8) {
+    let staged_hp = w.svc.bomb_evo.real_hp_enabled();
+    if res.out5 != 1 && res.damage > 0.0 && !matches!(s, 0xb | 0xa) && (staged_hp || s != 8) {
         let h = res.hit.unwrap();
-        w.play_sound(0, 0, id);
-        let sz = size(w, id);
-        c::set_pu8(w, id, K + 0x3d, 0);
-        c::set_pf(w, id, K + knock::k::GRAVITY, 0.008);
-        c::set_pi32(w, id, K + knock::k::FLAGS, 8);
         let health = c::pf(w, id, D) - if h.evolution.is_some() { res.damage } else { 1.0 };
         c::set_pf(w, id, D, health);
-        c::set_pi32(w, id, K + knock::k::RADIUS, (sz * 0.8 * 1024.0) as i32);
-        c::set_pf(w, id, K + knock::k::ZOFF, sz * 0.8);
-        let dir = h.dir.map(|x| f32::from_bits(x.0));
-        goo_burst(w, id, dir);
-        if health <= 0.0 {
-            w.mm(id).mode &= !mode::TARGETABLE;
+        // A stage has its own HP budget. Surviving hits award only the actual
+        // loss; they neither split it nor restart the split children's flight.
+        if !staged_hp || health <= 0.0 {
+            w.play_sound(0, 0, id);
+            let sz = size(w, id);
+            c::set_pu8(w, id, K + 0x3d, 0);
+            c::set_pf(w, id, K + knock::k::GRAVITY, 0.008);
+            c::set_pi32(w, id, K + knock::k::FLAGS, 8);
+            c::set_pi32(w, id, K + knock::k::RADIUS, (sz * 0.8 * 1024.0) as i32);
+            c::set_pf(w, id, K + knock::k::ZOFF, sz * 0.8);
+            let dir = h.dir.map(|x| f32::from_bits(x.0));
+            goo_burst(w, id, dir);
+            if (staged_hp && w.m(id).o_class == 0x362) || (!staged_hp && health <= 0.0) {
+                w.mm(id).mode &= !mode::TARGETABLE;
+                w.delete_moby(id);
+                return true;
+            }
+            for side in [-1.0f32, 1.0] {
+                let Some(ch) = split_child(w, id) else { continue };
+                c::set_pf(w, ch, K + knock::k::GRAVITY, 0.008);
+                c::set_pu8(w, ch, K + 0x3d, 3);
+                c::set_pi32(w, ch, K + knock::k::FLAGS, 8);
+                c::set_pi32(w, ch, K + knock::k::RADIUS, (sz * 0.8 * 1024.0) as i32);
+                c::set_pf(w, ch, K + knock::k::ZOFF, sz * 0.8);
+                c::set_pf(w, ch, K + knock::k::SPEED, SPLIT_OUT * c::DT);
+                c::set_pf(w, ch, K + knock::k::KEY_APEX, 7.0);
+                c::set_pf(w, ch, K + knock::k::KEY_LAND, 13.0);
+                c::set_pf(w, ch, K + knock::k::UP, SPLIT_UP * c::DT);
+                let f = c::pi32(w, ch, K + knock::k::FLAGS) | 4;
+                c::set_pi32(w, ch, K + knock::k::FLAGS, f);
+                let (mut sp, mut up) = (c::pf(w, ch, K + knock::k::SPEED), c::pf(w, ch, K + knock::k::UP));
+                let a = knock::aim(dir, &mut sp, &mut up);
+                c::set_pf(w, ch, K + knock::k::SPEED, sp);
+                c::set_pf(w, ch, K + knock::k::UP, up);
+                let a = if side < 0.0 { c::sub_rot(a, PI / 4.0) } else { c::add_rot(a, PI / 4.0) };
+                knock::start(w, ch, K, a, 4, 8, 0);
+                w.mm(ch).anim.speed = 1.0;
+                set_st(w, ch, 8);
+            }
+            set_death_bits(w, id, 0, -1);
             w.delete_moby(id);
             return true;
         }
-        for side in [-1.0f32, 1.0] {
-            let Some(ch) = split_child(w, id) else { continue };
-            c::set_pf(w, ch, K + knock::k::GRAVITY, 0.008);
-            c::set_pu8(w, ch, K + 0x3d, 3);
-            c::set_pi32(w, ch, K + knock::k::FLAGS, 8);
-            c::set_pi32(w, ch, K + knock::k::RADIUS, (sz * 0.8 * 1024.0) as i32);
-            c::set_pf(w, ch, K + knock::k::ZOFF, sz * 0.8);
-            c::set_pf(w, ch, K + knock::k::SPEED, SPLIT_OUT * c::DT);
-            c::set_pf(w, ch, K + knock::k::KEY_APEX, 7.0);
-            c::set_pf(w, ch, K + knock::k::KEY_LAND, 13.0);
-            c::set_pf(w, ch, K + knock::k::UP, SPLIT_UP * c::DT);
-            let f = c::pi32(w, ch, K + knock::k::FLAGS) | 4;
-            c::set_pi32(w, ch, K + knock::k::FLAGS, f);
-            let (mut sp, mut up) = (c::pf(w, ch, K + knock::k::SPEED), c::pf(w, ch, K + knock::k::UP));
-            let a = knock::aim(dir, &mut sp, &mut up);
-            c::set_pf(w, ch, K + knock::k::SPEED, sp);
-            c::set_pf(w, ch, K + knock::k::UP, up);
-            let a = if side < 0.0 { c::sub_rot(a, PI / 4.0) } else { c::add_rot(a, PI / 4.0) };
-            knock::start(w, ch, K, a, 4, 8, 0);
-            w.mm(ch).anim.speed = 1.0;
-            set_st(w, ch, 8);
-        }
-        set_death_bits(w, id, 0, -1);
-        w.delete_moby(id);
-        return true;
     }
     w.mm(id).hit_slot = 0xff;
     // The fall-out rule (0x2eec68): below the height of ripple patch +0x258 the amoeboid bursts (no bolts).
@@ -539,7 +552,8 @@ fn split_child(w: &mut World, id: MobyId) -> Option<MobyId> {
         if w.m(ch).state != 0xc || w.m(ch).o_class != next { continue; }
         let (ud, dd, light, ambient, md, pos, rot) = { let p = w.m(id); (p.update_dist, p.draw_dist, p.light, p.ambient, p.mode, p.position, p.rotation) };
         let has = w.classes.info(next).map(|i| i.has_collision && !i.no_header).unwrap_or(false);
-        let (hp, rg) = (c::pf(w, id, D), c::pf(w, id, RANGE0));
+        let hp = if w.svc.bomb_evo.real_hp_enabled() { stage_health(next) } else { c::pf(w, id, D) };
+        let rg = c::pf(w, id, RANGE0);
         let m = w.mm(ch);
         m.update_dist = ud;
         m.draw_dist = dd;
@@ -568,4 +582,96 @@ fn drip(w: &mut World, id: MobyId) {
 fn goo_burst(w: &mut World, id: MobyId, dir: c::V) {
     let sz = size(w, id);
     fx::goo_burst(w, id, dir, sz);
+}
+
+
+#[cfg(test)]
+mod evolution_stage_tests {
+    use super::*;
+    use crate::moby_runtime::{Moby, MobyTable};
+    use crate::moby_update::services::{HitTemplate, Services};
+    use crate::moby_update::ClassTable;
+    use crate::ps2v::Pf;
+
+    fn with_world(test: impl FnOnce(&mut World<'_>)) {
+        let mut mobys = vec![Moby { o_class: 0, has_class: true, state: 1, ..Default::default() }];
+        for class in [572, 865, 865, 866, 866, 866, 866] {
+            let mut m = Moby { o_class: class, state: 0, group: 0, mode: 0x4020,
+                position: [120.0, 120.0, 10.0, 1.0], pvars: vec![0; 0x2b0], ..Default::default() };
+            for (o, ptr) in [(0, 0x20u32), (0x10, 0x60), (0x14, 0xc0), (0x18, 0x170)] {
+                m.pvars[o..o+4].copy_from_slice(&ptr.to_le_bytes());
+            }
+            for o in [CUBOID, POLY, ALT_GROUP] { m.pvars[o..o+4].copy_from_slice(&(-1i32).to_le_bytes()); }
+            if class == 572 { m.pvars[BIG..BIG+4].copy_from_slice(&1i32.to_le_bytes()); }
+            mobys.push(m);
+        }
+        mobys.push(Moby { o_class: 186, state: 1, position: [120.0, 120.0, 10.0, 1.0], ..Default::default() });
+        let mut table = MobyTable::new(mobys, 16);
+        let hero = crate::hero::Hero::new();
+        let mut rng = crate::rng::Rng::new();
+        let classes = ClassTable::default();
+        let mut svc = Services::new();
+        svc.groups.lists = vec![Some((1..=7).collect())];
+        svc.bomb_evo.enabled = true;
+        svc.bomb_evo.real_hp = true;
+        svc.bomb_evo.xp_per_damage = 0.1;
+        svc.bomb_evo.pyro.enabled = true;
+        svc.bomb_evo.pyro.xp_required = [10000.0; 4];
+        for track in &mut svc.bomb_evo.extras { track.enabled = true; track.xp_required = [10000.0; 4]; }
+        let mut w = World::new(&mut table, &hero, &mut rng, &classes, &mut svc, 1);
+        for id in 1..=7 { init(&mut w, id); }
+        test(&mut w);
+    }
+
+    fn hit(w: &mut World, target: usize, weapon: i32, damage: f32) -> bool {
+        w.counter += 1;
+        w.svc.hits.real_hp.begin_frame(w.counter);
+        w.svc.hits.real_hp.values.insert(weapon, damage * 100.0 * if weapon == 20 { 1.0 } else { 60.0 });
+        let t = HitTemplate { attacker: Some(if weapon == 20 { 8 } else { 0 }),
+            h1a: match weapon { 16 => 176, 19 => 177, _ => 186 },
+            b18: if weapon == 20 { 2 } else { 5 }, b19: if weapon == 20 { 3 } else { 1 },
+            flags: 0x1_0000, damage: Pf::ONE,
+            dir: [Pf::ONE, Pf::ZERO, Pf::ONE, Pf::f(crate::hero::damage::EXACT_PUSH_W)], ..Default::default() };
+        w.deliver_hit(target, &t);
+        pre(w, target)
+    }
+
+    #[test]
+    fn streams_spend_each_stages_hp_and_award_only_confirmed_loss() {
+        for weapon in [16, 19] {
+            with_world(|w| {
+                assert_eq!(c::pf(w, 1, D), 3.0);
+                assert!(!hit(w, 1, weapon, 1.0));
+                assert_eq!(c::pf(w, 1, D), 2.0);
+                assert_eq!(st(w, 2), 0xc);
+                assert!(!hit(w, 1, weapon, 1.0));
+                assert!(hit(w, 1, weapon, 1.0));
+                assert_eq!((st(w, 2), st(w, 3)), (8, 8));
+                assert_eq!((c::pf(w, 2, D), c::pf(w, 3, D)), (2.0, 2.0));
+                // A child can be damaged during the initial throw without restarting it.
+                assert!(!hit(w, 2, weapon, 0.5));
+                assert_eq!(st(w, 2), 8);
+                assert_eq!(c::pf(w, 2, D), 1.5);
+                let xp = if weapon == 16 { w.svc.bomb_evo.pyro.xp }
+                    else { w.svc.bomb_evo.extras.iter().find(|t| t.id == 19).unwrap().xp };
+                assert!((xp - 35.0).abs() < 0.001, "weapon {weapon}: {xp}");
+                assert!(hit(w, 2, weapon, 1.5));
+                assert_eq!((c::pf(w, 4, D), c::pf(w, 5, D)), (1.0, 1.0));
+                assert!(hit(w, 4, weapon, 1.0));
+                assert!(w.m(4).state >= 0x80);
+            });
+        }
+    }
+
+    #[test]
+    fn doom_overkill_splits_one_stage_and_cannot_destroy_new_children() {
+        with_world(|w| {
+            assert!(hit(w, 1, 20, 50.0));
+            assert_eq!((st(w, 2), st(w, 3)), (8, 8));
+            assert_eq!((c::pf(w, 2, D), c::pf(w, 3, D)), (2.0, 2.0));
+            assert_eq!(st(w, 4), 0xc);
+            let xp = w.svc.bomb_evo.extras.iter().find(|t| t.id == 20).unwrap().xp;
+            assert!((xp - 30.0).abs() < 0.001);
+        });
+    }
 }
