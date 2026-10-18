@@ -4,6 +4,8 @@ Weapon Evolution **v0.1.6.39**, with the English preset launcher **v0.5.1**, bui
 
 **Runtime compatibility: ReRAC 0.3.4-alpha**, using the modified game runtime supplied with Weapon Evolution or built from this repository.
 
+**Authorship:** TomRus47 is the author of the Weapon Evolution mod only and was not involved in developing ReRAC or the original Ratchet & Clank game. All credit for the underlying port and original game belongs to their respective developers.
+
 This is a source repository. It contains the modified Rust workspace, launcher source, approved default weapon configuration, tests and Windows build tools. The game data, compiled game, compiled launcher, saves and local settings are excluded.
 
 The full ReRAC source base is included because the mod integrates with many gameplay and rendering systems. No earlier patch installation is required. [MOD_FILES.md](MOD_FILES.md) identifies the mod modules and integration points; [mod/source-map.json](mod/source-map.json) provides their hashes.
