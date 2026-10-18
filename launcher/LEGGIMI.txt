@@ -1,0 +1,4 @@
+ReRAC Weapon Evolution source launcher
+
+See ../README.md for the Windows build and release workflow.
+Run Editor.bat to open the editor after building the game.

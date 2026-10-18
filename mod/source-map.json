@@ -1,0 +1,1070 @@
+{
+  "gameplay_version": "0.1.6.39",
+  "launcher_version": "0.5.1",
+  "files": [
+    {
+      "path": "crates/rc-engine/Cargo.toml",
+      "sha256": "bb903d24aedc8f97fef9fe4dcd2cbee9d746221a8ce7a0a0528cad5426745d8b",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-engine/src/disc_source.rs",
+      "sha256": "dcc5b4c8755fb6edc012a0d3840235f938b1c50596c8e4acdce872394259938d",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-engine/src/gameplay.rs",
+      "sha256": "57610ec7a7835a2eb8c64de070a905b255ae8f1a168a078936dc4e49e639af62",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-engine/src/hud_render.rs",
+      "sha256": "4f37726ff267c99bd9e47b12214dc94927df6cf8492b6797afcdd0bb98d852ce",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-engine/src/main.rs",
+      "sha256": "6edad9d0f6b9db64458fbaf2af4a22ed60a64bfbcc7c9477546c6f6ffad72e57",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-engine/src/menu_models.rs",
+      "sha256": "039e75a296a9816430048fa680e71be6254b4f4ed2a6f68e644f50e5556eb880",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-engine/src/moby_attach.rs",
+      "sha256": "e01c84a6fb97b567638068f9f239aa25acf7c570e332087c1418952705e82001",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-engine/src/tesla_render.rs",
+      "sha256": "3c7ea721ee5b24bcdcd97054ca04765ce3b05b060f4cbf1a2604e0a829c531dc",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-formats/src/moby_anim.rs",
+      "sha256": "50919ba95417a3caacce580435f65df78722b9aad037677aa16ffc3ef954f810",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/Cargo.toml",
+      "sha256": "bd4348a0e435c9ba61d703d479b7ddcfa2f2a84db92aa9cd54e3014bee4ba79a",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/follow_camera/level.rs",
+      "sha256": "ecf87e3fc3a5a5a2fb749fa413ea7fc73b85e0b60671266969a0751f3ad7e472",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/follow_camera.rs",
+      "sha256": "00fe3b7ad7a9a2e9ccfdb53032a1c9e14265cc86e243bdcad1d6a2bc98bf8247",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/game_state.rs",
+      "sha256": "9ea5e30a8680faf6d11a834f501502f284e1302460b969d3feb9957de5a3504e",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/anim.rs",
+      "sha256": "f8e4906c20ff846e129b4e2ce895c52e8a8f9ce5c00a7dba02666bb27ae4ef90",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/blaster.rs",
+      "sha256": "c6c0a4d48e7e1ed9f34d17913c218cfe183c42ecb44e141869a050affad49662",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/combat_legs.rs",
+      "sha256": "9b232a0745cde123d0a9dabe789f849f01a67c4782044f3eda10cfb9eef333a0",
+      "reasons": [
+        "added since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/combat_strafe.rs",
+      "sha256": "43fbe2cc5c26f4ca50273d6afb8414a23dc80d042a45ec5fa2f38266aa415a35",
+      "reasons": [
+        "added since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/damage.rs",
+      "sha256": "1116900c90f28ab1b804ff60c56655a95556a60734363dfaf0b3657b693f4242",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/devastator.rs",
+      "sha256": "e216a5016ebe007e079fce93697b97b78efc39515dbd54b12d9d8e6e7055c7e5",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/gloves.rs",
+      "sha256": "631dc07f21349c5b512a2caa22f240a607a83f7c3555e6fec0a39dfc02d8e807",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/glow.rs",
+      "sha256": "1cadefcdd5afaff5b4f4ea4b2c4bf38d47074b8be96976445156d8e3047c0d17",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/guns.rs",
+      "sha256": "87ac7211fd826b271b94305b558f2c856f6ed26de170fc23bbe042dc9c77ce07",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/items.rs",
+      "sha256": "921750fa1abae2010f0af41a383143805cee133314c81a4a04576764fa82a3c3",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/jump.rs",
+      "sha256": "9d48ee10bf9ac75127e9226ef74104edf5f4711e31972968e037211c97172a9d",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/melee.rs",
+      "sha256": "dd875b7224bbc9134c99bf165642fb244976088c3091899b5ece95d9aaaa57f4",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/morph_ray.rs",
+      "sha256": "17f5b990f248763b86fb94ad04f229ecbb48b2479c3e4e7e191580874da7446a",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/physics.rs",
+      "sha256": "98e4447ceb17d2da8a48c2d56fbe522914efa09cb7c119e83492e78e8d5c2d21",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/pyrocitor.rs",
+      "sha256": "14e5231c86a941abb33d2ccbdf215f7bf1257b909b62cb712b571690ea0de30c",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/ryno.rs",
+      "sha256": "c88038a783f9a0a30a499bf7c294b61fefd71af25795528d8dd54376bfc8d5f3",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/suck_cannon.rs",
+      "sha256": "3b544ec944000a9447ea4df855ad0dbd11b903c9823a77ac20a7d967793beca3",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/taunter.rs",
+      "sha256": "2047f8142e2ae7e2cf4a4f241695922ca0cca7a6001ccd3ecdb6708b88ea2fe5",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/tesla.rs",
+      "sha256": "53e80b71733f0c51199df05ad96824265be3e7a45c4040595e6b65bc71e3ccd0",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/walk.rs",
+      "sha256": "ce44ccb4a3232f51768edecd03eb770030d29c410bf869d52facb0e4eaa623ae",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/walloper.rs",
+      "sha256": "b3b0f6884072d8050788441b99147c9be879635c6ac9e49877dd249d8018b84b",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero/weapons.rs",
+      "sha256": "1205de6c652712ff89a34edc58271b53fa8519c0ae986336326626f7e4888eae",
+      "reasons": [
+        "Weapon Evolution implementation or integration",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hero.rs",
+      "sha256": "d7221c229285123e6e73421c873e608291b28e6b5f2db32448fd64f76fb98d58",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hud/meters.rs",
+      "sha256": "ed21217c1688a278f5feca0dcaa8fd9990202552321327286baf0c3f0a6d9bf8",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/hud.rs",
+      "sha256": "66037ce93946910f2187a81beff5d9f5f7eda09310afe564800ea5b6df945489",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/lib.rs",
+      "sha256": "a1c9703e9cd98343b1796a1c1842a2c3576c9451ee02d8e3cd2fdcfc52a557d3",
+      "reasons": [
+        "Weapon Evolution implementation or integration",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/memcard.rs",
+      "sha256": "851eb520d54edd64cb7605d9e56e46b411aa2f041fa74f453eb779014aa8348c",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/menus/mod.rs",
+      "sha256": "efbe059f2fe107c7c737624b1ae705334244192a95adcd9223e6ec5ddeb71598",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/menus/pause/gadgets.rs",
+      "sha256": "565d69f58c32f0da5f624098103ecdd9d4d08d8c59be2f2c6bc9b0c55643aa4f",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/menus/pause/pages.rs",
+      "sha256": "39aa85ee9aab00a52af4a103ec306c04b8f6737f89c50dd029c65d914d3fffc8",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/menus/pause.rs",
+      "sha256": "0441f26ab7b892f4bf851d541047bf248f8bb272188e1e35f933df7704950908",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/menus/quick_select.rs",
+      "sha256": "8f910d5b1dccd43fefbfc8747e5d74cbc759ded47145d34ed1fae8e3c538a354",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/amoeboid.rs",
+      "sha256": "14e60d96c0e719313c756a28f532b4e419abf81ea0e5088e91e2abcb0f7fce72",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/blaster_shot.rs",
+      "sha256": "b7b8cf859ad340c71422d4f378947bca11aa55649d6515371b6f117f7caa4543",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/bomb.rs",
+      "sha256": "41d36854aed3650dbb627b2ccad8182acae51d6d2ba22ec049e55324d5300d2b",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/chicken.rs",
+      "sha256": "cb9ab10f2bd21a00ef3a5e00ba3d1535a75becd7dec64e79b84225803efe2757",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/critter.rs",
+      "sha256": "f7a91c67e7414b51658609ab12f07b0f165a29556bad71b62d053ecec7c496ba",
+      "reasons": [
+        "changed since supplied snapshot",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/decoy.rs",
+      "sha256": "4f3abb90bfac0997c157d4816b4931266a59bae9faf0f65b32854e402fa232c2",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/devastator_missile.rs",
+      "sha256": "59dd4ad772705a1e3af4eb43476712d1c6976f6b9bb1ae4d3894d1aa77bb3e74",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/doom_bot.rs",
+      "sha256": "042e333676f8365a5404c070d000c97dafd0d1251d88105f1e499d4c2c53629e",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/doom_canister.rs",
+      "sha256": "407307cb7267c2eff6a2fe0362aa87bc1fcfb984b9d7f3e966f3ed547268b143",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/drone.rs",
+      "sha256": "b1a8af8248e3443d54a17a48f2a739c40f86d66323387823aa9f12236ec76bfa",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/flyer.rs",
+      "sha256": "20ac4e0896fb53cc6755e7142abf95c0d7795a5bfd374986049cc5f037c68cbc",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/gunship.rs",
+      "sha256": "4f4cfbe3dc674934906ba96e080c9bd47cacd984a26ef46568f6592ef2e9e1ef",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/mine.rs",
+      "sha256": "397af565b6eccbc3de4c145fdfb00395773ac4b569c51b9dc767b116344255c8",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/path_enemy.rs",
+      "sha256": "8a158faf16b6a735af4303db09039ad2b3abf193a041c0f7492cdca749639c5e",
+      "reasons": [
+        "changed since supplied snapshot",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/pickup.rs",
+      "sha256": "e12ac37b30939272bd30d1e89b914eaabaecba1393c7223e9e41f31227c13cf1",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/ryno_missile.rs",
+      "sha256": "85e18dda84af2be690653c6b6d6535725883cc57f0233b35d12359b350078a04",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/area_stalker.rs",
+      "sha256": "b7968401307306837b7ec0bf572a5177ae4f8f722cf289968b80c93bcd0512be",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/aridia_flamer.rs",
+      "sha256": "af8cc86717b5c04760f59cad25dc83c60d318563a9450cce376bb7a80b7eb5e0",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/asteroid.rs",
+      "sha256": "9354abc0b46f0c83dd0fe875d80b9d4a174d287c4d72b93111825e9ab7808e3f",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/batalia_bomber.rs",
+      "sha256": "644ecc39a9162d8f303ac74ec1d3b26d813ae2554d3ee2fb7bf9c5ab8cf783ce",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/batalia_fighter.rs",
+      "sha256": "cba8cef9a21c2c9940e55895fb68b448f6be338131249b44f8da41caf178f1ab",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/batalia_gunship.rs",
+      "sha256": "0599c676f9b04a21278aba3bf462654cd2c6c4db98e399a685979af587c3182e",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/batalia_runner.rs",
+      "sha256": "13aa2705e82ff71033b69f440b303cc44ad9ca6301c4d53c4097a205ec282c03",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/batalia_tank.rs",
+      "sha256": "7351810eff96ddc1204778b12200b23249b0b00dc3326c87594ad915fda0d484",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/blarg_boss.rs",
+      "sha256": "a14efa77f0e026b2396943f82f8fa17671cac684bf5d0befa15e1dd6dffd336d",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/blarg_crawler.rs",
+      "sha256": "21b662adab6731dc0bf8b4e765515f7bcf8829fb85f443801fa981c874f9956a",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/blarg_trooper.rs",
+      "sha256": "446a6c32d4d8261d1a93d3509e66785801bbde607d0df9f1acdcf582d6f2bc17",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/blarg_wave_bot.rs",
+      "sha256": "10a7b12d559bc05c83b9eab53ea436b6b1b4e69de5d7618820c8759503eb9d20",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/drop_trooper.rs",
+      "sha256": "700f4e408335cfbead203f796d4ab3ffb94e50ebeda666239c91ff297735af51",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/eudora_brawler.rs",
+      "sha256": "8e9784bd8ab30bb86f93306d34db37392bcdef47d0003acb3c07215ed8fa05ae",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/eudora_flyers.rs",
+      "sha256": "35148218f1efaf287b7ed1363e080c02e0016b1f87f2c0afc62a055258f75f59",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/eudora_gunner.rs",
+      "sha256": "a55d1ac0a9389bc3192a9a361d7d62ac97c1368be25f3e36188dc347ecb8f6c2",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/eudora_logger.rs",
+      "sha256": "ca597ec62e743974e8a7c1d40e6a2ce9ffe4efc624e17fc53e6441d29a7409ac",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/eudora_walker.rs",
+      "sha256": "af3371836281217992f114714c95c6824de9b8aadf66cfc592ba7cb8dccf63be",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/fleet_crew.rs",
+      "sha256": "37eca47e679d8aa24b815a3c3ea8ceccd04b29f6cc2347e0604f7418324c85f5",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/fleet_small.rs",
+      "sha256": "264e130b2eca7e08bffa85fe0a0766064d6890b7fac85b9b00b66861638713d0",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/fleet_turret.rs",
+      "sha256": "cf21927a7d9fbd755fc461925b2398e4114c57d1dddb0a0142aadbc7a34b375f",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/flying_biter.rs",
+      "sha256": "7aad38b7c6f1e7f5c721b8ff72750ad99a6ca5dd2b73d77903c2b02ae8aa32f3",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/gemlik_launcher.rs",
+      "sha256": "59b2f51c9ea8695a0db57c93bd2653fe485cb776dbdd9fe6b31285a5cbcefd30",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/gemlik_robot.rs",
+      "sha256": "836bff77aae0b0803bacb79883df296312d38ec01847c8069aa6f43789481fe0",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/gemlik_ship.rs",
+      "sha256": "5b8f805e6b9385ed6ea5c51a25414412f2b3c43cccfb2e69d654d4c078a927be",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/gemlik_tower.rs",
+      "sha256": "b15bfb4e145608609f14ead49403a192b005edd1d6d569fd750dce918cc777ce",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/grind_mine.rs",
+      "sha256": "66691597d8cbb8b48e1212e442e612f2fa72e40eaacf24c6cefeaa06485f1443",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/hop_gunner.rs",
+      "sha256": "0980e9a0289e939ab68cf42b2b0d52086b0ab9024ef5dfdc1e4d73ea543a83f4",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/hoven_copter.rs",
+      "sha256": "016c6156fe8285308dcea32bf10f3cc329f0b35dcf154bc24e8641ed46eeea8b",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/hoven_drone.rs",
+      "sha256": "23118cbb4dcc88fce343ca59655ac4fbf8a0969bd27291cc631c19638a12e9d7",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/hoven_gunner.rs",
+      "sha256": "a84bf89014b161ca4821680c31c7d69aac8d707c5f464c6399543437791f8f94",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/hoven_mine.rs",
+      "sha256": "eb0ba0b4e3ac805c51fd2742636ef6f315be0e1963f7cc549e4505e353f80c19",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/hover_zapper.rs",
+      "sha256": "79f8b81fe65e91c98a0e025931f32ba758fc67e3ff22e68745bc3dded83420d6",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/kalebo_mine.rs",
+      "sha256": "f4655aa9afc3f828fbb27d48224fad0c4573acdb9df81ef47a01d0fb728fb9e5",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/kalebo_mine_drone.rs",
+      "sha256": "de4b462e1b99a870e406022442255fad6b8097c85933bd4b0613c5374ce73e25",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/kerwan_layer.rs",
+      "sha256": "57b8ac605433f25a6a2950dcc9acd032463d35f3f1fbae1fdde5fc0147f6d865",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/oltanis_carrier.rs",
+      "sha256": "9c5fa5e6b0905c2758dd168a79472584e71db6a25b939a3212149913793aeb4f",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/oltanis_drone.rs",
+      "sha256": "228f84dc9484db4659fb0f13aa613c844f312713a3aaa7f33f7c37941e71dd79",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/oltanis_small.rs",
+      "sha256": "deebe33d5315cb3da082b7c66bfa61037336ac2ee319fec009935798befc2877",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/oltanis_zapper.rs",
+      "sha256": "cc63a002042ce352c63dde051e2616d42a7f596e0abf20bb9faf566d41dce3d1",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/orxon_brawler.rs",
+      "sha256": "7ea4d2bbc228523d3716fb87537a5cd5e9b8b4d2be94eb5609dec96446de3c13",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/orxon_drone.rs",
+      "sha256": "81e84e09eb4be0fae73ef84626e3b7bc3cc157ae58ff04ba32f8f1357f955be6",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/orxon_flyers.rs",
+      "sha256": "f26441784cdbbd49f243e91521bff0876a0ce4ca70d3288abc94c944ea0f2a28",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/orxon_lava.rs",
+      "sha256": "f14520ce030f1a58f27bdb65ef1526d790324b1b1898f879ccc9465b5e8b0183",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/pack_biter.rs",
+      "sha256": "66ecf274eee0d6ad97f1a892760d686b9e33531274c64a705fd8fb3bb084e5f7",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/path_ship.rs",
+      "sha256": "0ad9fe4cbde384ce7cf068976aca857ddfa77a6b3cd5cdd204784383cb8f581f",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/pokitaru_biter.rs",
+      "sha256": "d33811e7167762d447d838c2713e7ac22631a414799e51576b4d2f29e9133bfc",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/quartu_critter.rs",
+      "sha256": "c69f7752ea22a0dc6d363160bba6fa252d6b743678650966b4bde3e9fdde179b",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/quartu_drone.rs",
+      "sha256": "b62744279b5d49b6f1cc1e223fc16a4e5216c8f85fdf1e2d87ab9c3406a40cd2",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/quartu_guard.rs",
+      "sha256": "cc3311ce72f1f2091fa36a8797f821f93bb6d5c953e67edfa460c857094dd11c",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/qwark_ship.rs",
+      "sha256": "acd2d021c676d24e5abca2800ffda0bfde189feec2ed7624451e3121018caf57",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/qwark_ship_parts.rs",
+      "sha256": "545203e2fbf770c903b336cf633764e2c231232a25a53b7fa229e2fd152939a1",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/rilgar_biter.rs",
+      "sha256": "75efe3b2b08a4c622b70bc82e9a22b73c665f58eb244464b773c4f27f836241f",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/rilgar_flame_tank.rs",
+      "sha256": "f54c6d785a98f4cc2e5bbe2eab81f254a27236270df958853ce55d11e949de5f",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/rilgar_trail_rider.rs",
+      "sha256": "21464e85f216a6427b1ed708f557047363a0389cf858e9fb3c2ab1ece21244bb",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/rolling_mine.rs",
+      "sha256": "51826d1434bba0164eb28362c3a4d8018e7d8b8a604fb275e985f3fd4f479864",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/ship_fighter.rs",
+      "sha256": "407953d621466debd05cb266cd187fb3bf3ab6d52633165eb16f2efd5b0fb93e",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/umbris_beast.rs",
+      "sha256": "f8d499ad08795b75ec6e948bf55fc35a27fa13e79db1cff4ece7cb6c52e80ed7",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/umbris_lobber.rs",
+      "sha256": "c92d3da0528a0dc620e0eab4117c0cbe3baeb39072af742099f8e57629cf53cc",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/umbris_mines.rs",
+      "sha256": "5cf2b0c1d4c98cce219dc2cadbe84a2881710235fb694ab7edc7abdc6471761c",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/veldin_boss.rs",
+      "sha256": "01bc92791d8fedda04e6f95aa614360fe0b2b486e1057d2c0ece4d78e3136c5e",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/veldin_hopper.rs",
+      "sha256": "29e85e7d7fc6e5eb6963b300ffc38d8cf7ab161369b2a94ff57ff57aa9a93fbb",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/visibomb.rs",
+      "sha256": "db330eb111fc94a648511f0c45347f894c43bd84004ffac66bdcc14600705c18",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/creature/attack.rs",
+      "sha256": "718b8c7e85fb4247a813fc68ab6f3df18b31d7ddb87238ded90728fc1499bd8b",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/creature/damage.rs",
+      "sha256": "ded477c974ee0c57e1bb47179e375e702439ee7374dedac5189d602eafa57878",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/creature/knock.rs",
+      "sha256": "ca4e8d4f6cae541f520b76f9deada56b82f63dc8f946fcfa17eeccf1f255c88b",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/creature/react.rs",
+      "sha256": "e5545c1edf0afdb19da5d48714cedfa4acdfe25e87963464d1c49b398f9243a9",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/creature/target.rs",
+      "sha256": "9a0ecd58ad8eeebb64378263538769638dd0b1330a0a5c7fe3643d185560d977",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/creature/tests.rs",
+      "sha256": "a9fca09755036969b51ca74131370f8ea39a68de4d20f3c955c8dd31ea35f5ec",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/creature.rs",
+      "sha256": "3bc555e59afccdf21e233f2aa7fa14cfc362376d4c5351b7b9b4cd7231f8ef03",
+      "reasons": [
+        "changed since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/interact.rs",
+      "sha256": "abc04a8f96e9d6d762eb247a2908b6feec480d2a4e05ec2770d6794a34bdf37d",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/real_hp.rs",
+      "sha256": "915182234f47539e773282716c513cad3c105a0ac3b3eacfb01e3cc4f6bde477",
+      "reasons": [
+        "added since supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/scheduler.rs",
+      "sha256": "3012b884d42500c36679288c4e2e0c061f0326e078cbfa17329e836c34fcb6aa",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/services.rs",
+      "sha256": "7077536abe5af03dc181258da613a8e5ec7f557c11f439fae9adf5b2a0ed9a38",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration",
+        "original mod integration backup exists in supplied snapshot"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update.rs",
+      "sha256": "159e9d0b1ccbe86588c675bbabd4618e18d3bb6342984acfd4e7023620bb2fc9",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/particles/type12.rs",
+      "sha256": "6b600104cc4f28b3725d8da141377e3850b8936fb62515f2ac61fa5bc30e3ade",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/targeting.rs",
+      "sha256": "811b7ac2a197051e1c5d58f9dd4d1038e6318f565447dbcbf8fcb813c21a790f",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/weapon_evo.rs",
+      "sha256": "139b447884574499d718c392df39434260740d44fcb6d191ff449c75b10ffcf6",
+      "reasons": [
+        "changed since supplied snapshot",
+        "Weapon Evolution implementation or integration",
+        "Weapon Evolution configuration or module"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/weapon_evo_release.ini",
+      "sha256": "98479b2c5b882b21e04e22e922a1180a527514c7c3791956cddfe712dd19c873",
+      "reasons": [
+        "added since supplied snapshot",
+        "Weapon Evolution configuration or module"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/weapon_evo_save.rs",
+      "sha256": "3ea25fc469f8e6c0449857a2f2cdb29a3a27116476fae7a1a8d051881b1c4564",
+      "reasons": [
+        "added since supplied snapshot",
+        "Weapon Evolution implementation or integration",
+        "Weapon Evolution configuration or module"
+      ]
+    },
+    {
+      "path": "crates/rc-game/src/weapon_reach.rs",
+      "sha256": "1b9bd28775eaf8d360c4bb71ed393bb369e47f416a4e87c0f664e613fbd0fae1",
+      "reasons": [
+        "added since supplied snapshot",
+        "Weapon Evolution implementation or integration"
+      ]
+    }
+  ]
+}

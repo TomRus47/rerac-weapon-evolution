@@ -1,0 +1,40 @@
+# Build and extracted game data
+/target/
+/dist/
+/work/
+/extracted/
+/iso/
+/assets/
+*.iso
+*.exe
+*.dll
+*.pdb
+*.zip
+*.bundle
+# Local launcher state, runtime and author tools
+/launcher/runtime/
+/launcher/runtime_previous/
+/launcher/launcher-bin/
+/launcher/.launcher-tools/
+/launcher/dist/
+/launcher/runs/
+/launcher/backup/
+/launcher/presets/
+/launcher/weapons.ini
+/launcher/weapons.ini.*
+/launcher/launcher-settings.json
+/launcher/defaults-installed-*.json
+/launcher/launcher.ico
+# Historical source patch backups
+*.weapon_evo_backup
+*.prima_*
+.weapon_evo_backup*/
+# Local tools and environment
+__pycache__/
+*.py[cod]
+.venv/
+.env
+config.local.json
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,1376 @@
+//! Weapon Evolution v0.1.6.13 for ReRAC v0.3.4-alpha.
+//! Per-weapon V1..V5 tracks. Active only with RC_WEAPON_EVOLUTION_INI.
+//! XP and grades are stored beside each native save; native save bytes remain unmodified.
+#[path = "weapon_evo_save.rs"]
+pub mod save;
+#[cfg(feature = "weapon-evo-release")]
+const RELEASE_PROFILE: &str = include_str!("weapon_evo_release.ini");
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::{OnceLock, RwLock, Mutex};
+/// A thread-safe queue owned by one Evolution instance, including across clones.
+#[derive(Debug, Default)]
+struct PendingSpecial(Mutex<Vec<(i32, usize, f32, f32)>>);
+impl Clone for PendingSpecial {
+    fn clone(&self) -> Self {
+        Self(Mutex::new(self.0.lock().map(|q| q.clone()).unwrap_or_default()))
+    }
+}
+
+
+// Snapshot of current per-level gameplay values; read by hand items, mobys and HUD.
+// The register is republished whenever a weapon levels up; values without a
+// corresponding INI entry are handled by their native-code fallback.
+static LEVEL_VALUES: OnceLock<RwLock<HashMap<(i32, String), f32>>> = OnceLock::new();
+fn level_values() -> &'static RwLock<HashMap<(i32, String), f32>> {
+    LEVEL_VALUES.get_or_init(|| RwLock::new(HashMap::new()))
+}
+/// A per-level absolute value or multiplier. Without an active INI: native behavior.
+pub fn extra(item: i32, key: &str, native: f32) -> f32 {
+    if !CONFIG_ACTIVE.load(Ordering::Relaxed) { return native; }
+    level_values().read().ok().and_then(|g| {
+        if key == "gold" {
+            g.get(&(item, "gold_effects".to_string())).or_else(|| g.get(&(item, "gold".to_string()))).copied()
+        } else { g.get(&(item, key.to_string())).copied() }
+    }).unwrap_or(native)
+}
+pub fn real_hp_active() -> bool { extra(-1, "real_hp", 0.0) >= 0.5 }
+pub fn extra_flag(item: i32, key: &str, native: bool) -> bool {
+    extra(item, key, if native {1.0} else {0.0}) >= 0.5
+}
+/// Per-level RGB in native BBGGRR order. All 24-bit colours are exact in f32.
+/// -1 is the default sentinel; no custom colour overrides native effects.
+pub fn extra_color(item: i32, key: &str) -> Option<u32> {
+    let v = extra(item, key, -1.0);
+    (v.is_finite() && (0.0..=16_777_215.0).contains(&v)).then_some(v as u32)
+}
+/// No new configuration key is accepted unless a gameplay hook consumes it.
+fn supported_extra_stat(item: i32, key: &str) -> bool {
+    if matches!(key, "max_ammo" | "damage_multiplier" | "gold" | "gold_texture" | "gold_effects") { return true; }
+    let fields: &[&str] = match item {
+        9 => &["capacity", "suck_range_multiplier", "shot_damage_multiplier"],
+        11 => &["fire_interval_ticks", "homing_strength_multiplier", "missile_speed_multiplier", "missile_range_multiplier", "explosion_radius_multiplier", "explosion_visual_size_multiplier", "explosion_color", "trail_color"],
+        13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding"],
+        14 => &["lure_range", "lure_cone_degrees", "xp_attract_fraction", "stun_range", "stun_duration_ticks", "stun_efficiency_percent", "damage_range", "damage_per_second", "wave_speed_multiplier", "wave_size_multiplier", "wave_range_multiplier", "wave_interval_ticks", "wave_alpha", "wave_color"],
+        15 => &["fire_interval_ticks", "projectile_speed_multiplier", "projectile_range_multiplier", "projectile_color", "trail_color", "impact_color"],
+        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier"],
+        18 => &["knockback_multiplier", "hit_radius_multiplier", "electric_fx_size_multiplier", "gold_electric_fx", "air_dash_enabled", "electric_core_color", "electric_glow_color", "fist_glow_color", "impact_color"],
+        19 => &["target_range_multiplier", "ammo_interval_ticks", "damage_interval_ticks", "lock_cone_multiplier", "beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color", "arc_core_color", "arc_glow_color", "claw_core_color", "claw_glow_color", "spark_color", "spark_core_color", "impact_color", "light_color", "weapon_glow_color"],
+        20 => &["robot_count", "robot_max_alive", "robot_detection_range", "explosion_radius_multiplier"],
+        21 => &["fire_in_air", "morph_speed_multiplier", "explode_small_chickens", "chicken_damage_multiplier", "chicken_explosion_radius_multiplier", "beam_range_multiplier", "tube_color", "beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color", "pulse_color", "muzzle_core_color", "muzzle_glow_color", "tip_color", "tip_core_color", "spark_color", "spark_core_color", "light_color"],
+        23 => &["missiles_per_salvo", "fire_interval_ticks", "missile_speed_multiplier", "missile_range_multiplier"],
+        24 => &["drone_count", "detection_range_multiplier", "drone_size_multiplier", "blast_radius_multiplier"],
+        25 => &["decoy_health_multiplier", "explosion_enabled", "explosion_radius_multiplier", "explosion_damage_multiplier", "throw_range_multiplier", "xp_attract_fraction", "lure_range"],
+        _ => &[],
+    };
+    fields.contains(&key)
+}
+
+
+const BOMB: usize = 10;
+const PYRO: usize = 16;
+static CONFIG_ACTIVE: AtomicBool = AtomicBool::new(false);
+/// Levels visible in the weapon menus. 0 means no active Weapon Evolution
+/// profile (use the native icon, including its native gold variant).
+static ICON_LEVELS: [std::sync::atomic::AtomicU8; 37] =
+    [const { std::sync::atomic::AtomicU8::new(0) }; 37];
+/// -1: keep original gold map; 0: normal texture; 1: gold texture.
+/// Does not affect gameplay's original gold bonus flags.
+static GOLD_TEXTURE: [std::sync::atomic::AtomicI8; 37] =
+    [const { std::sync::atomic::AtomicI8::new(-1) }; 37];
+pub fn gold_texture(item: i32, original: bool) -> bool {
+    let Some(v) = usize::try_from(item).ok().and_then(|i| GOLD_TEXTURE.get(i)) else { return original };
+    match v.load(Ordering::Relaxed) { 0 => false, 1 => true, _ => original }
+}
+
+
+/// Real XP level for weapon-name labels, unaffected by icon-only preview modes.
+/// Non-evolvable weapons (including the wrench) return None.
+pub fn weapon_menu_level(item: i32) -> Option<u8> {
+    if !CONFIG_ACTIVE.load(Ordering::Relaxed) { return None; }
+    let i = usize::try_from(item).ok()?;
+    let level = ICON_LEVELS.get(i)?.load(Ordering::Relaxed);
+    (1..=5).contains(&level).then_some(level)
+}
+
+/// Level used by coloured icons; the visual test launcher can preview other colours.
+pub fn weapon_icon_level(item: i32) -> Option<u8> {
+    let level = weapon_menu_level(item)?;
+    // Only for the visual test launcher. Never changes weapon XP or actual levels.
+    // V1..V5 can be previewed with RC_WEAPON_EVO_ICON_TEST_LEVEL=1..5.
+    static VISUAL_TEST_LEVEL: std::sync::OnceLock<Option<u8>> = std::sync::OnceLock::new();
+    if let Some(test_level) = *VISUAL_TEST_LEVEL.get_or_init(|| {
+        std::env::var("RC_WEAPON_EVO_ICON_TEST_LEVEL").ok()
+            .and_then(|s| s.parse::<u8>().ok())
+            .filter(|&n| (1..=5).contains(&n))
+    }) { return Some(test_level); }
+    Some(level)
+}
+
+/// Native GS MODULATE is 0x7f per channel (RGB byte order is BBGGRR).
+/// V1 stays unmodified; subsequent levels tint ONLY the 2-D weapon icon.
+pub fn weapon_icon_tint(item: i32) -> Option<u32> {
+    match weapon_icon_level(item)? {
+        2 => Some(0x8064_107f), // bright fuchsia (approximately #FF20C8)
+        3 => Some(0x8028_287f), // bright red (approximately #FF5050)
+        4 => Some(0x8010_4a7f), // orange
+        5 => Some(0x8018_727f), // golden yellow
+        _ => None,
+    }
+}
+static BOMB_AMMO_CAP: AtomicI32 = AtomicI32::new(0);
+static PYRO_AMMO_CAP: AtomicI32 = AtomicI32::new(0);
+/// FFFFFF in the atomic marks "use game defaults"; RGB itself is stored as BBGGRR.
+static PYRO_CORE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(u32::MAX);
+static PYRO_OUTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(u32::MAX);
+static PYRO_BURN: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(u32::MAX);
+pub fn pyro_burn_color() -> Option<u32> { value_or_none(PYRO_BURN.load(Ordering::Relaxed)) }
+
+
+pub fn pyro_core_color() -> Option<u32> { value_or_none(PYRO_CORE.load(Ordering::Relaxed)) }
+pub fn pyro_outer_color() -> Option<u32> { value_or_none(PYRO_OUTER.load(Ordering::Relaxed)) }
+fn value_or_none(c: u32) -> Option<u32> { (c != u32::MAX).then_some(c) }
+
+/// UI syntax #RRGGBB -> native little-endian low-R RGB, alpha separate.
+pub fn parse_rgb(s: &str) -> Result<Option<u32>, String> {
+    let s = s.trim();
+    if s.eq_ignore_ascii_case("default") { return Ok(None); }
+    let hex = s.strip_prefix('#').unwrap_or(s);
+    if hex.len() != 6 || !hex.bytes().all(|c| c.is_ascii_hexdigit()) {
+        return Err(format!("invalid RGB color {s:?}; expected #RRGGBB or default"));
+    }
+    let v = u32::from_str_radix(hex, 16).map_err(|_| format!("invalid RGB {s}"))?;
+    Ok(Some(((v >> 16) & 0xff) | (v & 0x00ff00) | ((v & 0xff) << 16)))
+}
+
+pub fn rgb_float(v: u32) -> [f32; 3] {
+    [(v & 0xff) as f32 / 255.0, ((v >> 8) & 0xff) as f32 / 255.0, ((v >> 16) & 0xff) as f32 / 255.0]
+}
+
+/// Tint native particle RGBA without changing its alpha or time envelope.
+pub fn tint_rgba(base: u32, color: Option<u32>) -> u32 {
+    let Some(rgb) = color else { return base; };
+    let strength = ((base & 0xff).max((base >> 8) & 0xff).max((base >> 16) & 0xff)).min(128) as f32 / 255.0;
+    let r = ((rgb & 0xff) as f32 * strength).round() as u32;
+    let g = (((rgb >> 8) & 0xff) as f32 * strength).round() as u32;
+    let b = (((rgb >> 16) & 0xff) as f32 * strength).round() as u32;
+    (base & 0xff00_0000) | (b << 16) | (g << 8) | r
+}
+
+
+/// Shared single-source-of-truth ammo capacity: shop, pickups, hero HUD.
+pub fn effective_max_ammo(item: usize, vanilla: i32) -> i32 {
+    let cap = match item {
+        BOMB => BOMB_AMMO_CAP.load(Ordering::Relaxed),
+        PYRO => PYRO_AMMO_CAP.load(Ordering::Relaxed),
+        _ => return extra(item as i32, "max_ammo", vanilla as f32).round().clamp(0.0, 9999.0) as i32,
+    };
+    if cap > 0 { cap } else { vanilla }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Stats {
+    pub throw_range: f32,
+    /// Absolute auto-aim range; None follows throw reach, zero disables snapping.
+    pub auto_lock_range: Option<f32>,
+    /// 1.0 = native arc; greater means higher parabola (gravity and launch correction).
+    pub trajectory_height: f32,
+    pub explosion_radius: f32,
+    /// RGB written as #RRGGBB in the INI; None = native particles.
+    pub explosion_color: Option<u32>,
+    pub cooldown_seconds: f32,
+    pub max_ammo: i32,
+    pub damage_multiplier: f32,
+    pub gold: bool,
+    pub gold_texture: bool,
+}
+impl Default for Stats {
+    fn default() -> Self {
+        Self { throw_range: 1.0, auto_lock_range: None, trajectory_height: 1.0, explosion_radius: 1.0, explosion_color: None, cooldown_seconds: 20.0/60.0,
+            max_ammo: 40, damage_multiplier: 1.0, gold: false, gold_texture: false }
+    }
+}
+
+impl Stats {
+    /// A lower arc shortens the native free throw; a configured auto-lock range
+    /// can narrow that reach but cannot advertise a target beyond the throw.
+    pub fn auto_lock_distance(self) -> f32 {
+        let reach = 8.5 * self.throw_range * self.trajectory_height.min(1.0);
+        self.auto_lock_range.unwrap_or(reach).min(reach)
+    }
+}
+
+/// The flame width scales BOTH particle dispersion and the hit spheres.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PyroStats {
+    pub ammo_interval_ticks: i32,
+    pub damage_interval_ticks: i32,
+    pub flame_range: f32,
+    pub flame_width: f32,
+    pub damage_multiplier: f32,
+    pub flame_core_color: Option<u32>,
+    pub flame_outer_color: Option<u32>,
+    pub light_color: Option<u32>,
+    pub max_ammo: i32,
+    pub gold: bool,
+    pub gold_texture: bool,
+    pub burn_flame_color: Option<u32>,
+}
+impl Default for PyroStats {
+    fn default() -> Self { Self { ammo_interval_ticks: 10, damage_interval_ticks: 1, flame_range: 1.0, flame_width: 1.0, damage_multiplier: 1.0, flame_core_color: None, flame_outer_color: None, light_color: None, max_ammo: 100, gold: false, gold_texture: false, burn_flame_color: None } }
+}
+
+/// Global UI settings. Full opacity is 100% (GS alpha 0x80).
+#[derive(Clone, Copy, Debug)]
+pub struct HudOptions {
+    pub name_opacity_percent: u8,
+    pub xp_bar_height_px: i32,
+    pub xp_bar_horizontal_inset_px: i32,
+    pub show_for_weapons_without_ammo: bool,
+    pub level_up_popup: bool,
+    pub level_up_popup_duration_seconds: f32,
+    pub level_up_sound: bool,
+}
+impl Default for HudOptions {
+    fn default() -> Self {
+        Self { name_opacity_percent: 100,
+            xp_bar_height_px: 5, xp_bar_horizontal_inset_px: 2,
+            show_for_weapons_without_ammo: true, level_up_popup: true,
+            level_up_popup_duration_seconds: 3.0, level_up_sound: true }
+    }
+}
+impl HudOptions {
+    pub fn alpha(percent: u8) -> u32 { ((percent as u32 * 128 + 50) / 100).min(128) }
+}
+fn parse_percent(v: &str, key: &str) -> Result<u8, String> {
+    let n: u8 = v.parse().map_err(|_| format!("invalid {key}: {v}"))?;
+    if n > 100 { return Err(format!("{key} must be 0..100")); }
+    Ok(n)
+}
+
+/// IDs 8..25: weapons and combat gadgets, excluding unrelated utility items.
+pub const WEAPON_IDS: [i32; 16] = [8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25];
+
+#[derive(Clone, Debug)]
+pub struct ExtraTrack {
+    pub section: &'static str,
+    pub id: i32,
+    pub enabled: bool,
+    pub level: usize,
+    pub xp: f32,
+    pub xp_required: [f32; 4],
+    pub last_hit_xp: f32,
+    /// Per-level properties are absolute values or multipliers according to their name.
+    pub params: [BTreeMap<String, f32>; 5],
+}
+impl ExtraTrack {
+    fn new(section: &'static str, id: i32) -> Self {
+        Self { section, id, enabled: false, level: 1,
+            xp: 0.0, xp_required: [10.0, 20.0, 35.0, 55.0], last_hit_xp: 0.0, params: std::array::from_fn(|_| BTreeMap::new()) }
+    }
+    pub fn required(&self) -> f32 { if self.level >= 5 { 0.0 } else { self.xp_required[self.level-1] } }
+    pub fn fraction(&self) -> f32 { percent(self.xp, self.required(), self.level >= 5) }
+    pub fn award(&mut self, amount: f32) {
+        self.last_hit_xp = 0.0;
+        if !self.enabled || self.level >= 5 || !amount.is_finite() || amount <= 0.0 { return; }
+        self.last_hit_xp = amount;
+        self.xp += amount;
+        while self.level < 5 && self.xp >= self.required() {
+            self.xp -= self.required();
+            self.level += 1;
+            println!("weapon evolution: {} -> V{} (remaining XP {:.1})", self.section, self.level, self.xp);
+        }
+        if self.level >= 5 { self.xp = 0.0; }
+    }
+}
+fn extra_tracks() -> Vec<ExtraTrack> {
+    vec![
+        ExtraTrack::new("wrench", 8),
+        ExtraTrack::new("suck_cannon", 9),
+        ExtraTrack::new("devastator", 11),
+        ExtraTrack::new("visibomb", 13),
+        ExtraTrack::new("taunter", 14),
+        ExtraTrack::new("blaster", 15),
+        ExtraTrack::new("mine_glove", 17),
+        ExtraTrack::new("walloper", 18),
+        ExtraTrack::new("tesla_claw", 19),
+        ExtraTrack::new("glove_of_doom", 20),
+        ExtraTrack::new("morph_ray", 21),
+        ExtraTrack::new("ryno", 23),
+        ExtraTrack::new("drone_device", 24),
+        ExtraTrack::new("decoy_glove", 25),
+    ]
+}
+
+fn valid_xp(values: &[f32; 4], weapon: &str) -> Result<(), String> {
+    for (i, &v) in values.iter().enumerate() {
+        if !v.is_finite() || !(0.1..=1_000_000.0).contains(&v) {
+            return Err(format!("{weapon}: invalid XP threshold V{}->V{}", i+1, i+2));
+        }
+    }
+    Ok(())
+}
+fn percent(xp: f32, needed: f32, maxed: bool) -> f32 {
+    if maxed { 1.0 } else { (xp / needed.max(0.001)).clamp(0.0, 1.0) }
+}
+fn xp_transition(key: &str) -> Option<usize> {
+    match key {
+        "xp_v1_to_v2" => Some(0), "xp_v2_to_v3" => Some(1),
+        "xp_v3_to_v4" => Some(2), "xp_v4_to_v5" => Some(3), _ => None,
+    }
+}
+fn parse_number(value: &str, key: &str) -> Result<f32, String> {
+    let n: f32 = value.parse().map_err(|_| format!("invalid {key}: {value}"))?;
+    if !n.is_finite() { return Err(format!("nonfinite {key}: {value}")); }
+    Ok(n)
+}
+fn parse_tick_interval(value: &str, key: &str, max: i32) -> Result<i32, String> {
+    let n: i32 = value.parse().map_err(|_| format!("{key} must be an integer 1..{max}"))?;
+    if !(1..=max).contains(&n) { return Err(format!("{key} must be an integer 1..{max}")); }
+    Ok(n)
+}
+fn parse_ammo(value: &str) -> Result<i32, String> {
+    value.parse().map_err(|_| format!("invalid max_ammo: {value}"))
+}
+fn parse_bool(value: &str) -> Result<bool, String> {
+    match value.to_ascii_lowercase().as_str() {
+        "true" | "yes" | "1" => Ok(true), "false" | "no" | "0" => Ok(false),
+        _ => Err(format!("invalid gold: {value}")),
+    }
+}
+// Accepted only for compatibility with old profiles; never used for display.
+fn legacy_name_key(key: &str) -> bool {
+    matches!(key, "name_en" | "name_fr" | "name_de" | "name_es" | "name_it")
+}
+
+#[derive(Clone, Debug)]
+pub struct PyroEvolution {
+    pub enabled: bool,
+    pub level: usize,
+    pub xp: f32,
+    pub xp_required: [f32; 4],
+    pub stats: [PyroStats; 5],
+    pub last_hit_xp: f32,
+}
+impl Default for PyroEvolution {
+    fn default() -> Self {
+        Self { enabled: false, level: 1, xp: 0.0,
+            xp_required: [10.0, 16.0, 24.0, 32.0], stats: [PyroStats::default(); 5], last_hit_xp: 0.0 }
+    }
+}
+impl PyroEvolution {
+    pub fn current(&self) -> PyroStats { self.stats[self.level.saturating_sub(1).min(4)] }
+    pub fn required(&self) -> f32 { if self.level >= 5 { 0.0 } else { self.xp_required[self.level-1] } }
+    pub fn fraction(&self) -> f32 { percent(self.xp, self.required(), self.level >= 5) }
+    fn award(&mut self, amount: f32) {
+        self.last_hit_xp = 0.0;
+        if !self.enabled || self.level >= 5 || !amount.is_finite() { return; }
+        self.last_hit_xp = amount.max(0.0);
+        self.xp += self.last_hit_xp;
+        while self.level < 5 && self.xp >= self.required() {
+            self.xp -= self.required();
+            self.level += 1;
+            println!("weapon evolution: PYROCITOR -> V{} (remaining XP {:.1})", self.level, self.xp);
+        }
+        if self.level >= 5 { self.xp = 0.0; }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Evolution {
+    pub enabled: bool,
+    pub level: usize,
+    pub applied_level: usize,
+    pub xp: f32,
+    pub xp_per_damage: f32,
+    /// v37: public HP units; native AI keeps its original normalized health.
+    pub real_hp: bool,
+    pub(crate) combat_epoch: u64,
+    pub damage_hp: [[Option<f32>; 5]; 37],
+    pub stats: [Stats; 5],
+    /// Four transitions: V1 -> V2, V2 -> V3, V3 -> V4, V4 -> V5.
+    pub xp_required: [f32; 4],
+    pub last_hit_xp: f32,
+    pub pyro: PyroEvolution,
+    pub extras: Vec<ExtraTrack>,
+    pub hud: HudOptions,
+    /// Once per moby and XP mechanism (not once per render/tick).
+    award_once: HashSet<(i32, usize)>,
+    pending_special: PendingSpecial,
+    terminal_targets: HashSet<usize>,
+    /// Last state exchanged with GameState; a menu load/reset takes precedence
+    /// over the previous world's live XP, even during a level transition.
+    state_progress: save::Progress,
+}
+impl Default for Evolution {
+    fn default() -> Self {
+        Self { enabled: false, level: 1, applied_level: 0,
+            xp: 0.0, xp_per_damage: 1.0, real_hp: false, combat_epoch: 0, damage_hp: [[None; 5]; 37], stats: [Stats::default(); 5],
+            xp_required: [6.0; 4], last_hit_xp: 0.0, pyro: PyroEvolution::default(), extras: extra_tracks(), hud: HudOptions::default(), award_once: HashSet::new(), pending_special: Default::default(), terminal_targets: HashSet::new(), state_progress: Default::default() }
+    }
+}
+impl Evolution {
+    pub fn real_hp_enabled(&self) -> bool { self.enabled && self.real_hp }
+    fn hp_units(&self, n: f32) -> f32 { n * if self.real_hp_enabled() { 100.0 } else { 1.0 } }
+    pub fn stream_intervals(&self) -> [u32; 2] {
+        let pyro = if self.pyro.enabled { self.pyro.current().damage_interval_ticks as u32 } else { 1 };
+        let tesla = self.extras.iter().find(|t| t.id == 19 && t.enabled)
+            .and_then(|t| t.params[t.level.saturating_sub(1).min(4)].get("damage_interval_ticks"))
+            .copied().unwrap_or(1.0) as u32;
+        [pyro.max(1), tesla.max(1)]
+    }
+    pub fn absolute_values(&self) -> HashMap<i32, f32> {
+        let mut values = HashMap::new();
+        if !self.real_hp_enabled() { return values; }
+        for item in 0..37 {
+            let level = if item == 10 { self.level } else if item == 16 { self.pyro.level }
+                else { self.extras.iter().find(|t| t.id == item as i32).map_or(1, |t| t.level) };
+            if let Some(hp) = self.damage_hp[item][level.saturating_sub(1).min(4)] { values.insert(item as i32, hp); }
+        }
+        values
+    }
+    fn publish_max_ammo(&self) {
+        if CONFIG_ACTIVE.load(Ordering::Relaxed) {
+            for icon in &ICON_LEVELS { icon.store(0, Ordering::Relaxed); }
+            for flag in &GOLD_TEXTURE { flag.store(-1, Ordering::Relaxed); }
+            if self.enabled { GOLD_TEXTURE[BOMB].store(i8::from(self.current().gold_texture), Ordering::Relaxed); }
+            if self.pyro.enabled { GOLD_TEXTURE[PYRO].store(i8::from(self.pyro.current().gold_texture), Ordering::Relaxed); }
+            if self.enabled { ICON_LEVELS[BOMB].store(self.level as u8, Ordering::Relaxed); }
+            if self.pyro.enabled { ICON_LEVELS[PYRO].store(self.pyro.level as u8, Ordering::Relaxed); }
+            for track in &self.extras {
+                if track.enabled {
+                    if let Ok(i) = usize::try_from(track.id) {
+                        if let Some(icon) = ICON_LEVELS.get(i) { icon.store(track.level as u8, Ordering::Relaxed); }
+                        if let Some(flag) = GOLD_TEXTURE.get(i) {
+                            let p = &track.params[track.level.saturating_sub(1).min(4)];
+                            let texture = p.get("gold_texture").or_else(|| p.get("gold_effects")).or_else(|| p.get("gold"));
+                            if let Some(&v) = texture { flag.store(i8::from(v >= 0.5), Ordering::Relaxed); }
+                        }
+                    }
+                }
+            }
+            if let Ok(mut registry) = level_values().write() {
+                registry.clear();
+                if self.real_hp {
+                    registry.insert((-1, "real_hp".to_string()), 1.0);
+                    for (item, hp) in self.absolute_values() {
+                        registry.insert((item, if item == 16 || item == 19 {"damage_per_second"} else {"damage_hp"}.to_string()), hp);
+                    }
+                }
+                for track in &self.extras {
+                    if !track.enabled { continue; }
+                    for (name, &value) in &track.params[track.level.saturating_sub(1).min(4)] {
+                        registry.insert((track.id, name.clone()), value);
+                    }
+                }
+            }
+            BOMB_AMMO_CAP.store(if self.enabled { self.current().max_ammo } else { 0 }, Ordering::Relaxed);
+            PYRO_AMMO_CAP.store(if self.pyro.enabled { self.pyro.current().max_ammo } else { 0 }, Ordering::Relaxed);
+            let p = self.pyro.current();
+            PYRO_CORE.store(p.flame_core_color.unwrap_or(u32::MAX), Ordering::Relaxed);
+            PYRO_OUTER.store(p.flame_outer_color.unwrap_or(u32::MAX), Ordering::Relaxed);
+            PYRO_BURN.store(p.burn_flame_color.or(p.flame_outer_color).or(p.flame_core_color).unwrap_or(u32::MAX), Ordering::Relaxed);
+        }
+    }
+    pub fn current(&self) -> Stats { self.stats[self.level.saturating_sub(1).min(4)] }
+    pub fn required(&self) -> f32 { if self.level >= 5 { 0.0 } else { self.xp_required[self.level-1] } }
+    pub fn fraction(&self) -> f32 { percent(self.xp, self.required(), self.level >= 5) }
+    pub fn weapon_fraction(&self, weapon: i32) -> Option<f32> {
+        match weapon {
+            10 if self.enabled => Some(self.fraction()),
+            16 if self.pyro.enabled => Some(self.pyro.fraction()),
+            8 => None, // The OmniWrench never has Weapon Evolution HUD.
+            _ => self.extras.iter().find(|t| t.id == weapon && t.enabled).map(ExtraTrack::fraction),
+        }
+    }
+    pub fn weapon_level(&self, weapon: i32) -> Option<usize> {
+        match weapon { 8 => None, 10 if self.enabled => Some(self.level), 16 if self.pyro.enabled => Some(self.pyro.level),
+            _ => self.extras.iter().find(|t| t.id == weapon && t.enabled).map(|t| t.level) }
+    }
+    /// The renderer supplies the disc's localized bytes (including its font encoding).
+    pub fn equipped_title(&self, weapon: i32, native_name: &[u8]) -> Option<Vec<u8>> {
+        let level = self.weapon_level(weapon)?;
+        if native_name.is_empty() { return None; }
+        let mut title = native_name.to_vec();
+        title.extend_from_slice(format!(" V{level}").as_bytes());
+        Some(title)
+    }
+    pub fn level_notice(&self, weapon: i32, level: usize, lang: u32, native_name: &[u8]) -> Option<Vec<u8>> {
+        self.weapon_level(weapon)?;
+        if native_name.is_empty() { return None; }
+        let prefix = match lang { 2 => "Amelioration de", 3 => "Verbessert:",
+            4 => "Has mejorado", 5 => "Hai potenziato", _ => "Upgraded" };
+        let mut message = format!("{prefix} ").into_bytes();
+        message.extend_from_slice(native_name);
+        message.extend_from_slice(format!(" - V{level}").as_bytes());
+        Some(message)
+    }
+    pub fn award_extra_damage(&mut self, weapon: i32, damage: f32) {
+        if let Some(track) = self.extras.iter_mut().find(|t| t.id == weapon && t.enabled) {
+            track.award(damage * self.xp_per_damage * if self.real_hp { 100.0 } else { 1.0 });
+            self.publish_max_ammo();
+        }
+    }
+    pub fn drain_special(&mut self) {
+        let messages = self.pending_special.0.lock().map(|mut q| std::mem::take(&mut *q)).unwrap_or_default();
+        for (weapon, target, hp, fraction) in messages {
+            self.award_special_once(weapon, target, hp, fraction);
+        }
+    }
+    /// Read-only target searches post to this world's queue, never another slot.
+    pub fn enqueue_special(&self, weapon: i32, target: usize, hp: f32, fraction: f32) {
+        if self.extras.iter().any(|t| t.id == weapon && t.enabled) {
+            if let Ok(mut q) = self.pending_special.0.lock() { q.push((weapon, target, hp, fraction)); }
+        }
+    }
+    pub fn award_special_once(&mut self, weapon: i32, moby: usize, native_hp: f32, fraction: f32) {
+        if native_hp <= 0.0 || !native_hp.is_finite() || !fraction.is_finite() || fraction <= 0.0 { return; }
+        if !self.extras.iter().any(|t| t.id == weapon && t.enabled) { return; }
+        if self.award_once.insert((weapon, moby)) { self.award_extra_damage(weapon, native_hp * fraction); }
+    }
+    /// A newly created enemy in a reused slot is a new target for special XP.
+    /// Matrix rebuilds, temporary stuns and animation changes never call this.
+    pub fn forget_special_target(&mut self, moby: usize) {
+        self.award_once.retain(|&(_, target)| target != moby);
+        self.terminal_targets.remove(&moby);
+        if let Ok(mut q) = self.pending_special.0.lock() { q.retain(|&(_, target, _, _)| target != moby); }
+    }
+    pub fn mark_terminal_target(&mut self, moby: usize) -> bool { self.terminal_targets.insert(moby) }
+    pub fn target_is_terminal(&self, moby: usize) -> bool { self.terminal_targets.contains(&moby) }
+    pub fn from_env() -> Self {
+        CONFIG_ACTIVE.store(false, Ordering::Relaxed);
+        for icon in &ICON_LEVELS { icon.store(0, Ordering::Relaxed); }
+        BOMB_AMMO_CAP.store(0, Ordering::Relaxed);
+        PYRO_AMMO_CAP.store(0, Ordering::Relaxed);
+        PYRO_CORE.store(u32::MAX, Ordering::Relaxed);
+        PYRO_OUTER.store(u32::MAX, Ordering::Relaxed);
+        PYRO_BURN.store(u32::MAX, Ordering::Relaxed);
+        for f in &GOLD_TEXTURE { f.store(-1, Ordering::Relaxed); }
+        if let Ok(mut g) = level_values().write() { g.clear(); }
+        #[cfg(all(feature = "weapon-evo-release", not(test)))]
+        {
+            let profile = Self::parse(RELEASE_PROFILE).expect("validated embedded Weapon Evolution profile");
+            CONFIG_ACTIVE.store(true, Ordering::Relaxed);
+            profile.publish_max_ammo();
+            println!("weapon evolution: embedded fixed profile v0.1.6.32");
+            return profile;
+        }
+        // Unit-test worlds retain their explicit native/configured fixtures.
+        // The embedded profile itself is parsed and checked in the test below.
+        #[cfg(any(not(feature = "weapon-evo-release"), test))]
+        {
+            let Ok(path) = std::env::var("RC_WEAPON_EVOLUTION_INI") else { return Self::default() };
+            match std::fs::read_to_string(&path).and_then(|s| Self::parse(&s)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))) {
+                Ok(s) => {
+                    CONFIG_ACTIVE.store(true, Ordering::Relaxed);
+                    s.publish_max_ammo();
+                    println!("weapon evolution: config loaded from {path}");
+                    s
+                }
+                Err(e) => { eprintln!("weapon evolution: disabled: {e}"); Self::default() }
+            }
+        }
+    }
+    pub fn parse(ini: &str) -> Result<Self, String> {
+        let mut evo = Self::default();
+        let mut section = String::new();
+        let mut bomb_seen = [false; 5];
+        let mut pyro_seen = [false; 5];
+        for (lineno, raw) in ini.lines().enumerate() {
+            let line = raw.trim_start_matches('\u{feff}').split(';').next().unwrap_or("").trim();
+            // Hex RGB values legitimately begin with '#'; only full lines are comments.
+            if line.is_empty() || line.starts_with('#') { continue; }
+            if line.starts_with('[') && line.ends_with(']') {
+                section = line[1..line.len()-1].trim().to_ascii_lowercase();
+                // Backwards compatibility with [levelN] and [weapon.bomb_glove.levelN].
+                if let Some(n) = section.strip_prefix("weapon.bomb_glove.level")
+                    .or_else(|| section.strip_prefix("level"))
+                    .and_then(|n| n.parse::<usize>().ok()).filter(|n| (1..=5).contains(n)) { bomb_seen[n-1] = true; }
+                if let Some(n) = section.strip_prefix("weapon.pyrocitor.level")
+                    .and_then(|n| n.parse::<usize>().ok()).filter(|n| (1..=5).contains(n)) { pyro_seen[n-1] = true; }
+                continue;
+            }
+            let (key, value) = line.split_once('=').ok_or_else(|| format!("line {} missing '='", lineno+1))?;
+            let key = key.trim().to_ascii_lowercase();
+            let val = value.trim();
+            if let Some((name, number)) = section.strip_prefix("weapon.").and_then(|s| s.rsplit_once(".level")) {
+                let item = if name == "bomb_glove" { Some(10) } else if name == "pyrocitor" { Some(16) }
+                    else { evo.extras.iter().find(|t| t.section == name).map(|t| t.id as usize) };
+                if key == "damage_hp" || (key == "damage_per_second" && matches!(item, Some(16 | 19)))
+                    || (key == "chicken_damage_hp" && item == Some(21)) {
+                    let item = item.ok_or_else(|| format!("unknown weapon in [{section}]"))?;
+                    let level = number.parse::<usize>().ok().filter(|n| (1..=5).contains(n))
+                        .ok_or_else(|| format!("invalid level [{section}]"))?;
+                    if (item == 16 || item == 19) && key != "damage_per_second" {
+                        return Err(format!("use damage_per_second for stream weapon [{section}]"));
+                    }
+                    let hp = parse_number(val, &key)?;
+                    if !(0.0..=1_000_000.0).contains(&hp) { return Err(format!("{key} must be 0..1000000")); }
+                    evo.damage_hp[item][level-1] = Some(hp);
+                    continue;
+                }
+            }
+            if section == "hud" {
+                match key.as_str() {
+                    "name_opacity_percent" => evo.hud.name_opacity_percent = parse_percent(val, &key)?,
+                    // Compatibility only: this obsolete key has no field or effect.
+                    // New editable INIs remove it; old embedded profiles still load.
+                    "xp_bar_opacity_percent" => {},
+                    "xp_bar_height_px" => {
+                        let n: i32 = val.parse().map_err(|_| format!("invalid {key}: {val}"))?;
+                        if !(2..=16).contains(&n) { return Err("xp_bar_height_px must be 2..16".into()); }
+                        evo.hud.xp_bar_height_px = n;
+                    }
+                    "xp_bar_horizontal_inset_px" => {
+                        let n: i32 = val.parse().map_err(|_| format!("invalid {key}: {val}"))?;
+                        if !(0..=24).contains(&n) { return Err("xp_bar_horizontal_inset_px must be 0..24".into()); }
+                        evo.hud.xp_bar_horizontal_inset_px = n;
+                    }
+                    "show_for_weapons_without_ammo" => evo.hud.show_for_weapons_without_ammo = parse_bool(val)?,
+                    "level_up_popup" => evo.hud.level_up_popup = parse_bool(val)?,
+                    "level_up_popup_duration_seconds" => {
+                        let n = parse_number(val, &key)?;
+                        if !(0.5..=15.0).contains(&n) { return Err("popup duration must be 0.5..15 seconds".into()); }
+                        evo.hud.level_up_popup_duration_seconds = n;
+                    }
+                    "level_up_sound" => {
+                        evo.hud.level_up_sound = match val.to_ascii_lowercase().as_str() {
+                            "help_notice" | "true" => true,
+                            "off" | "false" => false,
+                            _ => return Err(format!("invalid level_up_sound: {val}")),
+                        };
+                    }
+                    _ => return Err(format!("unknown {key} in [hud] (line {})", lineno+1)),
+                }
+                continue;
+            }
+            // Other weapons: common XP track only. Gameplay-specific settings are
+            // deliberately not accepted until the corresponding weapon hook exists.
+            if let Some(t) = evo.extras.iter_mut().find(|t| section == format!("weapon.{}", t.section)) {
+                t.enabled = true;
+                if key == "id" {
+                    if val.parse::<i32>().ok() != Some(t.id) { return Err(format!("invalid id in [{section}]")); }
+                } else if legacy_name_key(&key) {
+                    // Old name overrides are ignored: display always comes from the disc.
+                } else if let Some(i) = xp_transition(&key) {
+                    t.xp_required[i] = parse_number(val, &key)?;
+                } else {
+                    return Err(format!("unknown {key} in [{section}] at line {}; not implemented", lineno+1));
+                }
+                continue;
+            }
+            if let Some((track_name, level)) = section.strip_prefix("weapon.").and_then(|v| v.rsplit_once(".level")) {
+                if let Some(t) = evo.extras.iter_mut().find(|t| t.section == track_name) {
+                    let n: usize = level.parse().map_err(|_| format!("invalid level in [{section}]"))?;
+                    if !(1..=5).contains(&n) { return Err(format!("invalid level in [{section}]")); }
+                    if !supported_extra_stat(t.id, &key) {
+                        return Err(format!("unsupported {key} in [{section}] at line {}", lineno+1));
+                    }
+                    if t.id == 25 && key == "lure_range" && val.eq_ignore_ascii_case("default") {
+                        // Each enemy has its own native detection range. Absence
+                        // in the published registry preserves that per-call value.
+                        t.params[n-1].remove(&key);
+                        t.enabled = true;
+                        continue;
+                    }
+                    if matches!(key.as_str(), "explosion_color" | "trail_color" | "wave_color" | "projectile_color" | "impact_color" | "electric_core_color" | "electric_glow_color" | "fist_glow_color" | "beam_core_color" | "beam_glow_color" | "secondary_core_color" | "secondary_glow_color" | "arc_core_color" | "arc_glow_color" | "claw_core_color" | "claw_glow_color" | "spark_color" | "spark_core_color" | "light_color" | "weapon_glow_color" | "tube_color" | "pulse_color" | "muzzle_core_color" | "muzzle_glow_color" | "tip_color" | "tip_core_color") {
+                        t.params[n-1].insert(key.clone(), parse_rgb(val)?.map_or(-1.0, |c| c as f32));
+                        t.enabled = true;
+                        continue;
+                    }
+                    let v = if matches!(key.as_str(), "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
+                        if parse_bool(val)? { 1.0 } else { 0.0 }
+                    } else { parse_number(val, &key)? };
+                    if v < 0.0 || v > 9999.0 { return Err(format!("{key} out of range in [{section}]")); }
+                    if (matches!(key.as_str(), "wave_speed_multiplier" | "wave_size_multiplier" | "wave_range_multiplier" | "explosion_visual_size_multiplier")
+                        || (t.id == 11 && key == "explosion_radius_multiplier")) && !(0.1..=8.0).contains(&v) {
+                        return Err(format!("{key} must be 0.1..8 in [{section}]"));
+                    }
+                    if t.id == 19 && matches!(key.as_str(), "ammo_interval_ticks" | "damage_interval_ticks") {
+                        let max = if key == "damage_interval_ticks" { 600.0 } else { 9999.0 };
+                        if !(1.0..=max).contains(&v) || v.fract() != 0.0 {
+                            return Err(format!("{key} must be an integer 1..{max} in [{section}]"));
+                        }
+                    }
+                    if key == "wave_interval_ticks" && (!(1.0..=600.0).contains(&v) || v.fract() != 0.0) {
+                        return Err(format!("wave_interval_ticks must be an integer 1..600 in [{section}]"));
+                    }
+                    if key == "wave_alpha" && (v > 128.0 || v.fract() != 0.0) {
+                        return Err(format!("wave_alpha must be an integer 0..128 in [{section}]"));
+                    }
+                    if key == "stun_efficiency_percent" && v > 100.0 {
+                        return Err(format!("stun_efficiency_percent must be 0..100 in [{section}]"));
+                    }
+                    if key == "lure_cone_degrees" && !(1.0..=180.0).contains(&v) {
+                        return Err(format!("lure_cone_degrees must be 1..180 in [{section}]"));
+                    }
+                    if key == "stun_duration_ticks" && v > 600.0 {
+                        return Err(format!("stun_duration_ticks must be 0..600 in [{section}]"));
+                    }
+                    if key == "capacity" && v > 10.0 { return Err("Suck Cannon capacity above 10 needs slot-array changes".into()); }
+                    if key == "drone_count" && v > 6.0 { return Err("Drone capacity above 6 needs slot-array changes".into()); }
+                    t.params[n-1].insert(key.clone(), v);
+                    t.enabled = true;
+                    continue;
+                }
+            }
+            if section.starts_with("weapon.") && section != "weapon.bomb_glove" && section != "weapon.pyrocitor"
+                && !section.starts_with("weapon.bomb_glove.level")
+                && !section.starts_with("weapon.pyrocitor.level") {
+                return Err(format!("unsupported or unknown section [{section}] at line {}; gameplay hooks for this level are not active yet", lineno+1));
+            }
+            if section == "general" {
+                if key == "xp_per_damage" { evo.xp_per_damage = parse_number(val, &key)?; }
+                else if key == "damage_mode" { evo.real_hp = match val {
+                    "real_hp" => true, "legacy" => false,
+                    _ => return Err("damage_mode must be real_hp or legacy".into()),
+                }; }
+                continue;
+            }
+            if section == "weapon.bomb_glove" || section == "weapon.pyrocitor" {
+                let is_bomb = section == "weapon.bomb_glove";
+                if key == "id" {
+                    if val != (if is_bomb { "10" } else { "16" }) { return Err(format!("invalid id in [{section}]")); }
+                } else if legacy_name_key(&key) {
+                    // Old name overrides are ignored: display always comes from the disc.
+                } else if let Some(i) = xp_transition(&key) {
+                    let amount = parse_number(val, &key)?;
+                    if is_bomb { evo.xp_required[i] = amount; } else { evo.pyro.xp_required[i] = amount; }
+                } else { return Err(format!("unknown {key} in [{section}]")); }
+                continue;
+            }
+            let bomb_n = section.strip_prefix("weapon.bomb_glove.level")
+                .or_else(|| section.strip_prefix("level"))
+                .and_then(|x| x.parse::<usize>().ok()).filter(|n| (1..=5).contains(n));
+            if let Some(n) = bomb_n {
+                let stat = &mut evo.stats[n-1];
+                match key.as_str() {
+                    "xp_to_next" if n <= 4 => evo.xp_required[n-1] = parse_number(val, &key)?,
+                    "xp_to_next" => {},
+                    "throw_range" => stat.throw_range = parse_number(val, &key)?,
+                    "auto_lock_range" => stat.auto_lock_range = if val.eq_ignore_ascii_case("default") { None } else { Some(parse_number(val, &key)?) },
+                    "trajectory_height" => stat.trajectory_height = parse_number(val, &key)?,
+                    "explosion_color" => stat.explosion_color = parse_rgb(val)?,
+                    "explosion_radius" => stat.explosion_radius = parse_number(val, &key)?,
+                    "cooldown_seconds" => stat.cooldown_seconds = parse_number(val, &key)?,
+                    "max_ammo" => stat.max_ammo = parse_ammo(val)?,
+                    "damage_multiplier" => stat.damage_multiplier = parse_number(val, &key)?,
+                    "gold" => { let v = parse_bool(val)?; stat.gold = v; stat.gold_texture = v; },
+                    "gold_effects" => stat.gold = parse_bool(val)?,
+                    "gold_texture" => stat.gold_texture = parse_bool(val)?,
+                    "name" => {}, // Legacy display name (only localized short name is used in HUD).
+                    _ => return Err(format!("unknown {key} in [{section}]")),
+                }
+                continue;
+            }
+            let pyro_n = section.strip_prefix("weapon.pyrocitor.level")
+                .and_then(|x| x.parse::<usize>().ok()).filter(|n| (1..=5).contains(n));
+            if let Some(n) = pyro_n {
+                let stat = &mut evo.pyro.stats[n-1];
+                match key.as_str() {
+                    "xp_to_next" if n <= 4 => evo.pyro.xp_required[n-1] = parse_number(val, &key)?,
+                    "xp_to_next" => {},
+                    "ammo_interval_ticks" => stat.ammo_interval_ticks = parse_tick_interval(val, &key, 9999)?,
+                    "damage_interval_ticks" => stat.damage_interval_ticks = parse_tick_interval(val, &key, 600)?,
+                    "flame_range" => stat.flame_range = parse_number(val, &key)?,
+                    "flame_width" => stat.flame_width = parse_number(val, &key)?,
+                    "damage_multiplier" => stat.damage_multiplier = parse_number(val, &key)?,
+                    "flame_core_color" => stat.flame_core_color = parse_rgb(val)?,
+                    "flame_outer_color" => stat.flame_outer_color = parse_rgb(val)?,
+                    "light_color" => stat.light_color = parse_rgb(val)?,
+                    "max_ammo" => stat.max_ammo = parse_ammo(val)?,
+                    "gold" => { let v = parse_bool(val)?; stat.gold = v; stat.gold_texture = v; },
+                    "gold_effects" => stat.gold = parse_bool(val)?,
+                    "gold_texture" => stat.gold_texture = parse_bool(val)?,
+                    "burn_flame_color" => stat.burn_flame_color = parse_rgb(val)?,
+                    _ => return Err(format!("unknown {key} in [{section}]")),
+                }
+            }
+        }
+        if bomb_seen.iter().any(|&s| !s) { return Err("all Bomb Glove levels 1..5 required".into()); }
+        if !(evo.xp_per_damage > 0.0 && evo.xp_per_damage <= 100.0) { return Err("xp_per_damage out of range".into()); }
+        valid_xp(&evo.xp_required, "bomb_glove")?;
+        for (i, s) in evo.stats.iter().enumerate() {
+            if !(0.1..=5.0).contains(&s.throw_range) || !(0.4..=3.0).contains(&s.trajectory_height) || !(0.1..=8.0).contains(&s.explosion_radius)
+                || !(0.1..=10.0).contains(&s.cooldown_seconds) || !(1..=999).contains(&s.max_ammo)
+                || !(0.1..=20.0).contains(&s.damage_multiplier)
+                || s.auto_lock_range.is_some_and(|r| !r.is_finite() || !(0.0..=9999.0).contains(&r)) {
+                return Err(format!("invalid Bomb Glove level {}", i+1));
+            }
+        }
+        for t in &evo.extras {
+            if t.enabled { valid_xp(&t.xp_required, t.section)?; }
+        }
+        evo.enabled = true;
+        if pyro_seen.iter().any(|&s| s) {
+            if pyro_seen.iter().any(|&s| !s) { return Err("all Pyrocitor levels 1..5 required".into()); }
+            valid_xp(&evo.pyro.xp_required, "pyrocitor")?;
+            for (i, s) in evo.pyro.stats.iter().enumerate() {
+                if !(0.1..=3.0).contains(&s.flame_range) || !(0.1..=3.0).contains(&s.flame_width)
+                    || !(0.1..=20.0).contains(&s.damage_multiplier)
+                    || !(1..=999).contains(&s.max_ammo) { return Err(format!("invalid Pyrocitor level {}", i+1)); }
+            }
+            evo.pyro.enabled = true;
+        }
+        if evo.real_hp {
+            for i in 0..5 {
+                if let Some(hp) = evo.damage_hp[10][i] { evo.stats[i].damage_multiplier = hp / 200.0; }
+                if let Some(hp) = evo.damage_hp[16][i] {
+                    evo.pyro.stats[i].damage_multiplier = hp / (100.0 * (1.0 + if evo.pyro.stats[i].gold {1.0} else {0.0}));
+                }
+                for t in &mut evo.extras {
+                    if let Some(hp) = evo.damage_hp[t.id as usize][i] {
+                        let gold = t.params[i].get("gold_effects").or_else(|| t.params[i].get("gold")).copied().unwrap_or(0.0) >= 0.5;
+                        let (key, base) = match t.id {
+                            9 => ("shot_damage_multiplier", 2.0), 15 => ("damage_multiplier", 1.0),
+                            11 | 17 | 18 | 20 | 23 => ("damage_multiplier", 3.0),
+                            13 => ("damage_multiplier", 6.0), 19 => ("damage_multiplier", if gold {4.0} else {2.0}),
+                            24 => ("damage_multiplier", 1.0), 25 => ("explosion_damage_multiplier", if gold {4.0} else {2.0}),
+                            21 => ("chicken_damage_multiplier", 1.0), _ => continue,
+                        };
+                        t.params[i].insert(key.to_string(), hp / (100.0 * base));
+                    }
+                }
+            }
+        }
+        Ok(evo)
+    }
+    /// Called by creature hit handlers only after their native damage resolution.
+    pub fn award_damage(&mut self, effective_damage: f32, attack_class: u16) {
+        self.last_hit_xp = 0.0;
+        if !effective_damage.is_finite() || effective_damage <= 0.0 { return; }
+        // v0.1.5 phase A: Blaster projectile (class 305) and nozzle (168).
+        // Uses exactly the same effective-damage call site as the Bomb Glove.
+        let weapon = match attack_class {
+            305 | 168 => Some(15), // Blaster bullet/nozzle
+            153 => Some(11), // Devastator missile
+            172 => Some(13), // Visibomb missile
+            74 => Some(17), // Mine
+            180 => Some(18), // Walloper
+            177 => Some(19), // Tesla Claw
+            186 => Some(20), // Glove of Doom robot
+            457 => Some(23), // RYNO missile
+            479 => Some(24), // Drone shield
+            203 | 1900 => Some(25), // Decoy explosion
+            0x351 => Some(9), // Suck Cannon expelled creature
+            _ => None,
+        };
+        if let Some(id) = weapon { self.award_extra_damage(id, effective_damage); }
+        if !self.enabled || self.level >= 5 || attack_class != 121 { return; }
+        let amount = self.hp_units(effective_damage.max(0.0)) * self.xp_per_damage;
+        self.last_hit_xp = amount;
+        self.xp += amount;
+        while self.level < 5 && self.xp >= self.required() {
+            self.xp -= self.required();
+            self.level += 1;
+            println!("weapon evolution: BOMB GLOVE -> V{} (remaining XP {:.1})", self.level, self.xp);
+        }
+        if self.level >= 5 { self.xp = 0.0; }
+        self.publish_max_ammo();
+    }
+    /// The Pyrocitor's hit templates have type 5; kept flame has class 176,
+    /// direct nozzle hits class 0. Caller additionally checks attacker is Ratchet.
+    pub fn award_pyro_damage(&mut self, effective_damage: f32, attack_type: u8, attack_class: u16, from_ratchet: bool) {
+        if !from_ratchet || attack_type != 5 || !matches!(attack_class, 0 | 176) { return; }
+        let amount = self.hp_units(effective_damage.max(0.0)) * self.xp_per_damage;
+        self.pyro.award(amount);
+        self.publish_max_ammo();
+    }
+}
+
+#[cfg(test)]
+mod v01629_special_tests {
+    use super::*;
+    fn enabled() -> Evolution {
+        let mut e = Evolution::default();
+        for t in &mut e.extras { t.enabled = true; t.xp_required = [1000.0; 4]; }
+        e
+    }
+    fn xp(e: &Evolution, id: i32) -> f32 { e.extras.iter().find(|t| t.id == id).unwrap().xp }
+
+    #[test]
+    fn fractions_are_per_weapon_and_duplicate_events_do_not_farm_one_enemy() {
+        let mut e = enabled();
+        for (weapon, fraction) in [(9,1.0), (14,0.5), (21,1.0), (25,0.25)] {
+            for _ in 0..4 { e.enqueue_special(weapon, 42, 0.75, fraction); }
+        }
+        e.drain_special();
+        assert_eq!((xp(&e,9),xp(&e,14),xp(&e,21),xp(&e,25)), (0.75,0.375,0.75,0.1875));
+        e.drain_special(); assert_eq!(xp(&e,25),0.1875);
+        // A disabled/zero-fraction action must not consume the once-only key.
+        e.award_special_once(25, 50, 1.0, 0.0); e.award_special_once(25,50,1.0,0.25);
+        assert_eq!(xp(&e,25),0.4375);
+    }
+
+    #[test]
+    fn queues_are_isolated_between_worlds_and_clones_remain_send_sync() {
+        fn send_sync<T: Send + Sync>() {} send_sync::<Evolution>();
+        let mut a = enabled(); let mut b = enabled();
+        a.enqueue_special(25, 42, 2.0, 0.25);
+        b.drain_special(); assert_eq!(xp(&b,25),0.0);
+        let mut snapshot = a.clone(); snapshot.drain_special(); assert_eq!(xp(&snapshot,25),0.5);
+        a.drain_special(); assert_eq!(xp(&a,25),0.5, "clone has its own queue");
+    }
+
+    #[test]
+    fn new_game_discards_pending_attractions_and_resets_per_target_state() {
+        let mut e = enabled();
+        e.enqueue_special(25,42,2.0,0.25); e.mark_terminal_target(42);
+        e.restore_progress(&save::Progress::default()); e.drain_special();
+        assert_eq!(xp(&e,25),0.0); assert!(!e.target_is_terminal(42));
+        e.enqueue_special(25,42,2.0,0.25); e.drain_special();
+        assert_eq!(xp(&e,25),0.5);
+    }
+
+    #[test]
+    fn recreated_target_forgets_old_queue_but_preserves_other_targets() {
+        let mut e = enabled();
+        e.enqueue_special(25,42,2.0,0.25); e.enqueue_special(25,43,2.0,0.25);
+        e.forget_special_target(42); e.drain_special(); assert_eq!(xp(&e,25),0.5);
+        e.award_special_once(25,42,2.0,0.25); assert_eq!(xp(&e,25),1.0);
+    }
+}
+
+#[cfg(all(test, feature = "weapon-evo-release"))]
+mod fixed_release_tests {
+    use super::*;
+    #[test]
+    fn embedded_profile_has_all_tracks_explicit_decoy_ammo_and_empty_progress() {
+        let e = Evolution::parse(RELEASE_PROFILE).expect("approved fixed profile must parse");
+        assert!(e.enabled && e.pyro.enabled);
+        assert_eq!(e.extras.iter().filter(|t| t.enabled).count(), 13);
+        let decoy = e.extras.iter().find(|t| t.id == 25).unwrap();
+        let ammo: Vec<f32> = decoy.params.iter().map(|p| p["max_ammo"]).collect();
+        // The author's build input may change ammo; require all five explicit
+        // grade values without locking tests to a previous balance revision.
+        assert_eq!(ammo.len(), 5);
+        assert!(ammo.iter().all(|&a| a.is_finite() && (1.0..=999.0).contains(&a)));
+        assert_eq!(e.progress(), save::Progress::default());
+    }
+}
+
+#[cfg(test)]
+mod color_tests {
+    use super::*;
+    #[test]
+    fn hex_rgb_and_native_alpha() {
+        assert_eq!(parse_rgb("#000000").unwrap(), Some(0));
+        assert_eq!(parse_rgb("#FFFFFF").unwrap(), Some(0x00ff_ffff));
+        assert_eq!(parse_rgb("#278BFF").unwrap(), Some(0x00ff_8b27));
+        assert!(parse_rgb("#12XXX0").is_err());
+        let output = tint_rgba(0x7f80_4060, parse_rgb("#FF0000").unwrap());
+        assert_eq!(output & 0xff00_0000, 0x7f00_0000);
+        assert_eq!(output & 0x00ff_ff00, 0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn independent_weapon_levels_and_xp() {
+        let mut e = Evolution::default(); e.enabled = true; e.pyro.enabled = true;
+        e.award_damage(6.0, 121);
+        assert_eq!(e.level, 2);
+        assert_eq!(e.pyro.level, 1);
+        e.award_pyro_damage(10.0, 5, 176, true);
+        assert_eq!(e.pyro.level, 2);
+        assert_eq!(e.level, 2);
+    }
+    #[test]
+    fn no_pyro_xp_without_ratchet_or_real_hit_type() {
+        let mut e = Evolution::default(); e.pyro.enabled = true;
+        e.award_pyro_damage(100.0, 5, 176, false);
+        e.award_pyro_damage(100.0, 2, 176, true);
+        assert_eq!(e.pyro.level, 1);
+    }
+}
+
+#[cfg(test)]
+mod common_track_tests {
+    use super::*;
+    #[test]
+    fn all_ids_unique_and_all_tracks_present() {
+        let e = Evolution::default();
+        assert_eq!(e.extras.len(), 14);
+        for (i, id) in WEAPON_IDS.iter().enumerate() {
+            assert!(WEAPON_IDS[..i].iter().all(|n| n != id));
+        }
+    }
+    #[test]
+    fn blaster_damage_levels_only_blaster() {
+        let mut e = Evolution::default();
+        e.extras.iter_mut().find(|t| t.id == 15).unwrap().enabled = true;
+        e.enabled = true;
+        e.award_damage(10.0, 305);
+        assert_eq!(e.weapon_level(15), Some(2));
+        assert_eq!(e.level, 1);
+        assert_eq!(e.weapon_fraction(15), Some(0.0));
+        assert_eq!(e.equipped_title(15, b"Native name").unwrap(), b"Native name V2");
+    }
+    #[test]
+    fn opacity_bounds_and_v015_ini() {
+        assert_eq!(HudOptions::alpha(100), 128);
+        assert_eq!(HudOptions::alpha(50), 64);
+        assert_eq!(HudOptions::alpha(0), 0);
+        assert!(parse_percent("101", "opacity").is_err());
+    }
+
+    #[test]
+    fn retired_xp_opacity_has_no_field_or_effect_and_old_profiles_still_load() {
+        let mut profile = String::new();
+        for n in 1..=5 { profile.push_str(&format!("[weapon.bomb_glove.level{n}]\n")); }
+        let e = Evolution::parse(&(profile.clone() + "[hud]\nname_opacity_percent = 65\n")).unwrap();
+        let old = Evolution::parse(&(profile + "[hud]\nname_opacity_percent = 65\nxp_bar_opacity_percent = 0\n")).unwrap();
+        assert_eq!(e.hud.name_opacity_percent, old.hud.name_opacity_percent);
+        assert_eq!(e.hud.xp_bar_height_px, old.hud.xp_bar_height_px);
+    }
+}
+
+#[cfg(test)]
+mod v01613_tests {
+    use super::*;
+    fn profile(extra: &str) -> String {
+        let mut s = String::new();
+        for n in 1..=5 { s.push_str(&format!("[weapon.bomb_glove.level{n}]\n")); }
+        s.push_str(extra);
+        s
+    }
+    #[test]
+    fn localized_disc_bytes_replace_legacy_names() {
+        let e = Evolution::parse(&profile("[weapon.bomb_glove]\nname_it = OLD\nname_en = WRONG\n")).unwrap();
+        // The game font is byte encoded: a non-UTF8 accent must remain intact.
+        let name = b"Arme \xe9";
+        assert_eq!(e.equipped_title(10, name).unwrap(), b"Arme \xe9 V1");
+        assert_eq!(e.level_notice(10, 2, 5, name).unwrap(), b"Hai potenziato Arme \xe9 - V2");
+        assert!(e.equipped_title(8, name).is_none());
+    }
+    #[test]
+    fn colours_round_trip_all_24_bits_and_default() {
+        for color in ["#000000", "#FFFFFF", "#123456", "default"] {
+            let e = Evolution::parse(&profile(&format!("[weapon.devastator.level1]\nexplosion_color = {color}\ntrail_color = {color}\n[weapon.taunter.level1]\nwave_color = {color}\n"))).unwrap();
+            let want = parse_rgb(color).unwrap().map_or(-1.0, |c| c as f32);
+            for (id, key) in [(11, "explosion_color"), (11, "trail_color"), (14, "wave_color")] {
+                let t = e.extras.iter().find(|t| t.id == id).unwrap();
+                assert_eq!(t.params[0][key], want);
+                if want >= 0.0 { assert_eq!(want as u32, parse_rgb(color).unwrap().unwrap()); }
+            }
+        }
+    }
+    #[test]
+    fn each_grade_keeps_its_own_air_setting() {
+        let e = Evolution::parse(&profile("[weapon.morph_ray.level1]\nfire_in_air = false\n[weapon.morph_ray.level5]\nfire_in_air = true\n")).unwrap();
+        let t = e.extras.iter().find(|t| t.id == 21).unwrap();
+        assert_eq!(t.params[0]["fire_in_air"], 0.0);
+        assert_eq!(t.params[4]["fire_in_air"], 1.0);
+    }
+    #[test]
+    fn bad_effect_parameters_are_rejected() {
+        for (section, value) in [
+            ("devastator", "explosion_color = #GG0000"),
+            ("devastator", "explosion_radius_multiplier = 0"),
+            ("devastator", "explosion_visual_size_multiplier = 9"),
+            ("taunter", "wave_interval_ticks = 0"),
+            ("taunter", "wave_interval_ticks = 2.5"),
+            ("taunter", "wave_speed_multiplier = NaN"),
+            ("taunter", "wave_alpha = 129"),
+            ("morph_ray", "fire_in_air = maybe"),
+        ] {
+            assert!(Evolution::parse(&profile(&format!("[weapon.{section}.level1]\n{value}\n"))).is_err(), "{section}: {value}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod v01632_tests {
+    use super::*;
+
+    fn profile(extra: &str) -> String {
+        let mut text = String::new();
+        for n in 1..=5 { text.push_str(&format!("[weapon.bomb_glove.level{n}]\n")); }
+        text.push_str(extra);
+        text
+    }
+
+    #[test]
+    fn bomb_auto_lock_range_is_independent_per_grade_and_accepts_old_profiles() {
+        let text = "[weapon.bomb_glove.level1]\nauto_lock_range = default\n\
+            [weapon.bomb_glove.level2]\nauto_lock_range = 0\n\
+            [weapon.bomb_glove.level3]\nauto_lock_range = 3\n\
+            [weapon.bomb_glove.level4]\nauto_lock_range = 7.5\n\
+            [weapon.bomb_glove.level5]\nauto_lock_range = 9999\n";
+        let evo = Evolution::parse(&profile(text)).unwrap();
+        assert_eq!(evo.stats.map(|s| s.auto_lock_range), [None, Some(0.0), Some(3.0), Some(7.5), Some(9999.0)]);
+        let legacy = Evolution::parse(&profile("")).unwrap();
+        assert!(legacy.stats.iter().all(|s| s.auto_lock_range.is_none()));
+        assert_eq!(legacy.stats[0].auto_lock_distance(), 8.5);
+    }
+
+    #[test]
+    fn bomb_auto_lock_range_rejects_invalid_values() {
+        for value in ["-1", "10000", "NaN", "inf", "red"] {
+            let text = format!("[weapon.bomb_glove.level1]\nauto_lock_range = {value}\n");
+            assert!(Evolution::parse(&profile(&text)).is_err(), "accepted {value}");
+        }
+    }
+
+}
+
+#[cfg(test)]
+mod blaster_color_tests {
+    use super::*;
+    fn profile(extra: &str) -> String {
+        let mut text = String::new();
+        for n in 1..=5 { text.push_str(&format!("[weapon.bomb_glove.level{n}]\n")); }
+        text.push_str(extra);
+        text
+    }
+    #[test]
+    fn blaster_colors_are_independent_for_all_five_grades() {
+        let values = ["#000000", "#FF0000", "8CC3EA", "#FFFFFF", "default"];
+        let mut text = String::new();
+        for (n, color) in values.iter().enumerate() {
+            text.push_str(&format!("[weapon.blaster.level{}]\nprojectile_color = {}\ntrail_color = #00FF00\nimpact_color = #0000FF\n", n + 1, color));
+        }
+        let evo = Evolution::parse(&profile(&text)).unwrap();
+        let track = evo.extras.iter().find(|t| t.id == 15).unwrap();
+        for (n, color) in values.iter().enumerate() {
+            assert_eq!(track.params[n]["projectile_color"], parse_rgb(color).unwrap().map_or(-1.0, |c| c as f32));
+            assert_eq!(track.params[n]["trail_color"], 0x00ff00 as f32);
+            assert_eq!(track.params[n]["impact_color"], 0xff0000 as f32);
+        }
+    }
+    #[test]
+    fn blaster_rejects_bad_colors_without_accepting_them_for_other_weapons() {
+        for key in ["projectile_color", "trail_color", "impact_color"] {
+            for value in ["#GG0000", "#12345", "16777216", "NaN"] {
+                let text = format!("[weapon.blaster.level1]\n{key} = {value}\n");
+                assert!(Evolution::parse(&profile(&text)).is_err(), "{key} = {value}");
+            }
+        }
+        assert!(Evolution::parse(&profile("[weapon.taunter.level1]\nprojectile_color = #FF0000\n")).is_err());
+        let evo = Evolution::parse(&profile("[weapon.blaster.level1]\ndamage_multiplier = 1\n")).unwrap();
+        let track = evo.extras.iter().find(|t| t.id == 15).unwrap();
+        assert!(!track.params[0].contains_key("projectile_color"), "old INIs remain valid");
+    }
+}
+
+#[cfg(test)]
+mod gold_walloper_tests {
+    use super::*;
+    fn profile(extra: &str) -> String {
+        let mut text = String::new();
+        for n in 1..=5 { text.push_str(&format!("[weapon.bomb_glove.level{n}]\n")); }
+        text.push_str(extra); text
+    }
+    #[test]
+    fn devastator_gold_behavior_and_texture_are_independent_per_grade() {
+        let mut text = String::new();
+        for (n, (effects, texture)) in [(false, false), (false, true), (true, false), (true, true), (false, true)].into_iter().enumerate() {
+            text.push_str(&format!("[weapon.devastator.level{}]\ngold_effects = {effects}\ngold_texture = {texture}\n", n + 1));
+        }
+        let e = Evolution::parse(&profile(&text)).unwrap();
+        let track = e.extras.iter().find(|t| t.id == 11).unwrap();
+        for (n, (effects, texture)) in [(0.0, 0.0), (0.0, 1.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)].into_iter().enumerate() {
+            assert_eq!(track.params[n]["gold_effects"], effects);
+            assert_eq!(track.params[n]["gold_texture"], texture);
+        }
+    }
+    #[test]
+    fn walloper_color_keys_accept_black_white_rgb_and_default_per_grade() {
+        let values = ["000000", "FFFFFF", "8CC3EA", "#FF0000", "default"];
+        let keys = ["electric_core_color", "electric_glow_color", "fist_glow_color", "impact_color"];
+        let mut text = String::new();
+        for (n, color) in values.iter().enumerate() {
+            text.push_str(&format!("[weapon.walloper.level{}]\n", n + 1));
+            for key in keys { text.push_str(&format!("{key} = {color}\n")); }
+        }
+        let e = Evolution::parse(&profile(&text)).unwrap();
+        let track = e.extras.iter().find(|t| t.id == 18).unwrap();
+        for (n, color) in values.iter().enumerate() {
+            for key in keys { assert_eq!(track.params[n][key], parse_rgb(color).unwrap().map_or(-1.0, |c| c as f32)); }
+        }
+        for key in keys {
+            assert!(Evolution::parse(&profile(&format!("[weapon.walloper.level1]\n{key} = #GG0000\n"))).is_err());
+        }
+        assert!(Evolution::parse(&profile("[weapon.blaster.level1]\nelectric_core_color = FF0000\n")).is_err());
+    }
+    #[test]
+    fn all_tesla_color_parameters_are_per_grade_and_validated() {
+        let keys = ["beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color",
+            "arc_core_color", "arc_glow_color", "claw_core_color", "claw_glow_color", "spark_color",
+            "spark_core_color", "impact_color", "light_color", "weapon_glow_color"];
+        let values = ["default", "000000", "FFFFFF", "8CC3EA", "#FF0000"];
+        let mut text = String::new();
+        for (n, value) in values.iter().enumerate() {
+            text.push_str(&format!("[weapon.tesla_claw.level{}]\n", n + 1));
+            for key in keys { text.push_str(&format!("{key} = {value}\n")); }
+        }
+        let e = Evolution::parse(&profile(&text)).unwrap();
+        let t = e.extras.iter().find(|t| t.id == 19).unwrap();
+        for (n, value) in values.iter().enumerate() {
+            for key in keys { assert_eq!(t.params[n][key], parse_rgb(value).unwrap().map_or(-1.0, |c| c as f32)); }
+        }
+        for key in keys {
+            assert!(Evolution::parse(&profile(&format!("[weapon.tesla_claw.level1]\n{key} = #12ZZ00\n"))).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
+mod morph_color_tests {
+    use super::*;
+    const KEYS: [&str; 13] = ["tube_color", "beam_core_color", "beam_glow_color", "secondary_core_color",
+        "secondary_glow_color", "pulse_color", "muzzle_core_color", "muzzle_glow_color", "tip_color",
+        "tip_core_color", "spark_color", "spark_core_color", "light_color"];
+    fn profile(extra: &str) -> String {
+        let mut text = String::new();
+        for n in 1..=5 { text.push_str(&format!("[weapon.bomb_glove.level{n}]\n")); }
+        text.push_str(extra); text
+    }
+    #[test]
+    fn morph_colors_keep_all_24_bits_independently_per_grade() {
+        let mut text = String::new();
+        let values = ["000000", "FFFFFF", "8CC3EA", "#FF0000", "default"];
+        for (i, color) in values.iter().enumerate() {
+            text.push_str(&format!("[weapon.morph_ray.level{}]\n", i + 1));
+            for key in KEYS { text.push_str(&format!("{key} = {color}\n")); }
+        }
+        let e = Evolution::parse(&profile(&text)).unwrap();
+        let t = e.extras.iter().find(|t| t.id == 21).unwrap();
+        for (i, color) in values.iter().enumerate() {
+            let expected = parse_rgb(color).unwrap().map_or(-1.0, |v| v as f32);
+            for key in KEYS { assert_eq!(t.params[i][key], expected, "{key}, grade {}", i + 1); }
+        }
+    }
+    #[test]
+    fn morph_gold_behavior_and_texture_do_not_enable_each_other() {
+        let choices = [(false, false), (true, false), (false, true), (true, true), (false, true)];
+        let mut text = String::new();
+        for (i, (effects, texture)) in choices.iter().enumerate() {
+            text.push_str(&format!("[weapon.morph_ray.level{}]\ngold_effects = {effects}\ngold_texture = {texture}\n", i + 1));
+        }
+        let e = Evolution::parse(&profile(&text)).unwrap();
+        let t = e.extras.iter().find(|t| t.id == 21).unwrap();
+        for (i, (effects, texture)) in choices.into_iter().enumerate() {
+            assert_eq!(t.params[i]["gold_effects"], if effects { 1.0 } else { 0.0 });
+            assert_eq!(t.params[i]["gold_texture"], if texture { 1.0 } else { 0.0 });
+        }
+    }
+    #[test]
+    fn morph_rejects_invalid_colors_and_keeps_older_profiles_valid() {
+        for key in KEYS {
+            for value in ["12345", "CCCCCCCC", "GG2200", "16777216", "NaN"] {
+                assert!(Evolution::parse(&profile(&format!("[weapon.morph_ray.level1]\n{key} = {value}\n"))).is_err());
+            }
+        }
+        let e = Evolution::parse(&profile("[weapon.morph_ray.level1]\nfire_in_air = true\n")).unwrap();
+        let t = e.extras.iter().find(|t| t.id == 21).unwrap();
+        assert!(!t.params[0].contains_key("tube_color"));
+        assert!(Evolution::parse(&profile("[weapon.blaster.level1]\ntube_color = FF0000\n")).is_err());
+    }
+}
+
+#[cfg(test)]
+mod decoy_range_tests {
+    use super::*;
+    fn profile(extra: &str) -> String {
+        let mut text = String::new();
+        for n in 1..=5 { text.push_str(&format!("[weapon.bomb_glove.level{n}]\n")); }
+        text.push_str(extra); text
+    }
+    #[test]
+    fn decoy_each_grade_has_its_own_radius_or_native_default() {
+        let text = "[weapon.decoy_glove.level1]\nlure_range = default\n\
+            [weapon.decoy_glove.level2]\nlure_range = 0\n\
+            [weapon.decoy_glove.level3]\nlure_range = 12.5\n\
+            [weapon.decoy_glove.level4]\nlure_range = 30\n\
+            [weapon.decoy_glove.level5]\nlure_range = 100\n";
+        let e = Evolution::parse(&profile(text)).unwrap();
+        let t = e.extras.iter().find(|t| t.id == 25).unwrap();
+        assert!(!t.params[0].contains_key("lure_range"));
+        for (i, value) in [0.0, 12.5, 30.0, 100.0].into_iter().enumerate() {
+            assert_eq!(t.params[i+1]["lure_range"], value);
+        }
+        // Last occurrence wins, including a return to the per-enemy default.
+        let e = Evolution::parse(&profile("[weapon.decoy_glove.level1]\nlure_range = 30\nlure_range = DEFAULT\n")).unwrap();
+        let t = e.extras.iter().find(|t| t.id == 25).unwrap();
+        assert!(!t.params[0].contains_key("lure_range"));
+    }
+    #[test]
+    fn decoy_rejects_invalid_radii_and_keeps_old_profiles_valid() {
+        for value in ["-1", "10000", "NaN", "inf", "purple"] {
+            assert!(Evolution::parse(&profile(&format!("[weapon.decoy_glove.level1]\nlure_range = {value}\n"))).is_err());
+        }
+        assert!(Evolution::parse(&profile("[weapon.decoy_glove.level1]\nlure_range = 9999\n")).is_ok());
+        assert!(Evolution::parse(&profile("[weapon.decoy_glove.level1]\ndecoy_health_multiplier = 1\n")).is_ok());
+        assert!(Evolution::parse(&profile("[weapon.taunter.level1]\nlure_range = default\n")).is_err());
+    }
+}
+
+
+#[cfg(test)]
+mod v37_real_hp_tests {
+    use super::*;
+    fn profile() -> String {
+        let mut s="[general]\ndamage_mode = real_hp\nxp_per_damage = 0.1\n".to_string();
+        for n in 1..=5 {
+            s.push_str(&format!("[weapon.bomb_glove.level{n}]\ndamage_hp = 250\n"));
+            s.push_str(&format!("[weapon.pyrocitor.level{n}]\ndamage_per_second = 130\n"));
+            s.push_str(&format!("[weapon.blaster.level{n}]\ndamage_hp = 75\n"));
+            s.push_str(&format!("[weapon.tesla_claw.level{n}]\ndamage_per_second = 800\ngold_effects = true\n"));
+        }
+        s
+    }
+    #[test]
+    fn parses_absolute_hp_and_reconstructs_only_the_native_object_multiplier() {
+        let e=Evolution::parse(&profile()).unwrap();
+        assert!(e.real_hp_enabled()); assert_eq!(e.current().damage_multiplier,1.25);
+        assert_eq!(e.absolute_values()[&15],75.0); assert_eq!(e.absolute_values()[&16],130.0);
+        let tesla=e.extras.iter().find(|t|t.id==19).unwrap();
+        assert_eq!(tesla.params[0]["damage_multiplier"],2.0);
+    }
+    #[test]
+    fn absolute_profile_accepts_a_utf8_bom_without_disabling_evolution() {
+        assert!(Evolution::parse(&(String::from("\u{feff}") + &profile())).unwrap().real_hp_enabled());
+    }
+    #[test]
+    fn absolute_hp_rejects_invalid_values_and_bad_stream_units() {
+        for change in ["damage_hp = NaN","damage_hp = -1","damage_hp = 1000001"] {
+            assert!(Evolution::parse(&profile().replacen("damage_hp = 250",change,1)).is_err());
+        }
+        assert!(Evolution::parse(&profile().replace("damage_per_second = 130","damage_hp = 130")).is_err());
+    }
+    #[test]
+    fn stream_intervals_keep_each_grade_and_old_profiles_keep_defaults() {
+        let mut text = profile();
+        for n in 1..=5 {
+            for weapon in ["pyrocitor", "tesla_claw"] {
+                let header = format!("[weapon.{weapon}.level{n}]\n");
+                text = text.replace(&header, &format!("{header}ammo_interval_ticks = {}\ndamage_interval_ticks = {}\n", n * 3, n * 2));
+            }
+        }
+        let mut e = Evolution::parse(&text).unwrap();
+        for n in 1..=5 {
+            e.pyro.level = n;
+            e.extras.iter_mut().find(|t| t.id == 19).unwrap().level = n;
+            assert_eq!(e.pyro.current().ammo_interval_ticks, (n * 3) as i32);
+            assert_eq!(e.stream_intervals(), [(n * 2) as u32; 2]);
+            assert_eq!(e.extras.iter().find(|t| t.id == 19).unwrap().params[n-1]["ammo_interval_ticks"], (n * 3) as f32);
+        }
+        let old = Evolution::parse(&profile()).unwrap();
+        assert_eq!(old.stream_intervals(), [1, 1]); assert_eq!(old.pyro.current().ammo_interval_ticks, 10);
+    }
+    #[test]
+    fn stream_intervals_reject_zero_fractional_nonfinite_and_oversized_values() {
+        for weapon in ["pyrocitor", "tesla_claw"] {
+            for (key, invalid) in [("ammo_interval_ticks", "10000"), ("damage_interval_ticks", "601")] {
+                for value in ["0", "-1", "1.5", "NaN", "inf", invalid] {
+                    let header = format!("[weapon.{weapon}.level1]\n");
+                    assert!(Evolution::parse(&profile().replace(&header, &format!("{header}{key} = {value}\n"))).is_err());
+                }
+            }
+        }
+    }
+}
