@@ -38,8 +38,11 @@ The build job has read-only repository permission. The final draft job alone has
 contents-write permission and uses GitHub's short-lived workflow token.
 
 On success it uploads an Actions artifact containing the player ZIP, checksum
-and `release-build.json`, then creates a **draft** release with the committed
-English notes plus an exact-commit source ZIP and SHA256. An existing release/tag is preserved, never overwritten or
+and `release-build.json`. A push creates **test artifacts only**. It does not
+create a release or draft. To create a draft later, explicitly run the workflow
+manually and enable `create_draft` (off by default). That opt-in creates a
+**draft** with the committed English notes plus an exact-commit source ZIP
+and SHA256. An existing release/tag is preserved, never overwritten or
 published by this workflow. If creation is unavailable because of repository
 policy, download the artifact and attach it manually to a new release.
 

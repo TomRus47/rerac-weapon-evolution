@@ -6,7 +6,7 @@ on:
       create_draft:
         description: Create a draft release after the Windows build passes
         type: boolean
-        default: true
+        default: false
   push:
     branches: [main]
     paths: [mod/release.json]
@@ -65,7 +65,8 @@ jobs:
 
   draft:
     needs: build
-    if: github.event_name == 'push' || inputs.create_draft
+    # Release creation is an explicit opt-in; pushes produce test artifacts only.
+    if: github.event_name == 'workflow_dispatch' && inputs.create_draft
     runs-on: ubuntu-latest
     permissions:
       contents: write

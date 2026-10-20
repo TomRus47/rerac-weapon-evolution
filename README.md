@@ -1,6 +1,6 @@
 # ReRAC Weapon Evolution
 
-Public release **0.3.3**: gameplay patch **0.1.6.51**, configuration capability **51**, English preset launcher **0.11.0**, built on the supplied ReRAC **0.3.4** source snapshot.
+Unreleased development version **0.3.3**: gameplay patch **0.1.6.51**, configuration capability **51**, English preset launcher **0.11.0**, built on the supplied ReRAC **0.3.4** source snapshot.
 
 **Runtime compatibility: ReRAC 0.3.4-alpha**, using the modified game runtime supplied with Weapon Evolution or built from this repository.
 

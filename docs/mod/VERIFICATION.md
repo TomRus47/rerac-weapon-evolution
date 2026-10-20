@@ -2,6 +2,10 @@
 
 ## Current v51 checks
 
+**Release hold:** v51 / 0.3.3 is an unreleased test version. Pushes may build an
+Actions test artifact, but release/draft creation requires a separate explicit
+manual opt-in. No 0.3.3 release is authorized at present.
+
 - Python launcher/release suite: **92 tests passed** locally, without failures.
 - All **1,168 existing INI values** and the custom launcher icon remain unchanged; **22 controls added**, for **1,190** total entries. The new mode defaults off.
 - New regression fixtures cover exact pack distributions at every Gold Bolt count, weapon rarity, last-ammo locking/re-unlocking with a full ring, permanent bolt thresholds, per-slot isolation, last-round guided Visibomb completion, normal R.Y.N.O. loot and independent Gold controls.

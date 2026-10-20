@@ -4,7 +4,7 @@
   "files": [
     {
       "path": ".github/workflows/windows-release.yml",
-      "sha256": "b4d415678ff0c89c716b1856736dc7cb9cf51e1bdb6b044848ece7aef63d07eb",
+      "sha256": "b71ef176299613ea89975ad50eb17c10b44b03735377f703988952c146507963",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -21,7 +21,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "63d239ef36c58a810a6970a43329a74c4070f7f85422cb3b18745b9472e0ffcc"
+      "sha256": "7bb3acbd72b0ed80b4aed35cdff0634a7dd1af7d385e201dfdd089e3989fee52"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -1498,14 +1498,14 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "e241d799e7bb774b9d209b40868d9d5101bc542597c9040cf540d3a93890ac54"
+      "sha256": "1371e143785c7d8f74abb305cd9be704d0a8019ecd34d0a913057036b307ca55"
     },
     {
       "path": "docs/mod/VERIFICATION.md",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "267ffdc0a9c1878ce2db6e2753b63e270c8d201689a2487be10418b38cb0da5d"
+      "sha256": "b40092fa73b955fd9696ed5a383810a4a4fc89b0890416ae04db5ead7b8a3b61"
     },
     {
       "path": "docs/releases/v0.3.3.md",
