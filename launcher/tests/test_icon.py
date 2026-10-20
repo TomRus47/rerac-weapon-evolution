@@ -12,7 +12,7 @@ def ico(payload=b'abcd'):
 class IconTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='custom icon ');self.addCleanup(self.tmp.cleanup)
-        self.kit=Path(self.tmp.name)
+        self.kit=Path(self.tmp.name).resolve()
         for name in b.SOURCES:shutil.copy2(ROOT/name,self.kit/name)
     def test_icon_is_optional_and_changing_or_removing_it_invalidates_the_cache(self):
         self.assertIsNone(b.icon_file(self.kit));before=b.source_digest(self.kit)

@@ -19,7 +19,7 @@ class Tests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='rerac launcher spazi ')
         self.addCleanup(self.temp.cleanup)
-        self.parent = Path(self.temp.name)
+        self.parent = Path(self.temp.name).resolve()
         self.kit = self.parent/'Launcher con spazi'; self.kit.mkdir()
         self.raw = (ROOT/'weapons.example.ini').read_bytes()
         (self.kit/'weapons.example.ini').write_bytes(self.raw)
@@ -246,7 +246,7 @@ class GuiWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
         self.app=gui.Launcher.__new__(gui.Launcher);a=self.app
-        a.kit=Path(self.temp.name);a.store=c.PresetStore(a.kit)
+        a.kit=Path(self.temp.name).resolve();a.store=c.PresetStore(a.kit)
         a.root=Mock();a.tk=SimpleNamespace(StringVar=self.Var)
         a.preset_var=self.Var();a.document_info=self.Var();a.status=self.Var()
         a.render_page=Mock();a.refresh_presets=Mock();a.remember_settings=Mock()

@@ -17,7 +17,7 @@ def pe_bytes():
 class StandaloneTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='launcher exe con spazi ');self.addCleanup(self.tmp.cleanup)
-        self.parent=Path(self.tmp.name);self.kit=self.parent/'Mod';self.kit.mkdir()
+        self.parent=Path(self.tmp.name).resolve();self.kit=self.parent/'Mod';self.kit.mkdir()
         self.raw=convert((ROOT/'weapons.example.ini').read_bytes())[0]
         (self.kit/'weapons.ini').write_bytes(self.raw)
         (self.kit/'weapons.example.ini').write_bytes(self.raw)

@@ -18,7 +18,7 @@ class Var:
 class DefaultWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='default release ');self.addCleanup(self.tmp.cleanup)
-        self.kit=Path(self.tmp.name);self.raw=(ROOT/'weapons.default.ini').read_bytes()
+        self.kit=Path(self.tmp.name).resolve();self.raw=(ROOT/'weapons.default.ini').read_bytes()
         for name in ['weapons.ini','weapons.example.ini','weapons.default.ini']:(self.kit/name).write_bytes(self.raw)
         self.exe=self.kit/'runtime/rerac.exe';self.exe.parent.mkdir();self.exe.write_bytes(b'game')
         data=self.kit/'data';data.mkdir();(data/'toc.bin').touch();(data/'extract-info.json').write_text('{}')

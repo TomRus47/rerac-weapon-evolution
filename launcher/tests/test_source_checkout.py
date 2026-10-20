@@ -12,7 +12,7 @@ class SourceCheckoutTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(prefix='mod source with spaces ')
         self.addCleanup(self.tmp.cleanup)
-        self.root=Path(self.tmp.name)/'checkout';self.root.mkdir()
+        self.root=Path(self.tmp.name).resolve()/'checkout';self.root.mkdir()
         self.kit=self.root/'launcher';self.kit.mkdir()
         self.raw=(ROOT/'weapons.default.ini').read_bytes()
         (self.kit/'weapons.example.ini').write_bytes(self.raw)

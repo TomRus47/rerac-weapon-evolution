@@ -1467,28 +1467,28 @@
     },
     {
       "path": "launcher/tests/test_launcher.py",
-      "sha256": "956718f75d49c5df7dfd52ad1a57ff887946627e875e363625a13ef960b838ad",
+      "sha256": "cbdf99e6468062385b62072edcad09dda1f418fe8774e0d69b1296c80138b6a8",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/tests/test_release_behaviour.py",
-      "sha256": "2c9cd46903de120c14eb1538f1c6703306a186113ed1a0e03866030e31cf7a6d",
+      "sha256": "6a9be9403d4d18286c2f57dde75a626e92126f79586e96e35c77b891a183b803",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/tests/test_release_tools.py",
-      "sha256": "b03b8d2d4dabc89d07ff5efd751ec12ae5db20eca37f4c89cd3f0550d3b1d875",
+      "sha256": "244456fcd6f86280022a45ed52b790300e286dd55568d54aa53df2b02e8d0f47",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/tests/test_standalone.py",
-      "sha256": "5226d6116c6bddc7257600b008441a91fab2998879aeb286b21ca8522ba80015",
+      "sha256": "5f5a04acd00fe17791f6d05a8ff9b1d456091651acaa4779742717e941f43e8c",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
