@@ -1,0 +1,92 @@
+name: Attach matching release source
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing Weapon Evolution release tag
+        type: string
+        default: v0.3.2
+        required: true
+  push:
+    branches: [main]
+    paths: [.github/workflows/source-release.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weapon-evolution-release-source
+  cancel-in-progress: false
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Package the exact source recorded by the Windows build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p source-assets
+          gh api "repos/$GH_REPO/releases?per_page=100" > source-assets/releases.json
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import zipfile
+
+          root = Path.cwd()
+          output = root / "source-assets"
+          tag = os.environ["REQUESTED_TAG"] or json.loads(Path("mod/release.json").read_text())["tag"]
+          if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+              raise ValueError("Expected a Weapon Evolution version tag.")
+          releases = json.loads((output / "releases.json").read_text())
+          release, = [item for item in releases if item["tag_name"] == tag]
+          report_asset, = [item for item in release["assets"] if item["name"] == "release-build.json"]
+          report_bytes = subprocess.check_output([
+              "gh", "api", f"repos/{os.environ['GH_REPO']}/releases/assets/{report_asset['id']}",
+              "-H", "Accept: application/octet-stream",
+          ])
+          report = json.loads(report_bytes)
+          commit = report["commit"]
+          if report["release"] != tag or not re.fullmatch(r"[0-9a-f]{40}", commit):
+              raise ValueError("The release identity report has an invalid source revision.")
+          player, = [item for item in release["assets"] if item["name"] == report["archive"]]
+          if player.get("digest") != "sha256:" + report["sha256"]:
+              raise ValueError("The Windows ZIP does not match its release identity report.")
+          checkout = root / "release-source-checkout"
+          subprocess.run(["git", "worktree", "add", "--detach", str(checkout), commit], check=True)
+          subprocess.run(["python3", "tools/mod/check_source.py"], cwd=checkout, check=True)
+          profile = json.loads((checkout / "mod/release.json").read_text())
+          if profile["tag"] != tag or profile["patch"] != report["runtime"]["weapon_evolution_patch"]:
+              raise ValueError("The source revision does not match this gameplay release.")
+          stem = f"ReRAC_Weapon_Evolution_{tag[1:]}_source"
+          archive = output / (stem + ".zip")
+          subprocess.run([
+              "git", "archive", "--format=zip", f"--prefix={stem}/", "-o", str(archive), commit,
+          ], check=True)
+          tracked = subprocess.check_output(["git", "ls-tree", "-r", "--name-only", "-z", commit])
+          expected = {stem + "/" + path.decode() for path in tracked.split(b"\0") if path}
+          with zipfile.ZipFile(archive) as package:
+              actual = {item.filename for item in package.infolist() if not item.is_dir()}
+              if actual != expected or package.testzip() is not None:
+                  raise ValueError("Source ZIP failed the tracked-file integrity check.")
+          checksum = Path(str(archive) + ".sha256")
+          digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+          checksum.write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+          # No --clobber: preserve any existing assets, player binaries and release state.
+          subprocess.run(["gh", "release", "upload", tag, str(archive), str(checksum)], check=True)
+          print(f"Attached {archive.name}: {len(expected)} source files, commit {commit}, SHA256 {digest}")
+          PY

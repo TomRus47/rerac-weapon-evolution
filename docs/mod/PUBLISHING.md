@@ -57,9 +57,18 @@ Update `mod/release.json`, runtime identity and documented checks deliberately.
 For a future profile feature also update capability negotiation and all grades.
 
 Use [docs/releases/v0.3.2.md](../releases/v0.3.2.md) as the release body. Attach
-the player ZIP, its SHA256 and identity report as assets. GitHub automatically
-adds Source code ZIP/tar downloads for the tag; those contain the full source
-and no EXEs. A separate upload of the same source archive is unnecessary.
+the player ZIP, its SHA256 and identity report as assets. To attach an explicit
+developer download, run Actions > Attach matching release source with the
+existing release tag. It reads the Windows package's `release-build.json`,
+checks its ZIP digest, validates that exact source commit, and attaches
+`ReRAC_Weapon_Evolution_<version>_source.zip` and its SHA256. The ZIP contains
+the complete tracked project, launcher, configuration examples and developer
+documentation, without disc data or compiled EXEs. Existing assets and the
+release's draft/published state are preserved; uploads never replace assets.
+
+GitHub also adds its usual Source code ZIP/tar downloads when a tag exists.
+The explicitly named source asset remains tied to the compiled Windows
+package even if the default branch later receives more changes.
 
 Local INIs/presets/settings are ignored. The supplied launcher icon is tracked.
 The original export tags remain historical; do not rewrite published commits.
