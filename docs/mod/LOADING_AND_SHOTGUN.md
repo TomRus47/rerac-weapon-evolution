@@ -10,6 +10,13 @@ position rounds back to the previous position. The projectile remains alive,
 stationary, and keeps a dynamic slot indefinitely. The lifetime check now
 bounds that case; range/collision still delete earlier.
 
+An arithmetic-only scan using the exact `targeting::polar` and `guns::len3`
+functions also reproduces this with normal settings: range 30, speed 40,
+yaw 1.03 radians, pitch -0.23 radians. Position stopped changing at tick 45;
+the old predicate still considered the pellet alive after tick 100 with
+1.2924697e-26 range remaining. Its intended lifetime was 46 ticks. This is a
+floating-point trajectory reproduction, not a trace from the user's game.
+
 The firing loop previously charged ammo and then ignored all 35 allocation
 results. With fewer free slots, its row-major loop produced only the first rows;
 with no free slots it still charged ammo. Leaked stationary pellets can therefore

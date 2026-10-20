@@ -4,15 +4,38 @@
 
 - Python launcher/release suite: 89 tests passed on Linux, without failures.
 - Source/default/example/embedded-profile integrity: 1,168 approved INI values unchanged; custom icon byte-identical to v49.
-- Rust 1.99.1, Linux x64, optimized release: **975 game tests passed**; **154 formats tests passed, 1 ignored**. These local results preceded the added first-frame anchor assertion; the refreshed native suite and linked Windows build are in progress.
+- Rust 1.99.1, Linux x64, optimized release: **975 game tests passed**; **154 formats tests passed, 1 ignored**. The refreshed suite includes the first-frame particle-anchor assertion. The linked Windows build has also passed; see the exact package record below.
 - New fixtures cover whole-volley admission, allocation rollback/two-tick quarantine, visible pellet heads under particle pressure, residual-range lifetime expiry, normal range expiry, and shared recognition equivalence/cache lifetime.
 - Serialized synthetic recognition benchmark: median **4,903.198 ms before**, **115.333 ms after**, identical checksum in all six runs. This is only the repeated-recognition workload, not a planet-load speed claim. [Raw measurements](recognition-benchmark-v50.json).
-- In-game validation and exact Windows package results are still pending; see [LOADING_AND_SHOTGUN.md](LOADING_AND_SHOTGUN.md).
+- In-game validation is still pending; see [LOADING_AND_SHOTGUN.md](LOADING_AND_SHOTGUN.md).
 
 The Windows draft workflow gates packaging on source checks, library tests,
 linked compilation, runtime identity, launcher GUI self-test and packaging.
 A successful build does not establish planet-load speed or validate the user's
 exact saved encounter. No audio probes are enabled.
+
+## Completed v50 Windows build — 2026-10-20
+
+[Windows workflow run 39444201518](https://github.com/TomRus47/rerac-weapon-evolution/actions/runs/39444201518)
+passed both build and draft jobs for source commit
+`485a3124dea8613d8acf96795ef579642c29beeb`.
+
+- Linked Windows MSVC release: **975 game tests passed**; **154 formats tests passed, 1 ignored**.
+- Windows Python: **89 tests run, 1 platform-specific test skipped**; no failures.
+- The linked runtime passed exact patch **0.1.6.50**, capability **48**, editable-profile and clean-audio identity checks.
+- The frozen x64 launcher passed its Tcl/Tk GUI self-test; the supplied icon is retained.
+- Player asset: `ReRAC_Weapon_Evolution_0.3.2_windows_x64.zip`, **45,794,598 bytes**.
+- ZIP SHA256: `9b6fadb6b8344b7bc5da017b6b2af3e44d515d8e361cf64e624b5e4bfbfcd4ac`.
+- Draft v0.3.2 includes the ZIP, SHA256 sidecar and `release-build.json` identity report. Earlier published releases were preserved.
+- The prior superseded build was canceled before packaging, so the draft contains the final first-frame-anchor correction.
+
+A separate Windows x64 engine type-check also passed using a disposable copy
+with BLAKE3 pure mode enabled only there. The linked Windows workflow used the
+tracked production dependency configuration. No cross-check workaround is shipped.
+
+Keep the release a draft until the user's in-game shotgun and loading comparison
+is complete. Native source tests, linked compilation and packaging are verified;
+planet-load speed and the exact saved encounter have not been measured here.
 
 ---
 
