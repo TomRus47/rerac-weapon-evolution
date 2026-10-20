@@ -196,7 +196,7 @@ fn pre(w: &mut World, id: MobyId) {
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
     let st = w.m(id).state;
-    if res.out5 != 1 && st != 10 && st != 0xb {
+    if res.out5 != 1 && st != 10 && st != 0xb && !res.settle_quiet_stream(w, id, pv::D) {
         let hp = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, hp);
         if hp <= 0.0 {

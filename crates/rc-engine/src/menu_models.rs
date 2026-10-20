@@ -101,22 +101,26 @@ enum Role {
     Drone,
 }
 
-/// The 3D Ratchet's drone slots.
-const DRONE_SLOTS: usize = 8;
+/// Shared gameplay/preview capacity (native preview originally allocated eight slots).
+const DRONE_SLOTS: usize = rc_game::moby_update::classes::drone::MAX_DRONES;
 
 /// `spawn_extra479` 0x225180 for drone slot `k` at menu frame `frame`, around Ratchet at `pos` (yaw π, his rows' z up):
 /// with u = 2k (k < 3) or 2k + 1, the orbit angle a = ((frame mod 200)/200·2π − π) + ((u mod 6)·2π/6 − π) and the bob
 /// b = ((frame mod 170)/170·2π − π) + (u mod 6)·4π/6 (`fast_add_rotations`), the offset (cos a, sin a, 0.25·sin b +
 /// 0.5 + the fly-in) through his rows, the rows his turned about z by a + π/2. Returns (rows, position).
-fn drone_place(k: usize, frame: u64, fly: f32, pos: [f32; 3]) -> ([V4; 3], [f32; 3]) {
+fn drone_place(k: usize, count: usize, frame: u64, fly: f32, pos: [f32; 3]) -> ([V4; 3], [f32; 3]) {
     use rc_game::moby_update::creature::add_rot;
     use std::f32::consts::{FRAC_PI_2, PI, TAU};
-    let u = (if k < 3 { 2 * k } else { 2 * k + 1 } % 6) as f32;
-    let a = add_rot((frame % 200) as f32 / 200.0 * TAU - PI, u * TAU / 6.0 - PI);
+    let dense = count > 6;
+    let u = if dense { k as f32 } else { (if k < 3 { 2 * k } else { 2 * k + 1 } % 6) as f32 };
+    let divisor = if dense { count as f32 } else { 6.0 };
+    let a = add_rot((frame % 200) as f32 / 200.0 * TAU - PI, u * TAU / divisor - PI);
     // (The game's `fast_normalize_angle` of the second term is not kept: the term goes in as it is.)
     let b = add_rot((frame % 170) as f32 / 170.0 * TAU - PI, u * 12.566_36 / 6.0);
     // His rows (yaw π): x → −x, y → −y.
-    let off = [-a.cos(), -a.sin(), b.sin() * 0.25 + 0.5 + fly];
+    let radius = if dense { rc_game::moby_update::classes::drone::orbit_radius(count,
+        rc_game::weapon_evo::extra(24, "drone_size_multiplier", 1.0).max(1.0)) } else { 1.0 };
+    let off = [-a.cos() * radius, -a.sin() * radius, if dense { 0.5 + fly } else { b.sin() * 0.25 + 0.5 + fly }];
     let rows = moby_light::rotation_rows([0.0, 0.0, add_rot(a + FRAC_PI_2, PI)]);
     (rows, [pos[0] + off[0], pos[1] + off[1], pos[2] + off[2]])
 }
@@ -264,7 +268,7 @@ fn setup(
             607..=609 => &[Role::Back, Role::Item],
             433 | 1289 | 1290 => &[Role::Head, Role::Item],
             173 | 195 => &[Role::BootL, Role::BootR, Role::Item],
-            0x1df => &[Role::Item, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone],
+            0x1df => &[Role::Item, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone, Role::Drone],
             _ => &[Role::Hand, Role::Item],
         };
         for &r in roles {
@@ -646,7 +650,7 @@ fn update(
                     rc_game::moby_update::creature::turn::spring(0.0, 1.0, 6.0 * dt * dt, 6.0 * dt, &mut rt.drone_fly[slot], &mut rt.drone_vel[slot]);
                 }
             }
-            let (r, at) = drone_place(slot, gp.frame, rt.drone_fly[slot], pos);
+            let (r, at) = drone_place(slot, live, gp.frame, rt.drone_fly[slot], pos);
             let p = &rt.parts[k];
             placed[k] = Some(Placed { rows: r, pos: at, pose: moby_anim::evaluate_with_snapshot(&p.anim, &p.state, None) });
         }
@@ -734,7 +738,8 @@ fn update(
             if let Some(d) = palette.get_mut(at + i) { *d = b; }
         }
         let lights = rt.bank.as_ref().map(|bank| moby_light::moby_lights(&pl.rows, bank, frame::LIGHT_WORD, frame::AMBIENT, 0x80));
-        let model = fold * moby_render::extra_model(rows_f32(&pl.rows), p.scale, pl.pos);
+        let scale = if p.role == Role::Drone { p.scale * rc_game::weapon_evo::extra(24, "drone_size_multiplier", 1.0) } else { p.scale };
+        let model = fold * moby_render::extra_model(rows_f32(&pl.rows), scale, pl.pos);
         let r = moby_render::extra_record(&model, lights.as_ref(), p.base);
         let o = k * moby_render::EXTRA_RECORD_SIZE;
         if let Some(d) = records.get_mut(o..o + r.len()) { d.copy_from_slice(&r); }

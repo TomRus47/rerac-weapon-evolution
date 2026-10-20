@@ -69,6 +69,7 @@ pub struct LevelBundle {
 /// every change.
 pub fn load_bundle(root: &std::path::Path, index: u32, save: &rc_formats::moby_spawn::SpawnSave) -> anyhow::Result<LevelBundle> {
     let mut level = crate::level_load::load_level(root, index)?;
+    crate::gameplay::prepare_level_tables(root, index);
     let spawn = crate::moby_spawn::apply_load_pass(root, index, &mut level, save)?;
     let fog = crate::fog_state::FogState::new(crate::fog_state::load(root, index)?, &level.fog);
     Ok(LevelBundle { index, level, spawn, fog })

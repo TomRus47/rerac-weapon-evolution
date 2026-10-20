@@ -518,7 +518,7 @@ fn hits(w: &mut World, id: MobyId) {
         if h.attacker_class(w.table).is_some_and(|class| class == own || class == 0x370) { hit = None; }
     }
     let r = damage::resolve(w, id, hit, o::D, 0, 4);
-    if r.out5 != 1 && w.m(id).state != 9 {
+    if r.out5 != 1 && w.m(id).state != 9 && !r.settle_quiet_stream(w, id, o::D) {
         let health = c::pf(w, id, o::D) - r.damage;
         c::set_pf(w, id, o::D, health);
         let reaction = if health <= 0.0 { 1 } else { r.reaction };

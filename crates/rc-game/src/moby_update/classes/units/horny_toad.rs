@@ -164,7 +164,7 @@ fn pre(w: &mut World, id: MobyId) {
     }
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && state(w, id) != st::DYING && res.damage != 0.0 {
+    if res.out5 != 1 && state(w, id) != st::DYING && res.damage != 0.0 && !res.settle_quiet_stream(w, id, pv::D) {
         let kr = pv::K;
         c::set_pu8(w, id, kr + 0x3d, 0);
         c::set_pf(w, id, kr + knock::k::GRAVITY, k::GRAVITY * c::DT2);

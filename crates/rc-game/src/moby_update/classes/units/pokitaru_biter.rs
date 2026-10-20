@@ -241,10 +241,10 @@ fn pre(w: &mut World, id: MobyId) -> bool {
     }
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && state(w, id) != st::DYING {
+    if res.out5 != 1 && state(w, id) != st::DYING && !res.settle_quiet_stream(w, id, pv::D) {
         let hp = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, hp);
-        let wrench = res.hit.and_then(|h| h.attacker_class(w.table)).is_some_and(|class| class == 0x47);
+        let wrench = res.hit.filter(|h| !h.damage_only()).and_then(|h| h.attacker_class(w.table)).is_some_and(|class| class == 0x47);
         let mut reaction = if wrench { 3 } else { res.reaction };
         if hp <= 0.0 { reaction = 1; }
         let kr = pv::K;

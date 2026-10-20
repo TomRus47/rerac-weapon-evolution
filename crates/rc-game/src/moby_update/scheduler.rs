@@ -351,6 +351,11 @@ pub fn run_moby(w: &mut World, id: MobyId) {
     // A Taunter stun pauses creature behaviour, not animation, collision or
     // rendering. The normal class update resumes after its absolute expiry tick.
     let frozen = w.svc.evo_stuns.frozen(id, o_class, w.counter);
+    if frozen {
+        if let Some(mut movement)=w.svc.evo_stuns.launch_step(id) {
+            super::creature::walker::move_collide(w,id,0.5,0.3,0.02,&mut movement,0);
+        }
+    }
     let lethal_while_frozen = frozen && super::creature::damage::frozen_damage(w, id);
     if !frozen || lethal_while_frozen {
     if w.svc.bomb_evo.real_hp_enabled() { w.svc.hits.publish_real_head(w.table,id); }

@@ -129,11 +129,12 @@ pub fn start(w: &mut World, id: MobyId, kr: usize, angle: f32, seq: u8, ticks: i
 /// growing by `rand_range(40, 60)`, additive.
 pub fn burn_sparks(w: &mut World, id: MobyId, vel: super::V, prims: u32) {
     let pts = crate::moby_update::classes::breakables::volume_points(w, id, 14.0, 20, prims);
-    let gold = w.hero.weapons.gold[crate::hero::pyrocitor::PYROCITOR as usize] != 0;
+    let owner = w.svc.hits.real_hp.burn_colors.get(&id).copied();
+    let gold = owner.is_none_or(|(item,_)|item!=17) && w.hero.weapons.gold[crate::hero::pyrocitor::PYROCITOR as usize] != 0;
     let (mut c1, mut c2) = if gold { (0x7000_ffa0, 0xff00) } else { (0x7000_a0ff, 0xff) };
     // This is the victim's burning/death animation, separate from the weapon nozzle.
     // Per-level colour overrides the gold variant too; original behaviour when unset.
-    if let Some(rgb) = crate::weapon_evo::pyro_burn_color() {
+    if let Some(rgb) = owner.map_or_else(crate::weapon_evo::pyro_burn_color,|(_,color)|color) {
         c1 = 0x7000_0000 | rgb;
         c2 = (rgb & 0x00fe_fefe) >> 1;
     }

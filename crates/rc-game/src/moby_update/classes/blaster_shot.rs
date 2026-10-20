@@ -135,11 +135,38 @@ pub fn trail_curve(t: f32) -> f32 {
 /// hero's particle spawns), or — muzzle behind a face — its sparks and smoke and no shot.
 #[allow(clippy::too_many_arguments)]
 pub fn spawn(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::MobyTable, env: &crate::hero::items::ItemEnv, hits: &mut dyn crate::hero::items::HitSink, rng: &mut crate::rng::Rng, aim: (f32, f32), rot: (f32, f32), muzzle: [f32; 3], owner_pos: [f32; 3], target: Option<MobyId>, gold: i32) -> Option<MobyId> {
+    spawn_impl(hero, table, env, hits, rng, aim, rot, muzzle, owner_pos, target, gold, None)
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct RynoPellet {
+    pub hp: f32, pub speed: f32, pub range: f32, pub size: f32,
+    pub colors: [Option<u32>; 3],
+}
+const RYNO_TAG: u32 = 0x5745_5035;
+const PELLET_LEN: usize = 0x90;
+
+pub fn is_ryno_pellet(m: &crate::moby_runtime::Moby) -> bool {
+    m.o_class == CLASS && m.pvars.len() >= PELLET_LEN && p::u32(&m.pvars, 0x80) == RYNO_TAG
+}
+
+pub fn spawn_ryno(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::MobyTable,
+    env: &crate::hero::items::ItemEnv, hits: &mut dyn crate::hero::items::HitSink, rng: &mut crate::rng::Rng,
+    aim: (f32, f32), muzzle: [f32; 3], pellet: RynoPellet) -> Option<MobyId> {
+    let owner = crate::hero::physics::to_f32x3(hero.pos);
+    spawn_impl(hero, table, env, hits, rng, aim, aim, muzzle, owner, None, 0, Some(pellet))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn spawn_impl(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::MobyTable, env: &crate::hero::items::ItemEnv,
+    hits: &mut dyn crate::hero::items::HitSink, rng: &mut crate::rng::Rng, aim: (f32,f32), rot: (f32,f32),
+    muzzle: [f32;3], owner_pos: [f32;3], target: Option<MobyId>, gold: i32, pellet: Option<RynoPellet>) -> Option<MobyId> {
     let id = hits.create_moby(table, CLASS, env.frame as u64)?;
     let (light, ambient) = table.mobys.get(env.hero_moby).map_or((0, [0x40; 4]), |h| (h.light, h.ambient));
     let tp = target.and_then(|t| table.mobys.get(t)).map(crate::targeting::aim_point);
-    let life = crate::targeting::reach::blaster(gold).0;
-    let colors = ShotColors::configured();
+    let life = pellet.map_or_else(|| crate::targeting::reach::blaster(gold).0, |p| (p.range / p.speed * 60.0).ceil() as i32 + 1);
+    let colors = pellet.map_or_else(ShotColors::configured, |p| ShotColors { projectile: p.colors[0], trail: p.colors[1], impact: p.colors[2] });
+    let size_k = pellet.map_or(1.0, |p| p.size);
     {
         let m = &mut table.mobys[id];
         if m.pvars.len() < 0x80 { m.pvars.resize(0x80, 0); }
@@ -160,6 +187,16 @@ pub fn spawn(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::Moby
         p::set_i16(&mut m.pvars, pv::LIFE, life as i16);
         p::set_i32(&mut m.pvars, pv::BOUNCE, 0);
         colors.store(m);
+        if let Some(pellet) = pellet {
+            m.pvars.resize(PELLET_LEN, 0);
+            p::set_u32(&mut m.pvars, 0x80, RYNO_TAG);
+            p::set_ff(&mut m.pvars, 0x84, pellet.speed);
+            p::set_ff(&mut m.pvars, 0x88, pellet.range);
+            p::set_ff(&mut m.pvars, 0x8c, pellet.hp);
+            m.scale *= pellet.size;
+            m.update_dist = 0xff;
+            m.draw_dist = 0xff;
+        }
     }
     let from = [owner_pos[0], owner_pos[1], muzzle[2]];
     let f4 = |a: [f32; 3]| [Pf::f(a[0]), Pf::f(a[1]), Pf::f(a[2]), Pf::ZERO];
@@ -172,14 +209,14 @@ pub fn spawn(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::Moby
         None => {
             let glow_rng = *rng;
             let _ = rng.rand();
-            hero.fx.parts.push(PartSpawn::Glow26 { size: GLOW_SIZE, moby: id, rgba: colors.projectile(0x2f4f_7f7f), life, at: muzzle, rng: glow_rng });
+            hero.fx.parts.push(PartSpawn::Glow26 { size: GLOW_SIZE * size_k, moby: id, rgba: colors.projectile(0x2f4f_7f7f), life, at: muzzle, rng: glow_rng });
             for i in 0..TRAIL {
                 let draws = crate::particles::type72::Draws::draw(rng);
                 let mut size = rng.randf(TRAIL_LO, TRAIL_HI);
                 let f = trail_curve(i as f32 / 16.0);
                 size += (TRAIL_END - size) * f;
                 let a = (f * -64.0 + 128.0) as i32 as u32;
-                hero.fx.parts.push(PartSpawn::Trail72 { moby: id, slot: i as u8, pos: at(muzzle), draws, size, rgba: colors.trail(a << 24 | 0xff_ffff) });
+                hero.fx.parts.push(PartSpawn::Trail72 { moby: id, slot: i as u8, pos: at(muzzle), draws, size: size * size_k, rgba: colors.trail(a << 24 | 0xff_ffff) });
             }
             Some(id)
         }
@@ -303,6 +340,7 @@ fn finish(w: &mut World, id: MobyId) {
 
 /// `0x2e2170`.
 pub fn update(w: &mut World, id: MobyId) {
+    if is_ryno_pellet(w.m(id)) { return update_ryno(w, id); }
     if w.m(id).pvars.len() < 0x80 { w.mm(id).pvars.resize(0x80, 0); }
     take_links(w, id);
     let (dt, dt2) = (DT, DT * DT);
@@ -556,4 +594,30 @@ mod tests {
         assert_eq!(impact_records(custom, 0), impact_records(ShotColors::default(), 0),
             "the shared turret effect must remain byte-identical");
     }
+}
+
+/// Straight independent pellets retain the native model, glow, trail and impact.
+fn update_ryno(w: &mut World, id: MobyId) {
+    take_links(w, id);
+    let pvs = &w.m(id).pvars;
+    let (speed, left, hp) = (p::ff(pvs, 0x84), p::ff(pvs, 0x88), p::ff(pvs, 0x8c));
+    let old4 = w.m(id).position;
+    let old = [old4[0], old4[1], old4[2]];
+    let step = polar((speed * DT).min(left), p::ff(pvs, pv::YAW), -p::ff(pvs, pv::PITCH));
+    let pos = add3(old, step);
+    w.svc.hits.real_hp.set_source_damage_hp(id, 23, hp);
+    let tmpl = HitTemplate { dir: [Pf::f(step[0]), Pf::f(step[1]), Pf::ONE, Pf::b(0x45af_df66)],
+        attacker: Some(id), flags: 0x10001, b18: 1, b19: 1, h1a: CLASS as u16, damage: Pf::f(hp / 100.0), w20: 1 };
+    let f4 = |a: [f32;3]| [Pf::f(a[0]),Pf::f(a[1]),Pf::f(a[2]),Pf::ONE];
+    let owner = owner(w, id);
+    let hit = sv::line_hit_in(w.table, w.svc, w.classes, w.coll, f4(old), f4(pos), 0, owner, &tmpl);
+    let new = hit.as_ref().map_or(pos, |h| h.point);
+    w.mm(id).position = [new[0], new[1], new[2], 1.0];
+    p::set_ff(&mut w.mm(id).pvars, 0x88, (left - len3(step)).max(0.0));
+    let life = p::i16(&w.m(id).pvars, pv::LIFE).saturating_sub(1);
+    p::set_i16(&mut w.mm(id).pvars, pv::LIFE, life);
+    if hit.is_some() || left <= len3(step) || !crate::moby_update::creature::projectile::in_world(w.m(id).position) {
+        end(w, id, hit.is_some());
+        w.delete_moby(id);
+    } else { trail(w, id, old); }
 }

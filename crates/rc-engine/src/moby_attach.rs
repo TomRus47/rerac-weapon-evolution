@@ -398,7 +398,7 @@ fn build(
     };
     // Placement before the first tick (the game creates the items in the first hero update).
     let host = &anim.instances[host_k];
-    place(&mut a, &level.mobys.anim[placed.class], &host.state, anim.snapshots[host_k].as_ref(), false, false, &[]);
+    place(&mut a, &level.mobys.anim[placed.class], &host.state, anim.snapshots[host_k].as_ref(), false, false, &[], &[], &[]);
     for (slot, (item, class)) in a.items.iter_mut().zip(&geometry).enumerate() {
         let t = Transform::from_matrix(model_of(item));
         item.entities = a.extra.spawn(commands, level, class, slot as u32, t, item.name, meshes, images, materials);
@@ -474,13 +474,22 @@ fn model_of(item: &Item) -> Mat4 { moby_render::extra_model(rows_f32(&item.rows)
 /// Steps 2–3 of the tick (module docs): attach matrices from Ratchet's current state, then every item's
 /// position, (optionally) advance, rows, column normalisation.
 /// `mods`: the host's joint-modifier list (moby +0x64; Ratchet's head look / lean when the game ticks).
-fn place(a: &mut MobyAttach, host_class: &MobyAnimClass, host: &AnimState, snap: Option<&MobyFrame>, advance_back: bool, advance_hand: bool, mods: &[moby_anim::JointModifier]) {
+fn place(a: &mut MobyAttach, host_class: &MobyAnimClass, host: &AnimState, snap: Option<&MobyFrame>, advance_back: bool, advance_hand: bool, mods: &[moby_anim::JointModifier], layers: &[moby_anim::PoseLayer], yaws: &[moby_anim::JointYaw]) {
     let chains: Vec<&[u8]> = a.chains.iter().map(|c| c.1.as_slice()).collect();
     let ps = moby_anim::evaluate_chains_posed(host_class, host, snap, &chains, &[], mods);
     let ws: Vec<(usize, Rows)> = a.chains.iter().zip(&ps).map(|(c, p)| (c.0, moby_anim::attach_matrix(p, &a.host_rows, a.host_pos, a.host_scale))).collect();
+    // Correct only replacement feet. Native hand, back and head placement is unchanged.
+    let mut foot_ws = Vec::new();
+    if !layers.is_empty() || !yaws.is_empty() {
+        let feet: Vec<_> = a.chains.iter().filter(|c| [worn::LEFT_BOOT_ATTACH, worn::RIGHT_BOOT_ATTACH].contains(&c.0)).collect();
+        let foot_chains: Vec<&[u8]> = feet.iter().map(|c| c.1.as_slice()).collect();
+        let poses = moby_anim::evaluate_chains_posed_yaw(host_class, host, snap, &foot_chains, layers, mods, yaws);
+        foot_ws = feet.iter().zip(&poses).map(|(c, pose)| (c.0, moby_anim::attach_matrix(pose, &a.host_rows, a.host_pos, a.host_scale))).collect();
+    }
     for item in &mut a.items {
         if matches!(item.attach.slot, Slot::Hook | Slot::Antenna) { continue; }
-        let Some(&(_, w)) = ws.iter().find(|(l, _)| *l == item.attach.joint_list) else { continue };
+        let placements = if item.attach.slot == Slot::Feet && !foot_ws.is_empty() { &foot_ws } else { &ws };
+        let Some(&(_, w)) = placements.iter().find(|(l, _)| *l == item.attach.joint_list) else { continue };
         item.position = [w[3][0], w[3][1], w[3][2]];
         let adv = match item.attach.slot {
             Slot::Back => advance_back,
@@ -551,7 +560,9 @@ fn update(attach: Option<ResMut<MobyAttach>>, anim: Option<Res<MobyAnim>>, level
     }
     let (k, class) = (a.host_k, &level.0.mobys.anim[a.host_class]);
     let mods = play.as_ref().map(|p| p.game.mobys.mobys[p.game.hero_moby].joint_mods.clone()).unwrap_or_default();
-    place(&mut a, class, &anim.instances[k].state, anim.snapshots[k].as_ref(), back.is_none(), hand.is_none(), &mods);
+    let layers: Vec<_> = play.as_ref().map(|p| p.ratchet.legs.layer().into_iter().chain(p.ratchet.legs.idle_layer()).collect()).unwrap_or_default();
+    let yaws = play.as_ref().map_or(&[][..], |p| p.ratchet.legs.yaws.as_slice());
+    place(&mut a, class, &anim.instances[k].state, anim.snapshots[k].as_ref(), back.is_none(), hand.is_none(), &mods, &layers, yaws);
     place_antenna(&mut a, play.as_ref().map(|p| p.game.hero.idle.counter));
     // The worn items (item slots 1 and 2, rc_game::hero::worn): the class of the slot's item shows while the slot
     // has its moby (states 2 and 3), hidden with Ratchet's items (first person; Clank hidden does not hide them).
@@ -581,7 +592,8 @@ fn update(attach: Option<ResMut<MobyAttach>>, anim: Option<Res<MobyAnim>>, level
                 _ if item.o_class == SONIC_SUMMONER_O_CLASS => (&worn::SONIC_SUMMONER_JOINTS, 6),
                 _ => (&worn::HEAD_JOINTS, 0),
             };
-            item.snapshot = worn::pose_from_host(class, &host_state, host_snap.as_ref(), &item.anim, joints, extra);
+            let foot_layers = if item.attach.slot == Slot::Feet { layers.as_slice() } else { &[] };
+            item.snapshot = worn::pose_from_host_layered(class, &host_state, host_snap.as_ref(), &item.anim, joints, extra, foot_layers);
             item.state = worn::posed_state();
         }
     }

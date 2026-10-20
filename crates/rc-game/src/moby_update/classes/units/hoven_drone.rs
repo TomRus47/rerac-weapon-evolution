@@ -519,7 +519,7 @@ fn intake(w: &mut World, id: MobyId) {
     if r.out5 != 1 && w.m(id).state != 6 {
         if let Some(rec) = r.hit.or(hit) {
             let class = rec.attacker_class(w.table).unwrap_or(-1);
-            if class != GUN_SHOT && class != SHOT {
+            if class != GUN_SHOT && class != SHOT && !r.settle_quiet_stream(w, id, pvo::D) {
                 let dmg = if class == SHELL { 10.0 } else { r.damage };
                 let hp = c::pf(w, id, pvo::D) - dmg;
                 c::set_pf(w, id, pvo::D, hp);

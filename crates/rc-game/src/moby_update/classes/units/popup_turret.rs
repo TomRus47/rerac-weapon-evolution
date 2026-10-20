@@ -190,7 +190,7 @@ pub fn hits(w: &mut World, id: MobyId) {
         if ac == own || ac == SHOT_CLASSES[0] { hit = None; }
     }
     let r = damage::resolve(w, id, hit, pv::RECORD, 0, 4);
-    if r.out5 != 1 && w.m(id).state != 6 {
+    if r.out5 != 1 && w.m(id).state != 6 && !r.settle_quiet_stream(w, id, pv::RECORD) {
         let h = c::pf(w, id, pv::RECORD) - r.damage;
         c::set_pf(w, id, pv::RECORD, h);
         let reaction = if h <= 0.0 { 1 } else { r.reaction };

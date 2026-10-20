@@ -350,7 +350,7 @@ fn prologue(w: &mut World, id: MobyId) -> bool {
     }
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && st != 8 {
+    if res.out5 != 1 && st != 8 && !res.settle_quiet_stream(w, id, pv::D) {
         let h = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, h);
         let mut reaction = res.reaction as i32;

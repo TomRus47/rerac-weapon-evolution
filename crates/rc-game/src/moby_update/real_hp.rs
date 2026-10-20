@@ -7,6 +7,10 @@ use super::services::{HitRecord, HitTemplate};
 use crate::ps2v::Pf;
 
 pub const HP_SCALE: f32 = 100.0;
+pub const TESLA_SECONDARY: u32 = 0x4000_0000;
+pub const TESLA_OVERLAP: u32 = 0x2000_0000;
+/// Three seconds at the native 60 Hz reference rate; World::ticks adapts PAL.
+pub const STREAM_REACTION_INTERVAL_TICKS: i32 = 180;
 
 /// The source at impact time. Its moby can be deleted before the target updates.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -17,6 +21,8 @@ pub struct Origin {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Attack {
+    /// None for non-fire hits; Some(None) means native fire without a colour override.
+    pub burn_color: Option<Option<u32>>,
     pub origin: Option<Origin>,
     pub instance: u64,
     pub weapon: i32,
@@ -42,7 +48,11 @@ pub struct Events {
     pub values: HashMap<i32, f32>,
     /// Pyrocitor, Tesla: number of actual contact ticks per damage pulse.
     pub stream_intervals: [u32; 2],
-    streams: HashMap<(MobyId, MobyId, i32), StreamPulse>,
+    streams: HashMap<(MobyId, MobyId, i32, u8), StreamPulse>,
+    /// Per-target deadline shared by Blaster, fire and electricity. Damage has its own clock.
+    stream_reactions: HashMap<MobyId, u64>,
+    pub burn_colors: HashMap<MobyId, (i32, Option<u32>)>,
+    source_damage_hp: HashMap<(MobyId, i32), f32>,
     next: u64,
     muzzle_bound: bool,
     sources: HashMap<(MobyId, i32, u64), u64>,
@@ -82,6 +92,16 @@ pub fn weapon(t: &HitTemplate, hero: Option<MobyId>) -> Option<i32> {
 }
 
 impl Events {
+    pub fn stream_reaction_ready(&self, target: MobyId, frame: u64) -> bool {
+        self.stream_reactions.get(&target).is_none_or(|&deadline| frame >= deadline)
+    }
+    /// Commit only after a native class accepts a nonlethal health loss.
+    pub fn commit_stream_reaction(&mut self, target: MobyId, frame: u64, interval: u64) {
+        self.stream_reactions.insert(target, frame.saturating_add(interval));
+    }
+    pub fn set_source_damage_hp(&mut self, source: MobyId, weapon: i32, hp: f32) {
+        if hp.is_finite() && hp >= 0.0 { self.source_damage_hp.insert((source, weapon), hp); }
+    }
     pub fn on_spawn(&mut self, id: MobyId, class: i16) {
         if !self.enabled || class != 305 { return; }
         let Some(hero) = self.hero else { return; };
@@ -97,15 +117,21 @@ impl Events {
     /// True means delivery was handled, including a duplicate or contact-only sweep.
     pub fn queue(&mut self, table: &MobyTable, target: MobyId, t: &HitTemplate, sweep: bool, pos: [Pf; 4], prim: i32) -> bool {
         if !self.enabled || !table.mobys.get(target).is_some_and(donor) { return false; }
-        let Some(item) = weapon(t, self.hero) else {
+        let item = if t.attacker.and_then(|id| table.mobys.get(id)).is_some_and(super::classes::mouse::companion::owned_shot) {
+            Some(24)
+        } else if t.attacker.and_then(|id| table.mobys.get(id)).is_some_and(super::classes::blaster_shot::is_ryno_pellet) {
+            Some(23)
+        } else { weapon(t, self.hero) };
+        let Some(item) = item else {
             // A Doom bot's contact never becomes HP damage; detonation owns it.
             return t.h1a == 186;
         };
         // Direct missile/grenade contact triggers the blast but must not double it.
-        if sweep && matches!(item, 10 | 11 | 13 | 20 | 23) { return true; }
+        if sweep && matches!(item, 10 | 11 | 13 | 20 | 23) && !(item == 23 && t.h1a == 305) { return true; }
         let Some(attacker) = t.attacker else { return false; };
-        let stream = item == 16 || item == 19;
-        let phase = if item == 18 { self.melee_serial } else if stream || item == 14 || t.h1a == 168 { self.frame } else { u64::MAX };
+        let stream = item == 16 || item == 19 || (item == 17 && t.b18 == 5);
+        let channel = u8::from(item == 19 && t.w20 & TESLA_SECONDARY != 0);
+        let phase = if item == 18 { self.melee_serial } else if stream || item == 14 || t.h1a == 168 { self.frame.saturating_mul(2) + channel as u64 } else { u64::MAX };
         let key = (attacker, item, phase);
         let instance = match self.sources.get(&key).copied() {
             Some(id) => id,
@@ -124,12 +150,15 @@ impl Events {
             }
             return true;
         }
-        let hp = self.values.get(&item).copied().unwrap_or_else(|| t.damage.to_f32() * HP_SCALE);
+        let hp = self.source_damage_hp.get(&(attacker, item)).or_else(|| self.values.get(&item)).copied().unwrap_or_else(|| t.damage.to_f32() * HP_SCALE);
+        let hp = if item == 19 && t.w20 & TESLA_OVERLAP != 0 {
+            hp * crate::weapon_evo::extra(19, "secondary_beam_damage_percent", 25.0) / 100.0
+        } else { hp };
         let mut damage = hp / HP_SCALE / if stream { 60.0 } else { 1.0 };
         if !damage.is_finite() || damage <= 0.0 { return true; }
         if stream {
-            let interval = self.stream_intervals[usize::from(item == 19)].clamp(1, 600);
-            let pulse = self.streams.entry((target, attacker, item)).or_default();
+            let interval = if item == 17 { 1 } else { self.stream_intervals[usize::from(item == 19)].clamp(1, 600) };
+            let pulse = self.streams.entry((target, attacker, item, channel)).or_default();
             pulse.damage += damage;
             pulse.contact_ticks += 1;
             // Only real contact contributes: no full-interval burst on a tap,
@@ -138,11 +167,26 @@ impl Events {
             damage = pulse.damage;
             *pulse = StreamPulse::default();
         }
+        // The port uses Ratchet's moby as the source of both continuous weapons.
+        // Preserve his position/ownership, but expose the weapon class to native
+        // enemy filters: otherwise fire/electricity is mistaken for the wrench.
+        let stream_class = match item { 17 if stream => Some(176), 16 => Some(176), 19 => Some(177), _ => None };
         let r = HitRecord { pos, dir: t.dir, attacker: t.attacker, flags: t.flags,
-            b28: t.b18, b29: t.b19, h2a: t.h1a, damage: Pf::f(damage), w30: t.w20,
+            b28: t.b18, b29: t.b19, h2a: stream_class.unwrap_or(t.h1a as i16) as u16, damage: Pf::f(damage), w30: t.w20 & !TESLA_OVERLAP,
             target, prim, doom_explosion: 0,
-            evolution: Some(Attack { instance, weapon: item, damage, damage_only: false,
-                origin: table.mobys.get(attacker).map(|m| Origin { class: m.o_class, position: m.position }) }) };
+            evolution: Some(Attack { burn_color: if item == 16 { Some(crate::weapon_evo::pyro_burn_color()) }
+                else if item == 17 { Some(table.mobys.get(attacker).and_then(super::classes::mine::experimental::burn_color)) }
+                else { None }, instance, weapon: item, damage, damage_only: false,
+                origin: table.mobys.get(attacker).map(|m| Origin { class: stream_class.unwrap_or(m.o_class), position: m.position }) }) };
+        if stream {
+            if let Some(old) = self.pending.get_mut(&target).and_then(|q| q.iter_mut().find(|h|
+                h.attacker == Some(attacker) && h.w30 == r.w30 && h.evolution.is_some_and(|a|
+                    a.weapon == item && !self.resolved.contains(&(target, a.instance))))) {
+                old.damage = Pf::f(old.damage.to_f32() + damage);
+                if let Some(a) = &mut old.evolution { a.damage += damage; }
+                return true;
+            }
+        }
         self.pending.entry(target).or_default().push_back(r);
         true
     }
@@ -182,7 +226,9 @@ impl Events {
         (loss, *hp <= 0.000_001)
     }
     pub fn forget(&mut self, id: MobyId) {
-        self.pending.remove(&id); self.logical.remove(&id);
+        self.pending.remove(&id); self.logical.remove(&id); self.burn_colors.remove(&id);
+        self.stream_reactions.remove(&id);
+        self.source_damage_hp.retain(|(source, _), _| *source != id);
         // Keep confirmed hits on other targets, but never let their source pointer
         // follow a recycled slot. Origin and weapon attribution remain immutable.
         for queue in self.pending.values_mut() {
@@ -190,7 +236,7 @@ impl Events {
                 if hit.attacker == Some(id) { hit.attacker = None; }
             }
         }
-        self.streams.retain(|(target, source, _), _| *target != id && *source != id);
+        self.streams.retain(|(target, source, _, _), _| *target != id && *source != id);
         self.queued.retain(|(t, _)| *t != id); self.resolved.retain(|(t, _)| *t != id);
         self.terminal_seen.retain(|(t, _)| *t != id);
         self.sources.retain(|(source, _, _), _| *source != id);
@@ -274,6 +320,22 @@ mod tests {
         for tick in 0..60 { e.begin_frame(tick); for _ in 0..20 { e.queue(&t,0,&template(177,10),false,[Pf::ZERO;4],0); }
             damage+=e.take(0,u32::MAX).unwrap().damage.to_f32(); assert!(e.take(0,u32::MAX).is_none()); }
         assert!((damage*HP_SCALE-240.0).abs()<0.001);
+    }
+    #[test]
+    fn continuous_weapon_identity_is_not_ratchets_body_or_the_wrench() {
+        for (item, class) in [(16, 176), (19, 177)] {
+            let mut t = table();
+            t.mobys.push(Moby { o_class: 0, state: 1, position: [10.0; 4], ..Default::default() });
+            let mut e = Events { enabled: true, hero: Some(1), stream_intervals: [1; 2], ..Default::default() };
+            let mut tmpl = template(class, 1); tmpl.b18 = 5;
+            if item == 16 { tmpl.h1a = 0; } // direct nozzle hit
+            e.queue(&t, 0, &tmpl, false, [Pf::ZERO; 4], 0);
+            let hit = e.take(0, u32::MAX).unwrap();
+            assert_eq!(hit.h2a, class);
+            assert_eq!(hit.attacker_class(&t), Some(class as i16));
+            assert_eq!(hit.attacker_position(&t), Some([10.0; 4]));
+            assert_eq!(hit.evolution.unwrap().weapon, item);
+        }
     }
     fn flow_template(class: u16) -> HitTemplate {
         let mut t = template(class, 10);
@@ -364,4 +426,78 @@ mod tests {
         e.melee_serial=1;e.begin_frame(2);e.queue(&t,0,&template(180,10),false,[Pf::ZERO;4],0);assert!(e.take(0,u32::MAX).is_some());
     }
 
+    #[test]
+    fn mini_bomb_damage_is_snapshotted_and_each_blast_has_one_identity() {
+        let mut t = table();
+        for _ in 0..2 { t.mobys.push(Moby { o_class: 121, state: 1, ..Moby::default() }); }
+        let mut e = Events { enabled: true, ..Default::default() };
+        e.values.insert(10,200.0);
+        e.set_source_damage_hp(1,10,20.0); e.set_source_damage_hp(2,10,20.0);
+        e.values.insert(10,1000.0); // The main weapon levels up before the children land.
+        for source in [1,1,1,2] { e.queue(&t,0,&template(121,source),false,[Pf::ZERO;4],0); }
+        let a=e.take(0,u32::MAX).unwrap();let b=e.take(0,u32::MAX).unwrap();
+        assert!((a.damage.to_f32()-0.2).abs()<0.0001);assert_eq!(a.damage,b.damage);
+        assert_ne!(a.evolution.unwrap().instance,b.evolution.unwrap().instance);
+        assert!(e.take(0,u32::MAX).is_none());
+        e.forget(1);e.queue(&t,0,&template(121,1),false,[Pf::ZERO;4],0);
+        assert_eq!(e.take(0,u32::MAX).unwrap().damage.to_f32(),10.0,"reused slots lose the child override");
+    }
+    #[test]
+    fn overlapping_flame_lanes_count_one_contact_tick_per_target() {
+        let t=table();let mut e=Events { enabled:true,hero:Some(10),stream_intervals:[1,1],..Default::default() };
+        e.values.insert(16,600.0);
+        for _ in 0..20 { e.queue(&t,0,&flow_template(176),false,[Pf::ZERO;4],0); }
+        assert!((e.take(0,u32::MAX).unwrap().damage.to_f32()*HP_SCALE-10.0).abs()<0.001);
+        assert!(e.take(0,u32::MAX).is_none());
+    }
+
+}
+
+/// Shared reaction gate for rapid projectiles and continuous sources. HP loss
+/// and XP always use their own instance/contact clocks.
+pub fn rapid_attack(a: Attack) -> bool {
+    matches!(a.weapon, 15 | 16 | 19)
+        || (a.weapon == 17 && a.origin.is_some_and(|o| o.class == 176))
+        || (a.weapon == 23 && a.origin.is_some_and(|o| o.class == 305))
+}
+
+#[cfg(test)]
+mod v45_tests {
+    use super::*;
+    #[test]
+    fn tesla_channels_keep_full_separate_target_damage_and_quarter_overlap() {
+        let table=MobyTable::new(vec![Moby{o_class:577,state:1,..Default::default()}],0);
+        for overlap in [false,true] {
+            let mut e=Events{enabled:true,stream_intervals:[1;2],..Default::default()};
+            e.values.insert(19,240.0);
+            let mut t=HitTemplate{attacker:Some(10),flags:0x210000,h1a:177,b18:5,b19:3,damage:Pf::ONE,w20:1,..Default::default()};
+            for frame in 0..60 {
+                e.begin_frame(frame);
+                t.w20=1;e.queue(&table,0,&t,false,[Pf::ZERO;4],0);
+                t.w20=1|TESLA_SECONDARY|if overlap{TESLA_OVERLAP}else{0};
+                e.queue(&table,0,&t,false,[Pf::ZERO;4],0);
+                let a=e.take(0,u32::MAX).unwrap();let b=e.take(0,u32::MAX).unwrap();
+                assert!((a.damage.to_f32()*100.0-4.0).abs()<0.0001);
+                assert!((b.damage.to_f32()*100.0-if overlap{1.0}else{4.0}).abs()<0.0001);
+                assert_ne!(a.evolution.unwrap().instance,b.evolution.unwrap().instance);
+                assert!(e.take(0,u32::MAX).is_none());
+            }
+        }
+    }
+    #[test]
+    fn unconsumed_stream_contact_is_bounded_without_losing_hp() {
+        let table=MobyTable::new(vec![Moby{o_class:577,state:1,..Default::default()}],0);
+        let mut e=Events{enabled:true,stream_intervals:[1;2],..Default::default()};e.values.insert(19,600.0);
+        let t=HitTemplate{attacker:Some(10),flags:0x210000,h1a:177,b18:5,b19:3,damage:Pf::ONE,w20:1,..Default::default()};
+        for frame in 0..60 {e.begin_frame(frame);e.queue(&table,0,&t,false,[Pf::ZERO;4],0);}
+        assert_eq!(e.pending[&0].len(),1);
+        assert!((e.take(0,u32::MAX).unwrap().damage.to_f32()*100.0-600.0).abs()<0.01);
+    }
+    #[test]
+    fn source_override_can_disable_damage_instead_of_falling_back_to_base() {
+        let table=MobyTable::new(vec![Moby{o_class:577,state:1,..Default::default()}],0);
+        let mut e=Events{enabled:true,..Default::default()};e.values.insert(23,300.0);e.set_source_damage_hp(10,23,0.0);
+        let t=HitTemplate{attacker:Some(10),flags:0x830000,h1a:457,damage:Pf::ONE,..Default::default()};
+        e.queue(&table,0,&t,false,[Pf::ZERO;4],0);assert!(e.take(0,u32::MAX).is_none());
+    }
 }

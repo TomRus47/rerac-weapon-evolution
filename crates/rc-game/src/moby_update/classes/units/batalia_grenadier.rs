@@ -195,7 +195,7 @@ fn knock_away(w: &mut World, id: MobyId, speed: f32, up: f32, seq: u8) {
 fn hits(w: &mut World, id: MobyId) {
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.hit.is_some() && res.out5 != 1 && st(w, id) != 99 {
+    if res.hit.is_some() && res.out5 != 1 && st(w, id) != 99 && !res.settle_quiet_stream(w, id, pv::D) {
         w.mm(id).mode |= 0x1000;
         let hp = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, hp);

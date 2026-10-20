@@ -7,7 +7,8 @@
 //! `UpdateWrenchSelected` calls [`launch`]: 0x141345 cleared; with ammo and fewer than 6 drones, one ammo is used (the
 //! statistics 0x141740) and the missing drones are made one above and ahead of Ratchet (his feet + his moby's rows 2
 //! and 0), each thrown out at `(cos yaw, sin yaw, 1)·0.25` a tick. The drones live in six slots (0x141370) and count
-//! themselves (0x141346).
+//! themselves (0x141346). Weapon Evolution expands both gameplay and preview capacity to ten.
+//! Above six, orbiters share a stable slot order, phase and plane with size-aware spacing.
 //!
 //! **Each drone** (+0x20):
 //! * **2 orbiting** Ratchet: its slot angle (+0x40, the drones spread evenly) plus the orbit phase (0x141348, +0.05 a
@@ -49,6 +50,15 @@ pub const CLASS: i16 = 0x1df;
 pub const CLASSES: [i16; 1] = [CLASS];
 /// The Drone Device (item 24).
 pub const DRONE_DEVICE: i32 = 24;
+/// Gameplay, preview and target bookkeeping share one capacity.
+pub const MAX_DRONES: usize = 10;
+pub fn configured_count() -> u8 {
+    crate::weapon_evo::extra(DRONE_DEVICE, "drone_count", 6.0).round().clamp(0.0, MAX_DRONES as f32) as u8
+}
+/// Keep at least `separation` between adjacent centres on a shared circle.
+pub fn orbit_radius(count: usize, separation: f32) -> f32 {
+    (separation.max(0.1) / (2.0 * (PI / count.max(2) as f32).sin())).max(1.0)
+}
 
 /// Pvar offsets.
 pub mod pv {
@@ -83,10 +93,12 @@ pub struct Globals {
     pub live: u8,
     /// 0x141348: the orbit phase.
     pub phase: f32,
-    /// 0x14134c: the targets taken (9).
-    pub taken: [Option<MobyId>; 9],
-    /// 0x141370: the six drone slots.
-    pub slots: [Option<MobyId>; 6],
+    /// Dense orbit phase sampled once per game tick, independent of update order.
+    pub formation_phase: Option<(u64, f32)>,
+    /// Targets already taken, plus one spare entry for this round's new lock.
+    pub taken: [Option<MobyId>; MAX_DRONES + 1],
+    /// Native six-slot storage expanded for the mod's configurable capacity.
+    pub slots: [Option<MobyId>; MAX_DRONES],
 }
 
 const DT: f32 = c::DT;
@@ -100,24 +112,42 @@ fn feet(w: &World) -> V { w.hero.pos.map(|x| x.to_f32()) }
 /// `0x2e8c20`: the launch (module doc). `yaw` = Ratchet's (0x13f3e8). Returns whether an ammo was used (the caller's
 /// `0x249450(0x18, 1)` and statistics: the hero's ammo lives in the hero block).
 pub fn launch(w: &mut World, yaw: f32) -> bool {
+    if crate::weapon_evo::extra_flag(24, "sand_mouse_enabled", false) {
+        use super::mouse;
+        // A companion remains active during its retirement animation too.
+        if mouse::companion::active(w) { return false; }
+        let selected = crate::weapon_evo::extra(24, "sand_mouse_mode", 1.0).round() as i32;
+        let worn = w.hero.head_slot.id == mouse::SUMMONER && w.hero.worn.head.is_some();
+        if selected != 3 || worn {
+            if !mouse::companion::summon(w, yaw) { return false; }
+            if selected == 2 { launch_native(w, yaw); }
+            return true;
+        }
+    }
+    launch_native(w, yaw)
+}
+
+fn launch_native(w: &mut World, yaw: f32) -> bool {
     let (co, si) = (yaw.cos() * 0.25, yaw.sin() * 0.25);
-    let limit = crate::weapon_evo::extra(24, "drone_count", 6.0).round().clamp(1.0, 6.0) as u8;
+    let limit = configured_count();
     if limit <= w.svc.drones.count { return false; }
     let Some(h) = w.hero_moby else { return false };
     let rows = w.m(h).rows;
     let f = feet(w);
     let at = [f[0] + rows[2][0] + rows[0][0], f[1] + rows[2][1] + rows[0][1], f[2] + rows[2][2] + rows[0][2], 0.0];
     let mut prev: Option<MobyId> = None;
-    for _ in w.svc.drones.count..limit {
+    let before = w.svc.drones.count;
+    for _ in before..limit {
         let d = create(w, prev, at);
         if let Some(d) = d { c::set_pv4(w, d, pv::VEL, [co, si, 0.25, 0.0]); }
         prev = d;
     }
-    true
+    w.svc.drones.count > before
 }
 
 /// `0x2e9150(prev, pos)`: a drone (module doc's pvars).
 fn create(w: &mut World, prev: Option<MobyId>, at: V) -> Option<MobyId> {
+    let slot = w.svc.drones.slots.iter().position(Option::is_none)?;
     let d = w.create_moby(CLASS)?;
     let hero_light = w.hero_moby.map(|h| (w.m(h).light, w.m(h).ambient));
     let f = feet(w);
@@ -145,9 +175,8 @@ fn create(w: &mut World, prev: Option<MobyId>, at: V) -> Option<MobyId> {
     c::set_pf(w, d, pv::ANGLE, c::atan(at[0] - f[0], at[1] - f[1]));
     c::set_pf(w, d, pv::TILT, c::atan(c::dist2(f, at), at[2] - f[2]));
     c::set_pf(w, d, pv::RADIUS, c::dist2(at, f));
-    let slot = w.svc.drones.slots.iter().position(Option::is_none);
-    if let Some(s) = slot { w.svc.drones.slots[s] = Some(d); }
-    c::set_pi16(w, d, pv::SLOT, slot.map_or(6, |s| s as i16));
+    w.svc.drones.slots[slot] = Some(d);
+    c::set_pi16(w, d, pv::SLOT, slot as i16);
     c::set_pi16(w, d, pv::B56, 100);
     c::set_pf(w, d, pv::HEIGHT, f[2]);
     Some(d)
@@ -205,7 +234,7 @@ fn round(w: &mut World, id: MobyId) {
     g.phase = c::add_rot(g.phase, 0.05);
     let mut n = 0;
     let slots = w.svc.drones.slots;
-    let mut taken = [None; 9];
+    let mut taken = [None; MAX_DRONES + 1];
     for (k, s) in slots.iter().enumerate() {
         let Some(d) = *s else { continue };
         if w.m(d).o_class != CLASS || w.m(d).is_deleted() {
@@ -236,7 +265,7 @@ fn round(w: &mut World, id: MobyId) {
     // The sound is the updating drone's (`fun_0022da68(…, 0, param_1)`), not the chosen one's.
     let r = w.rng.rand() % 3;
     w.play_sound((0 < r) as i32 + r, 0, id);
-    if n < 9 { w.svc.drones.taken[n] = Some(t); }
+    if n < w.svc.drones.taken.len() { w.svc.drones.taken[n] = Some(t); }
 }
 
 /// The two trails (`0x2e8dd8`: `PartType55Spawn(0.05, 0.01, drone, list 0 / 1, 0x80808080, 0x10808080)` once each).
@@ -308,7 +337,7 @@ pub fn update(w: &mut World, id: MobyId) {
 
 /// Class scale eased at 5 % a tick.
 fn ease_scale(w: &mut World, id: MobyId) {
-    let full = w.class_scale(CLASS).to_f32();
+    let full = w.class_scale(CLASS).to_f32() * crate::weapon_evo::extra(DRONE_DEVICE, "drone_size_multiplier", 1.0);
     let m = w.mm(id);
     m.scale += (full - m.scale) * 0.05;
 }
@@ -378,14 +407,38 @@ fn orbit(w: &mut World, id: MobyId) {
     let start = c::pos(w, id);
     trails(w, id);
     ease_scale(w, id);
+    // Stable slot order, not update order, owns a dense formation. All its
+    // orbiters share one plane and phase; per-drone tilt/easing would let them
+    // cross or bunch together as the population changes.
+    let orbiters: Vec<_> = w.svc.drones.slots.iter().flatten().copied()
+        .filter(|&d| w.table.mobys.get(d).is_some_and(|m| m.o_class == CLASS && m.state == 2)).collect();
+    let dense = orbiters.len() > 6 || (configured_count() > 6 && w.svc.drones.count > 0);
     let r = c::pf(w, id, pv::RADIUS);
-    c::set_pf(w, id, pv::RADIUS, r + (1.0 - r) * 0.05);
-    let goal_a = c::add_rot(c::pf(w, id, pv::SLOT_ANGLE), w.svc.drones.phase);
+    let goal_r = if dense {
+        let size = crate::weapon_evo::extra(DRONE_DEVICE, "drone_size_multiplier", 1.0);
+        let clearance = orbiters.iter().map(|&d| w.m(d).bsphere[3] / 1024.0 * 2.1)
+            .fold(size.max(1.0), f32::max);
+        orbit_radius(orbiters.len(), clearance)
+    } else { 1.0 };
+    c::set_pf(w, id, pv::RADIUS, if dense { goal_r } else { r + (goal_r - r) * 0.05 });
+    let slot_angle = if dense {
+        orbiters.iter().position(|&d| d == id).unwrap_or(0) as f32 / orbiters.len().max(1) as f32 * TAU - PI
+    } else { c::pf(w, id, pv::SLOT_ANGLE) };
+    let phase = if dense {
+        let phase = match w.svc.drones.formation_phase {
+            Some((tick, phase)) if tick == w.counter => phase,
+            Some((_, phase)) => c::add_rot(phase, 0.05),
+            None => w.svc.drones.phase,
+        };
+        w.svc.drones.formation_phase = Some((w.counter, phase));
+        phase
+    } else { w.svc.drones.phase };
+    let goal_a = c::add_rot(slot_angle, phase);
     let a = c::pf(w, id, pv::ANGLE);
-    let a = c::add_rot(a, c::sub_rot(goal_a, a) * 0.05);
+    let a = if dense { goal_a } else { c::add_rot(a, c::sub_rot(goal_a, a) * 0.05) };
     c::set_pf(w, id, pv::ANGLE, a);
     let tl = c::pf(w, id, pv::TILT);
-    let tl = c::add_rot(tl, c::sub_rot(c::pf(w, id, pv::TILT_GOAL), tl) * 0.01);
+    let tl = if dense { 0.0 } else { c::add_rot(tl, c::sub_rot(c::pf(w, id, pv::TILT_GOAL), tl) * 0.01) };
     c::set_pf(w, id, pv::TILT, tl);
     let r = c::pf(w, id, pv::RADIUS);
     // The circle turned by the tilt about y (Euler (0, tilt, 0)).
@@ -396,10 +449,12 @@ fn orbit(w: &mut World, id: MobyId) {
     let up = w.hero_moby.map_or([0.0, 0.0, 1.0, 0.0], |h| w.m(h).rows[2]);
     let mut goal = [f[0] + up[0] + off[0], f[1] + up[1] + off[1], f[2] + up[2], 0.0];
     let hz = c::pf(w, id, pv::HEIGHT);
-    let hz = hz + (goal[2] - hz) * 0.05;
+    let hz = if dense { goal[2] } else { hz + (goal[2] - hz) * 0.05 };
     c::set_pf(w, id, pv::HEIGHT, hz);
     goal[2] = hz + off[2];
-    let mut mv = c::clamp_len3(c::sub(goal, start), DT * 10.0);
+    // A dense ring reforms as a whole on refill/death. Independent speed
+    // clamps would compress its angular spacing during that transition.
+    let mut mv = if dense { c::sub(goal, start) } else { c::clamp_len3(c::sub(goal, start), DT * 10.0) };
     let res = walker::move_collide(w, id, 0.0, f32::from_bits(0x3e38_51ec), 0.0, &mut mv, 0);
     if res & 1 != 0 && w.m(id).visible == 0 {
         // Stuck out of view: behind the camera (its position + up − forward).
@@ -409,7 +464,7 @@ fn orbit(w: &mut World, id: MobyId) {
             let (down, fwd) = (col(1), col(2));
             let cam = w.camera.map(|x| x.to_f32());
             let q = [cam[0] - down[0] - fwd[0], cam[1] - down[1] - fwd[1], cam[2] - down[2] - fwd[2], 0.0];
-            c::set_pos(w, id, q);
+            c::set_pos(w, id, if dense { c::add(q, off) } else { q });
         }
     }
     let pos = c::pos(w, id);
@@ -449,6 +504,52 @@ pub fn alive(table: &MobyTable) -> Vec<(MobyId, u8)> {
 mod tests {
     use super::*;
     use crate::moby_update::classes::bomb_water::tests::{pool, Bench};
+
+    #[test]
+    fn dense_ring_spacing_is_uniform_for_seven_through_ten_and_scaled_models() {
+        for count in 7..=MAX_DRONES {
+            for separation in [0.5, 1.0, 2.0, 4.0] {
+                let radius = orbit_radius(count, separation);
+                for i in 0..count { for j in i+1..count {
+                    let a = i as f32 * TAU / count as f32;
+                    let b = j as f32 * TAU / count as f32;
+                    let distance = ((a.cos()-b.cos()).powi(2)+(a.sin()-b.sin()).powi(2)).sqrt()*radius;
+                    assert!(distance + 0.00001 >= separation);
+                }}
+            }
+        }
+    }
+
+    #[test]
+    fn ten_registered_drones_orbit_without_overlap_and_refill_the_freed_slot() {
+        let mut b = Bench::new(pool(8., 4.), &[CLASS], [30., 30., 8.]);
+        // The real hero has built rotation rows; the generic Bench leaves them zero.
+        b.table.mobys[0].rows = [[1.,0.,0.,0.], [0.,1.,0.,0.], [0.,0.,1.,0.], [0.;4]];
+        let spawn = |b: &mut Bench| {
+            let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, b.counter);
+            w.hero_moby = Some(0);
+            create(&mut w, None, [31., 30., 9., 0.])
+        };
+        for _ in 0..MAX_DRONES { assert!(spawn(&mut b).is_some()); }
+        assert!(spawn(&mut b).is_none());
+        assert_eq!(b.svc.drones.count as usize, MAX_DRONES);
+        assert_eq!(b.svc.drones.slots.iter().flatten().count(), MAX_DRONES);
+        let check = |b: &Bench| {
+            let ids: Vec<_> = b.svc.drones.slots.iter().flatten().copied().collect();
+            for (k, &a) in ids.iter().enumerate() { for &d in &ids[k+1..] {
+                let (a,d) = (b.table.mobys[a].position,b.table.mobys[d].position);
+                let distance = ((a[0]-d[0]).powi(2)+(a[1]-d[1]).powi(2)).sqrt();
+                assert!(distance > 0.98, "orbiters overlapped at tick {}: {distance}, {a:?} / {d:?}", b.counter);
+            }}
+        };
+        for _ in 0..40 { b.tick(None); check(&b); }
+        let freed = b.svc.drones.slots[0].unwrap(); b.table.mobys[freed].state = 5;
+        b.tick(None); check(&b);
+        assert_eq!(b.svc.drones.count, 9); assert!(b.svc.drones.slots[0].is_none());
+        assert!(spawn(&mut b).is_some());
+        for _ in 0..40 { b.tick(None); check(&b); }
+        assert_eq!(b.svc.drones.count, 10);
+    }
 
     /// State 2 stuck (the move's wall bit: the floor 0.1 under it) while not drawn (+0x31 = 0): it jumps behind the
     /// camera, to its position plus its up row less its forward row (0x167240 + 0x167470 − 0x167450).

@@ -3,6 +3,8 @@
 //! XP and grades are stored beside each native save; native save bytes remain unmodified.
 #[path = "weapon_evo_save.rs"]
 pub mod save;
+#[path = "weapon_evo_notice.rs"]
+pub mod notice;
 #[cfg(feature = "weapon-evo-release")]
 const RELEASE_PROFILE: &str = include_str!("weapon_evo_release.ini");
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
@@ -48,18 +50,18 @@ pub fn extra_color(item: i32, key: &str) -> Option<u32> {
 fn supported_extra_stat(item: i32, key: &str) -> bool {
     if matches!(key, "max_ammo" | "damage_multiplier" | "gold" | "gold_texture" | "gold_effects") { return true; }
     let fields: &[&str] = match item {
-        9 => &["capacity", "suck_range_multiplier", "shot_damage_multiplier"],
+        9 => &["capacity", "suck_range_multiplier", "shot_damage_multiplier", "crate_suction_enabled", "suck_wooden_crates", "suck_explosive_crates", "suck_steel_crates", "suck_ammo_crates", "suck_nanotech_crates"],
         11 => &["fire_interval_ticks", "homing_strength_multiplier", "missile_speed_multiplier", "missile_range_multiplier", "explosion_radius_multiplier", "explosion_visual_size_multiplier", "explosion_color", "trail_color"],
         13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding"],
-        14 => &["lure_range", "lure_cone_degrees", "xp_attract_fraction", "stun_range", "stun_duration_ticks", "stun_efficiency_percent", "damage_range", "damage_per_second", "wave_speed_multiplier", "wave_size_multiplier", "wave_range_multiplier", "wave_interval_ticks", "wave_alpha", "wave_color"],
+        14 => &["lure_range", "lure_cone_degrees", "xp_attract_fraction", "stun_range", "stun_duration_ticks", "stun_efficiency_percent", "damage_range", "damage_per_second", "wave_speed_multiplier", "wave_size_multiplier", "wave_range_multiplier", "wave_interval_ticks", "wave_alpha", "wave_color", "stun_launch_distance"],
         15 => &["fire_interval_ticks", "projectile_speed_multiplier", "projectile_range_multiplier", "projectile_color", "trail_color", "impact_color"],
-        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier"],
-        18 => &["knockback_multiplier", "hit_radius_multiplier", "electric_fx_size_multiplier", "gold_electric_fx", "air_dash_enabled", "electric_core_color", "electric_glow_color", "fist_glow_color", "impact_color"],
-        19 => &["target_range_multiplier", "ammo_interval_ticks", "damage_interval_ticks", "lock_cone_multiplier", "beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color", "arc_core_color", "arc_glow_color", "claw_core_color", "claw_glow_color", "spark_color", "spark_core_color", "impact_color", "light_color", "weapon_glow_color"],
+        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier", "max_active_mines", "mine_lifetime_seconds", "flame_core_color", "flame_outer_color", "burn_flame_color", "explosion_color", "light_color", "flame_mine_enabled", "mine_flame_range", "mine_flame_rotation_degrees_per_second", "mine_flame_damage_per_second"],
+        18 => &["held_lunge_duration_percent", "knockback_multiplier", "hit_radius_multiplier", "electric_fx_size_multiplier", "gold_electric_fx", "air_dash_enabled", "electric_core_color", "electric_glow_color", "fist_glow_color", "impact_color"],
+        19 => &["beam_size_percent", "beam_range_multiplier", "dual_beam_enabled", "target_range_multiplier", "ammo_interval_ticks", "damage_interval_ticks", "lock_cone_multiplier", "beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color", "arc_core_color", "arc_glow_color", "claw_core_color", "claw_glow_color", "spark_color", "spark_core_color", "impact_color", "light_color", "weapon_glow_color", "secondary_beam_damage_percent"],
         20 => &["robot_count", "robot_max_alive", "robot_detection_range", "explosion_radius_multiplier"],
         21 => &["fire_in_air", "morph_speed_multiplier", "explode_small_chickens", "chicken_damage_multiplier", "chicken_explosion_radius_multiplier", "beam_range_multiplier", "tube_color", "beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color", "pulse_color", "muzzle_core_color", "muzzle_glow_color", "tip_color", "tip_core_color", "spark_color", "spark_core_color", "light_color"],
-        23 => &["missiles_per_salvo", "fire_interval_ticks", "missile_speed_multiplier", "missile_range_multiplier"],
-        24 => &["drone_count", "detection_range_multiplier", "drone_size_multiplier", "blast_radius_multiplier"],
+        23 => &["missiles_per_salvo", "fire_interval_ticks", "missile_speed_multiplier", "missile_range_multiplier", "homing_strength_multiplier", "missile_max_range", "explosion_damage_radius", "explosion_visual_size_multiplier", "continuous_missiles_enabled", "shotgun_enabled", "shotgun_damage_hp", "shotgun_speed", "shotgun_range", "shotgun_size_percent", "shotgun_spread_degrees", "shotgun_horizontal_spread_degrees", "shotgun_vertical_spread_degrees", "shotgun_projectile_color", "shotgun_trail_color", "shotgun_impact_color"],
+        24 => &["drone_count", "detection_range_multiplier", "drone_size_multiplier", "blast_radius_multiplier", "sand_mouse_enabled", "sand_mouse_mode", "sand_mouse_lifetime_seconds", "sand_mouse_max_shots", "sand_mouse_fire_interval_ticks", "sand_mouse_shot_range", "sand_mouse_shot_damage_hp", "sand_mouse_projectile_color"],
         25 => &["decoy_health_multiplier", "explosion_enabled", "explosion_radius_multiplier", "explosion_damage_multiplier", "throw_range_multiplier", "xp_attract_fraction", "lure_range"],
         _ => &[],
     };
@@ -169,7 +171,69 @@ pub fn effective_max_ammo(item: usize, vanilla: i32) -> i32 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ClusterStats {
+    pub enabled: bool,
+    pub count: u8,
+    pub model_percent: f32,
+    pub explosion_percent: f32,
+    pub damage_percent: f32,
+    pub launch_speed: f32,
+    pub jump_height: f32,
+    pub jump_speed: Option<f32>,
+}
+
+#[cfg(test)]
+mod v44_configuration_tests {
+    use super::*;
+    #[test]
+    fn new_geometry_and_crate_options_are_independent_for_all_five_grades() {
+        let mut text=String::from("[general]\ndamage_mode=real_hp\n");
+        for grade in 1..=5 {
+            text+=&format!("[weapon.bomb_glove.level{grade}]\ncluster_jump_speed={grade}\ncluster_launch_speed={}\ncluster_bomb_size_percent={}\n[weapon.pyrocitor.level{grade}]\nside_flame_left_angle_degrees={}\nside_flame_right_angle_degrees={}\n[weapon.suck_cannon.level{grade}]\ncrate_suction_enabled=true\nsuck_steel_crates=false\nsuck_wooden_crates=true\nsuck_ammo_crates=false\nsuck_nanotech_crates=true\nsuck_explosive_crates=false\n[weapon.tesla_claw.level{grade}]\nbeam_size_percent={}\nbeam_range_multiplier={}\ndual_beam_enabled=true\n",grade*2,grade*10,grade*5,grade*7,grade*50,grade);
+        }
+        let e=Evolution::parse(&text).unwrap();
+        for i in 0..5 {
+            let n=i as f32+1.0;
+            assert_eq!(e.stats[i].cluster.jump_speed,Some(n));
+            assert_eq!(e.stats[i].cluster.model_percent,n*10.0);
+            assert_eq!(e.stats[i].cluster.launch_speed,n*2.0);
+            assert_eq!(e.pyro.stats[i].side_flame_left_angle_degrees,Some(n*5.0));
+            assert_eq!(e.pyro.stats[i].side_flame_right_angle_degrees,Some(n*7.0));
+            let cannon=&e.extras.iter().find(|t|t.id==9).unwrap().params[i];
+            assert_eq!(cannon["crate_suction_enabled"],1.0);assert_eq!(cannon["suck_steel_crates"],0.0);
+            let tesla=&e.extras.iter().find(|t|t.id==19).unwrap().params[i];
+            assert_eq!(tesla["beam_size_percent"],n*50.0);assert_eq!(tesla["beam_range_multiplier"],n);
+            assert_eq!(tesla["dual_beam_enabled"],1.0);
+        }
+    }
+    #[test]
+    fn malformed_experimental_and_standard_geometry_is_rejected() {
+        for (weapon,key,value) in [("bomb_glove","cluster_jump_speed","NaN"),("bomb_glove","cluster_jump_speed","0"),
+            ("pyrocitor","side_flame_left_angle_degrees","-1"),("pyrocitor","side_flame_right_angle_degrees","81"),
+            ("tesla_claw","beam_size_percent","0"),("tesla_claw","beam_range_multiplier","9"),
+            ("tesla_claw","dual_beam_enabled","maybe"),("suck_cannon","suck_ammo_crates","maybe")] {
+            assert!(Evolution::parse(&format!("[general]\ndamage_mode=real_hp\n[weapon.{weapon}.level1]\n{key}={value}\n")).is_err(),"{weapon} {key} {value}");
+        }
+        let stats=ClusterStats::default();assert_eq!(stats.model_percent,40.0);assert_eq!(stats.launch_speed,3.0);
+        assert_eq!(PyroStats::default().side_flame_angle_degrees,22.0);
+    }
+}
+impl Default for ClusterStats {
+    fn default() -> Self { Self { enabled: false, count: 3, model_percent: 40.0,
+        explosion_percent: 15.0, damage_percent: 10.0, launch_speed: 3.0, jump_height: 0.8, jump_speed: None } }
+}
+impl ClusterStats {
+    fn valid(self) -> bool {
+        (1..=12).contains(&self.count) && (1.0..=100.0).contains(&self.model_percent)
+            && (1.0..=100.0).contains(&self.explosion_percent) && (0.1..=100.0).contains(&self.damage_percent)
+            && (0.0..=20.0).contains(&self.launch_speed) && (0.1..=3.0).contains(&self.jump_height)
+            && self.jump_speed.is_none_or(|v| (0.1..=10.0).contains(&v))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Stats {
+    pub cluster: ClusterStats,
     pub throw_range: f32,
     /// Absolute auto-aim range; None follows throw reach, zero disables snapping.
     pub auto_lock_range: Option<f32>,
@@ -186,7 +250,7 @@ pub struct Stats {
 }
 impl Default for Stats {
     fn default() -> Self {
-        Self { throw_range: 1.0, auto_lock_range: None, trajectory_height: 1.0, explosion_radius: 1.0, explosion_color: None, cooldown_seconds: 20.0/60.0,
+        Self { cluster: ClusterStats::default(), throw_range: 1.0, auto_lock_range: None, trajectory_height: 1.0, explosion_radius: 1.0, explosion_color: None, cooldown_seconds: 20.0/60.0,
             max_ammo: 40, damage_multiplier: 1.0, gold: false, gold_texture: false }
     }
 }
@@ -203,6 +267,10 @@ impl Stats {
 /// The flame width scales BOTH particle dispersion and the hit spheres.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyroStats {
+    pub triple_flame_enabled: bool,
+    pub side_flame_angle_degrees: f32,
+    pub side_flame_left_angle_degrees: Option<f32>,
+    pub side_flame_right_angle_degrees: Option<f32>,
     pub ammo_interval_ticks: i32,
     pub damage_interval_ticks: i32,
     pub flame_range: f32,
@@ -217,7 +285,7 @@ pub struct PyroStats {
     pub burn_flame_color: Option<u32>,
 }
 impl Default for PyroStats {
-    fn default() -> Self { Self { ammo_interval_ticks: 10, damage_interval_ticks: 1, flame_range: 1.0, flame_width: 1.0, damage_multiplier: 1.0, flame_core_color: None, flame_outer_color: None, light_color: None, max_ammo: 100, gold: false, gold_texture: false, burn_flame_color: None } }
+    fn default() -> Self { Self { triple_flame_enabled: false, side_flame_angle_degrees: 22.0, side_flame_left_angle_degrees: None, side_flame_right_angle_degrees: None, ammo_interval_ticks: 10, damage_interval_ticks: 1, flame_range: 1.0, flame_width: 1.0, damage_multiplier: 1.0, flame_core_color: None, flame_outer_color: None, light_color: None, max_ammo: 100, gold: false, gold_texture: false, burn_flame_color: None } }
 }
 
 /// Global UI settings. Full opacity is 100% (GS alpha 0x80).
@@ -335,7 +403,7 @@ fn parse_ammo(value: &str) -> Result<i32, String> {
 fn parse_bool(value: &str) -> Result<bool, String> {
     match value.to_ascii_lowercase().as_str() {
         "true" | "yes" | "1" => Ok(true), "false" | "no" | "0" => Ok(false),
-        _ => Err(format!("invalid gold: {value}")),
+        _ => Err(format!("invalid boolean: {value}")),
     }
 }
 // Accepted only for compatibility with old profiles; never used for display.
@@ -674,14 +742,15 @@ impl Evolution {
                         t.enabled = true;
                         continue;
                     }
-                    if matches!(key.as_str(), "explosion_color" | "trail_color" | "wave_color" | "projectile_color" | "impact_color" | "electric_core_color" | "electric_glow_color" | "fist_glow_color" | "beam_core_color" | "beam_glow_color" | "secondary_core_color" | "secondary_glow_color" | "arc_core_color" | "arc_glow_color" | "claw_core_color" | "claw_glow_color" | "spark_color" | "spark_core_color" | "light_color" | "weapon_glow_color" | "tube_color" | "pulse_color" | "muzzle_core_color" | "muzzle_glow_color" | "tip_color" | "tip_core_color") {
+                    if key.ends_with("_color") || matches!(key.as_str(), "explosion_color" | "trail_color" | "wave_color" | "projectile_color" | "impact_color" | "electric_core_color" | "electric_glow_color" | "fist_glow_color" | "beam_core_color" | "beam_glow_color" | "secondary_core_color" | "secondary_glow_color" | "arc_core_color" | "arc_glow_color" | "claw_core_color" | "claw_glow_color" | "spark_color" | "spark_core_color" | "light_color" | "weapon_glow_color" | "tube_color" | "pulse_color" | "muzzle_core_color" | "muzzle_glow_color" | "tip_color" | "tip_core_color") {
                         t.params[n-1].insert(key.clone(), parse_rgb(val)?.map_or(-1.0, |c| c as f32));
                         t.enabled = true;
                         continue;
                     }
-                    let v = if matches!(key.as_str(), "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
+                    let v = if matches!(key.as_str(), "continuous_missiles_enabled" | "shotgun_enabled" | "flame_mine_enabled" | "sand_mouse_enabled" | "crate_suction_enabled" | "suck_wooden_crates" | "suck_explosive_crates" | "suck_steel_crates" | "suck_ammo_crates" | "suck_nanotech_crates" | "dual_beam_enabled" | "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
                         if parse_bool(val)? { 1.0 } else { 0.0 }
                     } else { parse_number(val, &key)? };
+                    validate_v45_extra(t.id, &key, v).map_err(|e| format!("{e} in [{section}]"))?;
                     if v < 0.0 || v > 9999.0 { return Err(format!("{key} out of range in [{section}]")); }
                     if (matches!(key.as_str(), "wave_speed_multiplier" | "wave_size_multiplier" | "wave_range_multiplier" | "explosion_visual_size_multiplier")
                         || (t.id == 11 && key == "explosion_radius_multiplier")) && !(0.1..=8.0).contains(&v) {
@@ -692,6 +761,15 @@ impl Evolution {
                         if !(1.0..=max).contains(&v) || v.fract() != 0.0 {
                             return Err(format!("{key} must be an integer 1..{max} in [{section}]"));
                         }
+                    }
+                    if key == "beam_size_percent" && !(1.0..=500.0).contains(&v) {
+                        return Err(format!("beam_size_percent must be 1..500 in [{section}]"));
+                    }
+                    if t.id == 19 && key == "beam_range_multiplier" && !(0.1..=8.0).contains(&v) {
+                        return Err(format!("beam_range_multiplier must be 0.1..8 in [{section}]"));
+                    }
+                    if key == "held_lunge_duration_percent" && !(100.0..=1000.0).contains(&v) {
+                        return Err(format!("held_lunge_duration_percent must be 100..1000 in [{section}]"));
                     }
                     if key == "wave_interval_ticks" && (!(1.0..=600.0).contains(&v) || v.fract() != 0.0) {
                         return Err(format!("wave_interval_ticks must be an integer 1..600 in [{section}]"));
@@ -709,7 +787,7 @@ impl Evolution {
                         return Err(format!("stun_duration_ticks must be 0..600 in [{section}]"));
                     }
                     if key == "capacity" && v > 10.0 { return Err("Suck Cannon capacity above 10 needs slot-array changes".into()); }
-                    if key == "drone_count" && v > 6.0 { return Err("Drone capacity above 6 needs slot-array changes".into()); }
+                    if key == "drone_count" && (v > 10.0 || v.fract() != 0.0) { return Err("drone_count must be an integer 0..10".into()); }
                     t.params[n-1].insert(key.clone(), v);
                     t.enabled = true;
                     continue;
@@ -748,6 +826,14 @@ impl Evolution {
                 match key.as_str() {
                     "xp_to_next" if n <= 4 => evo.xp_required[n-1] = parse_number(val, &key)?,
                     "xp_to_next" => {},
+                    "cluster_bombs_enabled" => stat.cluster.enabled = parse_bool(val)?,
+                    "cluster_bomb_count" => stat.cluster.count = parse_tick_interval(val, &key, 12)? as u8,
+                    "cluster_bomb_size_percent" => stat.cluster.model_percent = parse_number(val, &key)?,
+                    "cluster_explosion_size_percent" => stat.cluster.explosion_percent = parse_number(val, &key)?,
+                    "cluster_damage_percent" => stat.cluster.damage_percent = parse_number(val, &key)?,
+                    "cluster_launch_speed" => stat.cluster.launch_speed = parse_number(val, &key)?,
+                    "cluster_jump_height" => stat.cluster.jump_height = parse_number(val, &key)?,
+                    "cluster_jump_speed" => stat.cluster.jump_speed = Some(parse_number(val, &key)?),
                     "throw_range" => stat.throw_range = parse_number(val, &key)?,
                     "auto_lock_range" => stat.auto_lock_range = if val.eq_ignore_ascii_case("default") { None } else { Some(parse_number(val, &key)?) },
                     "trajectory_height" => stat.trajectory_height = parse_number(val, &key)?,
@@ -771,6 +857,10 @@ impl Evolution {
                 match key.as_str() {
                     "xp_to_next" if n <= 4 => evo.pyro.xp_required[n-1] = parse_number(val, &key)?,
                     "xp_to_next" => {},
+                    "triple_flame_enabled" => stat.triple_flame_enabled = parse_bool(val)?,
+                    "side_flame_angle_degrees" => stat.side_flame_angle_degrees = parse_number(val, &key)?,
+                    "side_flame_left_angle_degrees" => stat.side_flame_left_angle_degrees = Some(parse_number(val, &key)?),
+                    "side_flame_right_angle_degrees" => stat.side_flame_right_angle_degrees = Some(parse_number(val, &key)?),
                     "ammo_interval_ticks" => stat.ammo_interval_ticks = parse_tick_interval(val, &key, 9999)?,
                     "damage_interval_ticks" => stat.damage_interval_ticks = parse_tick_interval(val, &key, 600)?,
                     "flame_range" => stat.flame_range = parse_number(val, &key)?,
@@ -792,7 +882,7 @@ impl Evolution {
         if !(evo.xp_per_damage > 0.0 && evo.xp_per_damage <= 100.0) { return Err("xp_per_damage out of range".into()); }
         valid_xp(&evo.xp_required, "bomb_glove")?;
         for (i, s) in evo.stats.iter().enumerate() {
-            if !(0.1..=5.0).contains(&s.throw_range) || !(0.4..=3.0).contains(&s.trajectory_height) || !(0.1..=8.0).contains(&s.explosion_radius)
+            if !s.cluster.valid() || !(0.1..=5.0).contains(&s.throw_range) || !(0.4..=3.0).contains(&s.trajectory_height) || !(0.1..=8.0).contains(&s.explosion_radius)
                 || !(0.1..=10.0).contains(&s.cooldown_seconds) || !(1..=999).contains(&s.max_ammo)
                 || !(0.1..=20.0).contains(&s.damage_multiplier)
                 || s.auto_lock_range.is_some_and(|r| !r.is_finite() || !(0.0..=9999.0).contains(&r)) {
@@ -807,7 +897,9 @@ impl Evolution {
             if pyro_seen.iter().any(|&s| !s) { return Err("all Pyrocitor levels 1..5 required".into()); }
             valid_xp(&evo.pyro.xp_required, "pyrocitor")?;
             for (i, s) in evo.pyro.stats.iter().enumerate() {
-                if !(0.1..=3.0).contains(&s.flame_range) || !(0.1..=3.0).contains(&s.flame_width)
+                if !s.side_flame_left_angle_degrees.is_none_or(|v| (0.0..=80.0).contains(&v))
+                    || !s.side_flame_right_angle_degrees.is_none_or(|v| (0.0..=80.0).contains(&v))
+                    || !(1.0..=80.0).contains(&s.side_flame_angle_degrees) || !(0.1..=3.0).contains(&s.flame_range) || !(0.1..=3.0).contains(&s.flame_width)
                     || !(0.1..=20.0).contains(&s.damage_multiplier)
                     || !(1..=999).contains(&s.max_ammo) { return Err(format!("invalid Pyrocitor level {}", i+1)); }
             }
@@ -831,6 +923,13 @@ impl Evolution {
                         };
                         t.params[i].insert(key.to_string(), hp / (100.0 * base));
                     }
+                }
+            }
+        }
+        if let Some(track)=evo.extras.iter().find(|t|t.id==23) {
+            for (i,p) in track.params.iter().enumerate() {
+                if p.get("continuous_missiles_enabled").copied().unwrap_or(0.0)!=0.0 && p.get("shotgun_enabled").copied().unwrap_or(0.0)!=0.0 {
+                    return Err(format!("R.Y.N.O. grade {}: continuous missiles and shotgun are mutually exclusive",i+1));
                 }
             }
         }
@@ -1370,6 +1469,180 @@ mod v37_real_hp_tests {
                     let header = format!("[weapon.{weapon}.level1]\n");
                     assert!(Evolution::parse(&profile().replace(&header, &format!("{header}{key} = {value}\n"))).is_err());
                 }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod v43_tests {
+    use super::*;
+
+    fn profile(extra: &str) -> String {
+        let mut s=String::from("[general]\ndamage_mode = real_hp\n");
+        for n in 1..=5 { s.push_str(&format!("[weapon.bomb_glove.level{n}]\n")); }
+        s+extra
+    }
+    #[test]
+    fn experimental_settings_are_optional_and_independent_for_every_grade() {
+        let base=Evolution::parse(&profile("")).unwrap();
+        assert!(!base.stats[0].cluster.enabled);assert_eq!(base.stats[0].cluster.model_percent,40.0);
+        let mut text=String::new();
+        for n in 1..=5 { text+=&format!("[weapon.bomb_glove.level{n}]\ncluster_bombs_enabled = true\ncluster_bomb_count = {n}\n[weapon.pyrocitor.level{n}]\ntriple_flame_enabled = true\nside_flame_angle_degrees = {}\n[weapon.walloper.level{n}]\nheld_lunge_duration_percent = {}\n",n*10,n*100); }
+        let e=Evolution::parse(&profile(&text)).unwrap();
+        for i in 0..5 {
+            assert_eq!(e.stats[i].cluster.count,i as u8+1);
+            assert!(e.pyro.stats[i].triple_flame_enabled);
+            assert_eq!(e.pyro.stats[i].side_flame_angle_degrees,(i+1) as f32*10.0);
+            assert_eq!(e.extras.iter().find(|t|t.id==18).unwrap().params[i]["held_lunge_duration_percent"],(i+1) as f32*100.0);
+        }
+    }
+    #[test]
+    fn invalid_experimental_geometry_and_duration_are_rejected() {
+        for (weapon,field,value) in [("bomb_glove","cluster_bomb_count","13"),("bomb_glove","cluster_bomb_count","2.5"),
+            ("bomb_glove","cluster_jump_height","NaN"),("bomb_glove","cluster_damage_percent","0"),
+            ("bomb_glove","cluster_bomb_size_percent","101"),("pyrocitor","side_flame_angle_degrees","90"),
+            ("walloper","held_lunge_duration_percent","99"),("walloper","held_lunge_duration_percent","1001")] {
+            assert!(Evolution::parse(&profile(&format!("[weapon.{weapon}.level1]\n{field} = {value}\n"))).is_err(),"{weapon}: {field}");
+        }
+    }
+
+}
+
+fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
+    if key=="homing_strength_multiplier" && item!=23 { return Ok(()); }
+    let bounds = match key {
+        "homing_strength_multiplier" => Some((0.0, 8.0)),
+        "missile_max_range" => Some((0.0, 500.0)),
+        "explosion_damage_radius" => Some((0.0, 100.0)),
+        "explosion_visual_size_multiplier" => Some((0.1, 8.0)),
+        "max_active_mines" => Some((1.0, 32.0)),
+        "mine_lifetime_seconds" => Some((0.5, 600.0)),
+        "stun_launch_distance" => Some((0.0, 50.0)),
+        "shotgun_damage_hp" => Some((0.0, 9999.0)),
+        "shotgun_speed" => Some((1.0, 200.0)),
+        "shotgun_range" => Some((0.5, 500.0)),
+        "shotgun_size_percent" => Some((1.0, 500.0)),
+        "shotgun_spread_degrees" | "shotgun_horizontal_spread_degrees" | "shotgun_vertical_spread_degrees" => Some((0.0, 60.0)),
+        "mine_flame_range" => Some((0.5, 100.0)),
+        "mine_flame_rotation_degrees_per_second" => Some((0.0, 720.0)),
+        "mine_flame_damage_per_second" => Some((0.0, 9999.0)),
+        "sand_mouse_mode" => Some((1.0, 3.0)),
+        "sand_mouse_lifetime_seconds" => Some((0.5, 600.0)),
+        "sand_mouse_max_shots" => Some((1.0, 9999.0)),
+        "sand_mouse_fire_interval_ticks" => Some((1.0, 9999.0)),
+        "sand_mouse_shot_range" => Some((0.5, 500.0)),
+        "sand_mouse_shot_damage_hp" => Some((0.0, 9999.0)),
+        "secondary_beam_damage_percent" => Some((0.0, 100.0)),
+        _ => None,
+    };
+    if let Some((lo, hi)) = bounds {
+        if !(lo..=hi).contains(&v) { return Err(format!("{key} must be {lo}..{hi}")); }
+    }
+    if matches!(key, "max_active_mines" | "sand_mouse_mode" | "sand_mouse_max_shots" | "sand_mouse_fire_interval_ticks") && v.fract() != 0.0 {
+        return Err(format!("{key} must be an integer"));
+    }
+    Ok(())
+}
+
+/// Loader-only inspection. Unlike from_env this never publishes or resets the
+/// active registry, icon levels, ammo caps, XP or gameplay state.
+pub fn profile_uses_extra(item:i32,key:&str)->bool {
+    #[cfg(feature="weapon-evo-release")]
+    let raw=RELEASE_PROFILE.to_string();
+    #[cfg(not(feature="weapon-evo-release"))]
+    let raw=match std::env::var("RC_WEAPON_EVOLUTION_INI").ok().and_then(|p|std::fs::read_to_string(p).ok()) {
+        Some(raw)=>raw,None=>return false,
+    };
+    Evolution::parse(&raw).is_ok_and(|e|e.extras.iter().find(|t|t.id==item)
+        .is_some_and(|t|t.params.iter().any(|p|p.get(key).is_some_and(|&v|v!=0.0))))
+}
+
+#[cfg(test)]
+mod v45_configuration_tests {
+    use super::*;
+    fn base()->String {
+        let mut s="[general]\ndamage_mode=real_hp\n".to_owned();
+        for grade in 1..=5 {s+=&format!("[weapon.bomb_glove.level{grade}]\n");}
+        s
+    }
+    #[test]
+    fn companion_mine_ryno_and_tesla_fields_remain_independent_at_every_grade() {
+        let mut s=base();
+        for grade in 1..=5 {
+            s+=&format!("[weapon.drone_device.level{grade}]\nsand_mouse_enabled=true\nsand_mouse_mode={}\nsand_mouse_shot_damage_hp={}\nsand_mouse_lifetime_seconds={}\nsand_mouse_max_shots={}\nsand_mouse_fire_interval_ticks={}\nsand_mouse_shot_range={}\nsand_mouse_projectile_color=000000\n[weapon.mine_glove.level{grade}]\nmax_active_mines={grade}\nmine_lifetime_seconds={}\nflame_mine_enabled=true\nmine_flame_range={}\nmine_flame_rotation_degrees_per_second={}\nmine_flame_damage_per_second={}\nflame_core_color=FF0000\nflame_outer_color=00FF00\nburn_flame_color=0000FF\nexplosion_color=default\nlight_color=FFFFFF\n[weapon.ryno.level{grade}]\ncontinuous_missiles_enabled={}\nshotgun_enabled={}\nshotgun_damage_hp={}\nshotgun_range={}\nshotgun_speed={}\nshotgun_size_percent={}\nshotgun_spread_degrees={}\nshotgun_projectile_color=123456\nshotgun_trail_color=234567\nshotgun_impact_color=345678\nhoming_strength_multiplier={}\nmissile_max_range={}\nexplosion_damage_radius={}\nexplosion_visual_size_multiplier={}\n[weapon.tesla_claw.level{grade}]\nsecondary_beam_damage_percent={}\n[weapon.taunter.level{grade}]\nstun_launch_distance={}\n",
+                (grade-1)%3+1,grade*25,grade*30,grade*10,grade*3,grade*5,
+                grade*20,grade*2,grade*30,grade*50,grade%2==1,grade%2==0,
+                grade*25,grade*5,grade*10,grade*20,grade*5,grade,grade*20,grade,grade,grade*10,grade);
+        }
+        let e=Evolution::parse(&s).unwrap();
+        for i in 0..5 {
+            let n=i as f32+1.0;
+            let track=|item|&e.extras.iter().find(|t|t.id==item).unwrap().params[i];
+            assert_eq!(track(24)["sand_mouse_shot_damage_hp"],n*25.0);
+            assert_eq!(track(24)["sand_mouse_projectile_color"],0.0);
+            assert_eq!(track(17)["mine_flame_range"],n*2.0);
+            assert_eq!(track(17)["mine_flame_damage_per_second"],n*50.0);
+            assert_eq!(track(23)["shotgun_speed"],n*10.0);
+            assert_eq!(track(23)["missile_max_range"],n*20.0);
+            assert_eq!(track(19)["secondary_beam_damage_percent"],n*10.0);
+            assert_eq!(track(14)["stun_launch_distance"],n);
+        }
+    }
+    #[test]
+    fn shotgun_axes_are_independent_for_all_five_grades() {
+        let mut s=base();
+        for grade in 1..=5 {
+            s+=&format!("[weapon.ryno.level{grade}]\nshotgun_horizontal_spread_degrees={}\nshotgun_vertical_spread_degrees={}\n",grade*7,grade);
+        }
+        let e=Evolution::parse(&s).unwrap();let ryno=e.extras.iter().find(|t|t.id==23).unwrap();
+        for grade in 0..5 {
+            assert_eq!(ryno.params[grade]["shotgun_horizontal_spread_degrees"],(grade+1) as f32*7.0);
+            assert_eq!(ryno.params[grade]["shotgun_vertical_spread_degrees"],(grade+1) as f32);
+        }
+    }
+    #[test]
+    fn shotgun_axes_accept_zero_but_reject_invalid_bounds() {
+        for key in ["shotgun_horizontal_spread_degrees","shotgun_vertical_spread_degrees"] {
+            for value in ["-1","61","NaN","inf"] {
+                assert!(Evolution::parse(&(base()+&format!("[weapon.ryno.level1]\n{key}={value}\n"))).is_err());
+            }
+            assert!(Evolution::parse(&(base()+&format!("[weapon.ryno.level1]\n{key}=0\n"))).is_ok());
+        }
+    }
+
+    #[test]
+    fn malformed_new_fields_and_conflicting_ryno_modes_are_rejected() {
+        for (weapon,key,value) in [
+            ("drone_device","sand_mouse_mode","4"),("drone_device","sand_mouse_mode","1.5"),
+            ("drone_device","sand_mouse_max_shots","0"),("drone_device","sand_mouse_fire_interval_ticks","0"),
+            ("drone_device","sand_mouse_lifetime_seconds","NaN"),("drone_device","sand_mouse_shot_damage_hp","-1"),
+            ("tesla_claw","secondary_beam_damage_percent","101"),("mine_glove","max_active_mines","33"),
+            ("mine_glove","mine_flame_range","0"),("mine_glove","mine_flame_damage_per_second","inf"),
+            ("ryno","shotgun_speed","0"),("ryno","shotgun_spread_degrees","61"),
+        ] {
+            let s=base()+&format!("[weapon.{weapon}.level1]\n{key}={value}\n");
+            assert!(Evolution::parse(&s).is_err(),"{weapon}.{key}={value}");
+        }
+        assert!(Evolution::parse(&(base()+"[weapon.ryno.level1]\ncontinuous_missiles_enabled=true\nshotgun_enabled=true\n")).is_err());
+    }
+}
+
+#[cfg(test)]
+mod v48_tests {
+    use super::*;
+    #[test]
+    fn each_drone_grade_accepts_ten_and_rejects_fractional_or_excess_capacity() {
+        for level in 1..=5 {
+            for count in [0, 6, 7, 10] {
+                let ini = format!("[weapon.bomb_glove.level1]\n[weapon.bomb_glove.level2]\n[weapon.bomb_glove.level3]\n[weapon.bomb_glove.level4]\n[weapon.bomb_glove.level5]\n[weapon.drone_device]\nid = 24\n[weapon.drone_device.level{level}]\ndrone_count = {count}\n");
+                let e = Evolution::parse(&ini).unwrap();
+                let track = e.extras.iter().find(|t| t.id == 24).unwrap();
+                assert_eq!(track.params[level-1]["drone_count"], count as f32);
+            }
+            for count in ["-1", "10.5", "11", "nan"] {
+                let ini = format!("[weapon.bomb_glove.level1]\n[weapon.bomb_glove.level2]\n[weapon.bomb_glove.level3]\n[weapon.bomb_glove.level4]\n[weapon.bomb_glove.level5]\n[weapon.drone_device]\nid = 24\n[weapon.drone_device.level{level}]\ndrone_count = {count}\n");
+                assert!(Evolution::parse(&ini).is_err());
             }
         }
     }

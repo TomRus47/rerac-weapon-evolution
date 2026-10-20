@@ -75,6 +75,7 @@ fn restore_light(w: &mut World, id: MobyId) {
 
 /// `CrateUpdate` (0x2ea178).
 pub fn update(w: &mut World, id: MobyId) {
+    if super::cannon_crate::update(w, id) { return; }
     // The layout is 0x100 bytes (a shorter block would make the game read the next pvar block: zeros here).
     if w.m(id).pvars.len() < 0x100 { w.mm(id).pvars.resize(0x100, 0); }
     let tick = w.counter as i32;

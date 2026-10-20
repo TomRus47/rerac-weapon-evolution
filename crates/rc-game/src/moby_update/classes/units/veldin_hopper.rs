@@ -174,7 +174,7 @@ fn prologue(w: &mut World, id: MobyId) {
     }
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && w.m(id).state != 6 && res.damage != 0.0 {
+    if res.out5 != 1 && w.m(id).state != 6 && res.damage != 0.0 && !res.settle_quiet_stream(w, id, pv::D) {
         let hp = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, hp);
         if hp <= 0.0 {

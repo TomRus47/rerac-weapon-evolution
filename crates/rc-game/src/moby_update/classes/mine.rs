@@ -60,6 +60,7 @@ use crate::ps2v::Pf;
 use crate::targeting as tg;
 
 use super::bomb_water;
+pub mod experimental;
 
 pub const UPDATE_FN: u32 = 0x2bfe40;
 pub const CLASS: i16 = 0x4a;
@@ -158,18 +159,14 @@ pub fn release(table: &mut MobyTable, id: MobyId, rng: &mut crate::rng::Rng, poi
         p::set_v4f(&mut m.pvars, pv::VEL, c::add(nudge, v));
         p::set_i16(&mut m.pvars, pv::TIMER, 120);
     }
-    // More than 7 other mines: the oldest goes.
-    let mut oldest: Option<(MobyId, i32)> = None;
-    let mut n = 0;
-    for (i, m) in table.mobys.iter().enumerate() {
-        if i == id || m.o_class != CLASS || m.is_deleted() { continue; }
-        let born = p::i32(&m.pvars, pv::BORN);
-        if oldest.is_none_or(|(_, b)| born < b) { oldest = Some((i, born)); }
-        n += 1;
-    }
-    if 7 < n {
-        if let Some((o, _)) = oldest { p::set_i32(&mut table.mobys[o].pvars, pv::BORN, -1); }
-    }
+    experimental::snapshot(&mut table.mobys[id]);
+    let limit = crate::weapon_evo::extra(17,"max_active_mines",8.0).round().clamp(1.0,32.0) as usize;
+    let mut others: Vec<_> = table.mobys.iter().enumerate().filter(|(i,m)|
+        *i!=id && m.o_class==CLASS && m.state!=0 && !m.is_deleted() && p::i32(&m.pvars,pv::BORN)>=0)
+        .map(|(i,m)|(i,p::i32(&m.pvars,pv::BORN))).collect();
+    others.sort_by_key(|&(_,born)|born);
+    let retire = others.len().saturating_add(1).saturating_sub(limit);
+    for &(old,_) in others.iter().take(retire) {p::set_i32(&mut table.mobys[old].pvars,pv::BORN,-1);}
     let m = &mut table.mobys[id];
     m.position = [point[0], point[1], point[2], m.position[3]];
 }
@@ -235,6 +232,7 @@ pub fn update(w: &mut World, id: MobyId) {
         return;
     }
     w.mm(id).mode &= !0x100;
+    if experimental::update(w,id) { return; }
     let old = c::pos(w, id);
     let mut drift: V = [0.0, 0.0, DT + DT, 0.0];
     let mut normal: V = [0.0, 0.0, 1.0, 0.0];
@@ -599,9 +597,9 @@ fn explode(w: &mut World, id: MobyId, _drift: V, _normal: V) {
     if !water {
         if gz + 2.0 < pos[2] {
             let b = fx::Beam { damage_r: 0.0, damage: 0.0, flash: 2.0, flash2: 1.0, flash_dist: 4.0, scale: 1.0, light: 7.0, streaks: 3, sparks: 3, puffs: 5, debris: 1, sound: 2, shake: false };
-            fx::beam_explosion(w, &b, Some(id), pos);
+            fx::beam_explosion_tinted(w, &b, Some(id), pos, experimental::blast_color(w.m(id)), experimental::light_color(w.m(id)));
         } else {
-            smoke(w, pos, g);
+            smoke(w, pos, g, id);
         }
     } else {
         let surf = w.ground_height(Pf::f(0.5), pvq([pos[0], pos[1], pos[2] + 3.5, pos[3]]), 0).to_f32();
@@ -613,7 +611,8 @@ fn explode(w: &mut World, id: MobyId, _drift: V, _normal: V) {
     let amp = if dcam < 20.0 { 0.4 - dcam * 0.0175 } else { f32::from_bits(0x3d4c_ccd0) };
     let t = w.ticks(25);
     w.shake_camera(crate::follow_camera::ShakeRequest { axis: crate::follow_camera::ShakeAxis::Up, amp, ticks: t });
-    fx::light_spawn(w, if g == 0 { &fx::LIGHT_BOMB } else { &fx::LIGHT_GOLD }, pos);
+    let light = fx::tint_light(if g == 0 { fx::LIGHT_BOMB } else { fx::LIGHT_GOLD },experimental::light_color(w.m(id)));
+    fx::light_spawn(w, &light, pos);
     w.delete_moby(id);
 }
 
@@ -622,9 +621,11 @@ fn explode(w: &mut World, id: MobyId, _drift: V, _normal: V) {
 /// spot `randf(0, 0.25)` (0.5 for fire) out at a random angle and sunk by its cosine of 45°, the rise less 8·dt per
 /// unit out, then the kind's colours, size and life. The gold mine (`gold` ≠ 0): velocities, spot and sizes ×1.5
 /// (0x13e531·0.5 + 1) and every colour through `0x270fa8(c, gold)` ([`fx::colour_shift`]).
-fn smoke(w: &mut World, pos: V, gold: u8) {
+fn smoke(w: &mut World, pos: V, gold: u8, id: MobyId) {
     let gk = gold as f32 * 0.5 + 1.0;
-    let sh = |c: u32| fx::colour_shift(c, gold);
+    let color = experimental::blast_color(w.m(id));
+    let flame_colors = experimental::flame_colors(w.m(id));
+    let sh = |c: u32| crate::weapon_evo::tint_rgba(fx::colour_shift(c, gold),color);
     use crate::particles::{tween_color, type16};
     let n = 15;
     for _ in 0..n {
@@ -641,7 +642,7 @@ fn smoke(w: &mut World, pos: V, gold: u8) {
         let (size, c1, c2, life, k) = match kind {
             1 => {
                 let size = w.rng.randf(50000.0, 100000.0);
-                (size * gk, sh(0x3f08_1020), sh(0x0f08_1020), w.ticks(0xb4), 1)
+                (size * gk, crate::weapon_evo::tint_rgba(sh(0x3f08_1020),flame_colors[0]), crate::weapon_evo::tint_rgba(sh(0x0f08_1020),flame_colors[1]), w.ticks(0xb4), 1)
             }
             0 => {
                 let size = w.rng.randf(200_000.0, 300_000.0);

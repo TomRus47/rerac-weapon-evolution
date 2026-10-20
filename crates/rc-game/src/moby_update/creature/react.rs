@@ -404,6 +404,7 @@ pub fn table(w: &World, id: MobyId) -> Option<Table> {
 
 /// The wrappers of moby `id` (its table and class).
 pub fn wrappers(w: &World, id: MobyId) -> Option<Wrappers> {
+    if let Some(x) = crate::moby_update::classes::cannon_crate::wrappers(w.m(id)) { return Some(x); }
     Some(match table(w, id)? {
         Table::Critter => CRITTER,
         Table::Amoeboid => if w.m(id).o_class == 866 { AMOEBOID_866 } else { AMOEBOID_572 },
@@ -565,6 +566,7 @@ pub fn slot_swallow(w: &mut World, id: MobyId, point: V) -> i32 {
 pub fn slot_fire(w: &mut World, id: MobyId, height: f32, vel: V, target: Option<MobyId>) -> i32 {
     let Some(x) = wrappers(w, id) else { return 0 };
     let r = fire_out(w, id, height, vel, target);
+    if r != 0 { crate::moby_update::classes::cannon_crate::fired(w, id); }
     let r2 = wrap_state(w, id, &x, r);
     if let (Some(s), Some(rr)) = (x.bounce_sound, record(w, id)) {
         if rs(w, rr, id, rec::STATE) == 6 { w.play_sound(s, 0, id); }

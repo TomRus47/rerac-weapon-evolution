@@ -357,7 +357,7 @@ pub fn senses(w: &mut World, id: MobyId, culled: bool) {
     w.mm(id).scale = cs * k::SCALE;
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, o::D, 0, 4);
-    if res.out5 != 1 && st(w, id) != 0x17 {
+    if res.out5 != 1 && st(w, id) != 0x17 && !res.settle_quiet_stream(w, id, o::D) {
         if w.body() == 0 { tell_group(w, id); }
         let hp = c::pf(w, id, o::D) - res.damage;
         c::set_pf(w, id, o::D, hp);

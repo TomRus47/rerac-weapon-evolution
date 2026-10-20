@@ -155,6 +155,7 @@ fn hits(w: &mut World, id: MobyId, k: &Tick) {
     c::set_pi32(w, id, kr + knock::k::RADIUS, 0x15e);
     c::set_pf(w, id, kr + knock::k::ZOFF, f32::from_bits(0x3eb3_3333));
     let Some(h) = hit else { return };
+    if res.settle_quiet_stream(w, id, p::D) { return; }
     if res.damage == 0.0 { return; }
     if c::pi16(w, id, p::GUARD) != 0 {
         if damage::quiet_damage(w, id, res.hit, p::D) { return; }

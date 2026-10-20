@@ -18,6 +18,82 @@ def ensure_stream_fields(raw):
             lines.extend(additions)
     return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
 
+def ensure_experimental_fields(raw):
+    """Order standard fields before each experimental footer, preserving balance.
+
+    v43 geometry defaults are migrated once: 35% -> 40%, 6 -> 3 units/s,
+    symmetric 33 degrees -> independent 22-degree jets. Custom values survive.
+    Jump height is converted into initial upward velocity, not discarded.
+    v46 renames the old R.Y.N.O. spread to horizontal spread and adds a 3-degree
+    vertical default. Existing explicit axis values always take precedence.
+    """
+    import math
+    from launcher_core import IniDocument
+    from schema import EXPERIMENTAL_DEFAULTS, STANDARD_DEFAULTS
+    doc = IniDocument(raw)
+    newline = '\r\n' if b'\r\n' in raw else '\n'
+    blocks = []; current = []
+    for line in doc.lines:
+        if re.fullmatch(r'\s*\[[^\]]+\]\s*', line.split(';',1)[0].strip()):
+            if current: blocks.append(current)
+            current = []
+        current.append(line)
+    if current: blocks.append(current)
+    result = []
+    for block in blocks:
+        header = re.fullmatch(r'\s*\[weapon\.([a-z_]+)\.level([1-5])\]\s*', block[0].split(';',1)[0].strip())
+        if not header:
+            result.extend(block); continue
+        weapon = header[1]; section = f'weapon.{weapon}.level{header[2]}'
+        if weapon not in EXPERIMENTAL_DEFAULTS and weapon not in STANDARD_DEFAULTS:
+            result.extend(block); continue
+        defaults = EXPERIMENTAL_DEFAULTS.get(weapon, {})
+        values = {key: doc.entries[section,key] for sec,key in doc.entries if sec == section}
+        original = dict(values)
+        legacy = set()
+        if weapon == 'bomb_glove' and 'cluster_jump_height' in values:
+            legacy.add('cluster_jump_height')
+            values.setdefault('cluster_jump_speed', format(math.sqrt(22*float(values['cluster_jump_height'])), '.8g'))
+            if values.get('cluster_bomb_size_percent') == '35': values['cluster_bomb_size_percent'] = '40'
+            if values.get('cluster_launch_speed') == '6': values['cluster_launch_speed'] = '3'
+        if weapon == 'pyrocitor' and 'side_flame_angle_degrees' in values:
+            legacy.add('side_flame_angle_degrees')
+            angle = values['side_flame_angle_degrees']
+            if angle == '33': angle = '22'
+            values.setdefault('side_flame_left_angle_degrees', angle)
+            values.setdefault('side_flame_right_angle_degrees', angle)
+        if weapon == 'ryno' and 'shotgun_spread_degrees' in values:
+            # The previous single setting becomes horizontal spread. Vertical
+            # gets the new restrained default unless already explicitly edited.
+            legacy.add('shotgun_spread_degrees')
+            values.setdefault('shotgun_horizontal_spread_degrees', values['shotgun_spread_degrees'])
+            values.setdefault('shotgun_vertical_spread_degrees', '3')
+        retained = []; field_lines = {}
+        for line in block:
+            match = re.match(r'\s*([a-zA-Z0-9_]+)\s*=', line)
+            key = match[1].lower() if match else None
+            if line.strip() == '; Experimental settings (on/off and options)': continue
+            if key in defaults or key in legacy:
+                if weapon == 'ryno' and key == 'shotgun_spread_degrees' and 'shotgun_horizontal_spread_degrees' not in original:
+                    field_lines['shotgun_horizontal_spread_degrees'] = line.replace('shotgun_spread_degrees','shotgun_horizontal_spread_degrees',1)
+                if key in defaults and values.get(key) == original.get(key): field_lines[key] = line
+                continue
+            retained.append(line)
+        while retained and not retained[-1].strip(): retained.pop()
+        if retained and not retained[-1].endswith(('\n','\r')): retained[-1] += newline
+        for key, value in STANDARD_DEFAULTS.get(weapon, {}).items():
+            if key not in values: retained.append(key+' = '+value+newline)
+        if defaults:
+            retained.extend([newline, '; Experimental settings (on/off and options)'+newline])
+            for key, default in defaults.items():
+                line = field_lines.get(key, key+' = '+values.get(key, default)+newline)
+                if not line.endswith(('\n','\r')): line += newline
+                retained.append(line)
+        retained.append(newline)
+        result.extend(retained)
+    return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(result).encode('utf-8')
+
+
 def convert(raw):
     """Keep absolute HP values; remove obsolete UI fields and the internal model flag."""
     from launcher_core import IniDocument
@@ -34,7 +110,7 @@ def convert(raw):
         if section=='weapon.wrench' or section.startswith('weapon.wrench.level'):continue
         if i not in remove:lines.append(line)
     output=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
-    return ensure_stream_fields(output),[]
+    return ensure_experimental_fields(ensure_stream_fields(output)),[]
 
 def runtime_profile(raw):
     """Add the engine's real-HP flag only to the private session copy."""

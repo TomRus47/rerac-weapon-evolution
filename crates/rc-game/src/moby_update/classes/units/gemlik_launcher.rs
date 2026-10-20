@@ -185,7 +185,7 @@ fn tick(w: &mut World, id: MobyId) {
     let res = damage::resolve(w, id, hit, o::D, 0, 4);
     let mine = hit.and_then(|h| h.attacker_class(w.table)).is_some_and(|class| class == MISSILE);
     let (out5, dmg) = if mine { (1, 0.0) } else { (res.out5, res.damage) };
-    if out5 != 1 {
+    if out5 != 1 && !res.settle_quiet_stream(w, id, o::D) {
         let hp = c::pf(w, id, o::D) - dmg;
         c::set_pf(w, id, o::D, hp);
         blend(w, id, 7, 5);

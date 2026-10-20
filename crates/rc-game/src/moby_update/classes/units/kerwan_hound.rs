@@ -200,7 +200,7 @@ fn hits(w: &mut World, id: MobyId) {
     c::set_pf(w, id, pv::SIGHT, if r == 0 { base + base } else { base });
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if let Some(h) = res.hit.filter(|_| res.out5 != 1 && state(w, id) != st::DYING) {
+    if let Some(h) = res.hit.filter(|_| res.out5 != 1 && state(w, id) != st::DYING && !res.settle_quiet_stream(w, id, pv::D)) {
         let g = w.m(id).group;
         if g != -1 { crate::moby_update::scheduler::group_cmd(w, g, 1); }
         let kr = pv::K;

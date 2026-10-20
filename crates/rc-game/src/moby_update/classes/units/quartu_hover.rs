@@ -197,7 +197,7 @@ pub fn hits(w: &mut World, id: MobyId) {
     let hit = w.get_hit(id, 0x33_0000, false);
     let r = damage::resolve(w, id, hit, o::D, 0, 4);
     let s = w.m(id).state;
-    if r.out5 != 1 && s != 7 && s != 0x40 {
+    if r.out5 != 1 && s != 7 && s != 0x40 && !r.settle_quiet_stream(w, id, o::D) {
         let hp = c::pf(w, id, o::D) - r.damage;
         c::set_pf(w, id, o::D, hp);
         if r.reaction == 1 || hp <= 0.0 {

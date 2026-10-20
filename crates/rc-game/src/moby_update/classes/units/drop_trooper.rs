@@ -399,7 +399,7 @@ fn prologue(w: &mut World, id: MobyId) -> bool {
     let attacker = hit.and_then(|h| h.attacker_class(w.table));
     if attacker == Some(SHOT) { hit = None; }
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && w.m(id).state != 9 {
+    if res.out5 != 1 && w.m(id).state != 9 && !res.settle_quiet_stream(w, id, pv::D) {
         alert(w, id, 300.0, 360.0);
         if let Some(class) = attacker.filter(|_| hit.is_some()) {
             if class != KEEPS_SKILL { c::set_pi32(w, id, pv::CLEAN, 0); }

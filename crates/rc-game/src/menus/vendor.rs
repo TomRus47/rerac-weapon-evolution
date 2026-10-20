@@ -49,7 +49,7 @@ pub mod salesman;
 pub mod screens;
 
 use crate::game_state::{GameState, SessionState};
-use crate::menus::{sprite, text, MenuAssets, MenuDraw, MenuInput, Overlay};
+use crate::menus::{text, MenuAssets, MenuDraw, MenuInput, Overlay};
 use crate::moby_update::interact::ShopTable;
 use crate::pad::button;
 use crate::rng::Rng;

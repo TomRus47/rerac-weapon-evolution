@@ -148,7 +148,7 @@ pub fn senses(w: &mut World, id: MobyId, culled: bool) {
     c::set_pf(w, id, o::IDLE_T, it);
     let hit = w.get_hit(id, 0x33_0000, false);
     let r = damage::resolve(w, id, hit, o::D, 0, 4);
-    if r.out5 != 1 && st(w, id) != 0xf {
+    if r.out5 != 1 && st(w, id) != 0xf && !r.settle_quiet_stream(w, id, o::D) {
         let kr = o::K;
         c::set_pu8(w, id, kr + 0x3d, 0);
         let hp = c::pf(w, id, o::D) - r.damage;

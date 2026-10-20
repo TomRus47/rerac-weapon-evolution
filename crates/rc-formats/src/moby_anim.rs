@@ -510,6 +510,12 @@ fn ftoi(x: u32, n: i32) -> i32 {
 /// 0x80 = inherited, 0 = post-scale, as on the disc. `snap` is the current snapshot when key A is one.
 /// None when a key the state needs is missing (the game would read garbage).
 pub fn snapshot(class: &MobyAnimClass, s: &AnimState, snap: Option<&MobyFrame>) -> Option<MobyFrame> {
+    snapshot_layered(class, s, snap, &[])
+}
+
+/// Encode local pose layers for replacement models such as equipped boots.
+/// Model-space branch yaw belongs to the attachment transform, not this snapshot.
+pub fn snapshot_layered(class: &MobyAnimClass, s: &AnimState, snap: Option<&MobyFrame>, layers: &[PoseLayer]) -> Option<MobyFrame> {
     use ps2::{add, mul, sub};
     let jc = class.joint_count;
     let fa = if s.seq_a == SNAPSHOT_SEQ { snap? } else { class.frame(s.seq_a, s.frame_a)? };
@@ -603,6 +609,7 @@ pub fn snapshot(class: &MobyAnimClass, s: &AnimState, snap: Option<&MobyFrame>) 
             }
         }
     }
+    apply_layers(class, layers, &mut rec[..jc.min(N)]);
     // Encode (0x20f468..0x20f610).
     let mut payload = Vec::new();
     let (mut scales, mut trans) = (Vec::new(), Vec::new());

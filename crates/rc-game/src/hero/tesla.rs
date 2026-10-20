@@ -162,10 +162,12 @@ pub struct Tesla {
     pub drawn: Option<u64>,
     /// Firing this tick (the port's record for the tests).
     pub firing: bool,
+    /// A second native chain owns its wave phases, arcs and target history.
+    pub secondary: Option<Box<Tesla>>,
 }
 
 impl Default for Tesla {
-    fn default() -> Self { Tesla { start: [0.0; 3], end: [0.0; 3], targets: [None; 2], length: 0.0, held: [0; 2], warmup: 0, light: -1, level: 0, ammo_timer: 0, count: 0, none: [0; 2], cooldown: [0; 2], chain: Chain::default(), drawn: None, firing: false } }
+    fn default() -> Self { Tesla { start: [0.0; 3], end: [0.0; 3], targets: [None; 2], length: 0.0, held: [0; 2], warmup: 0, light: -1, level: 0, ammo_timer: 0, count: 0, none: [0; 2], cooldown: [0; 2], chain: Chain::default(), drawn: None, firing: false, secondary: None } }
 }
 
 fn alive(table: &MobyTable, t: MobyId) -> bool { table.mobys.get(t).is_some_and(|m| m.state != 0xfe && m.state != 0xfd && m.mode & crate::moby_runtime::mode::TARGETABLE != 0) }
@@ -371,10 +373,100 @@ pub fn reset(t: &mut Tesla) {
 
 /// `0x2cf138`: the targets, the chain, its hits, the arcs and the sparks (module doc of [`Chain`] for the layout).
 #[allow(clippy::too_many_lines)]
+fn beam_size() -> f32 { crate::weapon_evo::extra(TESLA, "beam_size_percent", 100.0).clamp(1.0, 500.0) / 100.0 }
+
+/// Both rays run the original electrical builder. Only the outer update owns
+/// ammo, warm-up, light and hum; the secondary owns independent geometry.
+fn build_dual(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng) {
+    let (start, aim, length) = (hero.weapons.tesla.start, hero.weapons.tesla.end, hero.weapons.tesla.length);
+    let mut secondary = hero.weapons.tesla.secondary.take().unwrap_or_else(|| {
+        let mut t = Tesla::default();
+        t.chain.phase = [1.1, 2.2, 0.7];
+        Box::new(t)
+    });
+    let mut primary_hits = std::collections::HashSet::new();
+    {
+        let mut channel = BeamHits { inner: hits, secondary: false, primary: &mut primary_hits };
+        build_native(hero, table, env, &mut channel, rng, true, None);
+    }
+    let preferred = hero.weapons.tesla.targets[0];
+    secondary.start = start;
+    secondary.end = aim;
+    secondary.length = length;
+    secondary.drawn = hero.weapons.tesla.drawn;
+    for k in 0..2 {
+        if secondary.targets[k].is_some_and(|id| !alive(table, id) || Some(id) == preferred) {
+            secondary.targets[k] = None;
+            secondary.none[k] = 0;
+        }
+        if secondary.cooldown[k] > 0 { secondary.cooldown[k] -= 1; }
+    }
+    std::mem::swap(&mut hero.weapons.tesla, &mut secondary);
+    {
+        let mut channel = BeamHits { inner: hits, secondary: true, primary: &mut primary_hits };
+        build_native(hero, table, env, &mut channel, rng, true, preferred);
+    }
+    std::mem::swap(&mut hero.weapons.tesla, &mut secondary);
+    hero.weapons.tesla.secondary = Some(secondary);
+}
+
+/// Tags travel with the hit, so a delayed enemy update cannot confuse the two
+/// rays or read an overlap percentage from a later weapon grade.
+struct BeamHits<'a> {
+    inner: &'a mut dyn HitSink,
+    secondary: bool,
+    primary: &'a mut std::collections::HashSet<MobyId>,
+}
+impl BeamHits<'_> {
+    fn tagged(&self, t: &HitTemplate, overlap: bool) -> HitTemplate {
+        let mut t = *t;
+        if self.secondary {
+            t.w20 |= crate::moby_update::real_hp::TESLA_SECONDARY;
+            if overlap { t.w20 |= crate::moby_update::real_hp::TESLA_OVERLAP; }
+        }
+        t
+    }
+}
+impl HitSink for BeamHits<'_> {
+    fn sphere(&mut self, table: &mut MobyTable, r: Pf, at: [Pf;4], flags: u32, ignore: Option<MobyId>, t: &HitTemplate) -> Option<MobyId> {
+        // Both nozzle spheres have identical placement and size.
+        let t = self.tagged(t, true);
+        let id = self.inner.sphere(table, r, at, flags, ignore, &t);
+        if !self.secondary { if let Some(id) = id { self.primary.insert(id); } }
+        id
+    }
+    fn line(&mut self, table: &mut MobyTable, a: [Pf;4], b: [Pf;4], flags: u32, ignore: Option<MobyId>, t: &HitTemplate) -> Option<Option<MobyId>> {
+        let t = self.tagged(t, false);
+        self.inner.line(table, a, b, flags, ignore, &t)
+    }
+    fn deliver(&mut self, table: &mut MobyTable, id: MobyId, t: &HitTemplate) {
+        let t = self.tagged(t, self.primary.contains(&id));
+        self.inner.deliver(table, id, &t);
+        if !self.secondary { self.primary.insert(id); }
+    }
+    fn probe_moby(&mut self, table: &mut MobyTable, a: [Pf;4], b: [Pf;4], flags: u32, ignore: Option<MobyId>) -> Option<Option<super::items::Probe>> {
+        self.inner.probe_moby(table, a, b, flags, ignore)
+    }
+    fn probe(&mut self, table: &mut MobyTable, a: [Pf;4], b: [Pf;4], flags: u32, ignore: Option<MobyId>) -> Option<Option<[f32;3]>> {
+        self.inner.probe(table, a, b, flags, ignore)
+    }
+    fn class_type(&self, class: i16) -> Option<u8> { self.inner.class_type(class) }
+}
+
 pub fn build(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng) {
+    if crate::weapon_evo::extra_flag(TESLA, "dual_beam_enabled", false) {
+        build_dual(hero, table, env, hits, rng);
+    } else {
+        hero.weapons.tesla.secondary = None;
+        build_native(hero, table, env, hits, rng, false, None);
+    }
+}
+
+fn build_native(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng, single: bool, avoid: Option<MobyId>) {
+    if single { hero.weapons.tesla.targets[1] = None; }
     let gold = hero.weapons.gold[TESLA as usize];
     let range = targeting::reach::beam_range(TESLA, gold != 0);
-    let mut seg = RANGE / 20.0;
+    let mut seg = hero.weapons.tesla.length.min(range) / 19.0;
     let hero_pos = to_f32x3(hero.pos);
     let hero_yaw = hero.rot[2].to_f32();
     let (cam, cam_fwd) = env.camera.unwrap_or((hero_pos, [1.0, 0.0, 0.0]));
@@ -403,7 +495,7 @@ pub fn build(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut d
             t.none[1] = 0;
         }
     }
-    let search = t.targets[0].is_none() || (gold != 0 && t.targets[1].is_none());
+    let search = t.targets[0].is_none() || (gold != 0 && !single && t.targets[1].is_none());
     if search {
         if t.targets[1].is_some() && t.targets[0].is_none() {
             t.targets[0] = t.targets[1];
@@ -422,7 +514,8 @@ pub fn build(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut d
                 if CAM_CONE * crate::weapon_evo::extra(19, "lock_cone_multiplier", 1.0) < cd { continue; }
                 let hd = diff_rots(atan(m.position[0] - hero_pos[0], m.position[1] - hero_pos[1]), hero_yaw);
                 if HERO_CONE * crate::weapon_evo::extra(19, "lock_cone_multiplier", 1.0) < hd { continue; }
-                let score = ((CAM_CONE - cd) / CAM_CONE) * SCORE_CAM + (range - d) / range;
+                let score = ((CAM_CONE - cd) / CAM_CONE) * SCORE_CAM + (range - d) / range
+                    + if avoid.is_some() && Some(id) != avoid { 4.0 } else { 0.0 };
                 if best.1 < score {
                     second = best;
                     best = (Some(id), score);
@@ -444,7 +537,7 @@ pub fn build(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut d
         }
     }
     let t = &mut hero.weapons.tesla;
-    if let (Some(o), true, Some(b)) = (other, gold != 0, best.0) {
+    if let (Some(o), true, Some(b)) = (other, gold != 0 && !single, best.0) {
         let bp = targeting::aim_point(&table.mobys[b]);
         let d1 = len3(sub3(t.start, bp));
         if d1 < range {
@@ -467,7 +560,7 @@ pub fn build(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut d
     // The claw's own hit: a sphere of 0.3 at the start.
     let tmpl = HitTemplate { dir: [Pf::ZERO; 4], attacker: Some(env.hero_moby), flags: 0x21_0000, b18: 5, b19: 1, h1a: CLASS as u16, damage: Pf::f((gold as f32 + 2.0) * crate::weapon_evo::extra(19, "damage_multiplier", 1.0)), w20: 1 };
     t.count = 20;
-    hits.sphere(table, Pf::f(0.3), from_f32x3(t.start), 0x10, Some(env.hero_moby), &tmpl);
+    hits.sphere(table, Pf::f(0.3 * beam_size()), from_f32x3(t.start), 0x10, Some(env.hero_moby), &tmpl);
     let t = &mut hero.weapons.tesla;
     let mut dirn = with_len(sub3(t.end, t.start), 1.0);
     if t.targets[0].is_some() || t.targets[1].is_some() {
@@ -746,7 +839,22 @@ pub fn beam_quads(t: &Tesla, eye: [f32; 3], gravity: [f32; 3]) -> Vec<BeamQuad> 
 
 /// The player's weapon only: environmental copies keep their native colours.
 pub fn weapon_beam_quads(t: &Tesla, eye: [f32; 3], gravity: [f32; 3]) -> Vec<BeamQuad> {
-    beam_quads_with(t, eye, gravity, TeslaColors::configured())
+    let mut quads = beam_quads_with(t, eye, gravity, TeslaColors::configured());
+    if let Some(second) = &t.secondary {
+        quads.extend(beam_quads_with(second, eye, gravity, TeslaColors::configured()));
+    }
+    resize_beam_quads(&mut quads, beam_size());
+    quads
+}
+
+fn resize_beam_quads(quads: &mut [BeamQuad], size: f32) {
+    for q in quads {
+        // Expand across the strip, preserving each endpoint and the beam's reach.
+        for pair in [[0, 1], [2, 3]] {
+            let centre = scale3(add3(q.corners[pair[0]], q.corners[pair[1]]), 0.5);
+            for k in pair { q.corners[k] = add3(centre, scale3(sub3(q.corners[k], centre), size)); }
+        }
+    }
 }
 
 fn beam_quads_with(t: &Tesla, eye: [f32; 3], gravity: [f32; 3], colors: TeslaColors) -> Vec<BeamQuad> {
@@ -880,4 +988,76 @@ mod tests {
         assert_eq!(t.chain.main[0], [0.0, 0.0, 1.0]);
         assert!((t.chain.main[19][0] - 19.0 * 0.75).abs() < 1e-4);
     }
+    #[derive(Default)]
+    struct DualHits(Vec<(MobyId,f32)>);
+    impl HitSink for DualHits {
+        fn sphere(&mut self,_:&mut MobyTable,_:Pf,_:super::super::physics::V4,_:u32,_:Option<MobyId>,_:&HitTemplate)->Option<MobyId>{None}
+        fn line(&mut self,_:&mut MobyTable,_:super::super::physics::V4,_:super::super::physics::V4,_:u32,_:Option<MobyId>,_:&HitTemplate)->Option<Option<MobyId>>{None}
+        fn class_type(&self,_:i16)->Option<u8>{Some(5)}
+        fn deliver(&mut self,_:&mut MobyTable,id:MobyId,hit:&HitTemplate){self.0.push((id,hit.damage.to_f32()));}
+    }
+    #[test]
+    fn v45_dual_rays_use_independent_native_chains() {
+        use crate::moby_runtime::{Moby,ClassInfo,mode};
+        use super::super::items::ItemData;
+        let info=ClassInfo {scale:1.0,..Default::default()};
+        let mut mobys=vec![Moby::init_instance(0,0,Some(&info))];
+        for (id,y) in [(1,100.5),(2,99.5)] {
+            let mut m=Moby::init_instance(id,577,Some(&info));
+            m.mode|=mode::TARGETABLE|0x20;m.visible=1;m.position=[105.0,y,51.0,1.0];m.pvars=vec![0;0x80];
+            m.pvars[0..4].copy_from_slice(&0x20u32.to_le_bytes());
+            mobys.push(m);
+        }
+        let mut table=MobyTable::new(mobys,0);
+        let mut hero=Hero::spawn([100.0,100.0,50.0],0.0);
+        hero.weapons.tesla.start=[100.0,100.0,51.0];hero.weapons.tesla.end=[112.0,100.0,51.0];hero.weapons.tesla.length=12.0;hero.weapons.tesla.targets=[Some(1),Some(1)];
+        hero.weapons.ammo[19]=50;
+        let data=ItemData::default();let pad=crate::pad::PadState::default();
+        let env=ItemEnv{data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,camera:Some(([100.0,100.0,51.0],[1.0,0.0,0.0])),camera_up:None,targets:&[1,1,2,1]};
+        let mut hits=DualHits::default();let mut rng=Rng::new();
+        build_dual(&mut hero,&mut table,&env,&mut hits,&mut rng);
+        assert_eq!(hero.weapons.tesla.targets,[Some(1),None]);
+        assert_eq!(hero.weapons.tesla.secondary.as_ref().unwrap().targets,[Some(2),None]);
+        assert_eq!(hits.0,[(1,2.0),(2,2.0)]);assert_eq!(hero.weapons.ammo[19],50);
+        assert_eq!(hero.weapons.tesla.chain.main[0],hero.weapons.tesla.secondary.as_ref().unwrap().chain.main[0]);
+        assert_ne!(hero.weapons.tesla.chain.main[POINTS-1],hero.weapons.tesla.secondary.as_ref().unwrap().chain.main[POINTS-1]);
+        table.mobys[2].state=0xfe;hits.0.clear();hero.weapons.tesla.cooldown=[0;2];
+        hero.weapons.tesla.secondary.as_mut().unwrap().cooldown=[0;2];
+        build_dual(&mut hero,&mut table,&env,&mut hits,&mut rng);
+        assert_eq!(hero.weapons.tesla.targets,[Some(1),None]);
+        assert_eq!(hero.weapons.tesla.secondary.as_ref().unwrap().targets,[Some(1),None]);
+        assert_eq!(hits.0,[(1,2.0),(1,2.0)]);assert_eq!(hero.weapons.ammo[19],50);
+    }
+    #[test]
+    fn v45_both_native_rays_remain_visible_when_no_enemy_can_be_locked() {
+        use super::super::items::ItemData;
+        let mut hero=Hero::spawn([100.0,100.0,50.0],0.0);
+        hero.weapons.tesla.start=[100.0,100.0,51.0];
+        hero.weapons.tesla.end=[112.0,100.0,51.0];hero.weapons.tesla.length=12.0;
+        hero.weapons.ammo[19]=50;
+        let mut table=MobyTable::default();let data=ItemData::default();let pad=crate::pad::PadState::default();
+        let env=ItemEnv{data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,
+            camera:Some(([100.0,100.0,51.0],[1.0,0.0,0.0])),camera_up:None,targets:&[]};
+        let mut hits=DualHits::default();let mut rng=Rng::new();
+        build_dual(&mut hero,&mut table,&env,&mut hits,&mut rng);
+        let first=&hero.weapons.tesla;let second=first.secondary.as_ref().unwrap();
+        for ray in [first,second.as_ref()] {
+            assert!(len3(sub3(ray.chain.main[POINTS-1],ray.start))>5.0);
+            assert!(beam_quads(ray,[95.0,95.0,55.0],[0.0,0.0,-1.0]).iter().any(|q|q.fx==FX_CORE));
+        }
+        assert_ne!(first.chain.main,second.chain.main);
+        assert!(hits.0.is_empty());assert_eq!(hero.weapons.ammo[19],50,"the outer firing update owns ammo");
+    }
+    #[test]
+    fn v44_beam_size_changes_width_without_moving_the_segment_centres() {
+        let t=color_test_tesla();let mut q=beam_quads(&t,[0.0,-10.0,1.0],[0.0,0.0,-1.0]);let before=q.clone();
+        resize_beam_quads(&mut q,2.0);
+        for (a,b) in before.iter().zip(&q) {
+            for pair in [[0,1],[2,3]] {
+                assert!(len3(sub3(add3(a.corners[pair[0]],a.corners[pair[1]]),add3(b.corners[pair[0]],b.corners[pair[1]])))<0.0001);
+                assert!((len3(sub3(b.corners[pair[0]],b.corners[pair[1]]))-2.0*len3(sub3(a.corners[pair[0]],a.corners[pair[1]]))).abs()<0.0001);
+            }
+        }
+    }
+
 }

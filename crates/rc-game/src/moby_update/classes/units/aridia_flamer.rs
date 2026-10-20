@@ -160,7 +160,7 @@ fn pre(w: &mut World, id: MobyId) {
     let mut hit = w.get_hit(id, 0x33_0000, false);
     if hit.and_then(|h| h.attacker_class(w.table)).is_some_and(|class| class == 0x264) { hit = None; }
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && state(w, id) != st::DYING {
+    if res.out5 != 1 && state(w, id) != st::DYING && !res.settle_quiet_stream(w, id, pv::D) {
         let hp = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, hp);
         let kr = pv::K;

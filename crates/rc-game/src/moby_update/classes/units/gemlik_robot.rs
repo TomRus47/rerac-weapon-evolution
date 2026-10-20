@@ -256,40 +256,42 @@ fn tick(w: &mut World, id: MobyId) -> bool {
     if res.out5 != 1 && w.m(id).state != 0x10 {
         let own = hit.and_then(|h| h.attacker_class(w.table)).is_some_and(|class| class == 0x4ee);
         let dmg = if own { 0.0 } else { res.damage };
-        let hp = c::pf(w, id, o::D) - dmg;
-        c::set_pf(w, id, o::D, hp);
-        let reaction = if hp <= 0.0 { 1 } else { res.reaction };
-        let kr = o::K;
-        c::set_pi32(w, id, kr + knock::k::RADIUS, 0x2cd);
-        c::set_pf(w, id, kr + knock::k::ZOFF, f32::from_bits(0x3f33_3333));
-        let dir = hit.map_or([0.0; 4], |h| h.dir.map(|x| x.to_f32()));
-        let a = c::atan(dir[0], dir[1]);
-        match reaction {
-            1 | 2 => {
-                w.mm(id).state = 0x10;
-                w.mm(id).mode &= !mode::TARGETABLE;
-                c::set_pf(w, id, kr + knock::k::KEY_APEX, 9.0);
-                c::set_pf(w, id, kr + knock::k::KEY_LAND, 17.0);
-                c::set_pf(w, id, kr + knock::k::UP, 5.7 * DT);
-                c::set_pf(w, id, kr + knock::k::SPEED, 19.0 * DT);
-                knock::start(w, id, kr, a, 8, 1, 0);
-                c::set_pu8(w, id, o::F + 7, 0xfa);
-                set_death_bits(w, id, 0, -1);
+        if own || !res.settle_quiet_stream(w, id, o::D) {
+            let hp = c::pf(w, id, o::D) - dmg;
+            c::set_pf(w, id, o::D, hp);
+            let reaction = if hp <= 0.0 { 1 } else { res.reaction };
+            let kr = o::K;
+            c::set_pi32(w, id, kr + knock::k::RADIUS, 0x2cd);
+            c::set_pf(w, id, kr + knock::k::ZOFF, f32::from_bits(0x3f33_3333));
+            let dir = hit.map_or([0.0; 4], |h| h.dir.map(|x| x.to_f32()));
+            let a = c::atan(dir[0], dir[1]);
+            match reaction {
+                1 | 2 => {
+                    w.mm(id).state = 0x10;
+                    w.mm(id).mode &= !mode::TARGETABLE;
+                    c::set_pf(w, id, kr + knock::k::KEY_APEX, 9.0);
+                    c::set_pf(w, id, kr + knock::k::KEY_LAND, 17.0);
+                    c::set_pf(w, id, kr + knock::k::UP, 5.7 * DT);
+                    c::set_pf(w, id, kr + knock::k::SPEED, 19.0 * DT);
+                    knock::start(w, id, kr, a, 8, 1, 0);
+                    c::set_pu8(w, id, o::F + 7, 0xfa);
+                    set_death_bits(w, id, 0, -1);
+                }
+                3..=10 => {
+                    w.mm(id).state = 0xf;
+                    let t = w.ticks(0x3c);
+                    c::set_pi16(w, id, o::COOLDOWN, t as i16);
+                    c::set_pf(w, id, kr + knock::k::KEY_APEX, 8.0);
+                    c::set_pf(w, id, kr + knock::k::UP, 5.5 * DT);
+                    c::set_pf(w, id, kr + knock::k::KEY_LAND, 15.0);
+                    c::set_pf(w, id, kr + knock::k::SPEED, 11.0 * DT);
+                    knock::start(w, id, kr, a, 7, 1, 0);
+                    c::set_pu8(w, id, o::F + 7, 0xfa);
+                }
+                _ => {}
             }
-            3..=10 => {
-                w.mm(id).state = 0xf;
-                let t = w.ticks(0x3c);
-                c::set_pi16(w, id, o::COOLDOWN, t as i16);
-                c::set_pf(w, id, kr + knock::k::KEY_APEX, 8.0);
-                c::set_pf(w, id, kr + knock::k::UP, 5.5 * DT);
-                c::set_pf(w, id, kr + knock::k::KEY_LAND, 15.0);
-                c::set_pf(w, id, kr + knock::k::SPEED, 11.0 * DT);
-                knock::start(w, id, kr, a, 7, 1, 0);
-                c::set_pu8(w, id, o::F + 7, 0xfa);
-            }
-            _ => {}
+            flash::start(w, id, o::F);
         }
-        flash::start(w, id, o::F);
     }
     w.mm(id).hit_slot = 0xff;
     flash::update(w, id, o::F);

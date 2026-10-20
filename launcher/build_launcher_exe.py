@@ -12,10 +12,11 @@ import sys
 import tempfile
 import venv
 import launcher_core as core
+from icon_assets import preserve_icon
 
 PYINSTALLER_VERSION = '6.22.3'
 EXE_NAME = 'ReRAC_Weapon_Evolution.exe'
-SOURCES = ('windows_entry.py','launcher.py','launcher_core.py','schema.py','migrate_ini.py','frozen_support.py')
+SOURCES = ('windows_entry.py','launcher.py','launcher_core.py','schema.py','migrate_ini.py','frozen_support.py','icon_assets.py')
 
 def source_digest(kit):
     h=hashlib.sha256()
@@ -105,6 +106,7 @@ print(json.dumps([{'name':str(i)+'_'+p.name,'text':p.read_text(encoding='utf-8',
 def build(kit):
     kit=kit.resolve()
     if sys.platform!='win32':raise ValueError('Run BUILD_FINAL_WINDOWS_EXE.bat on the Windows authoring PC.')
+    preserve_icon(kit)
     icon=icon_file(kit)
     icon_args=['--icon',str(icon),'--add-data',str(icon)+':.'] if icon else []
     fingerprint=source_digest(kit)

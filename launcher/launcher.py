@@ -9,7 +9,7 @@ import sys
 import threading
 from pathlib import Path
 import launcher_core as core
-from schema import WEAPONS, EDITOR_WEAPONS, XP, NAMES, BOOLEANS, COLORS, title, help_text
+from schema import WEAPONS, EDITOR_WEAPONS, XP, NAMES, BOOLEANS, COLORS, title, help_text, field_groups
 
 BASE_LABEL = 'Default configuration (weapons.ini)'
 GRADE_COLORS = ('#8997aa', '#e1ba49', '#e88042', '#bd7be4', '#9cc956')
@@ -46,7 +46,7 @@ class Launcher:
         self.current_name = ''; self.page = 'global'; self.loading = False
         self.session = None; self.launch_busy = False; self.events = queue.Queue()
         self.log_offset = 0; self.log_text = ''; self.confirmed = False; self.cards = []; self.columns = 0
-        self.root.title('ReRAC · Weapon Evolution · Preset Launcher')
+        self.root.title('ReRAC · Weapon Evolution · Launcher '+core.VERSION)
         width = min(1450, root.winfo_screenwidth()-60); height = min(920, root.winfo_screenheight()-80)
         self.root.geometry(f'{width}x{height}'); self.root.minsize(930, 620)
         self.root.configure(bg='#161b26')
@@ -193,7 +193,7 @@ class Launcher:
         if self.loading: return
         count = sum(v.get() != self.base_values[p] for p, v in self.variables.items())
         self.document_info.set(f'{self.current_name or BASE_LABEL}  ·  {count} unsaved changes  ·  configuration values')
-        self.root.title(('• ' if count else '')+'ReRAC · Weapon Evolution · Preset Launcher')
+        self.root.title(('• ' if count else '')+'ReRAC · Weapon Evolution · Launcher '+core.VERSION)
 
     def checked_raw(self):
         if not self.doc: raise ValueError('Load a valid weapons.ini before continuing.')
@@ -308,7 +308,9 @@ class Launcher:
             label.grid(row=0, column=0, sticky='w', padx=(0, 8)); row.columnconfigure(0, weight=1)
             cell = self.ttk.Frame(row, style='Card.TFrame'); cell.grid(row=0, column=1, sticky='e')
             variable = self.variables[pair]
-            if key in BOOLEANS or key in {'level_up_sound','damage_mode'}:
+            if key == 'sand_mouse_mode':
+                widget = self.ttk.Combobox(cell,textvariable=variable,values=['1','2','3'],state='readonly',width=10)
+            elif key in BOOLEANS or key in {'level_up_sound','damage_mode'}:
                 options = ['real_hp'] if key == 'damage_mode' else ['true', 'false'] if key in BOOLEANS else ['help_notice', 'off']
                 if variable.get() not in options: options.append(variable.get())
                 widget = self.ttk.Combobox(cell, textvariable=variable, values=options, state='readonly', width=10)
@@ -393,7 +395,12 @@ class Launcher:
             for n in range(1, 6):
                 card = self.card(self.card_area, f'V{n}  /  Grade {n}', GRADE_COLORS[n-1]); self.cards.append(card)
                 level = section+f'.level{n}'; keys = self.doc.keys(level)
-                self.fields(card, level, keys)
+                standard, experimental = field_groups(self.page, keys)
+                self.fields(card, level, standard)
+                if experimental:
+                    self.ttk.Separator(card, orient='horizontal').pack(fill='x', pady=(12, 6))
+                    self.ttk.Label(card, text='Experimental settings', style='Card.TLabel').pack(anchor='w', pady=(0, 6))
+                    self.fields(card, level, experimental)
                 if not keys:
                     self.ttk.Label(card, text='No settings for this grade in the INI.', style='CardSmall.TLabel', wraplength=230).pack(anchor='w')
             self.arrange_cards()
@@ -410,11 +417,11 @@ class Launcher:
         window = self.tk.Toplevel(self.root); window.title('Launch settings'); window.transient(self.root)
         frame = self.ttk.Frame(window, padding=18); frame.pack(fill='both', expand=True)
         options = [('Extracted game data', self.data_var, False), ('Save folder (leave empty to use the default)', self.save_var, False)]
-        if not getattr(sys,'frozen',False): options.insert(0,('Modded ReRAC executable', self.exe_var, True))
+        options.insert(0,('Modded ReRAC executable', self.exe_var, True))
         for row, (label, variable, is_file) in enumerate(options):
             self.ttk.Label(frame, text=label).grid(row=row*2, column=0, columnspan=2, sticky='w', pady=(8, 2))
-            self.ttk.Entry(frame, textvariable=variable, width=75).grid(row=row*2+1, column=0, sticky='ew')
-            self.ttk.Button(frame, text='Browse…', command=lambda v=variable, f=is_file: self.choose_path(v, f, window)).grid(row=row*2+1, column=1, padx=(6, 0))
+            self.ttk.Entry(frame, textvariable=variable, width=75, state='readonly' if is_file and getattr(sys,'frozen',False) else 'normal').grid(row=row*2+1, column=0, sticky='ew')
+            self.ttk.Button(frame, text='Browse…', command=lambda v=variable, f=is_file: self.choose_path(v, f, window), state='disabled' if is_file and getattr(sys,'frozen',False) else 'normal').grid(row=row*2+1, column=1, padx=(6, 0))
         self.ttk.Label(frame, text='Choose the folder containing toc.bin and extract-info.json.\nThe included modded game is selected automatically.\nLeave the save folder empty to keep using your existing saves.', wraplength=650).grid(row=6, column=0, columnspan=2, sticky='w', pady=14)
         def save():
             try: self.remember_settings(); window.destroy()

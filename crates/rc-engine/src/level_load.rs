@@ -146,7 +146,7 @@ pub fn load_level(root: &Path, index: u32) -> Result<LoadedLevel> {
     t.parse_tfrags = t0.elapsed();
 
     let t0 = Instant::now();
-    let textures = texture::parse_textures(&core, &core_data, &gs_ram).context("decoding textures")?;
+    let mut textures = texture::parse_textures(&core, &core_data, &gs_ram).context("decoding textures")?;
     t.parse_textures = t0.elapsed();
     let tfrag_lod = crate::tfrag_lod::load(&core, &core_data, &gs_ram)?;
 
@@ -156,7 +156,8 @@ pub fn load_level(root: &Path, index: u32) -> Result<LoadedLevel> {
     let collision = rc_formats::collision::parse_collision(&core, &core_data)
         .map_err(|e| eprintln!("level {index:02}: collision not parsed ({e}); no game tick"))
         .ok();
-    let mobys = crate::moby_render::load_mobys(root, &core, &core_data, &gameplay, collision.as_ref()).context("loading mobys")?;
+    let mut mobys = crate::moby_render::load_mobys_with_gs(root, &core, &core_data, &gameplay, &gs_ram, collision.as_ref()).context("loading mobys")?;
+    crate::companion_assets::install(root, &mut mobys, &mut textures).context("loading Drone Device companion assets")?;
     let ties = crate::tie_render::load_ties(&core, &core_data, &gs_ram, &gameplay, &textures).context("loading ties")?;
     let shrubs = crate::shrub_render::load_shrubs(&core, &core_data, &gs_ram, &gameplay, &textures).context("loading shrubs")?;
 

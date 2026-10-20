@@ -573,7 +573,7 @@ fn destroyed(w: &mut World, id: MobyId) {
 fn hits(w: &mut World, id: MobyId) {
     let h = w.get_hit(id, 0x33_0000, false);
     let r = damage::resolve(w, id, h, sp::DAMAGE, 0, 4);
-    if r.out5 != 1 && w.m(id).state != 5 {
+    if r.out5 != 1 && w.m(id).state != 5 && !r.settle_quiet_stream(w, id, sp::DAMAGE) {
         let hp = c::pf(w, id, sp::DAMAGE) - r.damage;
         c::set_pf(w, id, sp::DAMAGE, hp);
         if r.reaction == 1 || hp <= 0.0 {

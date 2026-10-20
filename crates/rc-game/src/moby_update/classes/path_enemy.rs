@@ -319,6 +319,8 @@ fn die(w: &mut World, id: MobyId) {
 
 /// The hit branch (module doc).
 fn on_hit(w: &mut World, id: MobyId, h: &crate::moby_update::services::HitRecord, reaction: u8, dmg: f32) {
+    if h.evolution.is_some_and(|a| crate::moby_update::real_hp::rapid_attack(a) && a.damage_only)
+        && damage::quiet_damage(w, id, Some(*h), D) { return; }
     let t = w.ticks(600);
     c::set_pi16(w, id, ALERT_T, t as i16);
     let hp_before = c::pf(w, id, D).max(0.0);

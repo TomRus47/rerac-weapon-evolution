@@ -75,6 +75,21 @@ pub struct Arcs {
     quads: Vec<FxQuads>,
 }
 
+impl Arcs {
+    /// Owners, ribbon geometry and allocated lights belong to one moby table.
+    /// Release only this keeper's lights; unrelated effects own the other slots.
+    pub(crate) fn reset_for_reload(&mut self, lights: &mut crate::point_lights::PointLights) {
+        for k in 0..self.owner.len() {
+            if self.owner[k].is_some() {
+                for slot in self.light[k] {
+                    if let Ok(slot) = usize::try_from(slot) { lights.free(slot); }
+                }
+            }
+        }
+        *self = Self::default();
+    }
+}
+
 fn arcs<'a>(w: &'a mut World<'_>) -> &'a mut Arcs { &mut w.svc.units.oltanis_arcs }
 
 /// `0x303b30(m, lights, follow)` (module doc): whether it holds a slot.
@@ -350,3 +365,26 @@ pub fn frame(w: &mut World, id: MobyId) {
 
 /// Level14 `0x3046f8`: the arcs' quads (module doc).
 pub fn fx_quad_groups(_table: &MobyTable, svc: &Services, _id: MobyId) -> Vec<FxQuads> { svc.units.oltanis_arcs.quads.clone() }
+
+#[cfg(test)]
+mod reload_tests {
+    use super::*;
+
+    #[test]
+    fn reload_releases_owned_lights_and_preserves_other_allocations() {
+        let mut lights = crate::point_lights::PointLights::default();
+        let light = PointLight { color: [1.0; 3], intensity: 1.0, pos: [0.0; 3], radius: 5.0 };
+        let unrelated = lights.alloc(light, 0.0).unwrap();
+        let owned = lights.alloc(light, 0.0).unwrap();
+        let mut arcs = Arcs::default();
+        arcs.owner[0] = Some(17);
+        arcs.light[0] = [owned as i32, -1];
+        arcs.reset_for_reload(&mut lights);
+        assert_eq!(lights.slots[unrelated], Some(light));
+        assert_eq!(lights.slots[owned], None);
+        assert!(arcs.owner.iter().all(Option::is_none));
+        // Repeating an empty reset must not free slot zero by default.
+        arcs.reset_for_reload(&mut lights);
+        assert_eq!(lights.slots[unrelated], Some(light));
+    }
+}

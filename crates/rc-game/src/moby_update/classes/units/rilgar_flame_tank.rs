@@ -301,7 +301,7 @@ fn hits(w: &mut World, id: MobyId) {
         k != 0x47 && k != 0
     }));
     let res = damage::resolve(w, id, best, pv::D, 0, 4);
-    if res.out5 != 1 && w.m(id).state != 3 {
+    if res.out5 != 1 && w.m(id).state != 3 && !res.settle_quiet_stream(w, id, pv::D) {
         let hp = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, hp);
         if hp <= 0.0 || res.damage <= 0.0 {
@@ -400,5 +400,29 @@ pub fn update(w: &mut World, id: MobyId) {
         }
         3 => delete_all(w, id),
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod weapon_evolution_tests {
+    use super::*;
+    use crate::moby_runtime::{Moby,MobyTable};
+    use crate::moby_update::services::HitTemplate;
+    #[test]
+    fn separate_ryno_detonations_hurt_the_tank_without_removing_native_ai() {
+        let mut tank=Moby{o_class:625,state:1,pvars:vec![0;pv::SIZE],..Default::default()};
+        crate::moby_update::services::pvar::set_ff(&mut tank.pvars,pv::D,6.0);
+        let missile=Moby{o_class:457,state:1,..Default::default()};
+        let mut table=MobyTable::new(vec![tank,missile.clone(),missile],0);
+        let hero=crate::hero::Hero::new();let mut rng=crate::rng::Rng::new();
+        let classes=crate::moby_update::ClassTable::default();let mut svc=crate::moby_update::Services::new();
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);
+        w.svc.hits.real_hp.enabled=true;w.svc.hits.real_hp.values.insert(23,123.0);
+        for source in [1,2] {
+            let hit=HitTemplate{attacker:Some(source),h1a:457,b18:3,b19:3,flags:0x830000,damage:Pf::f(3.0),w20:1,dir:[Pf::ZERO,Pf::ZERO,Pf::ONE,Pf::b(0x45af_df66)],..Default::default()};
+            w.deliver_hit(0,&hit);hits(&mut w,0);
+        }
+        assert!((c::pf(&w,0,pv::D)-3.54).abs()<0.0001);
+        assert_eq!(w.m(0).state,1);
     }
 }

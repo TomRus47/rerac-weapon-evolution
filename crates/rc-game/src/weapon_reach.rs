@@ -42,7 +42,10 @@ pub(crate) fn missile_envelope(item: i32, target_speed: u8, speed: f32, range: f
         (accelerated_distance(crate::hero::physics::ticks(300), 20.0 * DT / 3.0 * speed, top * DT * speed),
             (if top > 20.0 { 140.0 } else { 70.0 }) * range)
     } else {
-        (accelerated_distance(crate::hero::physics::ticks(250), 0.0, 20.0 * DT * speed), 200.0 * range)
+        (accelerated_distance(crate::hero::physics::ticks(250), 0.0, 20.0 * DT * speed), {
+            let configured = crate::weapon_evo::extra(23, "missile_max_range", 0.0);
+            if configured > 0.0 { configured } else { 200.0 * range }
+        })
     }
 }
 
@@ -55,12 +58,13 @@ pub(crate) fn missile_allows(item: i32, target: &Moby, from: [f32; 3], hero: [f3
     let (travel, radial) = missile_envelope(item, target_speed,
         crate::weapon_evo::extra(item, "missile_speed_multiplier", 1.0),
         crate::weapon_evo::extra(item, "missile_range_multiplier", 1.0));
-    contains(from, point, travel) && (point[0] - hero[0]).hypot(point[1] - hero[1]) <= radial
+    contains(from, point, travel) && if item == 23 { contains(from, point, radial) } else { (point[0] - hero[0]).hypot(point[1] - hero[1]) <= radial }
 }
 
 pub(crate) fn beam_range(item: i32, gold: bool) -> f32 {
     if item == 19 {
         (if gold { 18.0 } else { 12.0 }) * crate::weapon_evo::extra(19, "target_range_multiplier", 1.0)
+            * crate::weapon_evo::extra(19, "beam_range_multiplier", 1.0)
     } else {
         8.0 * crate::weapon_evo::extra(21, "beam_range_multiplier", 1.0)
     }

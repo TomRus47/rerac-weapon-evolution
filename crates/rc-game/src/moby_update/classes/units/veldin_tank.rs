@@ -175,7 +175,7 @@ fn make_tread(w: &mut World, id: MobyId, k: usize) {
 fn prologue(w: &mut World, id: MobyId) -> bool {
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && w.m(id).state != 0 {
+    if res.out5 != 1 && w.m(id).state != 0 && !res.settle_quiet_stream(w, id, pv::D) {
         let h = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, h);
         if h <= 0.0 {

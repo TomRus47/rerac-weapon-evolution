@@ -295,7 +295,7 @@ fn load_spaceship_class(level: &mut crate::level_load::LoadedLevel, o_class: i32
     let desc = TextureEntry { data_offset: 0, width: size, height: size, ty: 4, palette: 0, mipmap: 0, pad: 0 };
     level.textures.push(LevelTexture { table: TextureTable::Moby, index: tex, source: TextureSource::Entry(desc), texture });
     let anim = MobyAnimClass::new(&class, seqs);
-    Ok((LevelMobyClass { o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class }, anim))
+    Ok((LevelMobyClass { imported_textures: None, o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class }, anim))
 }
 
 /// The World of the play state (the mode-6 code runs on the level's moby table, outside the tick).

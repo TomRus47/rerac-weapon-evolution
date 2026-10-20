@@ -541,9 +541,7 @@ struct HudRuntime {
     hud2d: Hud2d,
     game: Inputs,
     /// v0.1.5 evolution notice state, scoped to the current level/HUD runtime.
-    evo_seen_levels: [u8; 37],
-    evo_notice_queue: std::collections::VecDeque<(i32, u8)>,
-    evo_popup: Option<(i32, u8, u64)>,
+    evo_notice: rc_game::weapon_evo::notice::State,
     /// The last pickup banner shown (`rc_game::moby_update::classes::pickup::Banner::seq`).
     banner_seq: u32,
     /// The last `rc_game::cinematic::Cinematic::banner` call shown.
@@ -802,9 +800,7 @@ fn setup(
         hud2d: Hud2d { frame_sizes, ..default() },
         // Until the first frame reads the game state (Persistent / Session / HeldWeapon): 4/4, no bolts, no slot.
         game: Inputs { lang: lh.lang, ..Default::default() },
-        evo_seen_levels: [0; 37],
-        evo_notice_queue: std::collections::VecDeque::new(),
-        evo_popup: None,
+        evo_notice: rc_game::weapon_evo::notice::State::default(),
         banner_seq: 0,
         cine_banner_seq: 0,
         reset: 0,
@@ -935,23 +931,14 @@ fn tick_and_build(
     let mut evo_notice_sound = false;
     if let Some(p) = play.as_deref() {
         let evo = &p.svc.bomb_evo;
+        let mut levels=[0u8;37];
         for &id in &rc_game::weapon_evo::WEAPON_IDS {
-            let slot = id as usize;
-            let level = evo.weapon_level(id).unwrap_or(0) as u8;
-            let previous = rt.evo_seen_levels[slot];
-            if evo.hud.level_up_popup && previous > 0 && level > previous {
-                for stage in previous + 1..=level { rt.evo_notice_queue.push_back((id, stage)); }
-            }
-            rt.evo_seen_levels[slot] = level;
+            levels[id as usize]=evo.weapon_level(id).unwrap_or(0) as u8;
         }
-        if rt.evo_popup.is_some_and(|(_, _, end)| p.game.counter >= end) { rt.evo_popup = None; }
-        if rt.evo_popup.is_none() {
-            if let Some((id, stage)) = rt.evo_notice_queue.pop_front() {
-                let duration = (evo.hud.level_up_popup_duration_seconds * 60.0).round().max(1.0) as u64;
-                rt.evo_popup = Some((id, stage, p.game.counter.saturating_add(duration)));
-                evo_notice_sound = evo.hud.level_up_sound;
-            }
-        }
+        let duration=(evo.hud.level_up_popup_duration_seconds*60.0).round().max(1.0) as u64;
+        let alive=p.game.hero.health>0 && !matches!(p.game.hero.state,0x7b|0x7f);
+        let started=rt.evo_notice.update(p.game.counter,alive,evo.hud.level_up_popup,levels,duration);
+        evo_notice_sound=started && evo.hud.level_up_sound;
     }
     if evo_notice_sound {
         if let (Some(p), Some(a)) = (play.as_deref_mut(), audio.as_deref_mut()) {
@@ -989,7 +976,7 @@ fn tick_and_build(
     if !hook.replace_hud && !scene.hide_hud && !hud_off { crate::text_render::execute(&mut rt.hud2d, &mut st, &rt.glyphs, &rt.draws); }
     // Weapon Evolution v0.1.5: a small three-second, nonblocking notice.
     if !hook.replace_hud && !scene.hide_hud && !hud_off {
-        if let (Some(p), Some((weapon, level, _))) = (play.as_deref(), rt.evo_popup) {
+        if let (Some(p), Some((weapon, level, _))) = (play.as_deref(), rt.evo_notice.popup()) {
             if p.svc.bomb_evo.hud.level_up_popup {
                 let gold = p.game.hero.weapons.gold.get(weapon as usize).is_some_and(|&g| g != 0);
                 let message = evolution_native_name(rt, weapon, gold).and_then(|name|

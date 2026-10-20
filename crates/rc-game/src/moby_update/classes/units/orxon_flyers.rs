@@ -264,6 +264,7 @@ fn hit_1196(w: &mut World, id: MobyId) {
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 5, 4);
     let Some(h) = res.hit else { return };
+    if res.settle_quiet_stream(w, id, pv::D) { w.mm(id).hit_slot = 0xff; return; }
     let dmg = h.damage.to_f32();
     if c::pf(w, id, pv::D) <= dmg {
         if w.svc.units.word(super::help_orxon::AIR_WORD) != 0 {
@@ -291,7 +292,7 @@ fn hit_1199(w: &mut World, id: MobyId) {
     let res = damage::resolve(w, id, hit, pv::D, 5, 4);
     let own = w.m(id).o_class;
     // [L] a record without an attacker: the game reads class word 0 + 0xa6 (not its own class).
-    if let Some(h) = res.hit.filter(|h| h.attacker_class(w.table).is_none_or(|class| class != own)) {
+    if let Some(h) = res.hit.filter(|h| h.attacker_class(w.table).is_none_or(|class| class != own) && !res.settle_quiet_stream(w, id, pv::D)) {
         let dmg = h.damage.to_f32();
         if c::pf(w, id, pv::D) <= dmg {
             c::set_pf(w, id, pv::D, 0.0);

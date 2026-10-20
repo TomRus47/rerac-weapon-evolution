@@ -161,7 +161,7 @@ pub fn apply_load_pass(root: &Path, index: u32, level: &mut LoadedLevel, save: &
     // its state stays plain here, or the init's moves / hides would be applied twice (577's lift, 865/866's drop).
     let play = std::env::var("RC_PLAY").map_or(true, |v| v.trim() != "0");
     let mut states: Vec<SpawnState> = m.instances.iter().zip(&tests).map(|(i, t)| {
-        if t.spawn && play && crate::gameplay::level_ports().get(i.o_class as i16).is_some() { return SpawnState::plain(i.o_class, anim_of(i.o_class)); }
+        if t.spawn && play && crate::gameplay::level_ports_for(root, index).get(i.o_class as i16).is_some() { return SpawnState::plain(i.o_class, anim_of(i.o_class)); }
         if t.spawn { return moby_spawn::initial_state(i.o_class, i, i.pvar(&pvars), anim_of(i.o_class), &env); }
         let mut s = SpawnState::plain(i.o_class, anim_of(i.o_class));
         (s.hidden, s.runs_load_pass) = (true, false);
@@ -263,7 +263,7 @@ fn load_spaceship(root: &Path, ship: usize, level: &mut LoadedLevel) -> Result<u
     level.textures.push(LevelTexture { table: TextureTable::Moby, index: tex, source: TextureSource::Entry(desc), texture: s.texture });
     let m = &mut level.mobys;
     m.anim.push(MobyAnimClass::new(&class, seqs));
-    m.classes.push(LevelMobyClass { o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class });
+    m.classes.push(LevelMobyClass { imported_textures: None, o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class });
     Ok(m.classes.len() - 1)
 }
 

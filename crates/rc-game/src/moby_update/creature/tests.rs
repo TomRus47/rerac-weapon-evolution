@@ -1039,7 +1039,7 @@ fn absolute_hits_preserve_the_native_stagger_timer_and_ignore_replayed_records()
     let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
     set_pi16(&mut w,1,0x26,19);
     let hit=HitRecord { h2a:305,damage:crate::ps2v::Pf::f(0.75),
-        evolution:Some(crate::moby_update::real_hp::Attack { instance:1,weapon:15,damage:0.75,damage_only:false,origin:None }),..evolution_record() };
+        evolution:Some(crate::moby_update::real_hp::Attack { burn_color:None, instance:1,weapon:15,damage:0.75,damage_only:false,origin:None }),..evolution_record() };
     let result=damage::resolve(&mut w,1,Some(hit),0x20,0,4);
     assert_eq!(result.damage,0.75); assert_eq!(pi16(&w,1,0x26),19);
     assert!(damage::quiet_damage(&mut w,1,result.hit,0x20));
@@ -1051,7 +1051,7 @@ fn native_one_hit_enemies_receive_a_real_hp_budget_and_only_actual_hp_xp() {
     let mut s=real_hp_sim(1445,1.0);
     let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
     let hit=|instance,damage| HitRecord { h2a:305,damage:crate::ps2v::Pf::f(damage),
-        evolution:Some(crate::moby_update::real_hp::Attack { instance,weapon:15,damage,damage_only:false,origin:None }),..evolution_record() };
+        evolution:Some(crate::moby_update::real_hp::Attack { burn_color:None, instance,weapon:15,damage,damage_only:false,origin:None }),..evolution_record() };
     assert!(!damage::award_terminal(&mut w,1,Some(hit(1,0.4)),1.0));
     assert!(!damage::award_terminal(&mut w,1,Some(hit(1,0.4)),1.0));
     assert!((special_xp(&w,15)-4.0).abs()<0.0001);
@@ -1068,4 +1068,58 @@ fn taunter_freeze_does_not_make_creatures_invulnerable_or_remove_the_stun() {
     assert!(!damage::frozen_damage(&mut w,1));
     assert_eq!(pf(&w,1,0x20),8.5);
     assert!(w.svc.evo_stuns.frozen(1,577,1));
+}
+
+
+#[test]
+fn gaspar_enemies_keep_taking_stream_damage_during_hurt_recovery() {
+    for class in [193, 1023] {
+        for item in [16, 19] {
+            let mut s = real_hp_sim(class, 10.0);
+            s.table.mobys[1].visible = 1; // Exercise combat, not the off-camera sleep gate.
+            s.svc.bomb_evo.pyro.enabled = true;
+            s.svc.bomb_evo.pyro.xp_required = [10000.0; 4];
+            s.svc.bomb_evo.damage_hp[item][0] = Some(6000.0); // 100 HP per contact tick
+            for _ in 0..5 {
+                {
+                    let mut w = World::new(&mut s.table, &s.hero, &mut s.rng, &s.classes, &mut s.svc, s.counter);
+                    let mut t = real_bullet(0);
+                    t.h1a = if item == 16 { 176 } else { 177 };
+                    t.b18 = 5;
+                    t.b19 = if item == 16 { 1 } else { 2 };
+                    t.dir[3] = Pf::f(crate::hero::damage::EXACT_PUSH_W);
+                    w.deliver_hit(1, &t);
+                }
+                s.tick();
+            }
+            assert!((doom_hp(&s) - 5.0).abs() < 0.001, "class {class}, weapon {item}: {}", doom_hp(&s));
+            let xp = if item == 16 { s.svc.bomb_evo.pyro.xp }
+                else { s.svc.bomb_evo.extras.iter().find(|t| t.id == 19).unwrap().xp };
+            assert!((xp - 50.0).abs() < 0.001, "class {class}, weapon {item}: XP {xp}");
+        }
+    }
+}
+
+// v43: a new projectile still damages during the shared three-second reaction window.
+#[test]
+fn v43_blaster_stream_switching_never_restarts_stun_but_keeps_damage_and_xp() {
+    let mut s=real_hp_sim(294,20.0);s.svc.bomb_evo.pyro.enabled=true;
+    s.svc.bomb_evo.pyro.xp_required=[100000.0;4];
+    for track in &mut s.svc.bomb_evo.extras { track.xp_required=[100000.0;4]; }
+    let mut reactions=Vec::new();
+    for frame in 0..=360u64 {
+        let item=[15,16,19][frame as usize%3];
+        let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,frame);
+        set_pi16(&mut w,1,0x26,60);
+        let h=HitRecord { h2a:if item==15 {305} else if item==16 {176} else {177},damage:Pf::f(0.01),
+            b28:if item==15 {1} else {5},b29:1,
+            evolution:Some(crate::moby_update::real_hp::Attack { burn_color:None, instance:frame+1,weapon:item,damage:0.01,damage_only:false,origin:None }),..evolution_record() };
+        let r=damage::resolve(&mut w,1,Some(h),0x20,0,4);
+        if r.hit.unwrap().damage_only() { assert!(r.settle_quiet_stream(&mut w,1,0x20)); }
+        else { reactions.push(frame);let hp=pf(&w,1,0x20);set_pf(&mut w,1,0x20,hp-r.damage); }
+        assert!((pf(&w,1,0x20)-(20.0-(frame+1) as f32*0.01)).abs()<0.001);
+    }
+    assert_eq!(reactions,[0,180,360]);
+    let xp=s.svc.bomb_evo.pyro.xp+s.svc.bomb_evo.extras.iter().filter(|t|[15,19].contains(&t.id)).map(|t|t.xp).sum::<f32>();
+    assert!((xp-36.1).abs()<0.001);
 }

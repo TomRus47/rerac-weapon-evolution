@@ -46,6 +46,7 @@ mod hud_render;
 mod hud_images;
 mod input_map;
 mod interact_render;
+mod companion_assets;
 mod level_load;
 mod level_switch;
 mod media_render;

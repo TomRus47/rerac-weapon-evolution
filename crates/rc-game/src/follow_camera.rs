@@ -75,6 +75,8 @@ const DEG70: Pf = Pf::b(0x3f9c_61aa);
 const DEG1_75: Pf = Pf::b(0x3cfa_35dd);
 /// Finite window: any constant stick change settles in exactly ten game ticks.
 const COMBAT_RAMP_TICKS: usize = 10;
+// Keep five degrees from the pole so yaw always has a stable horizontal axis.
+const COMBAT_PITCH_LIMIT: Pf = Pf::b(0x3fbde44e);
 
 /// Camera options (boot static values; a memory-card load may change them).
 #[derive(Clone, Copy, Debug)]
@@ -307,6 +309,11 @@ pub struct Camera {
     /// Distance, pivot height and look height captured when combat lock starts.
     /// Kept separate from D0 so releasing L2 restores the native region behaviour.
     pub combat_framing: Option<[Pf; 3]>,
+    /// Requested view pitch, positive down. Collision may move the camera but
+    /// must not narrow the player's vertical aiming range or reset their aim.
+    pub combat_pitch: Option<Pf>,
+    /// Requested horizontal heading. Terrain corrections never feed back into it.
+    pub combat_heading: Option<V4>,
     /// Locked-camera stick samples, kept separate from all native camera springs.
     pub combat_stick: [[Pf; 2]; COMBAT_RAMP_TICKS],
     pub combat_stick_index: usize,
@@ -924,6 +931,12 @@ impl Camera {
         if self.combat_framing.is_none() {
             self.clear_combat_stick();
             self.combat_framing = Some([self.cam.dist, self.cam.pivot_h, self.cam.look_h]);
+            let forward = self.cam.rows[0];
+            let vertical = dot(forward, self.g.up_s);
+            let horizontal = len(vsub(forward, vscale(self.g.up_s, vertical)));
+            self.combat_pitch = Some(fast_arctan(horizontal, -vertical)
+                .max(-COMBAT_PITCH_LIMIT).min(COMBAT_PITCH_LIMIT));
+            self.combat_heading = Some(norm(vsub(forward, vscale(self.g.up_s, vertical)), Pf::ONE));
             // Drop the remaining acceleration of a region-driven turn/zoom.
             // Keep the actual angle and position, and keep wall avoidance live.
             let d = &mut self.cam;
@@ -1017,6 +1030,18 @@ impl Camera {
 
     /// The type-0 update 0x314e00.
     fn update_type0(&mut self, inp: &CamInput) {
+        // Class 1007 is the camera's own invisible hero blocker. Above the
+        // native 2.5-unit height threshold it follows last frame's camera;
+        // treating it as scenery makes a downward orbit collide with itself.
+        // Mask it for the entire locked update, including pivot/ceiling lines,
+        // while retaining world geometry and every other collidable moby.
+        let ignored = [self.cam_moby.unwrap_or(usize::MAX)];
+        let masked = inp.mobys.filter(|_| self.combat_camera_locked(inp))
+            .map(|scene| MaskedMobys { inner: scene.mobys, off: &ignored });
+        let scene = inp.mobys.zip(masked.as_ref()).map(|(scene, mobys)| MobyScene {
+            mobys, grid: scene.grid, classes: scene.classes, cache: scene.cache,
+        });
+        let inp = &CamInput { mobys: scene.as_ref().or(inp.mobys), ..*inp };
         self.platform_carry(inp);
         // 0x3111d8 state tweaks (the camera's reset 0x311010 at the end of the update undoes them each tick).
         // The ledge states (0x1415d4 = 0xd): the auto-yaw behind the hanging hero, yaw rate D+0x1bc = 12°/tick and
@@ -1486,6 +1511,8 @@ impl Camera {
     fn clear_combat_stick(&mut self) {
         self.combat_stick = [[Pf::ZERO; 2]; COMBAT_RAMP_TICKS];
         self.combat_stick_index = 0;
+        self.combat_pitch = None;
+        self.combat_heading = None;
     }
 
     /// Same deadzone and linear response on both camera axes.
@@ -1518,19 +1545,26 @@ impl Camera {
         d.yaw_in = yaw;
         d.yaw_in_v = Pf::ZERO;
         d.yaw_step = rate * yaw;
-        if d.yaw_step != Pf::ZERO { d.off = rot(d.off, d.yaw_step, up); }
         let vertical = dot(d.off, up);
         let horizontal = len(vsub(d.off, vscale(up, vertical)));
-        let elevation = fast_arctan(horizontal, vertical);
-        let mut desired = elevation + pitch * rate;
-        if desired < -DEG70 { desired = -DEG70; }
-        if DEG70 < desired { desired = DEG70; }
-        d.pitch_step = if pitch == Pf::ZERO { Pf::ZERO } else { desired - elevation };
+        let initial = fast_arctan(horizontal, vertical + d.pivot_h - d.look_h);
+        let current = self.combat_pitch.unwrap_or(initial);
+        let desired = (current + pitch * rate).max(-COMBAT_PITCH_LIMIT).min(COMBAT_PITCH_LIMIT);
+        self.combat_pitch = Some(desired);
+        let fallback = norm(vscale(vsub(d.off, vscale(up, vertical)), -Pf::ONE), Pf::ONE);
+        let heading = norm(rot(self.combat_heading.unwrap_or(fallback), d.yaw_step, up), Pf::ONE);
+        self.combat_heading = Some(heading);
+        d.pitch_step = desired - current;
         d.pitch_n = desired / DEG40;
         d.pitch_n_v = Pf::ZERO;
-        if d.pitch_step != Pf::ZERO {
-            d.off = rot(d.off, d.pitch_step, norm(cross(up, d.off), Pf::ONE));
-        }
+        // Rebuild the desired arm from immutable framing, not last tick's
+        // collision-shortened radius. Otherwise the height correction feeds
+        // back into itself and flips the orbit near the vertical poles.
+        let radius = self.combat_framing.map_or(d.dist, |f| f[0]).max(Pf::f(0.2));
+        let correction = ((d.pivot_h-d.look_h)*fast_cos(desired)/radius).max(-Pf::ONE).min(Pf::ONE);
+        let orbit = (desired-asin(correction)).max(-COMBAT_PITCH_LIMIT).min(COMBAT_PITCH_LIMIT);
+        d.off = vadd(vscale(heading,-radius*fast_cos(orbit)),vscale(up,radius*fast_sin(orbit)));
+
     }
 
     /// Stick apply 0x313d90.
@@ -1572,6 +1606,10 @@ impl Camera {
     /// Avoidance 0x312ef8. Returns true when the 30-tick blocked reset fired.
     fn avoidance(&mut self, inp: &CamInput) -> bool {
         let h = inp.hero;
+        if self.combat_camera_locked(inp) {
+            self.avoidance_locked(inp);
+            return false;
+        }
         // coll_sphere_mobys(((dist − red) + 1.5)·0.5, pivot + (0x167240 − pivot)·0.5, 1, Ratchet): the listed mobys
         // with collision but no triangle mesh (FUN_0026e7b0: blob +8 = 0) are switched off (+0x94 = 0) for the rest
         // of the avoidance, reset included, and restored at its end; the NUDGE_CLASSES instead turn the offset.
@@ -1651,6 +1689,31 @@ impl Camera {
             d.blocked = 0;
         }
         false
+    }
+
+    /// A locked camera retracts along its requested arm without yaw nudges,
+    /// re-aiming sphere chains or the native 1.5-unit minimum distance.
+    fn avoidance_locked(&mut self, inp: &CamInput) {
+        let pivot = self.cam.pivot;
+        let requested = self.cam.off;
+        let radius = Pf::f(0.25);
+        let mut distance = len(requested);
+        let direction = norm(requested, Pf::ONE);
+        let end = vadd(pivot, requested);
+        if let Some(hit) = line_hit(inp, pivot, end, self.line_flags, inp.hero_moby) {
+            distance = distance.min((len(vsub(hit,pivot))-radius).max(Pf::f(0.05)));
+        }
+        // Check the actual camera volume; shorten on this same ray until the
+        // endpoint clears. Never use a sideways pushed centre as next tick's aim.
+        for _ in 0..64 {
+            let end = vadd(pivot,vscale(direction,distance));
+            if sphere(inp,radius,end,self.sph_flags,inp.hero_moby).is_none() || distance<=Pf::f(0.05) { break; }
+            distance = (distance-Pf::f(0.1)).max(Pf::f(0.05));
+        }
+        self.cam.off = vscale(direction,distance);
+        self.cam.red = self.cam.dist-distance;
+        self.cam.blocked = 0;
+        self.cam.rec_t = 0;
     }
 
     /// 0x312ef8's turn away from a listed moby of a NUDGE_CLASSES class at `mpos`: when the offset is within
@@ -1815,7 +1878,9 @@ impl Camera {
         if locked {
             // off is already resolved against the world by avoidance(). Keep the
             // collision-distance spring but remove angular lag from the aim.
-            d.placed = norm(d.off, ln);
+            // Contract immediately at an obstruction; retain the distance spring
+            // when moving back out so it cannot interpolate through the floor.
+            d.placed = norm(d.off, ln.min(ddist));
             d.el_v = Pf::ZERO;
             d.yaw_v = Pf::ZERO;
         } else {
@@ -1835,13 +1900,14 @@ impl Camera {
             let v = rot(v, el, cross(up_s, v));
             d.placed = norm(v, ln);
         }
-        let base = vadd(vscale(up_s, d.pivot_h), d.smooth);
+        let base = if locked { d.pivot } else { vadd(vscale(up_s, d.pivot_h), d.smooth) };
         let c = dot(d.placed, up2);
         let l2 = len(d.placed);
-        if l2 != Pf::ZERO {
+        if !locked && l2 != Pf::ZERO {
             let ang = HALF_PI - asin(c / l2);
-            if ang.abs() < DEG15 {
-                d.placed = rot(d.placed, sub_rot(DEG15, ang.abs()), cross(d.placed, up2));
+            let margin = DEG15;
+            if ang.abs() < margin {
+                d.placed = rot(d.placed, sub_rot(margin, ang.abs()), cross(d.placed, up2));
                 d.el_v = Pf::ZERO;
                 d.dist_v = Pf::ZERO;
                 d.yaw_v = Pf::ZERO;
@@ -1907,14 +1973,22 @@ impl Camera {
             let ph = vsub(d.pos, vscale(up_s, dot(d.pos, up_s)));
             let hv = vsub(lh, ph);
             let horizontal = len(hv);
-            if Pf::b(0x3d4c_cccd) <= horizontal {
-                let flat = norm(hv, Pf::ONE);
-                let left = norm(cross(flat, up_s), Pf::ONE);
-                let vertical = dot(d.placed, up_s) + (d.pivot_h - d.look_h);
-                let pitch = fast_arctan(horizontal, vertical).max(-DEG70).min(DEG70);
-                let fwd = norm(rot(flat, pitch, left), Pf::ONE);
-                d.rows = [fwd, left, cross(left, fwd)];
-            }
+            // Near a floor/ceiling the camera can be almost directly over the
+            // look point. Preserve the last horizontal heading instead of
+            // dropping the rows update (which would freeze vertical aiming).
+            let flat = self.combat_heading.unwrap_or_else(|| {
+                if Pf::b(0x38d1_b717) < horizontal { norm(hv,Pf::ONE) }
+                else {
+                    let previous=d.rows[0];
+                    norm(vsub(previous,vscale(up_s,dot(previous,up_s))),Pf::ONE)
+                }
+            });
+            let left = norm(cross(flat, up_s), Pf::ONE);
+            let vertical = dot(d.placed, up_s) + (d.pivot_h - d.look_h);
+            let pitch = self.combat_pitch.unwrap_or_else(|| fast_arctan(horizontal, vertical))
+                .max(-COMBAT_PITCH_LIMIT).min(COMBAT_PITCH_LIMIT);
+            let fwd = norm(rot(flat, pitch, left), Pf::ONE);
+            d.rows = [fwd, left, cross(left, fwd)];
             return;
         }
         let mut fwd = d.rows[0];
@@ -2946,7 +3020,144 @@ mod tests {
         let up = cam.g.up_s;
         let vertical = dot(cam.cam.off, up);
         let elevation = fast_arctan(len(vsub(cam.cam.off, vscale(up, vertical))), vertical);
-        assert!(elevation.to_f32() <= DEG70.to_f32() + 0.001);
+        assert!(elevation.to_f32() <= COMBAT_PITCH_LIMIT.to_f32() + 0.001);
+    }
+
+    #[test]
+    fn locked_vertical_aim_reaches_85_degrees_over_a_floor_and_holds_on_release() {
+        let (coll, mut hero, mut pad) = setup();
+        hero.items.slot.id = 15; hero.state = 2; hero.group = 1; hero.combat_strafe = true;
+        for speed in 0..3 {
+            for direction in [-Pf::ONE, Pf::ONE] {
+                pad.ry = Pf::ZERO;
+                let mut cam = Camera::new(&CamInput { hero: &hero, pad: &pad, coll: &coll,
+                    mobys: None, hero_moby: None }, CameraOptions { yaw_rate:speed, ..Default::default() });
+                for _ in 0..120 {
+                    cam.update(&CamInput { hero:&hero, pad:&pad, coll:&coll, mobys:None, hero_moby:None });
+                }
+                pad.ry = -direction;
+                for _ in 0..240 {
+                    cam.update(&CamInput { hero:&hero, pad:&pad, coll:&coll, mobys:None, hero_moby:None });
+                }
+                let pitch = cam.out.euler[1].to_f32();
+                let expected = direction.to_f32() * 85.0f32.to_radians();
+                assert!((pitch-expected).abs() < 0.001, "speed {speed}, direction {direction:?}: {pitch} vs {expected}; requested {:?}, framing {:?}",cam.combat_pitch,cam.combat_framing);
+                assert!(cam.out.pos[2].to_f32() >= 100.0, "camera crossed the floor");
+                pad.ry = Pf::ZERO;
+                for _ in 0..COMBAT_RAMP_TICKS+60 {
+                    cam.update(&CamInput { hero:&hero, pad:&pad, coll:&coll, mobys:None, hero_moby:None });
+                    assert!((cam.out.euler[1].to_f32()-expected).abs() < 0.001);
+                    for row in cam.out.rows {
+                        assert!(row.iter().all(|x| x.to_f32().is_finite()));
+                    }
+                }
+                // Yaw remains controllable near both poles, without inversion.
+                let yaw = cam.out.yaw(); pad.rx = Pf::ONE;
+                for _ in 0..20 {
+                    cam.update(&CamInput { hero:&hero, pad:&pad, coll:&coll, mobys:None, hero_moby:None });
+                }
+                assert!(sub_rot(cam.out.yaw(),yaw).to_f32() > 0.1);
+                assert!((cam.out.euler[1].to_f32()-expected).abs() < 0.001);
+                pad.rx = Pf::ZERO;
+            }
+        }
+    }
+
+    #[test]
+    fn steep_locked_view_keeps_position_and_yaw_stable_when_terrain_retracts_the_arm() {
+        let (coll,mut hero,mut pad)=setup();
+        hero.items.slot.id=15;hero.state=2;hero.group=1;hero.combat_strafe=true;
+        for direction in [-Pf::ONE,Pf::ONE] {
+            let mut cam=Camera::new(&CamInput {hero:&hero,pad:&pad,coll:&coll,mobys:None,hero_moby:None},CameraOptions::default());
+            pad.ry=-direction;
+            for _ in 0..240 {cam.update(&CamInput {hero:&hero,pad:&pad,coll:&coll,mobys:None,hero_moby:None});}
+            pad.ry=Pf::ZERO;
+            for _ in 0..180 {cam.update(&CamInput {hero:&hero,pad:&pad,coll:&coll,mobys:None,hero_moby:None});}
+            let position=cam.out.pos;let yaw=cam.out.yaw();let pitch=cam.out.euler[1];
+            for _ in 0..360 {
+                cam.update(&CamInput {hero:&hero,pad:&pad,coll:&coll,mobys:None,hero_moby:None});
+                assert!(len(vsub(cam.out.pos,position)).to_f32()<0.002,"camera position jitter: {:?} vs {:?}",cam.out.pos,position);
+                assert!(sub_rot(cam.out.yaw(),yaw).abs().to_f32()<0.0001,"terrain changed aim yaw");
+                assert!(sub_rot(cam.out.euler[1],pitch).abs().to_f32()<0.0001);
+                assert!(cam.out.pos[2].to_f32()>=100.0);
+            }
+            assert_eq!(cam.resets,0,"terrain must not reset locked aim");
+        }
+    }
+
+    /// The native class-1007 helper follows last tick's camera when it is more
+    /// than 2.5 units above the feet. It must never obstruct its own camera.
+    #[test]
+    fn looking_down_does_not_collide_with_last_frames_camera_helper() {
+        use crate::collision_query::{MobyGrid, PoseCache};
+        use crate::moby_runtime::{ClassInfo, Moby, MobyTable};
+        use rc_formats::moby_collision::{MobyCollPrim, MobyCollision};
+        use std::{collections::HashMap, sync::Mutex};
+        struct Proxy(CollMoby);
+        impl MobySource for Proxy {
+            fn moby(&self, id: usize) -> Option<CollMoby> { (id == 0).then_some(self.0) }
+            fn joints(&self, _: usize, count: usize) -> Vec<[u32; 4]> { vec![[0; 4]; count] }
+        }
+        let (coll, mut hero, mut pad) = setup();
+        hero.items.slot.id = 15; hero.state = 2; hero.group = 1; hero.combat_strafe = true;
+        let mut raw = [0; 8];
+        raw[0] = 1 | (4 << 8) | (0x8003 << 16);
+        raw[7] = 512.0f32.to_bits();
+        let classes = HashMap::from([(camera_moby::CLASS, MobyCollision {
+            prims: vec![MobyCollPrim { raw }], ..Default::default()
+        })]);
+        let cache = Mutex::new(PoseCache::default());
+        let input = CamInput { hero: &hero, pad: &pad, coll: &coll, mobys: None, hero_moby: None };
+        let mut reference = Camera::new(&input, CameraOptions::default());
+        let mut live = reference.clone();
+        live.cam_moby = Some(0);
+        let mut overhead_frames = 0;
+        for tick in 0..540 {
+            // Look down, release, then return towards the horizon.
+            pad.ry = if tick < 140 { -Pf::ONE } else if tick < 380 { Pf::ZERO } else { Pf::ONE };
+            let previous = live.out.pos_f32();
+            let pos = if previous[2] - hero.position()[2] >= 2.5 {
+                overhead_frames += 1; previous
+            } else { [15.; 3] };
+            let mut m = Moby::init_instance(0, camera_moby::CLASS, Some(&ClassInfo {
+                has_collision: true, scale: 1., ..Default::default()
+            }));
+            m.position = [pos[0], pos[1], pos[2], 1.];
+            m.bsphere = [pos[0]*1024., pos[1]*1024., pos[2]*1024., 1024.];
+            let mut table = MobyTable::new(vec![m], 0);
+            let grid = MobyGrid::build(&mut table);
+            let proxy = Proxy(CollMoby::of(&table.mobys[0]));
+            let scene = MobyScene { mobys: &proxy, grid: &grid, classes: &classes, cache: &cache };
+            reference.update(&CamInput { hero: &hero, pad: &pad, coll: &coll, mobys: None, hero_moby: None });
+            live.update(&CamInput { hero: &hero, pad: &pad, coll: &coll, mobys: Some(&scene), hero_moby: None });
+            assert!(len(vsub(live.out.pos, reference.out.pos)).to_f32() < 0.002,
+                "helper changed camera position at tick {tick}: {:?} vs {:?}", live.out.pos, reference.out.pos);
+            assert!(sub_rot(live.out.euler[1], reference.out.euler[1]).abs().to_f32() < 0.0001);
+        }
+        assert!(overhead_frames > 200);
+    }
+
+    #[test]
+    fn locked_heading_does_not_follow_floor_and_nearby_wall_corrections() {
+        use crate::hero::testkit::{cell,mesh};
+        let (open,mut hero,mut pad)=setup();let mut cells=open.cells.clone();
+        for cy in 100..104 {
+            let (x,y)=(409.5,cy as f32*4.0);
+            cells.push(cell([102,cy,25],&[[x,y,100.],[x,y+4.,100.],[x,y+4.,104.],[x,y,104.]],&[([0,1,2,3],0x21)]));
+        }
+        let coll=mesh(cells);hero.items.slot.id=15;hero.state=2;hero.group=1;hero.combat_strafe=true;
+        let mut cam=Camera::new(&CamInput {hero:&hero,pad:&pad,coll:&open,mobys:None,hero_moby:None},CameraOptions::default());
+        pad.ry=Pf::ONE;
+        for _ in 0..220 {cam.update(&CamInput {hero:&hero,pad:&pad,coll:&coll,mobys:None,hero_moby:None});}
+        pad.ry=Pf::ZERO;
+        for _ in 0..180 {cam.update(&CamInput {hero:&hero,pad:&pad,coll:&coll,mobys:None,hero_moby:None});}
+        let held=cam.out.pos;let yaw=cam.out.yaw();
+        for _ in 0..240 {
+            cam.update(&CamInput {hero:&hero,pad:&pad,coll:&coll,mobys:None,hero_moby:None});
+            assert!(len(vsub(held,cam.out.pos)).to_f32()<0.002);
+            assert!(sub_rot(cam.out.yaw(),yaw).abs().to_f32()<0.0001);
+            assert!(cam.out.pos[2].to_f32()>=100.0);
+        }
     }
 
     #[test]

@@ -1,4 +1,4 @@
-"""Field vocabulary from the local Weapon Evolution parser (v0.1.6.38)."""
+"""Field vocabulary from the local Weapon Evolution parser (v0.1.6.48)."""
 WEAPONS = {
     'wrench': (8, 'OmniWrench'), 'suck_cannon': (9, 'Suck Cannon'),
     'bomb_glove': (10, 'Bomb Glove'), 'devastator': (11, 'Devastator'),
@@ -16,7 +16,7 @@ EXTRA = {
     14: 'lure_range lure_cone_degrees xp_attract_fraction stun_range stun_duration_ticks stun_efficiency_percent damage_range damage_per_second wave_speed_multiplier wave_size_multiplier wave_range_multiplier wave_interval_ticks wave_alpha wave_color',
     15: 'fire_interval_ticks projectile_speed_multiplier projectile_range_multiplier projectile_color trail_color impact_color',
     17: 'throw_range_multiplier trajectory_height_multiplier activation_range_horizontal activation_range_vertical explosion_radius_multiplier',
-    18: 'knockback_multiplier hit_radius_multiplier electric_fx_size_multiplier gold_electric_fx air_dash_enabled electric_core_color electric_glow_color fist_glow_color impact_color',
+    18: 'held_lunge_duration_percent knockback_multiplier hit_radius_multiplier electric_fx_size_multiplier gold_electric_fx air_dash_enabled electric_core_color electric_glow_color fist_glow_color impact_color',
     19: 'ammo_interval_ticks damage_interval_ticks target_range_multiplier lock_cone_multiplier beam_core_color beam_glow_color secondary_core_color secondary_glow_color arc_core_color arc_glow_color claw_core_color claw_glow_color spark_color spark_core_color impact_color light_color weapon_glow_color',
     20: 'robot_count robot_max_alive robot_detection_range explosion_radius_multiplier',
     21: 'fire_in_air morph_speed_multiplier beam_range_multiplier explode_small_chickens chicken_damage_multiplier chicken_explosion_radius_multiplier tube_color beam_core_color beam_glow_color secondary_core_color secondary_glow_color pulse_color muzzle_core_color muzzle_glow_color tip_color tip_core_color spark_color spark_core_color light_color',
@@ -58,3 +58,121 @@ def help_text(section,key):
     elif key in ('throw_range','trajectory_height','explosion_radius','flame_range','flame_width'):
         text='Multiplier of the reference weapon setting; 1 preserves the reference value.'
     return f'[{section}] {key}\n{text or "Value read directly from this mod’s INI configuration."}'
+
+
+# Configuration policy: standard fields first; experimental switches and their
+# parameters always last, for every grade and every future weapon experiment.
+STANDARD_DEFAULTS = {
+    'walloper': {'held_lunge_duration_percent': '100'},
+    'tesla_claw': {'beam_size_percent': '100', 'beam_range_multiplier': '1'},
+}
+EXPERIMENTAL_DEFAULTS = {
+    'bomb_glove': {'cluster_bombs_enabled': 'false', 'cluster_bomb_count': '3',
+        'cluster_bomb_size_percent': '40', 'cluster_explosion_size_percent': '15',
+        'cluster_damage_percent': '10', 'cluster_launch_speed': '3', 'cluster_jump_speed': '4.2'},
+    'pyrocitor': {'triple_flame_enabled': 'false', 'side_flame_left_angle_degrees': '22',
+        'side_flame_right_angle_degrees': '22'},
+    'suck_cannon': {'crate_suction_enabled': 'false', 'suck_wooden_crates': 'true',
+        'suck_explosive_crates': 'true', 'suck_steel_crates': 'true',
+        'suck_ammo_crates': 'true', 'suck_nanotech_crates': 'true'},
+    'tesla_claw': {'dual_beam_enabled': 'false'},
+}
+
+# v45 additions remain in the same grade, with experiments at the footer.
+STANDARD_DEFAULTS.setdefault('ryno', {}).update({'homing_strength_multiplier': '1', 'missile_max_range': '0', 'explosion_damage_radius': '0', 'explosion_visual_size_multiplier': '1'})
+STANDARD_DEFAULTS.setdefault('mine_glove', {}).update({'max_active_mines': '8', 'mine_lifetime_seconds': '30', 'flame_core_color': 'default', 'flame_outer_color': 'default', 'burn_flame_color': 'default', 'explosion_color': 'default', 'light_color': 'default'})
+STANDARD_DEFAULTS.setdefault('taunter', {}).update({'stun_launch_distance': '0'})
+EXPERIMENTAL_DEFAULTS.setdefault('ryno', {}).update({'continuous_missiles_enabled': 'false', 'shotgun_enabled': 'false', 'shotgun_damage_hp': '100', 'shotgun_speed': '40', 'shotgun_range': '30', 'shotgun_size_percent': '100', 'shotgun_horizontal_spread_degrees': '12', 'shotgun_vertical_spread_degrees': '3', 'shotgun_projectile_color': 'default', 'shotgun_trail_color': 'default', 'shotgun_impact_color': 'default'})
+EXPERIMENTAL_DEFAULTS.setdefault('mine_glove', {}).update({'flame_mine_enabled': 'false', 'mine_flame_range': '8', 'mine_flame_rotation_degrees_per_second': '90', 'mine_flame_damage_per_second': '100'})
+EXPERIMENTAL_DEFAULTS.setdefault('drone_device', {}).update({'sand_mouse_enabled': 'false', 'sand_mouse_mode': '1', 'sand_mouse_lifetime_seconds': '90', 'sand_mouse_max_shots': '100', 'sand_mouse_fire_interval_ticks': '8', 'sand_mouse_shot_range': '24', 'sand_mouse_shot_damage_hp': '50', 'sand_mouse_projectile_color': 'default'})
+EXPERIMENTAL_DEFAULTS.setdefault('tesla_claw', {}).update({'secondary_beam_damage_percent': '25'})
+
+for weapon, fields in EXPERIMENTAL_DEFAULTS.items():
+    if weapon == 'bomb_glove': BOMB.update(fields)
+    elif weapon == 'pyrocitor': PYRO.update(fields)
+    else: EXTRA[WEAPONS[weapon][0]] += ' ' + ' '.join(fields)
+for weapon, fields in STANDARD_DEFAULTS.items():
+    EXTRA[WEAPONS[weapon][0]] += ' ' + ' '.join(fields)
+BOOLEANS.update({'cluster_bombs_enabled', 'triple_flame_enabled', 'crate_suction_enabled',
+    'suck_wooden_crates', 'suck_explosive_crates', 'suck_steel_crates',
+    'suck_ammo_crates', 'suck_nanotech_crates', 'dual_beam_enabled'})
+INTEGER.add('cluster_bomb_count')
+LABELS.update({
+    'cluster_bombs_enabled': 'Experimental cluster bombs: on/off',
+    'cluster_bomb_count': 'Mini bombs per explosion',
+    'cluster_bomb_size_percent': 'Mini bomb size (%)',
+    'cluster_explosion_size_percent': 'Mini explosion size (%)',
+    'cluster_damage_percent': 'Mini bomb damage (%)',
+    'cluster_launch_speed': 'Mini bomb forward speed (units/s)',
+    'cluster_jump_speed': 'Mini bomb initial jump speed (units/s)',
+    'triple_flame_enabled': 'Experimental triple flame: on/off',
+    'side_flame_left_angle_degrees': 'Left flame angle (degrees)',
+    'side_flame_right_angle_degrees': 'Right flame angle (degrees)',
+    'held_lunge_duration_percent': 'Held punch duration (%)',
+    'crate_suction_enabled': 'Experimental crate suction: on/off',
+    'suck_wooden_crates': 'Allow wooden crates',
+    'suck_explosive_crates': 'Allow explosive crates',
+    'suck_steel_crates': 'Allow steel crates',
+    'suck_ammo_crates': 'Allow ammo crates',
+    'suck_nanotech_crates': 'Allow nanotech crates',
+    'beam_size_percent': 'Beam size (%)', 'beam_range_multiplier': 'Beam reach multiplier',
+    'dual_beam_enabled': 'Experimental independent dual beams: on/off',
+})
+HELP.update({
+    'cluster_bombs_enabled': 'Release visible mini bombs before a surface-impact blast. Mini bombs never create further mini bombs.',
+    'cluster_bomb_count': 'Mini bombs per parent explosion, 1-12. Default: 3.',
+    'cluster_bomb_size_percent': 'Model size relative to the parent bomb. Default: 40%.',
+    'cluster_explosion_size_percent': 'Visual explosion and damage radius as a percentage of the parent blast. Default: 15%.',
+    'cluster_damage_percent': 'Damage relative to this grade, snapshotted when released. Default: 10%.',
+    'cluster_launch_speed': 'Horizontal speed along each mini bomb direction, in game units per second. Default: 3, half the old default.',
+    'cluster_jump_speed': 'Initial upward velocity in game units per second. Gravity stays native; contact detonation arms at the apex. Default: 4.2.',
+    'triple_flame_enabled': 'Two additional jets share the nozzle, ammo clock and HP/s. Overlap does not multiply damage on one enemy.',
+    'side_flame_left_angle_degrees': 'Angle left of the central jet, 0-80 degrees. Default: 22.',
+    'side_flame_right_angle_degrees': 'Angle right of the central jet, 0-80 degrees. Default: 22.',
+    'held_lunge_duration_percent': '100 is native. Higher values extend propulsion and the hit window while fire stays held, once per enemy per punch.',
+    'crate_suction_enabled': 'Use allowed crates as native-slot ammunition. Preserve their model and contents until impact. Steel deals double projectile damage; TNT blast damage earns Suck Cannon XP.',
+    'suck_wooden_crates': 'Wooden crates use normal projectile damage and release their stored bolts when destroyed.',
+    'suck_explosive_crates': 'Explosive crates detonate on impact. Their blast uses this grade damage and awards actual-loss XP.',
+    'suck_steel_crates': 'Steel crates deal twice this grade projectile damage and break on any surface, releasing stored bolts.',
+    'suck_ammo_crates': 'Ammo crates release their original ammo reward when destroyed after firing.',
+    'suck_nanotech_crates': 'Nanotech stays inside the carried crate and is released only after the fired crate is destroyed.',
+    'beam_size_percent': 'Overall player beam width. 100 is native. Does not change HP/s or reach.',
+    'beam_range_multiplier': 'Scales visible and damaging reach. For Tesla, also multiplies its existing target range setting.',
+    'dual_beam_enabled': 'Two simultaneous rays reserve distinct enemies. Each deals normal damage. With only one enemy, only one ray can damage it. Ammo is charged once.',
+})
+EXPERIMENTAL_RANGES = {
+    'cluster_bomb_count': (1, 12), 'cluster_bomb_size_percent': (1, 100),
+    'cluster_explosion_size_percent': (1, 100), 'cluster_damage_percent': (.1, 100),
+    'cluster_launch_speed': (0, 20), 'cluster_jump_speed': (.1, 10),
+    'side_flame_left_angle_degrees': (0, 80), 'side_flame_right_angle_degrees': (0, 80),
+    'held_lunge_duration_percent': (100, 1000), 'beam_size_percent': (1, 500),
+    'beam_range_multiplier': (.1, 8),
+}
+
+def field_groups(weapon, keys):
+    experimental = EXPERIMENTAL_DEFAULTS.get(weapon, {})
+    return ([k for k in keys if k not in experimental], [k for k in experimental if k in keys])
+
+# Shared validation also covers the new standard controls.
+EXPERIMENTAL_RANGES.update({'homing_strength_multiplier': (0, 8), 'missile_max_range': (0, 500), 'explosion_damage_radius': (0, 100), 'explosion_visual_size_multiplier': (0.1, 8), 'max_active_mines': (1, 32), 'mine_lifetime_seconds': (0.5, 600), 'stun_launch_distance': (0, 50), 'shotgun_damage_hp': (0, 9999), 'shotgun_speed': (1, 200), 'shotgun_range': (0.5, 500), 'shotgun_size_percent': (1, 500), 'shotgun_horizontal_spread_degrees': (0, 60), 'shotgun_vertical_spread_degrees': (0, 60), 'mine_flame_range': (0.5, 100), 'mine_flame_rotation_degrees_per_second': (0, 720), 'mine_flame_damage_per_second': (0, 9999), 'sand_mouse_mode': (1, 3), 'sand_mouse_lifetime_seconds': (0.5, 600), 'sand_mouse_max_shots': (1, 9999), 'sand_mouse_fire_interval_ticks': (1, 9999), 'sand_mouse_shot_range': (0.5, 500), 'sand_mouse_shot_damage_hp': (0, 9999), 'secondary_beam_damage_percent': (0, 100)})
+BOOLEANS.update({'continuous_missiles_enabled','shotgun_enabled','flame_mine_enabled','sand_mouse_enabled'})
+INTEGER.update({'max_active_mines','sand_mouse_mode','sand_mouse_max_shots','sand_mouse_fire_interval_ticks'})
+COLORS.update({k for group in (STANDARD_DEFAULTS,EXPERIMENTAL_DEFAULTS) for fields in group.values() for k in fields if k.endswith('_color')})
+HELP.update({'continuous_missiles_enabled': 'Fire one missile per interval while fire is held. One ammo per missile. Replaces the native salvo; cannot be combined with shotgun mode.', 'shotgun_enabled': 'Fire 35 independent Blaster-shaped pellets in a seven-column, five-row muzzle grid. One ammo per volley. Replaces all native missiles; cannot be combined with continuous missiles.', 'shotgun_damage_hp': 'Damage of each of the 35 pellets, independently snapshotted at firing. Each pellet hits an enemy once; damage is not divided among pellets.', 'shotgun_horizontal_spread_degrees': 'Maximum sideways angle at the outer columns (degrees). Intermediate columns scale proportionally; the centre stays straight. 0 keeps all columns parallel horizontally.', 'shotgun_vertical_spread_degrees': 'Maximum upward/downward angle at the outer rows (degrees). The intermediate rows use half this angle. 0 keeps rows parallel vertically. Both axes at 0 retain 35 separate origins in a rectangular grid.', 'missile_max_range': 'Travel distance from the muzzle, in game units. 0 preserves the native envelope. Range expiry detonates the missile.', 'explosion_damage_radius': 'R.Y.N.O. missile area damage radius in game units. 0 preserves native direct-impact-only damage. Visual size is independent.', 'max_active_mines': 'Maximum deployed mines. Launching another retires the oldest without a damaging blast.', 'mine_lifetime_seconds': 'Time after release until automatic retirement, including flight time. Applies to normal and experimental mines.', 'flame_mine_enabled': 'After landing, replace native activation, pursuit and blast damage with four rotating flame arms. Each mine has its own spatial flame loop and earns Mine Glove XP.', 'mine_flame_damage_per_second': 'Actual HP per second of flame contact. Multiple arms from the same mine never multiply damage on one enemy; separate mines are independent.', 'mine_flame_rotation_degrees_per_second': 'Rotation speed of the four flame arms. 0 keeps a fixed cross.', 'stun_launch_distance': 'Additional collision-checked push on a successful Taunter stun. 0 keeps the original recoil.', 'sand_mouse_enabled': 'Summon the Sonic Summoner flying companion using Drone Device ammo. Its shots award Drone Device XP. Only one mouse can be active, including native dens.', 'sand_mouse_mode': '1 = companion replaces drones; 2 = companion and drones together; 3 = companion while the Sonic Summoner is worn, normal drones otherwise. An active companion blocks another launch without using ammo.', 'sand_mouse_lifetime_seconds': 'Companion lifetime, independent of owning, equipping or removing the Sonic Summoner. It grows from 1% to native size in 0.5 seconds.', 'sand_mouse_max_shots': 'Retire the companion after this many successfully created shots, even before its lifetime expires.', 'sand_mouse_shot_range': 'Maximum shot travel distance and maximum acquisition distance, in game units.', 'secondary_beam_damage_percent': 'Second native electrical ray damage when it hits the same enemy as the first: 25 = 25% of base HP/s. Against a different enemy it deals full base HP/s. Ammo is charged once.', 'dual_beam_enabled': 'Two independent native electrical rays, including free firing with no targets. The second prefers another enemy, but may hit the first at secondary_beam_damage_percent.'})
+LABELS.update({'shotgun_horizontal_spread_degrees':'Horizontal shotgun spread (degrees)','shotgun_vertical_spread_degrees':'Vertical shotgun spread (degrees)','sand_mouse_enabled':'Experimental Sand Mouse: on/off','sand_mouse_mode':'Companion mode (1 / 2 / 3)','secondary_beam_damage_percent':'Second ray overlap damage (%)','continuous_missiles_enabled':'Experimental continuous missiles: on/off','shotgun_enabled':'Experimental shotgun: on/off','flame_mine_enabled':'Experimental flame mine: on/off'})
+
+for group in (STANDARD_DEFAULTS,EXPERIMENTAL_DEFAULTS):
+    for fields in group.values():
+        for key in fields:
+            LABELS.setdefault(key,key.replace('_',' ').capitalize())
+            HELP.setdefault(key, {
+                'shotgun_speed':'Pellet speed in game units per second, independent of the Blaster.',
+                'shotgun_range':'Maximum pellet travel distance in game units, independent of the Blaster.',
+                'shotgun_size_percent':'Pellet model, glow and trail size. 100 = native Blaster size.',
+                'mine_flame_range':'Length of each flame arm in game units, clipped by world geometry.',
+                'sand_mouse_fire_interval_ticks':'Minimum interval between successfully created companion shots.',
+                'sand_mouse_shot_damage_hp':'HP removed by each companion shot. Actual enemy HP loss awards Drone Device XP.',
+                'homing_strength_multiplier':'Missile steering strength. 0 disables steering; 1 preserves native steering.'
+            }.get(key,'Per-grade setting; stored separately for this weapon.'))
+
+HELP['drone_count'] = 'Maximum simultaneous shield drones at this grade (0–10). Above six, a shared orbit expands to keep drones spaced apart.'

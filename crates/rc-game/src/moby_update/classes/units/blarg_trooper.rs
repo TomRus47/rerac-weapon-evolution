@@ -273,7 +273,7 @@ fn hits(w: &mut World, id: MobyId) {
     let hit = w.get_hit(id, 0x33_0000, false).filter(|h| h.attacker_class(w.table).is_none_or(|class| class != IGNORED));
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
     let s = st(w, id);
-    if res.out5 != 1 && s != 0x11 && s != 3 {
+    if res.out5 != 1 && s != 0x11 && s != 3 && !res.settle_quiet_stream(w, id, pv::D) {
         let hp = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, hp);
         wake_group(w, id);

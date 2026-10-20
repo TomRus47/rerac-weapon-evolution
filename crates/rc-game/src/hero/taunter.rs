@@ -378,6 +378,12 @@ pub fn lure(w: &mut World, list: &[MobyId], from: [f32; 3], range: f32, crates: 
                         if w.svc.evo_stuns.attempt(m, moby_class, now, duration, success) {
                             // One native, damage-free recoil, only at the moment
                             // the real stun starts (not every four ticks).
+                            let distance=crate::weapon_evo::extra(14,"stun_launch_distance",0.0);
+                            if distance>0.0 {
+                                let mut delta=c::sub(p,at);delta[2]=0.0;delta[3]=0.0;
+                                let delta=c::set_len3(delta,distance);
+                                w.svc.evo_stuns.launch(m,delta,(duration as u32).min(20).max(1));
+                            }
                             let push = c::set_len3(c::sub(p, at), 0.25);
                             attack::hit_moby(w, m, me, 0.0, 0x10000, [hp[0], hp[1], hp[2], 0.0], push);
                         }

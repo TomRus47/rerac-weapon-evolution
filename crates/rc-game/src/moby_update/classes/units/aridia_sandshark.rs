@@ -502,7 +502,7 @@ fn pre(w: &mut World, id: MobyId) -> bool {
     c::set_pf(w, id, pv::RANGE_NOW, range);
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && state(w, id) != st::DYING {
+    if res.out5 != 1 && state(w, id) != st::DYING && !res.settle_quiet_stream(w, id, pv::D) {
         alert_group(w, id);
         c::set_pi32(w, id, pv::SPLASHED, 0);
         let hp = c::pf(w, id, pv::D) - res.damage;
@@ -1117,7 +1117,7 @@ fn nest_pre(w: &mut World, id: MobyId) -> bool {
     }
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, nv::D, 0, 4);
-    if hit.is_some() && res.out5 != 1 && state(w, id) != nst::DYING {
+    if hit.is_some() && res.out5 != 1 && state(w, id) != nst::DYING && !res.settle_quiet_stream(w, id, nv::D) {
         if res.out5 == 3 { c::set_pf(w, id, nv::D, 0.0); } else { let h = c::pf(w, id, nv::D) - res.damage; c::set_pf(w, id, nv::D, h); }
         let kr = nv::K;
         c::set_pi32(w, id, kr + knock::k::FLAGS, 4);

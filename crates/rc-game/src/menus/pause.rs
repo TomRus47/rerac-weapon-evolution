@@ -37,6 +37,7 @@ pub mod pages;
 pub mod planet_select;
 pub mod port;
 pub mod saves;
+mod weapon_xp;
 
 use super::{scale_ticks, screen_static, text, text_plain, tween, MenuAssets, MenuDraw, MenuInput, MenuSound, Overlay};
 use crate::game_state::GameState;
@@ -1097,6 +1098,13 @@ impl PageMenu {
     /// `fun_00223e28(0x1ba310[i])` (vignette, noise bursts, scan lines, glass: crate::menus::screen_static), which
     /// draws from the game's `rand` stream `rng`.
     pub fn draw(&mut self, a: &MenuAssets, gs: &GameState, env: &MenuEnv, rng: &mut crate::rng::Rng, out: &mut Vec<MenuDraw>) {
+        self.draw_with_evolution(a, gs, env, None, rng, out);
+    }
+
+    /// Draw progress from this game's live profile, not from icon preview state.
+    pub fn draw_with_evolution(&mut self, a: &MenuAssets, gs: &GameState, env: &MenuEnv,
+        evolution: Option<&crate::weapon_evo::Evolution>, rng: &mut crate::rng::Rng, out: &mut Vec<MenuDraw>) {
+        let mut xp_panels = Vec::new();
         out.push(MenuDraw::Snapshot);
         out.push(MenuDraw::Darken { alpha: DARKEN });
         self.view = gadgets::GadgetsView::default();
@@ -1122,6 +1130,9 @@ impl PageMenu {
                     let Some([x, y, w, h]) = rect else { continue };
                     let mut buf = Vec::new();
                     let ret = self.call_draw(wa, a, gs, env, &mut buf);
+                    if self.kind == 3 && ret & weapon_xp::NAME_PANEL != 0 {
+                        if let Some(item) = gadgets::focused_item(self) { xp_panels.push(([x, y, w, h], item)); }
+                    }
                     if wd_direct(self.w(wa)) {
                         out.extend(buf);
                         continue;
@@ -1142,6 +1153,11 @@ impl PageMenu {
             if let Some(f) = self.frames.as_mut() { f.panel_static(i, env.pal, vignette, rng, &mut fx); }
         }
         out.extend(fx.into_iter().map(MenuDraw::Static));
+        // Outside PanelBegin/PanelEnd: the name panel's render target clips at
+        // its lower edge. Progress belongs immediately below that edge.
+        if let Some(evolution) = evolution {
+            for (rect, item) in xp_panels { weapon_xp::draw(out, rect, evolution, item); }
+        }
     }
 
     fn call_draw(&mut self, w: u32, a: &MenuAssets, gs: &GameState, env: &MenuEnv, out: &mut Vec<MenuDraw>) -> u32 {
@@ -1387,6 +1403,7 @@ impl PageMenu {
         // often a grid cursor or a widget table index instead of the weapon ID.
         // Matching the native text/ID prevents suffixes on ammo, descriptions,
         // gadgets, title labels, and other translated menu strings.
+        let mut weapon_name_panel = false;
         if !t.is_empty() && l.id != 0 {
             if let Some((level, native_name, gold_name)) = focused_weapon_name {
                 let is_weapon_name = (native_name > 0
@@ -1396,6 +1413,7 @@ impl PageMenu {
                         && (id as i32 == gold_name
                             || t.as_slice() == a.msg_in(gold_name, swapped)));
                 if is_weapon_name {
+                    weapon_name_panel = true;
                     t.extend_from_slice(format!(" V{level}").as_bytes());
                 }
             }
@@ -1464,7 +1482,7 @@ impl PageMenu {
             let period = ((m.height as i32) + lh * 3) * 16;
             if period != 0 { l.scroll = (l.scroll + 3) % period; }
         }
-        2
+        2 | if weapon_name_panel { weapon_xp::NAME_PANEL } else { 0 }
     }
 }
 

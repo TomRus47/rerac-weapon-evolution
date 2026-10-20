@@ -437,6 +437,22 @@ pub fn pull(w: &mut crate::moby_update::services::World, list: &[MobyId], cannon
     let mut vac = 0;
     for &m in list {
         if m >= w.table.mobys.len() { continue; }
+        // Experimental crate ammunition uses the same cone, reach, line of sight
+        // and native held-slot capacity, retaining the original crate instance.
+        if crate::moby_update::classes::cannon_crate::allowed(w.m(m).o_class) {
+            let point = w.m(m).position;
+            let d = len3(sub3([point[0],point[1],point[2]],cannon));
+            let limit = if d < 3.0 { CONE2_NEAR } else { CONE2 };
+            let dy = diff_rots(yaw,atan(point[0]-cannon[0],point[1]-cannon[1]));
+            let dp = diff_rots(pitch,atan(d,point[2]+0.4-cannon[2]));
+            if !group_blocked && d < REACH * crate::weapon_evo::extra(9,"suck_range_multiplier",1.0)
+                && dy*dy < limit && dp*dp < limit
+                && w.line(mouth.map(crate::ps2v::Pf::f),[point[0],point[1],point[2]+0.4,0.0].map(crate::ps2v::Pf::f),2,Some(m)).is_none()
+                && crate::moby_update::classes::cannon_crate::pull(w,m,mouth) {
+                taken.push(m);
+            }
+            continue;
+        }
         let mo = w.m(m);
         if mo.o_class == 0 || mo.mode & mode::TARGETABLE == 0 || react::table(w, m).is_none() {
             if let Some(v) = vortex { vac += vacuum(w, m, v) as u32; }

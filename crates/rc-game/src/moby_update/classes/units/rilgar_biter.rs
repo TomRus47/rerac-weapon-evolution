@@ -473,7 +473,7 @@ fn hits(w: &mut World, id: MobyId) {
         if c::dist3(from, to) < 24.0 && w.coll_line(v4(from), v4(to), 2, Some(id)).is_some() { hit = None; }
     }
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && state(w, id) != st::DYING {
+    if res.out5 != 1 && state(w, id) != st::DYING && !res.settle_quiet_stream(w, id, pv::D) {
         let hp = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, hp);
         let reaction = if hp <= 0.0 { 1 } else { res.reaction };

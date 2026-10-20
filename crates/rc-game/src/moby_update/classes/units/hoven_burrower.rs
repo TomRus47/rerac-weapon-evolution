@@ -270,7 +270,7 @@ fn tick(w: &mut World, id: MobyId) {
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
     if let Some(h) = res.hit.filter(|_| hit.is_some() && state(w, id) != 99 && state(w, id) != 8) {
         tell(w, id, 7);
-        if res.damage != 0.0 {
+        if res.damage != 0.0 && !res.settle_quiet_stream(w, id, pv::D) {
             let kr = pv::K;
             let hp = c::pf(w, id, pv::D) - res.damage;
             c::set_pf(w, id, kr + knock::k::GRAVITY, f32::from_bits(0x3c03_126f));

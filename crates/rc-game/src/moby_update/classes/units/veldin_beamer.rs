@@ -421,7 +421,7 @@ fn pre(w: &mut World, id: MobyId) {
     c::dec_timer_pvar_s16(w, id, pv::ALERT);
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::HP, 0, 4);
-    if res.out5 != 1 && w.m(id).state != 8 && res.damage != 0.0 {
+    if res.out5 != 1 && w.m(id).state != 8 && res.damage != 0.0 && !res.settle_quiet_stream(w, id, pv::HP) {
         let kr = pv::K;
         c::set_pu8(w, id, kr + 0x3d, 0);
         c::set_pi32(w, id, kr + knock::k::RADIUS, 0x200);

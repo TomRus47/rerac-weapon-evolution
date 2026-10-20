@@ -87,6 +87,49 @@ pub mod pv_ {
 }
 use pv_ as p;
 
+#[cfg(test)]
+mod v44_tests {
+    use super::*;
+    use crate::hero::Hero;
+    use crate::moby_runtime::{ClassInfo,Moby,MobyTable};
+    use crate::moby_update::services::{ClassTable,Services};
+    use crate::rng::Rng;
+
+    #[test]
+    fn saw_bots_take_repeated_rapid_fire_damage_and_xp_without_any_slide_impulse() {
+        for (weapon,class,kind,subtype) in [(15,305,1,1),(16,176,5,1),(19,177,5,3)] {
+            let info=ClassInfo{scale:1.0,mode_bits:0x5020,..Default::default()};
+            let mut enemy=Moby::init_instance(1,340,Some(&info));enemy.pvars.resize(p::SIZE,0);
+            sv::pvar::set_i32(&mut enemy.pvars,0,p::D as i32);
+            sv::pvar::set_i32(&mut enemy.pvars,0xc,p::F as i32);
+            sv::pvar::set_i32(&mut enemy.pvars,0x10,p::K as i32);
+            sv::pvar::set_i32(&mut enemy.pvars,p::PATH,-1);
+            let hero=Hero::spawn([90.0,100.0,50.0],0.0);
+            let mut table=MobyTable::new(vec![Moby::init_instance(0,0,Some(&info)),enemy],64);
+            table.mobys[1].position=[100.0,100.0,50.0,1.0];
+            let mut svc=Services::new();svc.level=4;svc.bomb_evo.enabled=true;svc.bomb_evo.real_hp=true;
+            svc.bomb_evo.pyro.enabled=true;
+            for track in &mut svc.bomb_evo.extras {track.enabled=true;track.xp_required=[10000.0;4];}
+            svc.bomb_evo.damage_hp[weapon as usize][0]=Some(100.0);
+            let classes=ClassTable::default();let mut rng=Rng::new();
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+            init(&mut w,1);c::set_pf(&mut w,1,p::D,50.0);
+            for tick in 1..=20 {
+                w.counter=tick;w.svc.hits.real_hp.begin_frame(tick);
+                c::set_pf(&mut w,1,p::PUSH,2.0); // stale slide must stop on quiet hits too
+                let before=c::pf(&w,1,p::D);
+                let source=if weapon==15 {w.create_moby(305).unwrap()} else {0};
+                let tmpl=HitTemplate{attacker:Some(source),flags:0x21_0000,b18:kind,b19:subtype,h1a:class,damage:Pf::ONE,..Default::default()};
+                w.deliver_hit(1,&tmpl);hits(&mut w,1);
+                assert_eq!(c::pf(&w,1,p::PUSH),0.0,"weapon {weapon}, tick {tick}");
+                assert!(c::pf(&w,1,p::D)<before,"damage stopped for weapon {weapon}, tick {tick}");
+            }
+            let xp=if weapon==16 {w.svc.bomb_evo.pyro.xp} else {w.svc.bomb_evo.extras.iter().find(|t|t.id==weapon).unwrap().xp};
+            assert!(xp>0.0,"XP stopped for weapon {weapon}");
+        }
+    }
+}
+
 /// `SpawnBeamExplosion(0, 0, 2, 1, 100000, 1, 15, m, 0, joint 5, 10, 3, 4, −1, 1, 1, −1, 0)` (0x2c1e60).
 pub const BEAM: fx::Beam = fx::Beam { damage_r: 0.0, damage: 0.0, flash: 2.0, flash2: 1.0, flash_dist: 100000.0, scale: 1.0, light: 15.0, streaks: 10, sparks: 3, puffs: 4, debris: 1, sound: -1, shake: true };
 /// The swing's joint lists (0x161890).
@@ -262,6 +305,11 @@ fn hits(w: &mut World, id: MobyId) {
     let hit = w.get_hit(id, 0x21_0000, false);
     let res = damage::resolve(w, id, hit, p::D, 0, 4);
     let Some(h) = hit else { return };
+    // Saw bots retain their health, alert and reaction behavior, but rapid-fire
+    // hits must neither start nor prolong their class-specific ground slide.
+    let no_slide = h.evolution.map_or(matches!(h.h2a, 305 | 168 | 176 | 177), |a| crate::moby_update::real_hp::rapid_attack(a));
+    if no_slide { c::set_pf(w, id, p::PUSH, 0.0); }
+    if res.settle_quiet_stream(w, id, p::D) { return; }
     if c::pu8(w, id, p::GUARD) != 0 {
         if damage::quiet_damage(w, id, res.hit, p::D) { return; }
         if !h.independent() { return; }
@@ -289,7 +337,7 @@ fn hits(w: &mut World, id: MobyId) {
         3..=6 => {
             blend(w, id, 8, 5);
             let k = 10.0 / gscale(w, 15.0);
-            let push = if matches!(class, Some(0x131) | Some(0xb0)) { k * 0.5 } else { k };
+            let push = if no_slide { 0.0 } else if matches!(class, Some(0x131) | Some(0xb0)) { k * 0.5 } else { k };
             c::set_pf(w, id, p::PUSH, push);
             set_st(w, id, 6);
             w.mm(id).rotation[2] = c::add_rot(PI, heading);

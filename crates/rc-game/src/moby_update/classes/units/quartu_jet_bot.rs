@@ -186,7 +186,7 @@ pub fn senses(w: &mut World, id: MobyId) {
     if let Some(r) = rec {
         let s = w.m(id).state;
         let from_flame = r.attacker.filter(|&a| a < w.table.mobys.len()).is_some_and(|a| w.m(a).o_class == FLAME);
-        if res.out5 != 1 && s != 10 && s != 0x40 && !from_flame {
+        if res.out5 != 1 && s != 10 && s != 0x40 && !from_flame && !res.settle_quiet_stream(w, id, o::D) {
             let hp = c::pf(w, id, o::D) - res.damage;
             c::set_pf(w, id, o::D, hp);
             let mut reaction = if r.h2a == QUIET_CLASS { 9 } else { res.reaction };

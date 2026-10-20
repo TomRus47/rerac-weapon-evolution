@@ -283,7 +283,7 @@ fn hits(w: &mut World, id: MobyId) {
     c::dec_timer_pvar_i32(w, id, pv::ALERT);
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && st(w, id) != 0x10 {
+    if res.out5 != 1 && st(w, id) != 0x10 && !res.settle_quiet_stream(w, id, pv::D) {
         if w.svc.level == 10 && hit.and_then(|h| h.attacker_class(w.table)).is_some_and(|class| class == 0x31a) {
             // Skill point 0x13d419 (the skill-point table 0x13d408, not the global flags).
             let k = crate::moby_update::story::skill_index(0x13_d419);

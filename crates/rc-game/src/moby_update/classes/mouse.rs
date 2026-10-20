@@ -35,6 +35,7 @@ use crate::moby_runtime::{mode, MobyId};
 use crate::moby_update::creature::{self as c, add_rot, atan, diff_rots, turn, walker, DT, DT2, SPEED, V};
 use crate::moby_update::services::{pv, pvar as p, HeroCall, HitTemplate, World};
 use std::f32::consts::{PI, TAU};
+pub mod companion;
 
 /// The house's update address in the level01 class table.
 pub const HOUSE_FN: u32 = 0x2f2b68;
@@ -336,7 +337,7 @@ fn fly(w: &mut World, id: MobyId) {
 /// wins) with a clear line from the muzzle (or a line ending on another creature).
 pub fn search(w: &World, id: MobyId, muzzle: V) -> Option<MobyId> {
     let r = PI / 180.0;
-    let (yc, pc, range, near, nyc, npc) = (k::YAW_CONE * r, k::PITCH_CONE * r, k::RANGE, 2.0f32, PI, PI);
+    let (yc, pc, range, near, nyc, npc) = (k::YAW_CONE * r, k::PITCH_CONE * r, companion::range(w, id), 2.0f32, PI, PI);
     let rot = w.m(id).rotation;
     // The target list 0x1abe80 is built with this tick's run list (the scheduler's list build, redone here).
     let (_, targets) = crate::moby_update::scheduler::build_active_list(w.table, w.camera, &w.svc.groups);
@@ -396,9 +397,9 @@ fn shoot(w: &mut World, id: MobyId) {
     muzzle = c::add(muzzle, off);
     let yaw = atan(aim[0] - muzzle[0], aim[1] - muzzle[1]);
     let pitch = -atan(c::dist2(muzzle, aim), aim[2] - muzzle[2]);
-    create_shot(w, id, yaw, pitch, muzzle);
+    if create_shot(w, id, yaw, pitch, muzzle).is_none() { return; }
     w.play_sound(0, 0, id);
-    let cd = w.ticks(k::COOLDOWN) as i16;
+    let cd = w.ticks(companion::interval(w, id)) as i16;
     c::set_pi16(w, id, pvo::COOLDOWN, cd);
     let n = c::pi32(w, id, pvo::SHOTS) + 1;
     c::set_pi32(w, id, pvo::SHOTS, n);
@@ -430,6 +431,7 @@ fn create_shot(w: &mut World, id: MobyId, yaw: f32, pitch: f32, at: V) -> Option
     m.alpha = 0x40;
     m.mode |= 0xa00;
     m.scale *= 0.5;
+    companion::configure_shot(w, id, s);
     Some(s)
 }
 
@@ -463,6 +465,7 @@ pub fn mouse_update(w: &mut World, id: MobyId) {
             w.svc.draw_callbacks.register(crate::moby_update::classes::draw_callbacks::Callback::UnitGlow(r), id);
         }
     }
+    if companion::custom(w.m(id)) { return companion::update(w, id); }
     match w.m(id).state {
         0 => init(w, id, house),
         1 => idle(w, id, house),
@@ -563,6 +566,7 @@ fn init(w: &mut World, id: MobyId, house: Option<MobyId>) {
 
 /// State 1: at home; the summon (module doc).
 fn idle(w: &mut World, id: MobyId, house: Option<MobyId>) {
+    if companion::active(w) && w.svc.mouse.summoned != Some(id) { return; }
     if !owned(w, SUMMONER) || w.hero.head_slot.id != SUMMONER { return; }
     c::set_pi32(w, id, pvo::SHOTS, 0);
     let life = w.ticks(k::LIFE);
@@ -719,6 +723,7 @@ fn vanish(w: &mut World, id: MobyId) {
 /// 0.5, +0x20 = 1) ignoring the mouse: a hit on a surface other than water ends it there; a water hit shortens its
 /// life to 3 ticks.
 pub fn shot_update(w: &mut World, id: MobyId) {
+    if companion::owned_shot(w.m(id)) { return companion::shot_step(w, id); }
     if w.m(id).pvars.len() < 0x18 { return; }
     let class_scale = w.classes.info(w.m(id).o_class).map(|i| i.scale).unwrap_or(w.m(id).scale);
     if w.m(id).scale < class_scale { w.mm(id).scale += SPEED * 0.21 * class_scale; }

@@ -39,7 +39,7 @@ use crate::moby_runtime::MobyId;
 use crate::moby_update::creature::fx::{self, Beam};
 use crate::moby_update::creature::turn::spring_turn;
 use crate::moby_update::creature::{add_rot, atan};
-use crate::moby_update::services::{self as sv, pvar as p, HitTemplate, World};
+use crate::moby_update::services::{ pvar as p, HitTemplate, World};
 use crate::ps2v::Pf;
 use crate::targeting::polar;
 use std::f32::consts::PI;
@@ -48,6 +48,56 @@ pub const UPDATE_FN: u32 = 0x2e5a48;
 pub const CLASSES: [i16; 1] = [457];
 pub const CLASS: i16 = 457;
 const DT: f32 = 1.0 / 60.0;
+const SNAP: usize = 0x80;
+const TOP: usize = 0x84;
+const TURN: usize = 0x88;
+const LEFT: usize = 0x8c;
+const HP: usize = 0x90;
+const RADIUS: usize = 0x94;
+const VISUAL: usize = 0x98;
+const BLOCKED_TARGET: usize = 0x9c;
+const SNAP_LEN: usize = 0xa0;
+const TAG: u32 = 0x5745_5235;
+
+fn snapshot(m: &mut crate::moby_runtime::Moby) {
+    if m.pvars.len() >= SNAP_LEN && p::u32(&m.pvars, SNAP) == TAG { return; }
+    m.pvars.resize(SNAP_LEN, 0);
+    p::set_u32(&mut m.pvars, SNAP, TAG);
+    let value = |key, native| crate::weapon_evo::extra(23, key, native);
+    p::set_ff(&mut m.pvars, TOP, value("missile_speed_multiplier", 1.0).clamp(0.1, 10.0));
+    p::set_ff(&mut m.pvars, TURN, value("homing_strength_multiplier", 1.0));
+    let max = value("missile_max_range", 0.0);
+    p::set_ff(&mut m.pvars, LEFT, if max > 0.0 { max } else { 200.0 * value("missile_range_multiplier", 1.0).clamp(0.1, 10.0) });
+    p::set_ff(&mut m.pvars, HP, value("damage_hp", 300.0 * value("damage_multiplier", 1.0)));
+    p::set_ff(&mut m.pvars, RADIUS, value("explosion_damage_radius", 0.0));
+    p::set_ff(&mut m.pvars, VISUAL, value("explosion_visual_size_multiplier", 1.0));
+}
+
+/// A path trace discovers impact only. Detonation owns both direct and optional
+/// area damage, so every missile has one stable per-target attack identity.
+fn detonate(w: &mut World, id: MobyId, direct: Option<MobyId>) {
+    let at = w.m(id).position;
+    let hp = p::ff(&w.m(id).pvars, HP);
+    let radius = p::ff(&w.m(id).pvars, RADIUS);
+    let size = p::ff(&w.m(id).pvars, VISUAL);
+    let owner = (p::i32(&w.m(id).pvars, pv::OWNER) as usize).checked_sub(1);
+    w.svc.hits.real_hp.set_source_damage_hp(id, 23, hp);
+    let tmpl = HitTemplate { dir: [Pf::ZERO, Pf::ZERO, Pf::ONE, Pf::b(0x45af_df66)], attacker: Some(id),
+        flags: 0x83_0000, b18: 3, b19: 3, h1a: CLASS as u16, damage: Pf::f(hp / 100.0), w20: 1 };
+    if let Some(target) = direct { w.deliver_hit(target, &tmpl); }
+    if radius > 0.0 {
+        let list = w.sphere_mobys_list(Pf::f(radius), at.map(Pf::f), 0, Some(id), None);
+        for target in list {
+            if Some(target) == direct || Some(target) == owner || Some(target) == w.hero_moby || w.m(target).o_class == CLASS { continue; }
+            w.deliver_hit(target, &tmpl);
+        }
+    }
+    let mut visual = BEAM;
+    visual.flash *= size; visual.flash2 *= size; visual.scale *= size; visual.light *= size;
+    fx::beam_explosion(w, &visual, Some(id), at);
+    w.delete_moby(id);
+}
+
 
 pub mod pv {
     pub const AIM: usize = 0x00;
@@ -83,6 +133,7 @@ pub fn spawn(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::Moby
     let rb = rng.randf(-0.02406, 0.02406);
     let m = &mut table.mobys[id];
     if m.pvars.len() < 0x80 { m.pvars.resize(0x80, 0); }
+    snapshot(m);
     m.update_dist = 0xff;
     m.draw_dist = 0xff;
     m.visible = 1;
@@ -111,12 +162,15 @@ pub fn spawn(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::Moby
     // The line from Ratchet at the barrel's height.
     let hp = table.mobys.get(env.hero_moby).map_or(muzzle, |h| [h.position[0], h.position[1], muzzle[2]]);
     let f4 = |a: [f32; 3]| [Pf::f(a[0]), Pf::f(a[1]), Pf::f(a[2]), Pf::ZERO];
-    let blocked = hits.probe_moby(table, f4(hp), f4(muzzle), 0, Some(env.hero_moby)).flatten().map(|h| h.point).or_else(|| env.coll.and_then(|c| crate::hero::physics::line_world(c, f4(hp), f4(muzzle), 0)).map(|o| o.point));
-    if let Some(h) = blocked {
+    let blocked = hits.probe_moby(table, f4(hp), f4(muzzle), 0, Some(env.hero_moby)).flatten()
+        .filter(|h|h.moby.is_none_or(|m|m!=id && table.mobys.get(m).is_some_and(|m|m.o_class!=CLASS)))
+        .map(|h|(h.point,h.moby)).or_else(|| env.coll.and_then(|c| crate::hero::physics::line_world(c, f4(hp), f4(muzzle), 0)).map(|o| (o.point,None)));
+    if let Some((h,target)) = blocked {
         let m = &mut table.mobys[id];
         m.cmd = 2;
         m.position = [h[0], h[1], h[2], m.position[3]];
         p::set_i32(&mut m.pvars, pv::BLOCKED, 1);
+        p::set_i32(&mut m.pvars, BLOCKED_TARGET,target.map_or(0,|t|t as i32+1));
     }
     Some(id)
 }
@@ -126,10 +180,11 @@ fn v3(a: [f32; 4]) -> [f32; 3] { [a[0], a[1], a[2]] }
 /// `0x2e5a48`.
 pub fn update(w: &mut World, id: MobyId) {
     if w.m(id).pvars.len() < 0x80 { w.mm(id).pvars.resize(0x80, 0); }
+    snapshot(w.mm(id));
     if p::i32(&w.m(id).pvars, pv::BLOCKED) != 0 {
-        let pos = w.m(id).position;
-        fx::beam_explosion(w, &BEAM, Some(id), pos);
-        w.delete_moby(id);
+        let target=(p::i32(&w.m(id).pvars,BLOCKED_TARGET) as usize).checked_sub(1)
+            .filter(|&t|w.table.mobys.get(t).is_some_and(|m|!m.is_deleted()));
+        detonate(w, id, target);
         return;
     }
     let speed_k = 1.0f32;
@@ -138,7 +193,8 @@ pub fn update(w: &mut World, id: MobyId) {
         let m = w.mm(id);
         m.scale += (class_scale - m.scale) * speed_k * 0.05;
         let s = p::ff(&m.pvars, pv::SPEED);
-        p::set_ff(&mut m.pvars, pv::SPEED, s + (DT * 20.0 * crate::weapon_evo::extra(23, "missile_speed_multiplier", 1.0).clamp(0.1, 10.0) - s) * (speed_k * 0.1) * 1.0);
+        let top = p::ff(&m.pvars, TOP);
+        p::set_ff(&mut m.pvars, pv::SPEED, s + (DT * 20.0 * top - s) * (speed_k * 0.1) * 1.0);
     }
     let life = p::i32(&w.m(id).pvars, pv::LIFE);
     let speed = p::ff(&w.m(id).pvars, pv::SPEED);
@@ -169,7 +225,7 @@ pub fn update(w: &mut World, id: MobyId) {
                 let rel = sub3(tp, v3(p::v4f(pvs, pv::LINE)));
                 let tt = super::missile::intercept_time(speed, vt, rel);
                 let (mut vy, mut vp) = (p::ff(pvs, pv::YAW_VEL), p::ff(pvs, pv::PITCH_VEL));
-                let acc = DT * DT * 188.495_56;
+                let acc = DT * DT * 188.495_56 * p::ff(pvs, TURN);
                 let m = w.mm(id);
                 p::set_v4f(&mut m.pvars, pv::AIM, [tp[0], tp[1], tp[2], 0.0]);
                 if 0.0 < tt {
@@ -234,6 +290,11 @@ pub fn update(w: &mut World, id: MobyId) {
         p::set_ff(&mut w.mm(id).pvars, pv::WOBBLE, nw);
         if nw <= 0.1 || nw.is_nan() { break; }
     }
+    let left = p::ff(&w.m(id).pvars, LEFT).max(0.0);
+    let travelled = len3(sub3(pos, old));
+    let expired_range = travelled >= left;
+    if expired_range { pos = add3(old, with_len(sub3(pos, old), left)); }
+    p::set_ff(&mut w.mm(id).pvars, LEFT, (left - travelled).max(0.0));
     {
         let m = w.mm(id);
         m.position = [pos[0], pos[1], pos[2], m.position[3]];
@@ -249,47 +310,26 @@ pub fn update(w: &mut World, id: MobyId) {
         w.delete_moby(id);
         return;
     }
-    let n = with_len(dir, 1.0);
-    let tmpl = HitTemplate { dir: [Pf::f(n[0]), Pf::f(n[1]), Pf::ONE, Pf::b(0x45af_df66)], attacker: Some(id), flags: 0x83_0000, b18: 3, b19: 3, h1a: CLASS as u16, damage: Pf::f(3.0 * crate::weapon_evo::extra(23, "damage_multiplier", 1.0)), w20: 1 };
-    let hit = sv::line_hit_in(w.table, w.svc, w.classes, w.coll, f4(old), f4(pos), 0, Some(id), &tmpl);
+    let hit = w.coll_line(f4(old), f4(pos), 0, Some(id));
     let owner = (p::i32(&w.m(id).pvars, pv::OWNER) as usize).checked_sub(1);
-    let explode = match hit {
-        None => {
-            let mut l = p::i32(&w.m(id).pvars, pv::LIFE);
-            let out = crate::hero::guns::dec(&mut l);
-            p::set_i32(&mut w.mm(id).pvars, pv::LIFE, l);
-            let hero = w.hero_moby.map_or(old, |h| v3(w.m(h).position));
-            if !out && ((pos[0] - hero[0]).powi(2) + (pos[1] - hero[1]).powi(2)).sqrt() <= 200.0 * crate::weapon_evo::extra(23, "missile_range_multiplier", 1.0).clamp(0.1, 10.0) {
-                flip_rates(w, id);
-                return;
-            }
-            None
-        }
-        Some(h) => match h.moby {
-            None if h.kind < 1 => {
-                flip_rates(w, id);
-                return;
-            }
-            None => Some((1u8, h)),
-            Some(m) if Some(m) == w.hero_moby || Some(m) == owner || w.m(m).o_class == CLASS || w.m(m).o_class == 0 => {
-                flip_rates(w, id);
-                return;
-            }
-            Some(_) => Some((2u8, h)),
-        },
-    };
-    if let Some((k, h)) = explode {
-        let m = w.mm(id);
-        m.cmd = k;
-        m.position = [h.point[0], h.point[1], h.point[2], m.position[3]];
-        // The drift (`dir` reflected off the face, 2·dt long) is SpawnBeamExplosion's param_9, which the port's
-        // explosion does not read.
-        let pos = w.m(id).position;
-        let mut b = BEAM;
-        if k == 1 { b.damage = 1.0; }
-        fx::beam_explosion(w, &b, Some(id), pos);
+    let valid = hit.as_ref().is_some_and(|h| match h.moby {
+        None => h.kind >= 1,
+        Some(m) => Some(m) != w.hero_moby && Some(m) != owner && w.m(m).o_class != CLASS && w.m(m).o_class != 0,
+    });
+    let mut life = p::i32(&w.m(id).pvars, pv::LIFE);
+    let expired_life = crate::hero::guns::dec(&mut life);
+    p::set_i32(&mut w.mm(id).pvars, pv::LIFE, life);
+    if valid {
+        let h = hit.unwrap();
+        w.mm(id).position = [h.point[0], h.point[1], h.point[2], 1.0];
+        w.mm(id).cmd = if h.moby.is_some() { 2 } else { 1 };
+        detonate(w, id, h.moby);
+    } else if expired_range || expired_life {
+        detonate(w, id, None);
+    } else {
+        flip_rates(w, id);
     }
-    w.delete_moby(id);
+
 }
 
 /// Every `ticks(32)` of the life: the wobble's phase rates may flip (`rand() & 1` each).
@@ -308,4 +348,47 @@ fn flip_rates(w: &mut World, id: MobyId) {
     let m = w.mm(id);
     let r = p::ff(&m.pvars, pv::RATE_B) * k;
     p::set_ff(&mut m.pvars, pv::RATE_B, r);
+}
+
+#[cfg(test)]
+mod evolution_tests {
+    use super::*;
+    use crate::moby_runtime::{Moby,MobyTable};
+    #[test]
+    fn terminal_impact_delivers_one_frozen_hp_event_to_tanks_and_other_donors() {
+        for class in [625,577,749,638] {
+            let target=Moby{o_class:class,state:1,mode:0x4000,..Default::default()};
+            let mut missile=Moby{o_class:CLASS,state:1,pvars:vec![0;0x80],position:[100.0,100.0,50.0,1.0],..Default::default()};
+            snapshot(&mut missile);p::set_ff(&mut missile.pvars,HP,123.0);
+            let mut table=MobyTable::new(vec![target,missile],1);
+            let hero=crate::hero::Hero::new();let mut rng=crate::rng::Rng::new();
+            let classes=crate::moby_update::ClassTable::default();let mut svc=crate::moby_update::Services::new();
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);
+            w.svc.hits.real_hp.enabled=true;
+            detonate(&mut w,1,Some(0));
+            let hit=w.svc.hits.real_hp.take(0,u32::MAX).expect("terminal damage survives missile deletion");
+            assert!((hit.damage.to_f32()*100.0-123.0).abs()<0.0001);
+            assert_eq!(hit.evolution.unwrap().weapon,23);
+            assert!(w.svc.hits.real_hp.take(0,u32::MAX).is_none());
+            assert!(w.m(1).is_deleted());
+        }
+    }
+    #[test]
+    fn range_expiry_detonates_instead_of_disappearing_and_never_exceeds_budget() {
+        let mut missile=Moby{o_class:CLASS,state:1,pvars:vec![0;0x80],position:[100.0,100.0,50.0,1.0],..Default::default()};
+        snapshot(&mut missile);
+        p::set_ff(&mut missile.pvars,LEFT,0.01);
+        p::set_v4f(&mut missile.pvars,pv::LINE,[100.0,100.0,50.0,1.0]);
+        p::set_i32(&mut missile.pvars,pv::LIFE,250);
+        p::set_ff(&mut missile.pvars,pv::SPEED,1.0);
+        let mut table=MobyTable::new(vec![missile],1);
+        let hero=crate::hero::Hero::new();let mut rng=crate::rng::Rng::new();
+        let classes=crate::moby_update::ClassTable::default();let mut svc=crate::moby_update::Services::new();
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);
+        update(&mut w,0);
+        assert!(w.m(0).is_deleted());
+        let p=w.m(0).position;
+        assert!(((p[0]-100.0).powi(2)+(p[1]-100.0).powi(2)+(p[2]-50.0).powi(2)).sqrt()<=0.01001);
+        assert!(w.svc.sounds.iter().any(|s|s.index==0),"native explosion sound is issued");
+    }
 }

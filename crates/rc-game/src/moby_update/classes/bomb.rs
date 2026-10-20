@@ -101,6 +101,7 @@ pub fn init_held(m: &mut crate::moby_runtime::Moby, rng: &mut crate::rng::Rng, p
     if m.pvars.len() < 0x80 { m.pvars.resize(0x80, 0); }
     let pv = &mut m.pvars;
     p::set_i32(pv, pv::OWNER, 1);
+    p::set_i32(pv, 0x78, 0); // a recycled object must not inherit a surface impact
     p::set_i16(pv, pv::FLAG56, 0);
     p::set_i16(pv, pv::FLASH, 0);
     p::set_i32(pv, pv::TARGET, 0);
@@ -135,6 +136,7 @@ pub fn release(m: &mut crate::moby_runtime::Moby, point: [f32; 3], grind_vel: Op
 /// The release's wall test hit: explode at `hit` (+0xbc = 1).
 pub fn release_hit(m: &mut crate::moby_runtime::Moby, hit: [f32; 3]) {
     m.cmd = 1;
+    p::set_i32(&mut m.pvars, 0x78, 1); // confirmed surface contact, not fuse expiry
     m.position = [hit[0], hit[1], hit[2], m.position[3]];
 }
 
@@ -150,6 +152,10 @@ fn template(id: MobyId, vel: [f32; 4], life: i16) -> HitTemplate {
 /// `0x2c3300`.
 pub fn update(w: &mut World, id: MobyId) {
     if w.m(id).pvars.len() < 0x80 { w.mm(id).pvars.resize(0x80, 0); }
+    if is_mini(w, id) {
+        if w.m(id).state == EXPLODING { exploding(w, id); } else { mini_fly(w, id); }
+        return;
+    }
     let hand_glove = w.hero.items.slot.item.as_ref().is_some_and(|m| m.o_class == GLOVE_CLASS);
     let st = w.m(id).state;
     if (!hand_glove && st == HELD) || (w.body() != 0 && st == HELD) {
@@ -319,18 +325,20 @@ fn fly(w: &mut World, id: MobyId) {
         }
         Some(h) => {
             let water_face = h.moby.is_none() && h.surface_id() == 0;
-            if water == 0 && water_face && vel[2] < 0.0 {
+            let cluster_contact = w.svc.bomb_evo.enabled && w.svc.bomb_evo.current().cluster.enabled;
+            if water == 0 && water_face && vel[2] < 0.0 && !cluster_contact {
                 // Into water: sink slowly; the ripple, splash and drops (`bomb_water::entry`).
                 let m = w.mm(id);
                 p::set_i16(&mut m.pvars, pv::WATER, 1);
                 p::set_v4f(&mut m.pvars, pv::VEL, [0.0, 0.0, dt() * -1.5, 0.0]);
                 super::bomb_water::entry(w, id, h.point[2]);
-            } else if !(water == 0 && water_face) {
+            } else if !(water == 0 && water_face) || cluster_contact {
                 let young = (life as i32) >= 300 - 10;
                 let own = h.moby.is_some() && (h.moby == w.hero_moby);
                 if !(own && young) {
                     let m = w.mm(id);
                     m.cmd = 1;
+                    p::set_i32(&mut m.pvars, 0x78, 1);
                     m.position = [h.point[0], h.point[1], h.point[2], m.position[3]];
                     let n = [h.normal[0], h.normal[1], h.normal[2], 0.0];
                     let nn = setlen(n, 1.0);
@@ -342,6 +350,115 @@ fn fly(w: &mut World, id: MobyId) {
         }
     }
     if w.m(id).cmd != 0 { explode(w, id, drift, normal); }
+}
+
+// Extension data is appended after the original 0x80-byte bomb block.
+mod mini {
+    pub const TAG: usize = 0x80;
+    pub const ARMED: usize = 0x84;
+    pub const RADIUS: usize = 0x88;
+    pub const DAMAGE: usize = 0x8c;
+    pub const COLOR: usize = 0x90;
+    pub const GOLD: usize = 0x94;
+    pub const EXPLOSION_SCALE: usize = 0x98;
+    pub const MAGIC: u32 = 0x434c_5354;
+}
+fn is_mini(w: &World, id: MobyId) -> bool {
+    w.m(id).pvars.len() >= 0xa0 && p::u32(&w.m(id).pvars, mini::TAG) == mini::MAGIC
+}
+fn mini_explosion_scale(w: &World, id: MobyId) -> f32 {
+    if is_mini(w, id) { p::ff(&w.m(id).pvars, mini::EXPLOSION_SCALE) } else { 1.0 }
+}
+fn bomb_radius(w: &World, id: MobyId) -> f32 {
+    if is_mini(w, id) { p::ff(&w.m(id).pvars, mini::RADIUS) }
+    else if w.svc.bomb_evo.enabled { w.svc.bomb_evo.current().explosion_radius }
+    else { gold_glove(w) as f32 + 1.0 }
+}
+fn bomb_damage(w: &World, id: MobyId) -> f32 {
+    if is_mini(w, id) { p::ff(&w.m(id).pvars, mini::DAMAGE) }
+    else if w.svc.bomb_evo.enabled { 2.0 * w.svc.bomb_evo.current().damage_multiplier }
+    else { 2.0 }
+}
+fn cluster_velocity(index: u8, count: u8, yaw: f32, speed: f32, height: f32) -> [f32; 4] {
+    let angle = yaw + index as f32 * 2.0 * PI / count as f32;
+    [angle.cos() * speed * dt(), angle.sin() * speed * dt(), (2.0 * 11.0 * height).sqrt() * dt(), 0.0]
+}
+/// Spawn children before the parent blast commits damage/XP and possibly levels up.
+/// Children snapshot their grade's damage, appearance and radius and never recurse.
+fn spawn_cluster(w: &mut World, parent: MobyId) {
+    if is_mini(w, parent) { return; }
+    if !w.svc.bomb_evo.enabled { return; }
+    let stats = w.svc.bomb_evo.current();
+    let cluster = stats.cluster;
+    if !cluster.enabled { return; }
+    let pos = w.m(parent).position;
+    let scale = w.m(parent).scale;
+    let yaw = p::ff(&w.m(parent).pvars, pv::YAW);
+    let native_damage = bomb_damage(w, parent) * cluster.damage_percent / 100.0;
+    let absolute = w.svc.hits.real_hp.values.get(&10).copied().unwrap_or(bomb_damage(w, parent) * 100.0)
+        * cluster.damage_percent / 100.0;
+    let gold = gold_glove(w);
+    for index in 0..cluster.count {
+        let Some(child) = w.create_moby(BOMB_CLASS) else { break; };
+        let vel = cluster_velocity(index, cluster.count, yaw, cluster.launch_speed, cluster.jump_height);
+        let vel = [vel[0], vel[1], cluster.jump_speed.map_or(vel[2], |v| v * dt()), vel[3]];
+        // The native initializer supplies the exact same model and spinning setup.
+        let point = [pos[0], pos[1], pos[2] + 0.12];
+        init_held(&mut w.table.mobys[child], w.rng, point, yaw);
+        let m = w.mm(child);
+        m.state = FLYING;
+        // Mini updates bypass the held/flying visibility gate of the main bomb.
+        // Class/recycled flags must never hide this model or freeze its matrix.
+        m.mode &= !(crate::moby_runtime::mode::HIDDEN | crate::moby_runtime::mode::NO_UPDATE
+            | crate::moby_runtime::mode::NO_ANIM | crate::moby_runtime::mode::KEEP_MATRIX
+            | crate::moby_runtime::mode::KEEP_ROWS | 0x80);
+        m.visible = 1;
+        m.alpha = 0x80;
+        m.scale = scale * cluster.model_percent / 100.0;
+        m.has_collision = false; // own swept collision below; no rising contact damage
+        m.pvars.resize(0xa0, 0);
+        p::set_u32(&mut m.pvars, mini::TAG, mini::MAGIC);
+        p::set_i32(&mut m.pvars, pv::OWNER, parent as i32 + 1);
+        p::set_v4f(&mut m.pvars, pv::VEL, vel);
+        p::set_i16(&mut m.pvars, pv::LIFE, 180);
+        p::set_ff(&mut m.pvars, mini::RADIUS, stats.explosion_radius);
+        p::set_ff(&mut m.pvars, mini::DAMAGE, native_damage);
+        p::set_u32(&mut m.pvars, mini::COLOR, stats.explosion_color.unwrap_or(u32::MAX));
+        p::set_u8(&mut m.pvars, mini::GOLD, gold);
+        p::set_ff(&mut m.pvars, mini::EXPLOSION_SCALE, cluster.explosion_percent / 100.0);
+        w.svc.hits.real_hp.set_source_damage_hp(child, 10, absolute);
+        w.build_matrix(child);
+    }
+}
+fn mini_fly(w: &mut World, id: MobyId) {
+    let old = w.m(id).position;
+    let mut velocity = p::v4f(&w.m(id).pvars, pv::VEL);
+    velocity[2] -= dt2() * 11.0;
+    let armed = velocity[2] <= 0.0 || p::i32(&w.m(id).pvars, mini::ARMED) != 0;
+    let next = add3(old, velocity);
+    // The child has no collision body of its own. Ignore its parent model too,
+    // so the fountain is not stopped by the still-present main blast object.
+    // A recycled parent slot containing an enemy must not be ignored.
+    let owner = p::i32(&w.m(id).pvars, pv::OWNER);
+    let parent = owner.checked_sub(1).and_then(|p| usize::try_from(p).ok())
+        .filter(|&p| w.table.mobys.get(p).is_some_and(|m| m.o_class == BOMB_CLASS));
+    let hit = w.coll_line(pv4(old), pv4(next), 0x10, parent.or(Some(id)));
+    let life = p::i16(&w.m(id).pvars, pv::LIFE) - 1;
+    {
+        let m = w.mm(id);
+        m.rotation[0] = wrap(m.rotation[0] + dt() * 2.094_395_2);
+        m.rotation[1] = wrap(m.rotation[1] + dt() * 7.853_981_5);
+        m.position = next;
+        p::set_v4f(&mut m.pvars, pv::VEL, velocity);
+        p::set_i32(&mut m.pvars, mini::ARMED, armed as i32);
+        p::set_i16(&mut m.pvars, pv::LIFE, life);
+    }
+    if let Some(hit) = hit {
+        w.mm(id).position = [hit.point[0], hit.point[1], hit.point[2] + 0.02, next[3]];
+        if armed { explode(w, id, [0.0; 4], [hit.normal[0], hit.normal[1], hit.normal[2], 0.0]); }
+        // A rising contact stops planar travel instead of tunnelling through a wall.
+        else { p::set_v4f(&mut w.mm(id).pvars, pv::VEL, [0.0, 0.0, velocity[2], 0.0]); }
+    } else if life <= 0 { explode(w, id, [0.0; 4], [0.0; 4]); }
 }
 
 /// The flight's trail (0x2c35c8..0x2c3788, every 8th tick while not in water): [`TRAIL_COUNT`] type-2 blobs
@@ -391,8 +508,9 @@ pub(crate) const RING_C2: [u32; 6] = crate::moby_update::creature::fx::SPARK_B;
 /// `normal` = the unit normal of the face it hit).
 fn explode(w: &mut World, id: MobyId, drift: [f32; 4], normal: [f32; 4]) {
     // The gold glove (0x13e52a, the gold table's entry 10): the blast twice the size, gold colours, class sound 1.
-    let gold = gold_glove(w);
-    let k = if w.svc.bomb_evo.enabled { w.svc.bomb_evo.current().explosion_radius } else { gold as f32 + 1.0 };
+    if !is_mini(w, id) && p::i32(&w.m(id).pvars, 0x78) != 0 { spawn_cluster(w, id); }
+    let gold = if is_mini(w, id) { p::u8(&w.m(id).pvars, mini::GOLD) } else { gold_glove(w) };
+    let k = bomb_radius(w, id) * mini_explosion_scale(w, id);
     let drift = drift.map(|x| x * k);
     let pos = w.m(id).position;
     let cam = w.camera.map(|x| x.to_f32());
@@ -403,7 +521,7 @@ fn explode(w: &mut World, id: MobyId, drift: [f32; 4], normal: [f32; 4]) {
     if dry {
         // The sphere lists the mobys; `0x26f8f8(2, 1, 1, bomb, pos, list, n, 0, 0x830000, 2, 1)` hits them, each pushed
         // 1 away from the bomb and 1 up (a creature killed by it takes its death flight away from the blast).
-        let dmg = if w.svc.bomb_evo.enabled { 2.0 * w.svc.bomb_evo.current().damage_multiplier } else { 2.0 };
+        let dmg = bomb_damage(w, id);
         crate::moby_update::creature::attack::area_hit(w, k * 0.5, pos, id, dmg, 1.0, 1.0, None, 0x83_0000, 2, 1);
         w.mm(id).state = EXPLODING;
     }
@@ -419,11 +537,16 @@ fn explode(w: &mut World, id: MobyId, drift: [f32; 4], normal: [f32; 4]) {
     }
     if water != 0 { super::bomb_water::shallow_scorch(w, id); }
     // The camera shake along up (0x167260) for 25 ticks.
-    let amp = if dcam < 20.0 { 0.4 - dcam * 0.0175 } else { f32::from_bits(0x3d4c_ccd0) };
+    let amp = (if dcam < 20.0 { 0.4 - dcam * 0.0175 } else { f32::from_bits(0x3d4c_ccd0) }) * mini_explosion_scale(w, id);
     let t = w.ticks(25);
     w.shake_camera(crate::follow_camera::ShakeRequest { axis: crate::follow_camera::ShakeAxis::Up, amp, ticks: t });
     // The explosion light (class 0x27f, template 0x20a930).
-    crate::moby_update::creature::fx::light_spawn(w, &crate::moby_update::creature::fx::LIGHT_BOMB, pos);
+    let mut light = crate::moby_update::creature::fx::LIGHT_BOMB;
+    let light_scale = mini_explosion_scale(w, id);
+    light.radius = light.radius.map(|r| r * light_scale);
+    light.grow *= light_scale;
+    light.shrink *= light_scale;
+    crate::moby_update::creature::fx::light_spawn(w, &light, pos);
     if w.m(id).state != EXPLODING {
         w.delete_moby(id);
         return;
@@ -539,7 +662,10 @@ pub fn blast(w: &mut World, row: &BlastRow, id: MobyId, pos: [f32; 4], base: [f3
     let cam = w.camera.map(|x| x.to_f32());
     // Only the Bomb Glove's own blast is recolored; the common blast routine
     // also serves Suck Cannon and environment explosions.
-    let recolor = if w.m(id).o_class == BOMB_CLASS && w.svc.bomb_evo.enabled {
+    let recolor = if is_mini(w, id) {
+        let color = p::u32(&w.m(id).pvars, mini::COLOR);
+        (color != u32::MAX).then_some(color)
+    } else if w.m(id).o_class == BOMB_CLASS && w.svc.bomb_evo.enabled {
         w.svc.bomb_evo.current().explosion_color
     } else { None };
     let mut fireball_row = row.fireball;
@@ -655,15 +781,15 @@ fn gold_glove(w: &World) -> u8 { w.hero.weapons.gold.get(10).map_or(0, |&g| (g !
 
 /// State 2: the growing sphere.
 fn exploding(w: &mut World, id: MobyId) {
-    let k = if w.svc.bomb_evo.enabled { w.svc.bomb_evo.current().explosion_radius } else { gold_glove(w) as f32 + 1.0 };
+    let k = bomb_radius(w, id);
     let pos = w.m(id).position;
     let c = w.m(id).cmd;
     {
         let m = w.mm(id);
         m.mode |= 0x41;
     }
-    let r = 0.5 + ((k * 3.0 - 0.5) - 0.5) * (c as f32 / 15.0);
-    let dmg = if w.svc.bomb_evo.enabled { 2.0 * w.svc.bomb_evo.current().damage_multiplier } else { 2.0 };
+    let r = (0.5 + ((k * 3.0 - 0.5) - 0.5) * (c as f32 / 15.0)) * mini_explosion_scale(w, id);
+    let dmg = bomb_damage(w, id);
     crate::moby_update::creature::attack::area_hit(w, r, pos, id, dmg, 1.0, 1.0, None, 0x83_0000, 2, 1);
     let m = w.mm(id);
     m.cmd = m.cmd.wrapping_add(1);
@@ -936,5 +1062,100 @@ mod tests {
         assert_eq!(fl, vec![(6.0, [0x7f, 0x7f, 0x7f]), (6.0, [0x20, 0x7f, 0]), (6.0, [0x3f, 0x7f, 0]), (5.25, [0x10, 0x60, 0]), (4.5, [0, 0x20, 0])]);
         assert_eq!(d, 10 * 10 + 4 * 9 + 8 + 4 * 5 + 5 * 3);
     }
+    #[test]
+    fn cluster_children_snapshot_grade_and_arm_only_after_the_low_arc() {
+        let ct=classes();let hero=Hero::new();let mut rng=Rng::new();let mut svc=Services::new();
+        let mut table=MobyTable::new(vec![Moby::init_instance(0,0,None)],128);
+        let parent=table.create(BOMB_CLASS,ct.classes.get(&BOMB_CLASS).map(|c|&c.0),0).unwrap();
+        init_held(&mut table.mobys[parent],&mut rng,[100.0,100.0,50.0],0.0);
+        table.mobys[parent].state=FLYING;
+        svc.bomb_evo.enabled=true;svc.bomb_evo.real_hp=true;
+        svc.bomb_evo.stats[0].cluster.enabled=true;
+        svc.bomb_evo.stats[0].explosion_color=Some(0x004080);
+        svc.bomb_evo.damage_hp[10][0]=Some(200.0);
+        let mesh=crate::hero::testkit::floor(50.0,20,35,20,35);
+        let mut w=World::new(&mut table,&hero,&mut rng,&ct,&mut svc,1);w.coll=Some(&mesh);
+        spawn_cluster(&mut w,parent);
+        let children:Vec<_>=w.table.mobys.iter().enumerate().filter(|(i,_)|*i!=parent && is_mini(&w,*i)).map(|(i,_)|i).collect();
+        assert_eq!(children.len(),3);
+        for &id in &children {
+            assert!((w.m(id).scale-0.40).abs()<0.00001);
+            assert_eq!(p::i32(&w.m(id).pvars,mini::ARMED),0);
+            assert_eq!(p::i32(&w.m(id).pvars,pv::OWNER),parent as i32+1);
+            assert!((mini_explosion_scale(&w,id)-0.15).abs()<0.00001);
+            assert_eq!(p::u32(&w.m(id).pvars,mini::COLOR),0x004080);
+        }
+        // A later grade cannot change the children already in the world.
+        w.svc.bomb_evo.stats[0].explosion_radius=4.0;
+        w.svc.bomb_evo.stats[0].explosion_color=Some(0xff0000);
+        let child=children[0];let mut armed_at=None;let mut exploded_at=None;let mut peak=50.0f32;
+        for tick in 0..120 {
+            mini_fly(&mut w,child);
+            peak=peak.max(w.m(child).position[2]);
+            if p::i32(&w.m(child).pvars,mini::ARMED)!=0 && armed_at.is_none(){armed_at=Some(tick);}
+            if w.m(child).state==EXPLODING {exploded_at=Some(tick);break;}
+        }
+        assert!((peak-50.8).abs()<0.15,"peak {peak}");
+        assert!(armed_at.is_some() && exploded_at.unwrap()>armed_at.unwrap());
+        assert_eq!(bomb_radius(&w,child),1.0);
+        assert_eq!(w.table.mobys.iter().filter(|m|m.o_class==BOMB_CLASS).count(),4,"children never recurse");
+        let parts:Vec<_>=w.table.mobys.iter().filter(|m|m.o_class==FIREBALL_CLASS).collect();
+        assert!(!parts.is_empty());
+        let rgb=crate::weapon_evo::rgb_float(0x004080).map(|c|(c*127.0).round() as u8);
+        assert!(parts.iter().all(|m|m.ambient[..3]==rgb));
+    }
+    #[test]
+    fn disabled_clusters_do_not_allocate_or_consume_rng() {
+        let ct=classes();let hero=Hero::new();let mut rng=Rng::new();let mut svc=Services::new();
+        let mut table=MobyTable::new(vec![Moby::init_instance(0,0,None)],64);
+        let parent=table.create(BOMB_CLASS,ct.classes.get(&BOMB_CLASS).map(|c|&c.0),0).unwrap();
+        init_held(&mut table.mobys[parent],&mut rng,[100.0,100.0,50.0],0.0);
+        svc.bomb_evo.enabled=true;let state=rng.state;let count=table.mobys.len();
+        let mut w=World::new(&mut table,&hero,&mut rng,&ct,&mut svc,1);
+        spawn_cluster(&mut w,parent);assert_eq!(w.rng.state,state);assert_eq!(w.table.mobys.len(),count);
+    }
+
+    #[test]
+    fn airborne_fuse_expiry_does_not_release_cluster_children() {
+        let ct=classes();let hero=Hero::new();let mut rng=Rng::new();let mut svc=Services::new();
+        let mut table=MobyTable::new(vec![Moby::init_instance(0,0,None)],64);
+        let parent=table.create(BOMB_CLASS,ct.classes.get(&BOMB_CLASS).map(|c|&c.0),0).unwrap();
+        table.mobys[parent].pvars.resize(0x80,0);p::set_i32(&mut table.mobys[parent].pvars,0x78,1);
+        init_held(&mut table.mobys[parent],&mut rng,[100.0,100.0,50.0],0.0);
+        assert_eq!(p::i32(&table.mobys[parent].pvars,0x78),0);
+        table.mobys[parent].state=FLYING;p::set_i16(&mut table.mobys[parent].pvars,pv::LIFE,1);
+        svc.bomb_evo.enabled=true;svc.bomb_evo.stats[0].cluster.enabled=true;
+        let mut w=World::new(&mut table,&hero,&mut rng,&ct,&mut svc,1);
+        fly(&mut w,parent);
+        assert_eq!(w.m(parent).state,EXPLODING);
+        assert_eq!(w.table.mobys.iter().filter(|m|m.o_class==BOMB_CLASS).count(),1);
+    }
+
+    #[test]
+    fn v44_mini_models_clear_native_hide_flags_and_use_independent_motion_settings() {
+        let mut ct=classes();
+        ct.classes.get_mut(&BOMB_CLASS).unwrap().0.mode_bits=0xc7;
+        let hero=Hero::new();let mut rng=Rng::new();let mut svc=Services::new();
+        svc.bomb_evo.enabled=true;
+        let cluster=&mut svc.bomb_evo.stats[0].cluster;
+        cluster.enabled=true;cluster.count=7;cluster.model_percent=61.0;
+        cluster.launch_speed=3.0;cluster.jump_speed=Some(2.5);
+        let mut table=MobyTable::new(vec![Moby::init_instance(0,0,None)],64);
+        let parent=table.create(BOMB_CLASS,ct.classes.get(&BOMB_CLASS).map(|c|&c.0),0).unwrap();
+        init_held(&mut table.mobys[parent],&mut rng,[100.0,100.0,50.0],0.0);
+        let mut w=World::new(&mut table,&hero,&mut rng,&ct,&mut svc,1);
+        spawn_cluster(&mut w,parent);
+        let children:Vec<_>=w.table.mobys.iter().enumerate().filter(|(i,_)|is_mini(&w,*i)).map(|(i,_)|i).collect();
+        assert_eq!(children.len(),7);
+        for id in children {
+            let m=w.m(id);assert_eq!(m.mode & 0xc7,0);assert_eq!(m.visible,1);assert_eq!(m.alpha,0x80);
+            assert!((m.scale-0.61).abs()<0.00001);
+            let v=p::v4f(&m.pvars,pv::VEL);
+            assert!((v[0].hypot(v[1])-3.0*dt()).abs()<0.00001);
+            assert!((v[2]-2.5*dt()).abs()<0.00001);
+            assert!(m.rows.iter().flatten().any(|v|v.abs()>0.0));
+        }
+    }
+
 }
 

@@ -163,6 +163,10 @@ pub struct Walloper {
     pub listed: Vec<(MobyId, i16)>,
     /// Air-dash variant of the Walloper lunge; fixed altitude until its propulsion ends.
     pub dash_air: bool,
+    /// Extra propulsion ticks accumulated only while the original fire hold continues.
+    pub held_extra_ticks: i32,
+    pub hold_eligible: bool,
+    pub held_pose_frozen: bool,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -190,6 +194,9 @@ pub fn fire(h: &mut Hero, c: &mut Ctx) {
 /// SetState's case 0x20 after the group-6 part (`super::melee`): with the item out, the animations (when `play`) and
 /// the aim.
 pub(super) fn entry(h: &mut Hero, c: &mut Ctx, play: bool) {
+    h.walloper.held_extra_ticks = 0;
+    h.walloper.hold_eligible = true;
+    h.walloper.held_pose_frozen = false;
     h.walloper.attack_serial = h.walloper.attack_serial.wrapping_add(1);
     if h.items.slot.item.is_none() { return; }
     if play {
@@ -198,6 +205,32 @@ pub(super) fn entry(h: &mut Hero, c: &mut Ctx, play: bool) {
         h.items.pending_blend = Some((ITEM_SEQ, 4, -1));
     }
     h.aim_assist(c.env, AIM_RANGE, SIDE, -1.0);
+}
+
+fn fire_held(h: &Hero, pad: &crate::pad::PadState) -> bool {
+    pad.held & h.items.slot.fire_mask != 0 || (super::combat_strafe::active(h) && pad.held & crate::pad::button::R2 != 0)
+}
+fn held_extension_limit() -> i32 {
+    let percent = crate::weapon_evo::extra(WALLOPER, "held_lunge_duration_percent", 100.0);
+    extension_for_percent(percent)
+}
+fn extension_for_percent(percent: f32) -> i32 {
+    (ticks(8) as f32 * (percent.clamp(100.0, 1000.0) / 100.0 - 1.0)).round() as i32
+}
+fn held_punch_end(h: &mut Hero, held: bool, limit: i32, view: AnimView) -> i32 {
+    if !held { h.walloper.hold_eligible = false; }
+    let extending = limit > 0 && h.walloper.hold_eligible && h.timer < ticks(18) + limit;
+    if extending {
+        if h.timer >= ticks(18) { h.walloper.held_extra_ticks += 1; }
+        if h.timer > ticks(10) && !view.blending() && view.frame >= 12.0 {
+            h.anim_speed = Pf::ZERO;
+            h.walloper.held_pose_frozen = true;
+        }
+    } else if h.walloper.held_pose_frozen {
+        h.anim_speed = Pf::ONE;
+        h.walloper.held_pose_frozen = false;
+    }
+    ticks(18) + h.walloper.held_extra_ticks
 }
 
 /// The physics of 0x20 (0x239d84). Always ported (true).
@@ -210,7 +243,8 @@ pub(super) fn physics(h: &mut Hero, env: &Env, anim: &mut dyn AnimCtl) -> bool {
         h.turn_to(SCALE64 * Pf::b(0x3d4c_cccd), SCALE64 * Pf::b(0x3e4c_cccd), DT * Pf::b(0x4170_2845));
     }
     let t10 = ticks(10);
-    let end = t10 + ticks(8);
+    let held = fire_held(h, env.pad);
+    let end = held_punch_end(h, held, held_extension_limit(), anim.view());
     h.target_speed = Pf::ZERO;
     if t10 < t && t < end { h.target_speed = DT * Pf::b(0x4190_0000); }
     if t == ticks(8) { super::packs::thruster_trail_start(h, &GHOSTS); }
@@ -250,6 +284,8 @@ fn sub_yaw(a: f32, b: f32) -> f32 { crate::moby_update::creature::add_rot(a, -b)
 /// The transitions of 0x20 (`0x242930` case 0x20).
 pub(super) fn transitions(h: &mut Hero, c: &mut Ctx) {
     let v = c.anim.view();
+    if h.walloper.hold_eligible && fire_held(h, c.env.pad)
+        && held_extension_limit() > 0 && h.timer < ticks(18) + held_extension_limit() { return; }
     if h.items.slot.item.is_none() || v.blending() || v.frame <= 20.0 { return; }
     let was_air_dash = h.walloper.dash_air;
     h.walloper.dash_air = false;
@@ -384,7 +420,9 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn AnimCtl, env: 
             w.fade_out = ticks(FADE_OUT);
         }
         2 if lunging => {
-            let key = env.data.class(it.o_class).map_or(0.0, |c| crate::moby_update::creature::ground::key_time_of(&c.anim, &it.anim));
+            let key = if w.held_pose_frozen { 10.0 } else {
+                env.data.class(it.o_class).map_or(0.0, |c| crate::moby_update::creature::ground::key_time_of(&c.anim, &it.anim))
+            };
             if 6.0 <= key {
                 active = true;
                 if dec(&mut w.fade_in) == 0 {
@@ -616,4 +654,36 @@ mod tests {
         impact_burst(&mut d, &mut rd, &mut pd, 4, None);
         assert_eq!(c.fx.parts, d.fx.parts); assert_eq!(rc.state, rd.state);
     }
+    #[test]
+    fn held_punch_extends_motion_and_restores_animation_on_release() {
+        let mut h = Hero::new(); h.walloper.hold_eligible = true;
+        let v = AnimView { seq_a: HERO_SEQ, seq_b: HERO_SEQ, frame: 14.0, ..Default::default() };
+        let extra = extension_for_percent(200.0);
+        assert_eq!(extra, ticks(8));
+        for t in ticks(18)..ticks(18)+3 {
+            h.timer = t;
+            assert!(t < held_punch_end(&mut h, true, extra, v));
+            assert_eq!(h.anim_speed, Pf::ZERO);
+        }
+        h.timer += 1;
+        let end = held_punch_end(&mut h, false, extra, v);
+        assert_eq!(end, ticks(18)+3);
+        assert_eq!(h.anim_speed, Pf::ONE);
+        assert!(!h.walloper.hold_eligible);
+        assert_eq!(held_punch_end(&mut h, true, extra, v), end, "a new press cannot renew the same lunge");
+    }
+    #[test]
+    fn native_punch_and_maximum_extension_are_bounded() {
+        let mut h = Hero::new(); h.walloper.hold_eligible = true;
+        h.timer = ticks(18);
+        let v = AnimView { frame: 14.0, ..Default::default() };
+        assert_eq!(held_punch_end(&mut h, true, extension_for_percent(100.0), v), ticks(18));
+        assert_eq!(h.anim_speed, Pf::ONE);
+        for t in ticks(18)..ticks(18)+ticks(72)+10 {
+            h.timer = t; held_punch_end(&mut h, true, extension_for_percent(1000.0), v);
+        }
+        assert_eq!(h.walloper.held_extra_ticks, ticks(72));
+        assert_eq!(h.anim_speed, Pf::ONE);
+    }
+
 }

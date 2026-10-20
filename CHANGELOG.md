@@ -1,3 +1,46 @@
+## Weapon Evolution 0.1.6.49 (public 0.3.1, launcher 0.10.0)
+
+- Reset deferred draw callbacks before installing a compacted death-reload table; reproduce the Oltanis arc panic in a regression fixture.
+- Clear table-bound companion/reaction/arc references, release arc-owned lights, and preserve XP, checkpoints, profile values and loaded geometry.
+- Refresh English developer/configuration/release documentation, source integrity checks and Windows draft-release tooling.
+- Publish the latest supplied v48 profile as the tracked default without replacing installed personal profiles.
+
+## Weapon Evolution 0.1.6.48 (launcher 0.10.0)
+
+- Show the selected weapon's XP bar immediately below its name/grade panel on the pause Weapons page, matching that panel's full width. Use the live profile and keep V5 full.
+- Expand Drone Device gameplay slots, target reservations and menu-preview slots to ten. Keep larger formations in stable slot order on a shared phase/plane with model-aware clearance.
+- Preserve the configured drone size during orbit, support per-grade drone_count 0..10 in the runtime and launcher, and require configuration capability 48 for drone profiles.
+- Preserve existing per-grade counts, balance, presets, saves and the custom launcher icon.
+
+## Weapon Evolution 0.1.6.47 (launcher 0.9.0)
+
+- Exclude the camera's own invisible class-1007 helper from every locked follow-camera query, preventing self-collision during downward aiming while retaining scenery and other object collision.
+- Release the experimental R.Y.N.O. firing stance on trigger release, blocked use or empty ammo, including during cooldown. Preserve the firing clock to prevent tap-to-fire rate bypasses.
+- Keep the v46 35-pellet grid, independent spread axes, configuration values and launcher icon unchanged.
+
+## Weapon Evolution 0.1.6.46 (launcher 0.9.0)
+
+- Keep locked aim independent of collision-resolved position and arm length, preventing steep-angle terrain jitter and unwanted sideways turns.
+- Give experimental flame mines two-sided centre/lower-hull terrain sweeps and volume contact; enable their native collision volume after landing.
+- Expand the R.Y.N.O. shotgun to a 7-by-5 muzzle grid with independent per-grade horizontal/vertical spread. Zero spread keeps 35 distinct parallel origins; centre spread is zero.
+- Migrate the previous spread value to the horizontal axis and add a restrained 3-degree vertical default, preserving explicit per-grade edits.
+- Cancel active and queued upgrade notices on death, clock rewind or restored lower weapon levels, without changing saved XP.
+- Keep generated embedded INIs and prior creature tests outside source replacement, and preserve presets, balance and the launcher icon.
+
+## Weapon Evolution 0.1.6.45.1 (launcher 0.8.0)
+
+- Expand locked vertical view and aim to 85 degrees above/below the horizon, with independent requested pitch so camera collision cannot narrow the aiming cone.
+- Preserve the ten-tick input ramps, selected camera speed and native unlocked view.
+- Correct the v45 author installer to preserve earlier creature tests and validate the actual launcher folder before source writes.
+
+## Weapon Evolution 0.1.6.45 (launcher 0.8.0)
+
+- Add an optional Drone Device Sand Mouse companion, shared singleton with native dens, independent lifetime/shot settings and Drone Device XP.
+- Restore two independent native Tesla electrical chains, including free firing; configure the secondary ray's same-target damage (25% default).
+- Fix R.Y.N.O. real-HP terminal damage, including Blackwater City tanks, and detonate at maximum travel/lifetime.
+- Add continuous-missile and nine-barrel shotgun R.Y.N.O. experiments, independent flame mines, deployment limits/lifetime/colors, and Taunter stun launch distance.
+- Preserve INI/preset balance and experimental footer ordering; embed and distribute the supplied launcher icon.
+
 # Changelog
 
 ## v0.3.4-alpha

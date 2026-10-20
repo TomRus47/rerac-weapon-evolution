@@ -211,6 +211,7 @@ fn hits(w: &mut World, id: MobyId) {
     c::dec_timer_pvar_s16(w, id, p::HOLD);
     let Some(h) = hit else { return };
     if 0xb <= st(w, id) { return; }
+    if res.settle_quiet_stream(w, id, p::D) { return; }
     if c::pi16(w, id, p::GUARD) != 0 {
         if damage::quiet_damage(w, id, res.hit, p::D) { return; }
         if !h.independent() { return; }

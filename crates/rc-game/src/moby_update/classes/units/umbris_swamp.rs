@@ -197,7 +197,7 @@ fn hits(w: &mut World, id: MobyId) {
     if state(w, id) == 0xe { return; }
     let h = w.get_hit(id, 0x33_0000, false);
     let r = damage::resolve(w, id, h, D, 0, 4);
-    if w.m(id).cmd != 0 {
+    if w.m(id).cmd != 0 && !r.settle_quiet_stream(w, id, D) {
         let dir = h.map_or([0.0; 4], |h| h.dir.map(|x| f32::from_bits(x.0)));
         match r.reaction {
             1 | 2 => c::set_pf(w, id, D, 0.0),

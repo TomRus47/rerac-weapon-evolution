@@ -71,7 +71,7 @@ pub fn parse_gadget_classes(core: &LevelCore, core_data: &[u8]) -> Result<Vec<Ga
         };
         let blob = wad::decompress(stream.bytes())?;
         let class = parse_moby_class(&blob).map_err(|err| FormatError::Invalid(format!("gadget {o}: {err}")))?;
-        out.push(GadgetClass { entry: *g, blob, moby: LevelMobyClass { o_class: o, entry: *entry, class } });
+        out.push(GadgetClass { entry: *g, blob, moby: LevelMobyClass { imported_textures: None, o_class: o, entry: *entry, class } });
     }
     Ok(out)
 }

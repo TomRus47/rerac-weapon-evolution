@@ -210,6 +210,11 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
             }
         }
     }
+    if mstate >= 2 && (crate::weapon_evo::extra_flag(RYNO, "continuous_missiles_enabled", false)
+        || crate::weapon_evo::extra_flag(RYNO, "shotgun_enabled", false)) {
+        experimental_fire(hero, table, env, hits, rng);
+        return;
+    }
     let set_state = |hero: &mut Hero, s: u8| if let Some(it) = hero.items.slot.item.as_mut() { it.mstate = s; };
     match mstate {
         0 => {
@@ -341,5 +346,191 @@ mod tests {
         let t3 = MobyTable::new(vec![creature([-10.0, 0.0, 0.0], 3.0)], 0);
         assert_eq!(search(&t3, &[0], CONE, CONE, RANGE, from, 0.0, 0.0, None, &ty, |_, _, _| true), None);
         assert_eq!(search(&t3, &[0], std::f32::consts::PI + 0.01, std::f32::consts::PI + 0.01, SALVO_RANGE, from, 0.0, 0.0, None, &ty, |_, _, _| true), Some(0));
+    }
+}
+
+/// Experimental modes take complete ownership of firing: neither falls through
+/// to the native seven-missile salvo. Only one ammo clock is advanced.
+fn experimental_fire(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng) {
+    hero.items.slot.swap = 0;
+    if let Some(item) = &mut hero.items.slot.item { item.mstate = 2; }
+    let ready = guns::dec16(&mut hero.weapons.ryno.shot_timer);
+    // Release the persistent R.Y.N.O. firing stance even while its next shot
+    // is cooling down. The native salvo normally does this in state 4; both
+    // experiments bypass that state and must own the matching cleanup.
+    // Keep the cooldown running so tapping fire cannot bypass the fire rate.
+    if env.pad.held & hero.items.slot.fire_mask == 0 || hero.items.f13fc != 0
+        || hero.weapons.has_ammo(RYNO) == 0 {
+        super::weapons::put_away(hero);
+        return;
+    }
+    if !ready || !hero.weapons.use_ammo(RYNO, 1) { return; }
+    hero.weapons.pending_draw = true;
+    hero.weapons.ryno.shot_timer = ticks(crate::weapon_evo::extra(RYNO, "fire_interval_ticks", 9.0).round().max(1.0) as i32) as i16;
+    let fwd = match (super::combat_strafe::active(hero) || hero.state == 0x1e, env.camera) {
+        (true, Some((_, f))) => f,
+        _ => to_f32x3(hero.moby_rows[0]),
+    };
+    let yaw = atan(fwd[0], fwd[1]);
+    let pitch = -atan(fwd[0].hypot(fwd[1]), fwd[2]);
+    if crate::weapon_evo::extra_flag(RYNO, "shotgun_enabled", false) {
+        use crate::moby_update::classes::blaster_shot::{spawn_ryno, RynoPellet};
+        let value = |key, default| crate::weapon_evo::extra(RYNO, key, default);
+        let profile = RynoPellet { hp: value("shotgun_damage_hp", 100.0), speed: value("shotgun_speed", 40.0),
+            range: value("shotgun_range", 30.0), size: value("shotgun_size_percent", 100.0) / 100.0,
+            colors: ["shotgun_projectile_color", "shotgun_trail_color", "shotgun_impact_color"].map(|k| crate::weapon_evo::extra_color(RYNO, k)) };
+        let horizontal = value("shotgun_horizontal_spread_degrees",
+            value("shotgun_spread_degrees",12.0)).to_radians();
+        let vertical = value("shotgun_vertical_spread_degrees",3.0).to_radians();
+        let muzzles: [[f32;3];9] = std::array::from_fn(|barrel|guns::item_point(hero,env,barrel));
+        let centre=scale3(muzzles.iter().copied().fold([0.0;3],add3),1.0/9.0);
+        let up_hint = env.camera_up.unwrap_or_else(||to_f32x3(hero.moby_rows[2]));
+        let (forward,right,up)=shotgun_basis(fwd,up_hint);
+        let mut half=[0.0f32;2];
+        for muzzle in muzzles {
+            let delta=sub3(muzzle,centre);
+            half[0]=half[0].max(guns::dot3(delta,right).abs());
+            half[1]=half[1].max(guns::dot3(delta,up).abs());
+        }
+        // New columns/rows interpolate the weapon's muzzle plane, with minimum
+        // spacing scaled to pellet size so a zero-spread volley stays a grid.
+        half[0]=half[0].max(0.6*profile.size);
+        half[1]=half[1].max(0.4*profile.size);
+        for row in 0..5 {
+            for column in 0..7 {
+                let cell=shotgun_cell(column,row);
+                let muzzle=add3(centre,add3(scale3(right,half[0]*cell[0]),scale3(up,half[1]*cell[1])));
+                let dir=shotgun_direction(forward,right,up,cell,horizontal,vertical);
+                let aim=(atan(dir[0],dir[1]),-atan(dir[0].hypot(dir[1]),dir[2]));
+                spawn_ryno(hero,table,env,hits,rng,aim,muzzle,profile);
+            }
+        }
+        let at = guns::item_point(hero, env, 4);
+        hero.fx.item_voices.push(crate::hero::packs::SoundCmd::MobySound { moby: env.hero_moby,
+            o_class: crate::moby_update::classes::ryno_missile::CLASS, pos: at, index: 1, flags: 0 });
+    } else {
+        let barrel = hero.weapons.ryno.barrel;
+        hero.weapons.ryno.barrel = (barrel + 1) % BARRELS;
+        let muzzle = guns::item_point(hero, env, barrel as usize);
+        let (height, target) = (hero.weapons.ryno.aim_height, hero.weapons.ryno.target);
+        crate::moby_update::classes::ryno_missile::spawn(hero, table, env, hits, rng, height, yaw, pitch, muzzle, target);
+    }
+}
+
+/// Symmetric 7-column / 5-row coordinates. The exact centre has no spread.
+fn shotgun_cell(column: usize,row: usize)->[f32;2] {
+    [(column as f32-3.0)/3.0,(row as f32-2.0)/2.0]
+}
+fn shotgun_basis(forward:[f32;3],up_hint:[f32;3])->([f32;3],[f32;3],[f32;3]) {
+    let forward=guns::with_len(forward,1.0);
+    let right=guns::with_len(guns::cross3(forward,up_hint),1.0);
+    let up=guns::with_len(guns::cross3(right,forward),1.0);
+    (forward,right,up)
+}
+fn shotgun_direction(forward:[f32;3],right:[f32;3],up:[f32;3],cell:[f32;2],horizontal:f32,vertical:f32)->[f32;3] {
+    guns::with_len(add3(forward,add3(scale3(right,(horizontal*cell[0]).tan()),
+        scale3(up,(vertical*cell[1]).tan()))),1.0)
+}
+
+#[cfg(test)]
+mod shotgun_tests {
+    use super::*;
+    fn firing_pose() -> Hero {
+        use super::super::items::HandItem;
+        let class = rc_formats::moby_anim::MobyAnimClass {
+            joint_count: 0, skeleton: vec![], rest: vec![], parent_word: vec![], sequences: vec![],
+        };
+        let mut hero = Hero::spawn([410., 410., 100.], 0.);
+        hero.items.slot.id = RYNO;
+        hero.items.slot.fire_mask = crate::pad::button::CIRCLE;
+        hero.items.slot.item = Some(HandItem {
+            o_class: CLASS, mstate: 4, anim: rc_formats::moby_anim::AnimState::spawn(&class),
+            snapshot: None, scale: 1., position: [0.; 3], rows: [[0; 4]; 3],
+            hit_timer: 0, flight: Default::default(),
+        });
+        hero.f13f8 = 1; hero.f13fa = 1;
+        hero.weapons.arm_item = RYNO;
+        hero.weapons.uses_ammo[RYNO as usize] = true;
+        hero.weapons.ammo[RYNO as usize] = 10;
+        hero.weapons.ryno.shot_timer = 12;
+        hero.items.slot.swap = 2;
+        hero
+    }
+
+    fn experimental_tick(hero: &mut Hero, held: bool) {
+        let data = super::super::items::ItemData::default();
+        let mut pad = crate::pad::PadState::default();
+        if held { pad.held = crate::pad::button::CIRCLE; }
+        let env = ItemEnv { data: &data, pad: &pad, frame: 0, hero_moby: 0,
+            coll: None, camera: None, camera_up: None, targets: &[] };
+        experimental_fire(hero, &mut MobyTable::new(vec![], 0), &env,
+            &mut super::super::items::NoHits, &mut Rng::new());
+    }
+
+    #[test]
+    fn release_during_cooldown_clears_firing_pose_without_resetting_fire_rate() {
+        let mut hero = firing_pose();
+        // A queued draw from the last shot must not restore the firing pose.
+        hero.weapons.pending_draw = true;
+        experimental_tick(&mut hero, false);
+        assert_eq!(hero.f13f8, 0); assert_eq!(hero.f13fa, 0);
+        assert!(hero.weapons.pending_idle); assert!(!hero.weapons.pending_draw);
+        assert_eq!(hero.items.slot.item.as_ref().unwrap().mstate, 2);
+        assert_eq!(hero.items.slot.swap, 0);
+        assert_eq!(hero.weapons.ryno.shot_timer, 11);
+        experimental_tick(&mut hero, true);
+        assert_eq!(hero.weapons.ryno.shot_timer, 10);
+        assert!(!hero.weapons.pending_draw);
+        assert_eq!(hero.weapons.ammo[RYNO as usize], 10);
+    }
+
+    #[test]
+    fn blocked_or_empty_experimental_fire_releases_the_pose_even_if_held() {
+        for empty in [false, true] {
+            let mut hero = firing_pose();
+            if empty { hero.weapons.ammo[RYNO as usize] = 0; }
+            else { hero.items.f13fc = 1; }
+            experimental_tick(&mut hero, true);
+            assert_eq!(hero.f13f8, 0); assert_eq!(hero.f13fa, 0);
+            assert!(hero.weapons.pending_idle);
+            assert_eq!(hero.weapons.ryno.shot_timer, 11);
+        }
+    }
+
+    #[test]
+    fn grid_has_35_unique_origins_even_with_both_spreads_zero() {
+        let (f,r,u)=shotgun_basis([1.,0.,0.],[0.,0.,1.]);
+        let mut origins=Vec::new();
+        for row in 0..5 {for column in 0..7 {
+            let cell=shotgun_cell(column,row);
+            let origin=add3(scale3(r,cell[0]*0.6),scale3(u,cell[1]*0.4));
+            assert!(!origins.contains(&origin));origins.push(origin);
+            assert_eq!(shotgun_direction(f,r,u,cell,0.,0.),f);
+        }}
+        assert_eq!(origins.len(),35);assert_eq!(shotgun_cell(3,2),[0.,0.]);
+    }
+    #[test]
+    fn independent_axes_scale_outward_and_preserve_the_centre() {
+        let (f,r,u)=shotgun_basis([1.,0.,0.],[0.,0.,1.]);
+        let h=30f32.to_radians();let v=3f32.to_radians();
+        assert_eq!(shotgun_direction(f,r,u,shotgun_cell(3,2),h,v),f);
+        for row in 0..5 {for column in 0..7 {
+            let cell=shotgun_cell(column,row);let d=shotgun_direction(f,r,u,cell,h,v);
+            let x=guns::dot3(d,f);let y=guns::dot3(d,r);let z=guns::dot3(d,u);
+            assert!((y.atan2(x)-h*cell[0]).abs()<0.00001);
+            assert!((z.atan2(x)-v*cell[1]).abs()<0.00001);
+            assert!(d[0]>0.);
+            if column==3 {assert_eq!(y,0.);}
+            if row==2 {assert_eq!(z,0.);}
+        }}
+    }
+    #[test]
+    fn grid_stays_perpendicular_when_aiming_steeply_up_or_down() {
+        for angle in [-85f32,0.,85.] {
+            let a=angle.to_radians();let (f,r,u)=shotgun_basis([a.cos(),0.,a.sin()],[0.,0.,1.]);
+            assert!(guns::dot3(f,r).abs()<0.00001);assert!(guns::dot3(f,u).abs()<0.00001);
+            assert!(guns::dot3(r,u).abs()<0.00001);
+            assert_eq!(shotgun_direction(f,r,u,[0.,0.],1.,1.),f);
+        }
     }
 }

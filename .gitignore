@@ -24,7 +24,6 @@
 /launcher/weapons.ini.*
 /launcher/launcher-settings.json
 /launcher/defaults-installed-*.json
-/launcher/launcher.ico
 # Historical source patch backups
 *.weapon_evo_backup
 *.prima_*

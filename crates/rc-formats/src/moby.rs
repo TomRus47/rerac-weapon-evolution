@@ -619,6 +619,8 @@ pub fn parse_moby_class(blob: &[u8]) -> Result<MobyClass> {
 /// `texture` >= 0 to an index into `LevelCore::moby_textures`).
 #[derive(Clone, Debug)]
 pub struct LevelMobyClass {
+    /// Runtime-only texture slots for classes imported from another level.
+    pub imported_textures: Option<[Option<usize>; 16]>,
     pub o_class: i32,
     pub entry: ClassEntry,
     pub class: MobyClass,
@@ -628,6 +630,7 @@ impl LevelMobyClass {
     /// Moby texture table index (`LevelCore::moby_textures`) for a triangle texture, None for
     /// -1/-2/-3 (none/chrome/glass) or an unused slot (0xff).
     pub fn texture_table_index(&self, texture: i32) -> Option<usize> {
+        if let Some(slots) = &self.imported_textures { return slots.get(usize::try_from(texture).ok()?).copied().flatten(); }
         let slot = *self.entry.textures.get(usize::try_from(texture).ok()?)?;
         (slot != 0xff).then_some(slot as usize)
     }
@@ -643,7 +646,7 @@ pub fn parse_level_mobys(core: &LevelCore, core_data: &[u8]) -> Result<Vec<Level
         };
         let blob = Buf(core_data).sub(blk.offset, blk.size, "moby class blob")?;
         let class = parse_moby_class(blob.bytes()).map_err(|err| crate::FormatError::Invalid(format!("moby class {}: {err}", e.o_class)))?;
-        out.push(LevelMobyClass { o_class: e.o_class, entry: *e, class });
+        out.push(LevelMobyClass { imported_textures: None, o_class: e.o_class, entry: *e, class });
     }
     Ok(out)
 }

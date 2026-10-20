@@ -807,13 +807,13 @@ fn menu_frame(
                     println!("menus: frame {frame}: equip requests (hand, feet, head, back) {req:?}");
                 }
                 // ✕ on the Drone Device (0x28f260): with its ammo (`0x249530(0x18)`), 0x141345 = 1 (launched by the first
-                // tick after the menu) and 0x141347 = min(0x141347 + ammo, 6) (the 3D Ratchet's drones: crate::menu_models).
+                // tick after the menu) and the configured active-drone preview limit (the 3D Ratchet's drones: crate::menu_models).
                 if out.drone {
                     let n = play.game.hero.weapons.has_ammo(rc_game::moby_update::classes::drone::DRONE_DEVICE);
                     if n != 0 {
                         sess.drone = true;
                         let d = &mut play.svc.drones;
-                        d.live = (d.live as i32 + n).min(6) as u8;
+                        d.live = rc_game::moby_update::classes::drone::configured_count().max(d.count);
                         println!("menus: frame {frame}: drone device: {} drones shown, launch requested", d.live);
                     }
                 }
@@ -834,7 +834,11 @@ fn menu_frame(
                         println!("menus: frame {frame}: menu closed, mode 0 (stub calls {:?})", menu.stub_calls);
                     }
                 } else {
-                    menu.draw(&rt.assets, gs, &env, &mut play.game.rng, &mut rt.draws);
+                    {
+                        // Split fields through Play itself rather than ResMut's Deref.
+                        let play = &mut *play;
+                        menu.draw_with_evolution(&rt.assets, gs, &env, Some(&play.svc.bomb_evo), &mut play.game.rng, &mut rt.draws);
+                    }
                 }
                 // The page's 3D widgets (crate::menu_models).
                 widgets3d.view = menu.view;
@@ -1216,7 +1220,7 @@ fn freeze_frame(rt: &mut MenuRt, mm: &mut MenuMode, play: &mut Play, gs: &mut rc
     if f.prev == 3 {
         if let Some(m) = rt.menu.as_mut() {
             saves_in(m, play);
-            m.draw(&rt.assets, gs, &MenuEnv { vsync, b13f4: play.game.hero.mode, pal: false }, &mut play.game.rng, &mut rt.draws);
+            m.draw_with_evolution(&rt.assets, gs, &MenuEnv { vsync, b13f4: play.game.hero.mode, pal: false }, Some(&play.svc.bomb_evo), &mut play.game.rng, &mut rt.draws);
             saves_out(m);
         }
     }
@@ -1402,7 +1406,7 @@ fn front_end_frame(
                     fe.menu_closed();
                     println!("menus: frame {frame}: front end: the menu closed, the title");
                 } else {
-                    menu.draw(&rt.assets, gs, &env, &mut play.game.rng, &mut rt.draws);
+                    menu.draw_with_evolution(&rt.assets, gs, &env, Some(&play.svc.bomb_evo), &mut play.game.rng, &mut rt.draws);
                 }
                 saves_out(menu);
             }
@@ -1422,7 +1426,7 @@ fn front_end_frame(
                 }
                 if let Some(m) = rt.menu.as_mut() {
                     saves_in(m, play);
-                    m.draw(&rt.assets, gs, &env, &mut play.game.rng, &mut rt.draws);
+                    m.draw_with_evolution(&rt.assets, gs, &env, Some(&play.svc.bomb_evo), &mut play.game.rng, &mut rt.draws);
                     saves_out(m);
                 }
                 if let Some(m) = o.mode { fe.mode = m; }

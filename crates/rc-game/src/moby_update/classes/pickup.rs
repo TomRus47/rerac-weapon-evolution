@@ -580,6 +580,16 @@ fn kill_orb(w: &mut World, i: usize) {
 
 /// `NanotechUpdate` (0x300de0).
 pub fn nanotech_update(w: &mut World, id: MobyId) {
+    // Contents stay inside a swallowed nanotech crate. Existing icon particles
+    // are retired; the native update recreates them after the crate is fired.
+    if ptr(&w.m(id).pvars, nt::CRATE).is_some_and(|i| w.table.mobys.get(i).is_some_and(super::cannon_crate::swallowed)) {
+        for k in 0..8 {
+            if let Some(orb) = ptr(&w.m(id).pvars, nt::ORBS+4*k) { kill_orb(w,orb); }
+            set_ptr(&mut w.mm(id).pvars, nt::ORBS+4*k, None);
+        }
+        return;
+    }
+
     if w.m(id).pvars.len() < nt::SIZE { w.mm(id).pvars.resize(nt::SIZE, 0); }
     match w.m(id).state {
         0 => {

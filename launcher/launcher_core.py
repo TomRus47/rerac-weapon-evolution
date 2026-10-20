@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.5.1'
+VERSION = '0.10.0'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -110,6 +110,8 @@ def allowed_keys(section):
     return set(EXTRA.get(WEAPONS[name][0], '').split()) | extra | {'max_ammo', 'damage_multiplier', 'gold', 'gold_effects', 'gold_texture'}
 
 def numeric_range(section, key):
+    from schema import EXPERIMENTAL_RANGES
+    if key in EXPERIMENTAL_RANGES and (key != "beam_range_multiplier" or section.startswith("weapon.tesla_claw.level")) and (key != "homing_strength_multiplier" or section.startswith("weapon.ryno.level")): return EXPERIMENTAL_RANGES[key]
     if key == 'damage_interval_ticks': return 1, 600
     if key == 'ammo_interval_ticks': return 1, 9999
     if key in {'damage_hp','chicken_damage_hp'} or (key == 'damage_per_second' and section.startswith(('weapon.pyrocitor.level','weapon.tesla_claw.level'))): return 0, 1_000_000
@@ -129,7 +131,7 @@ def numeric_range(section, key):
         return .1, 8
     return {'wave_interval_ticks': (1, 600), 'wave_alpha': (0, 128), 'stun_efficiency_percent': (0, 100),
             'lure_cone_degrees': (1, 180), 'stun_duration_ticks': (0, 600),
-            'capacity': (0, 10), 'drone_count': (0, 6)}.get(key, (0, 9999))
+            'capacity': (0, 10), 'drone_count': (0, 10)}.get(key, (0, 9999))
 
 def validate_value(section, key, value):
     value = value.strip()
@@ -178,6 +180,10 @@ def validate_document(doc: IniDocument):
         for level in range(1, 6):
             if f'{section}.level{level}' not in doc.sections:
                 raise ValueError(f'Missing [{section}.level{level}].')
+    for grade in range(1,6):
+        section=f'weapon.ryno.level{grade}'
+        if all(doc.entries.get((section,k),'false').lower() in {'true','1','yes','on'} for k in ('continuous_missiles_enabled','shotgun_enabled')):
+            raise ValueError(f'[{section}] Select either continuous missiles or shotgun mode, not both.')
     for section in doc.sections: allowed_keys(section)
     for (section, key), value in doc.entries.items(): validate_value(section, key, value)
     if doc.entries.get(('general','damage_mode'),'real_hp') == 'real_hp':
@@ -311,9 +317,9 @@ def probe_exe(exe, required_config=0):
     if not isinstance(version, dict) or version.get('name') != 'rerac' or version.get('game') != 'rac1' or version.get('data_format') != 1 or not version.get('version'):
         raise ValueError('Unrecognized ReRAC executable.')
     if str(version['version']).endswith('-fixed'):
-        raise ValueError('This fixed-profile build ignores external configurations. Build the editable v38 game and select its runtime/rerac.exe.')
+        raise ValueError('This fixed-profile build ignores external configurations. Build the editable v45 game and select its runtime/rerac.exe.')
     if required_config and version.get('weapon_evolution_config', 0) < required_config:
-        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v38 runtime/rerac.exe included with this mod.')
+        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v48 runtime/rerac.exe included with this mod.')
     if not (exe.parent/'assets/shaders').is_dir():
         raise ValueError('Missing assets/shaders beside rerac.exe. Select the complete mod runtime.')
     return version
@@ -346,7 +352,11 @@ class LaunchSession:
     preset: str
 
 def required_config(doc):
-    return 38
+    from schema import EXPERIMENTAL_DEFAULTS, STANDARD_DEFAULTS
+    keys = {k for fields in [*EXPERIMENTAL_DEFAULTS.values(), *STANDARD_DEFAULTS.values()] for k in fields}
+    if any(k == 'drone_count' for _, k in doc.entries): return 48
+    if any(k in {'shotgun_horizontal_spread_degrees','shotgun_vertical_spread_degrees'} for _,k in doc.entries): return 46
+    return 45 if any(k in keys for _, k in doc.entries) else 38
 
 def launch_game(kit, raw, preset, exe, data, save=None, env=None):
     doc = profile_document(raw)
@@ -380,7 +390,7 @@ def log_confirmation(text, ini):
 
 PLAYER_README = 'ReRAC Weapon Evolution - Windows x64\n\n1. Extract the entire ZIP into a folder.\n2. Open ReRAC_Weapon_Evolution.exe.\n3. On first launch, choose your extracted Ratchet & Clank game data folder.\n   It must contain toc.bin and extract-info.json.\n4. Press Save and launch. No preset is required.\n\nWith no named preset selected, the launcher opens weapons.ini. Edit it manually\nwhile the launcher is closed, then open the launcher and start immediately.\nChanges made in the default editor are saved to weapons.ini with a backup.\nSave as creates an optional named preset; select one explicitly to use it.\nThe next startup restores the last selected preset. Select Default configuration to return to weapons.ini.\n\nOnly the real-HP damage system is supported. There is no damage model switch.\nWeapon name opacity affects the HUD name, grade and their background only.\n100 = normal; 50 = semi-transparent; 0 = hidden. The 3D weapon is unaffected.\n\nPython and Tcl/Tk are included. Players do not need to install them.\nRust, compilation and earlier patches are not required.\nThe modded game is included in runtime; copyrighted game data is not included.\nKeep the EXE, INI files and runtime folder together when moving the mod.\nExisting game saves use the default save location unless you choose another.\nOpen the included EXE directly; do not import this ZIP into the official launcher.\n'
 
-DISTRIBUTED_FILES = ('final_release.py', 'weapons.default.ini', 'frozen_support.py', 'build_launcher_exe.py', 'windows_entry.py', 'CREA_LAUNCHER_EXE.bat', 'launcher.py', 'launcher_core.py', 'schema.py', 'Editor.bat', 'LEGGIMI.txt',
+DISTRIBUTED_FILES = ('icon_assets.py', 'final_release.py', 'weapons.default.ini', 'frozen_support.py', 'build_launcher_exe.py', 'windows_entry.py', 'CREA_LAUNCHER_EXE.bat', 'launcher.py', 'launcher_core.py', 'schema.py', 'Editor.bat', 'LEGGIMI.txt',
                      'CREA_PACCHETTO.bat', 'package_launcher.py', 'migrate_ini.py', 'LICENSE')
 
 def package_distribution(kit, destination, raw, exe, include_presets=True, launcher_exe=None):
@@ -409,6 +419,8 @@ def package_distribution(kit, destination, raw, exe, include_presets=True, launc
             for name in DISTRIBUTED_FILES: shutil.copy2(kit/name, stage/name)
             instructions=stage/'LEGGIMI.txt'
             instructions.write_text('PYTHON DEVELOPMENT PACKAGE\nOpen Editor.bat.\n\n'+instructions.read_text(encoding='utf-8'),encoding='utf-8')
+        icon=kit/'launcher.ico'
+        if icon.is_file(): shutil.copy2(icon,stage/'launcher.ico')
         canonical = doc.raw.removeprefix(b'\xef\xbb\xbf')
         atomic_write(stage/'weapons.ini', canonical)
         atomic_write(stage/'weapons.example.ini', canonical)

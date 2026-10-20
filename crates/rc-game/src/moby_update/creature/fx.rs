@@ -453,7 +453,24 @@ pub fn colour_shift(c: u32, shift: u8) -> u32 {
 /// [`beam_explosion`] with `param_18` = `shift`: the streaks', sparks' and puffs' colours through [`colour_shift`],
 /// the first two flashes 0x46 / 0x46 / 0x3c instead of 0x96 / 0x96 / 0x7f, and the light template 0x1b0720
 /// ([`LIGHT_BEAM_GOLD`]) instead of 0x1b06d0 (the gold chicken 270's burst).
-pub fn beam_explosion_shift(w: &mut World, b: &Beam, moby: Option<MobyId>, p: V, shift: u8) {
+pub fn beam_explosion_shift(w: &mut World,b:&Beam,moby:Option<MobyId>,p:V,shift:u8) {
+    beam_explosion_impl(w,b,moby,p,shift,None,None)
+}
+/// Explicit owner colours, used by Mine Glove effects only.
+pub fn beam_explosion_tinted(w:&mut World,b:&Beam,moby:Option<MobyId>,p:V,color:Option<u32>,light:Option<u32>) {
+    beam_explosion_impl(w,b,moby,p,0,color,light)
+}
+
+pub fn tint_light(mut t:LightTemplate,color:Option<u32>)->LightTemplate {
+    if let Some(rgb)=color {
+        let channels=crate::weapon_evo::rgb_float(rgb);
+        for k in 0..3 {for j in 0..5 {t.bytes[1+k*5+j]=(t.bytes[1+k*5+j] as f32*channels[k]).round() as u8;}}
+    }
+    t
+}
+
+fn beam_explosion_impl(w: &mut World, b: &Beam, moby: Option<MobyId>, p: V, shift: u8, color:Option<u32>, light:Option<u32>) {
+    let tint=|c|crate::weapon_evo::tint_rgba(c,color);
     let (l0, l1) = frame_load(w);
     let throttle = (1.7 < l1 + l0) as i32;
     let base_z = super::DT * 8.0 * b.scale;
@@ -471,7 +488,7 @@ pub fn beam_explosion_shift(w: &mut World, b: &Beam, moby: Option<MobyId>, p: V,
         v[2] += super::DT * 3.0;
         let (t60, t120) = (w.ticks(60), w.ticks(120));
         let life = w.rng.rand_range(t60, t120) - throttle * 10;
-        let a = crate::particles::type15::Spawn { size: b.scale * 40000.0, pos: p, vel: v, c1: colour_shift(0x4f00_7fff, shift), c2: colour_shift(0x1f00_007f, shift), life, split: 1, def: -1, blend: -1 };
+        let a = crate::particles::type15::Spawn { size: b.scale * 40000.0, pos: p, vel: v, c1: tint(colour_shift(0x4f00_7fff, shift)), c2: tint(colour_shift(0x1f00_007f, shift)), life, split: 1, def: -1, blend: -1 };
         part15(w, &a);
     }
     let cam = w.camera.map(|x| f32::from_bits(x.0));
@@ -516,7 +533,7 @@ pub fn beam_explosion_shift(w: &mut World, b: &Beam, moby: Option<MobyId>, p: V,
         let t1 = w.rng.rand_range(t30, t45);
         let size = to_pf(b.scale * 400000.0);
         let basev = [Pf::ZERO, Pf::ZERO, to_pf(base_z), Pf::ZERO];
-        w.part11(size, to_pf(speed), pv(p), basev, colour_shift(SPARK_A[a], shift), colour_shift(SPARK_B[c], shift), life - throttle * 3, t1 - throttle * 5, 0, 0);
+        w.part11(size, to_pf(speed), pv(p), basev, tint(colour_shift(SPARK_A[a], shift)), tint(colour_shift(SPARK_B[c], shift)), life - throttle * 3, t1 - throttle * 5, 0, 0);
         let (t5, t10) = (w.ticks(5), w.ticks(10));
         let life2 = w.rng.rand_range(t5, t10);
         let (t15, t20) = (w.ticks(15), w.ticks(20));
@@ -533,7 +550,7 @@ pub fn beam_explosion_shift(w: &mut World, b: &Beam, moby: Option<MobyId>, p: V,
         let c = w.rng.randi(6) as usize;
         let (t30, t45) = (w.ticks(30), w.ticks(45));
         let life = w.rng.rand_range(t30, t45) - throttle * 5;
-        part08(w, 200_000.0, p, vel, colour_shift(SPARK_A[a], shift), colour_shift(SPARK_B[c], shift), life);
+        part08(w, 200_000.0, p, vel, tint(colour_shift(SPARK_A[a], shift)), tint(colour_shift(SPARK_B[c], shift)), life);
     }
     // The flashes carry the sparks' base vector (sp+0x1b0: (0, 0, 8·dt·scale)) in their +0x00 (unused by their update).
     let basev_f = [0.0, 0.0, base_z, 0.0];
@@ -565,7 +582,7 @@ pub fn beam_explosion_shift(w: &mut World, b: &Beam, moby: Option<MobyId>, p: V,
         let l = if b.light <= 0.0 { 15.0 } else { b.light };
         let mut t = if shift != 0 { LIGHT_BEAM_GOLD } else { LIGHT_BEAM };
         t.radius = [l, l, l];
-        light_spawn(w, &t, p);
+        light_spawn(w, &tint_light(t,light), p);
     }
 }
 

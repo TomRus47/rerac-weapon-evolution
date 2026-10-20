@@ -1,0 +1,93 @@
+name: Windows player package and draft release
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_draft:
+        description: Create a draft release after the Windows build passes
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths: [mod/release.json]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weapon-evolution-windows-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Install the tested Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup override set 1.99.1
+          exit $LASTEXITCODE
+      - name: Validate sources, test and build Windows executables
+        shell: cmd
+        run: |
+          call tools\mod\setup_msvc.bat
+          if errorlevel 1 exit /b 1
+          python tools\mod\check_source.py
+          if errorlevel 1 exit /b 1
+          python -m unittest discover -s launcher\tests -v
+          if errorlevel 1 exit /b 1
+          cargo test --release --locked --no-default-features -p rc-formats --lib
+          if errorlevel 1 exit /b 1
+          python launcher\editabile.py build
+          if errorlevel 1 exit /b 1
+          python tools\mod\package_release.py
+          exit /b %ERRORLEVEL%
+      - name: Upload player ZIP, checksum and identity report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: weapon-evolution-windows-x64
+          path: |
+            launcher/dist/*.zip
+            launcher/dist/*.sha256
+            launcher/dist/release-build.json
+          if-no-files-found: error
+
+  draft:
+    needs: build
+    if: github.event_name == 'push' || inputs.create_draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: weapon-evolution-windows-x64
+          path: release-assets
+      - name: Create a reviewable draft without replacing existing releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=$(python3 -c 'import json; print(json.load(open("mod/release.json"))["tag"])')
+          title=$(python3 -c 'import json; print(json.load(open("mod/release.json"))["title"])')
+          notes=$(python3 -c 'import json; print(json.load(open("mod/release.json"))["notes"])')
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release already exists; it was preserved. Download this run's artifact to review the new build."
+            exit 0
+          fi
+          gh release create "$tag" release-assets/* --draft --target "$GITHUB_SHA" --title "$title" --notes-file "$notes"

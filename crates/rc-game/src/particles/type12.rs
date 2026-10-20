@@ -129,10 +129,15 @@ impl Flame {
 
 /// `PartType12Spawn` 0x280138 (the draws already made). `gold` = 0x13e530. Returns the record and its motion.
 pub fn spawn(sys: &mut Particles, len: f32, pos: [f32; 4], vel: [f32; 4], flags: u8, gold: u8, d: &Draws) -> Option<(usize, Flame)> {
+    spawn_colored(sys,len,pos,vel,flags,gold,d,[crate::weapon_evo::pyro_core_color(),crate::weapon_evo::pyro_outer_color()])
+}
+
+/// Explicit colours keep mine flames independent of the player's Pyrocitor.
+pub fn spawn_colored(sys: &mut Particles, len: f32, pos: [f32;4],vel:[f32;4],flags:u8,gold:u8,d:&Draws,colors:[Option<u32>;2]) -> Option<(usize,Flame)> {
     let i = sys.create_part(TYPE)?;
     let glow = flags & 1 != 0;
-    let core = crate::weapon_evo::pyro_core_color();
-    let outer = crate::weapon_evo::pyro_outer_color();
+    let core = colors[0];
+    let outer = colors[1];
     // Custom RGB bypasses the fixed gold-green flame texture bank.
     let tex = if glow { sys.def_first(24) } else { sys.def_frame(TYPE, (d.tex + if flags & 4 != 0 && gold != 0 && core.is_none() && outer.is_none() { 8 } else { 0 }) as usize) };
     let (c0, a1, b1, a2, b2, size) =
@@ -162,7 +167,7 @@ pub fn spawn(sys: &mut Particles, len: f32, pos: [f32; 4], vel: [f32; 4], flags:
 
 /// `PartType12Update` 0x280408 on the record (no draws).
 pub fn update(sys: &mut Particles, i: usize, _rng: &mut Rng) {
-    let gold = sys.gold;
+    let gold = if sys.pool.recs[i][0x3f]&0x80!=0 {0} else {sys.gold};
     let r = &mut sys.pool.recs[i];
     r[8] = r[8].wrapping_add(r[0x3e]);
     let mut f = Flame {

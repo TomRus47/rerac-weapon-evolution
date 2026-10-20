@@ -180,7 +180,7 @@ fn tick(w: &mut World, id: MobyId) -> bool {
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
     if let Some(h) = res.hit.filter(|_| hit.is_some()) {
         let by = h.attacker_class(w.table).unwrap_or(-1);
-        if by != w.m(id).o_class && by != SHOT && state(w, id) != 9 && res.damage != 0.0 {
+        if by != w.m(id).o_class && by != SHOT && state(w, id) != 9 && res.damage != 0.0 && !res.settle_quiet_stream(w, id, pv::D) {
             let g = w.m(id).group;
             if g != -1 { group_cmd(w, g, 1); }
             let kr = pv::K;

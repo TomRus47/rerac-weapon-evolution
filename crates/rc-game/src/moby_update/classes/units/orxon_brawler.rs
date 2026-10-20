@@ -258,12 +258,12 @@ fn tick(w: &mut World, id: MobyId) {
         if w.svc.level == 10 && attacker_class == Some(k::SEE_THROUGH) && c::pi32(w, id, pv::ALERT) != 0 {
             crate::moby_update::story::award_skill_point(w, crate::moby_update::story::skill_index(0x13_d419));
         }
-        if c::pi16(w, id, pv::COOLDOWN) != 0 && h.b28 == 0 {
+        if h.evolution.is_none() && c::pi16(w, id, pv::COOLDOWN) != 0 && h.b28 == 0 {
             reaction = 0xb;
             if dmg < 3.0 { dmg = 0.0; }
         }
         let comet = w.hero.state == 0x20 || (w.hero.prev_state == 0x20 && w.hero.timer < w.ticks(0x1e));
-        if comet && 2.0 < dmg { dmg = 2.0; }
+        if h.evolution.is_none() && comet && 2.0 < dmg { dmg = 2.0; }
         if h.h2a as i16 == own {
             dmg = 0.0;
             reaction = 0xb;
@@ -292,41 +292,43 @@ fn tick(w: &mut World, id: MobyId) {
                 }
             }
         }
-        let hp = c::pf(w, id, pv::D) - dmg;
-        c::set_pf(w, id, pv::D, hp);
-        if hp <= 0.0 { reaction = 1; }
-        wake(w, id);
-        let kr = pv::K;
-        c::set_pi32(w, id, kr + knock::k::RADIUS, 768);
-        c::set_pf(w, id, kr + knock::k::ZOFF, 0.75);
-        c::set_pi32(w, id, kr + knock::k::FLAGS, 9);
-        c::set_pu8(w, id, kr + 0x3d, 0);
-        let dir = h.dir.map(|x| x.to_f32());
-        match reaction {
-            1 | 2 => {
-                set_state(w, id, st::DEAD);
-                w.mm(id).mode &= !mode::TARGETABLE;
+        if dmg <= 0.0 || !res.settle_quiet_stream(w, id, pv::D) {
+            let hp = c::pf(w, id, pv::D) - dmg;
+            c::set_pf(w, id, pv::D, hp);
+            if hp <= 0.0 { reaction = 1; }
+            wake(w, id);
+            let kr = pv::K;
+            c::set_pi32(w, id, kr + knock::k::RADIUS, 768);
+            c::set_pf(w, id, kr + knock::k::ZOFF, 0.75);
+            c::set_pi32(w, id, kr + knock::k::FLAGS, 9);
+            c::set_pu8(w, id, kr + 0x3d, 0);
+            let dir = h.dir.map(|x| x.to_f32());
+            match reaction {
+                1 | 2 => {
+                    set_state(w, id, st::DEAD);
+                    w.mm(id).mode &= !mode::TARGETABLE;
+                }
+                3..=10 => {
+                    set_state(w, id, st::KNOCKED);
+                    let t = w.ticks(0x3c);
+                    c::set_pi16(w, id, pv::COOLDOWN, t as i16);
+                    c::set_pf(w, id, kr + knock::k::GRAVITY, k::KNOCK_G * DT2);
+                    let big = matches!(reaction, 4 | 5);
+                    let d = if !big { 0.5 } else if clank(w) { 1.0 } else { 3.0 };
+                    arc(w, id, d, 0.5, kr);
+                    let (apex, land) = if big { (3.5, 7.0) } else { (8.0, 10.0) };
+                    c::set_pf(w, id, kr + knock::k::KEY_APEX, apex);
+                    c::set_pf(w, id, kr + knock::k::KEY_LAND, land);
+                    let (mut sp, mut u) = (c::pf(w, id, kr + knock::k::SPEED), c::pf(w, id, kr + knock::k::UP));
+                    let a = knock::aim(dir, &mut sp, &mut u);
+                    c::set_pf(w, id, kr + knock::k::SPEED, sp);
+                    c::set_pf(w, id, kr + knock::k::UP, u);
+                    knock::start(w, id, kr, a, 9, 1, 0);
+                    c::set_pu8(w, id, pv::FLASH + 7, 0xfa);
+                    flash::start(w, id, pv::FLASH);
+                }
+                _ => {}
             }
-            3..=10 => {
-                set_state(w, id, st::KNOCKED);
-                let t = w.ticks(0x3c);
-                c::set_pi16(w, id, pv::COOLDOWN, t as i16);
-                c::set_pf(w, id, kr + knock::k::GRAVITY, k::KNOCK_G * DT2);
-                let big = matches!(reaction, 4 | 5);
-                let d = if !big { 0.5 } else if clank(w) { 1.0 } else { 3.0 };
-                arc(w, id, d, 0.5, kr);
-                let (apex, land) = if big { (3.5, 7.0) } else { (8.0, 10.0) };
-                c::set_pf(w, id, kr + knock::k::KEY_APEX, apex);
-                c::set_pf(w, id, kr + knock::k::KEY_LAND, land);
-                let (mut sp, mut u) = (c::pf(w, id, kr + knock::k::SPEED), c::pf(w, id, kr + knock::k::UP));
-                let a = knock::aim(dir, &mut sp, &mut u);
-                c::set_pf(w, id, kr + knock::k::SPEED, sp);
-                c::set_pf(w, id, kr + knock::k::UP, u);
-                knock::start(w, id, kr, a, 9, 1, 0);
-                c::set_pu8(w, id, pv::FLASH + 7, 0xfa);
-                flash::start(w, id, pv::FLASH);
-            }
-            _ => {}
         }
     }
     w.mm(id).hit_slot = 0xff;

@@ -648,22 +648,42 @@ impl Play {
 /// 03's for the swing target), with the engine's external updates (emitter, ripple manager). Built once per level;
 /// without the overlays, every class by number.
 pub fn level_ports() -> &'static rc_game::moby_update::classes::LevelPorts {
-    use rc_formats::level_overlay::LevelOverlay;
+    level_ports_for(&crate::level_load::extracted_root(), crate::level_load::level_index())
+}
+
+/// Overlays are immutable within a running game (one data root). Reuse parsed
+/// reference overlays across the class, camera and reaction recognizers.
+fn parsed_overlay(root: &std::path::Path, index: u32) -> Option<std::sync::Arc<rc_formats::level_overlay::LevelOverlay>> {
+    static OVERLAYS: crate::level_load::PerLevel<Option<std::sync::Arc<rc_formats::level_overlay::LevelOverlay>>> =
+        [const { std::sync::OnceLock::new() }; 20];
+    OVERLAYS[index.min(19) as usize].get_or_init(|| {
+        let bytes = crate::disc_source::level_file(root, index, "overlay.bin").ok()?;
+        rc_formats::level_overlay::LevelOverlay::parse(&bytes).ok().map(std::sync::Arc::new)
+    }).clone()
+}
+
+pub(crate) fn level_ports_for(root: &std::path::Path, index: u32) -> &'static rc_game::moby_update::classes::LevelPorts {
     use rc_game::moby_update::classes::LevelPorts;
-    // One table per level (crate::level_switch: the loaded level changes at run time).
     static PORTS: crate::level_load::PerLevel<LevelPorts> = [const { std::sync::OnceLock::new() }; 20];
-    crate::level_load::per_level(&PORTS).get_or_init(|| {
-        let (root, index) = (crate::level_load::extracted_root(), crate::level_load::level_index());
-        let overlay = |l: u32| -> Option<std::sync::Arc<LevelOverlay>> {
-            let b = crate::disc_source::level_file(&root, l, "overlay.bin").ok()?;
-            LevelOverlay::parse(&b).ok().map(std::sync::Arc::new)
-        };
+    PORTS[index.min(19) as usize].get_or_init(|| {
+        let overlay = |l| parsed_overlay(root, l);
         let Some(target) = overlay(index) else {
             eprintln!("gameplay: level {index:02} overlay not read: class ports by class number");
             return LevelPorts::by_class_number();
         };
         LevelPorts::from_overlays(&target, &overlay, &[EMITTER_UPDATE])
     })
+}
+
+/// Pure table recognition belongs to the worker, before the transition reports
+/// ready. It changes no world, active-level global, save, game RNG or audio state.
+pub(crate) fn prepare_level_tables(root: &std::path::Path, index: u32) {
+    if !enabled() { return; }
+    let start = std::time::Instant::now();
+    let _ = level_ports_for(root, index);
+    let _ = camera_ports_for(root, index);
+    let _ = level_reactions_for(root, index);
+    println!("gameplay tables: level {index:02} prepared in background ({:.1} ms)", start.elapsed().as_secs_f64()*1e3);
 }
 
 /// The help system's part of the tick (rc_game::help): the hero's help calls and record writes (the Pyrocitor, the
@@ -816,30 +836,30 @@ fn map_tick(p: &mut Play, report: &rc_game::tick::TickReport, gs: Option<&GameSt
 /// The loaded level's ported camera classes (`rc_game::follow_camera::level::CameraPorts`: the level's `lvl.camvtbl`
 /// against the reference levels' code). Built once per process; the default (level 01's) without the overlays.
 pub fn camera_ports() -> &'static rc_game::follow_camera::level::CameraPorts {
-    use rc_formats::level_overlay::LevelOverlay;
+    camera_ports_for(&crate::level_load::extracted_root(), crate::level_load::level_index())
+}
+
+fn camera_ports_for(root: &std::path::Path, index: u32) -> &'static rc_game::follow_camera::level::CameraPorts {
     static P: crate::level_load::PerLevel<rc_game::follow_camera::level::CameraPorts> = [const { std::sync::OnceLock::new() }; 20];
-    crate::level_load::per_level(&P).get_or_init(|| {
-        let (root, index) = (crate::level_load::extracted_root(), crate::level_load::level_index());
-        let overlay = |l: u32| -> Option<LevelOverlay> { LevelOverlay::parse(&crate::disc_source::level_file(&root, l, "overlay.bin").ok()?).ok() };
+    P[index.min(19) as usize].get_or_init(|| {
+        let overlay = |l| parsed_overlay(root,l);
         match (overlay(index), overlay(1)) {
-            (Some(t), Some(_)) => rc_game::follow_camera::level::CameraPorts::from_overlays(&t, &|l| overlay(l).map(std::sync::Arc::new)),
+            (Some(t), Some(_)) => rc_game::follow_camera::level::CameraPorts::from_overlays(&t, &overlay),
             _ => Default::default(),
         }
     })
 }
 
-/// The loaded level's ported class reaction tables (`rc_game::moby_update::creature::react::tables_from_overlays`: the
-/// level's `lvl.vtbl` third words against level 01's tables and the ones reversed on other levels). Built once per process; empty without the overlays (the
-/// class-number fallback).
 pub fn level_reactions() -> &'static std::collections::HashMap<i16, rc_game::moby_update::creature::react::Table> {
-    use rc_formats::level_overlay::LevelOverlay;
+    level_reactions_for(&crate::level_load::extracted_root(), crate::level_load::level_index())
+}
+
+fn level_reactions_for(root: &std::path::Path, index: u32) -> &'static std::collections::HashMap<i16, rc_game::moby_update::creature::react::Table> {
     static T: crate::level_load::PerLevel<std::collections::HashMap<i16, rc_game::moby_update::creature::react::Table>> = [const { std::sync::OnceLock::new() }; 20];
-    crate::level_load::per_level(&T).get_or_init(|| {
-        let (root, index) = (crate::level_load::extracted_root(), crate::level_load::level_index());
-        let overlay = |l: u32| -> Option<LevelOverlay> { LevelOverlay::parse(&crate::disc_source::level_file(&root, l, "overlay.bin").ok()?).ok() };
-        let reference = |l: u32| overlay(l).map(std::sync::Arc::new);
+    T[index.min(19) as usize].get_or_init(|| {
+        let overlay = |l| parsed_overlay(root,l);
         match (overlay(index), overlay(1)) {
-            (Some(t), Some(r)) => rc_game::moby_update::creature::react::tables_from_overlays(&t, &r, &reference),
+            (Some(t), Some(r)) => rc_game::moby_update::creature::react::tables_from_overlays(&t, &r, &overlay),
             _ => Default::default(),
         }
     })
@@ -886,7 +906,12 @@ fn class_table(lv: &crate::level_load::LoadedLevel, ext: &dyn Fn(i16) -> Option<
     for (c, a) in m.classes.iter().zip(&m.anim) {
         let slot = *slot_of.entry(c.o_class).or_insert_with(|| { next += 1; next - 1 });
         let oc = c.o_class as i16;
-        let mut info = scheduler::class_info(&c.class, slot as u8, level_ports().update_fn(oc).or_else(|| ext(oc)));
+        let update=match oc {
+            1818=>Some(rc_game::moby_update::classes::mouse::MOUSE_FN),
+            1633=>Some(rc_game::moby_update::classes::mouse::SHOT_FN),
+            _=>level_ports().update_fn(oc).or_else(||ext(oc)),
+        };
+        let mut info = scheduler::class_info(&c.class, slot as u8, update);
         info.seq0 = a.sequence(0).map(|q| Seq0Info { frame_count: q.header.frame_count, loop_sound_bit7: q.header.loop_sound & 0x80 != 0 });
         t.classes.insert(oc, (info, Some(a.clone())));
     }
@@ -907,7 +932,7 @@ fn class_table(lv: &crate::level_load::LoadedLevel, ext: &dyn Fn(i16) -> Option<
 /// With them, per class, each list's manipulator target joint (`Services::joint_targets`, `rc_game::moby_update::manip`).
 type JointLists = (HashMap<i16, Vec<Vec<u8>>>, HashMap<i16, Vec<u8>>);
 fn class_joint_lists(lv: &crate::level_load::LoadedLevel) -> anyhow::Result<JointLists> {
-    let both = class_joint_data_where(lv, |o| level_ports().needs_joint_lists(o))?;
+    let both = class_joint_data_where(lv, |o| o == 1818 || level_ports().needs_joint_lists(o))?;
     let targets = both.iter().map(|(o, l)| (*o, l.iter().map(|(_, s)| rc_formats::moby_anim::list_target(s).unwrap_or(0xff)).collect())).collect();
     Ok((both.into_iter().map(|(o, l)| (o, l.into_iter().map(|(a, _)| a).collect())).collect(), targets))
 }
@@ -944,6 +969,10 @@ fn class_joint_data_where(lv: &crate::level_load::LoadedLevel, want: impl Fn(i16
     let data = rc_data::level_core_data(&root, index).context("decompressing core_data")?;
     let core = rc_formats::level::parse_level_core(&read("core_index.bin")?, data.len()).context("parsing core index")?;
     for c in wanted {
+        if let Some(lists) = lv.mobys.imported_joints.get(&(c.o_class as i16)) {
+            out.insert(c.o_class as i16, lists.clone());
+            continue;
+        }
         let name = format!("moby_class/{:04}", c.o_class);
         // A class appended from the spaceships file (the loader's ship) has no block in the core: its lists come from
         // that file (crate::travel_render::ship_joint_lists).
@@ -1776,6 +1805,10 @@ fn death_reload(p: &mut Play, lv: &crate::level_load::LoadedLevel, state: Option
         if let (Some(a), Some(k)) = (anim.as_deref_mut(), occl.as_deref().and_then(|o| o.anim_index(ii))) { a.hidden[k] = true; }
     }
     let shown: Vec<usize> = now.difference(&was).copied().collect();
+    // Deferred callbacks still name the old table's slots. In particular an
+    // Oltanis arc keeper can become an unrelated live object with no pvars.
+    // Reset only after the replacement and hero mapping have passed preflight.
+    p.svc.reset_moby_transients();
     p.game.mobys = table;
     p.classes = std::sync::Arc::new(classes);
     p.hero_id = hero_id;

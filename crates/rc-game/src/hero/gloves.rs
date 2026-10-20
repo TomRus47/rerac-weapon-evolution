@@ -460,6 +460,7 @@ fn create_mine(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut
 
 /// `0x2bf7d8`: the mine leaves from the launch point (the mines' list 0x1b0c30 is the table's).
 fn release_mine(_hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng, m: MobyId, t: Throw) {
+    crate::moby_update::services::pvar::set_i32(&mut table.mobys[m].pvars,mine::pv::BORN,env.frame);
     mine::release(table, m, rng, t.launch);
     let r = table.mobys[env.hero_moby].position;
     let from = [r[0], r[1], t.launch[2]];

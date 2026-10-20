@@ -61,6 +61,16 @@ pub struct Resolved {
     pub hit: Option<HitRecord>,
 }
 
+impl Resolved {
+    /// Call inside the native accepted-hit branch, after source and state filters.
+    /// A lethal pulse falls through so native death, loot and splitting still run.
+    pub(crate) fn settle_quiet_stream(&self, w: &mut World, id: MobyId, record: usize) -> bool {
+        self.hit.is_some_and(|h| h.evolution.is_some_and(|a|
+            crate::moby_update::real_hp::rapid_attack(a) && a.damage_only))
+            && quiet_damage(w, id, self.hit, record)
+    }
+}
+
 fn s16(w: &World, id: MobyId, o: usize) -> i16 { super::pi16(w, id, o) }
 
 /// Resolving a hit alone does not award XP: classes can still ignore it.
@@ -80,6 +90,10 @@ pub(crate) fn award_health_write(w: &mut World, id: MobyId, offset: usize, befor
     let hit = pending.hit;
     let actual = (before - after.max(0.0)).max(0.0).min(f32::from_bits(hit.damage.0));
     if actual <= 0.0 { return; }
+    if after > 0.0 && hit.evolution.is_some_and(|a| crate::moby_update::real_hp::rapid_attack(a) && !a.damage_only) {
+        let interval = w.ticks(super::super::real_hp::STREAM_REACTION_INTERVAL_TICKS).max(1) as u64;
+        w.svc.hits.real_hp.commit_stream_reaction(id, w.counter, interval);
+    }
     award_effective(w, hit, actual);
 }
 
@@ -88,6 +102,7 @@ fn award_effective(w: &mut World, hit: HitRecord, actual: f32) {
     // whose HP loss has been committed can credit the Glove of Doom.
     if hit.h2a == 0xba && !hit.independent() { return; }
     if let Some(attack) = hit.evolution {
+        if let Some(color) = attack.burn_color { w.svc.hits.real_hp.burn_colors.insert(hit.target,(attack.weapon,color)); }
         // Attribution survives deletion/reuse of the source moby slot.
         match attack.weapon {
             10 => w.svc.bomb_evo.award_damage(actual, 121),
@@ -300,9 +315,16 @@ pub fn resolve(w: &mut World, id: MobyId, hit: Option<HitRecord>, d: usize, flag
         super::set_pi16(w, id, d + 0x14, cls as i16);
     }
     if let Some(mut attack) = independent {
-        // Restore HP damage without erasing native stagger/animation timers.
-        // The old resolver still decides when the reaction itself can restart.
-        attack.damage_only = rec.damage.to_f32() <= 0.0 || out5 == 1 || s16(w, id, d + 6) > 0;
+        // Rapid-fire weapons share a per-enemy reaction clock, independent of
+        // native invincibility and damage intervals. Rejected hits do not spend it.
+        attack.damage_only = if crate::moby_update::real_hp::rapid_attack(attack) {
+            !w.svc.hits.real_hp.stream_reaction_ready(id, w.counter)
+        } else {
+            rec.damage.to_f32() <= 0.0 || out5 == 1 || s16(w, id, d + 6) > 0
+        };
+        if crate::moby_update::real_hp::rapid_attack(attack) && !attack.damage_only {
+            reaction = REACTION.get(col + kind as usize * 4).copied().unwrap_or(1);
+        }
         rec.damage = Pf::f(attack.damage);
         out5 = if kind == 4 {3} else if kind == 7 {4} else {2};
         if attack.damage_only { reaction = 0xb; }

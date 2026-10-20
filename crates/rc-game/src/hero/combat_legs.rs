@@ -704,4 +704,25 @@ mod tests {
         assert!(movement_direction(&h).1, "release pose follows real momentum");
     }
 
+    #[test]
+    fn replacement_boots_copy_both_leg_clocks_without_touching_upper_keys() {
+        let mut c = class();
+        for frame in &mut c.sequences[4].as_mut().unwrap().frames {
+            frame.quats[3] = frame.quats[1];
+            frame.payload = frame.quats.iter().flatten().flat_map(|v| v.to_le_bytes()).collect();
+        }
+        let s = base(&c);
+        let mask = [1, 2, 3, 4];
+        let layer = PoseLayer { joints: &mask, seq_a: 4, frame_a: 2, seq_b: 4, frame_b: 3,
+            t: 0.3, weight: 1.0, alt: None };
+        for joints in [&[1, 2][..], &[3, 4][..]] {
+            let native = super::super::worn::pose_from_host(&c, &s, None, &c, joints, 0).unwrap();
+            let boot = super::super::worn::pose_from_host_layered(&c, &s, None, &c, joints, 0, &[layer]).unwrap();
+            let local = moby_anim::snapshot_layered(&c, &s, None, &[layer]).unwrap();
+            assert_ne!(boot.quat_at(1), native.quat_at(1));
+            assert_eq!(boot.quat_at(1), local.quat_at(joints[0] as usize));
+            assert_eq!(local.quat_at(5), moby_anim::snapshot(&c, &s, None).unwrap().quat_at(5));
+        }
+    }
+
 }

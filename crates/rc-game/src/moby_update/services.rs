@@ -17,6 +17,10 @@
 //!   [`World::hero_fields_mut`], applied by the tick after the moby loop ([`crate::tick::MobySystem::take_hero_writes`]).
 #![allow(clippy::neg_cmp_op_on_partial_ord, clippy::assign_op_pattern, clippy::needless_range_loop, clippy::too_many_arguments)] // FPU compare semantics, op order and lane loops are spelled out on purpose.
 
+#[cfg(test)]
+#[path = "services_reload_tests.rs"]
+mod reload_tests;
+
 use std::collections::{HashMap, VecDeque};
 
 use crate::hero::physics::{self as ph, V4};
@@ -512,8 +516,10 @@ impl HitLog {
         // Publish the FIFO head for them too; the queue remains authoritative.
         let ready = self.current(table,target).is_none_or(|r|
             r.evolution.is_none_or(|a| self.real_hp.finished(target,a)));
-        if ready {
-            if let Some(record)=self.real_hp.frozen_next(target) { self.publish_doom_explosion(table,record); }
+        if let Some(record)=self.real_hp.frozen_next(target) {
+            let changed=self.current(table,target).is_some_and(|old|
+                old.evolution.map(|a|a.instance)==record.evolution.map(|a|a.instance) && old.damage!=record.damage);
+            if ready || changed { self.publish_doom_explosion(table,record); }
         }
         true
     }
@@ -924,6 +930,7 @@ pub struct EvoStunWindow {
 
 #[derive(Clone, Debug, Default)]
 pub struct EvoStunTracker {
+    launches: HashMap<MobyId, ([f32;4],u32)>,
     windows: HashMap<MobyId, EvoStunWindow>,
 }
 impl EvoStunTracker {
@@ -949,7 +956,16 @@ impl EvoStunTracker {
         }
         now < s.frozen_until
     }
-    pub fn forget(&mut self, id: MobyId) { self.windows.remove(&id); }
+    pub fn launch(&mut self,id:MobyId,delta:[f32;4],ticks:u32) {
+        if ticks>0 { self.launches.insert(id,(delta.map(|x|x/ticks as f32),ticks)); }
+    }
+    pub fn launch_step(&mut self,id:MobyId)->Option<[f32;4]> {
+        let (step,left)=self.launches.get_mut(&id)?;
+        let out=*step;*left-=1;
+        if *left==0 {self.launches.remove(&id);}
+        Some(out)
+    }
+    pub fn forget(&mut self, id: MobyId) { self.windows.remove(&id); self.launches.remove(&id); }
 }
 
 /// State the moby system keeps between ticks (the game's globals it owns).
@@ -1127,6 +1143,20 @@ impl Default for Services {
 }
 
 impl Services {
+    /// Discard deferred work owned by the table that is about to be replaced.
+    ///
+    /// `MobyId` is a slot, not a stable identity. Death reload compacts placed
+    /// objects, so a still-valid number can now refer to another class with a
+    /// different pvar layout. Clear these references after reload preflight
+    /// succeeds and before installing the replacement table/load pass. Keep
+    /// progress, checkpoints, configuration and loaded geometry intact.
+    pub fn reset_moby_transients(&mut self) {
+        self.draw_callbacks = Default::default();
+        self.mouse = Default::default();
+        self.evo_stuns = Default::default();
+        self.units.oltanis_arcs.reset_for_reload(&mut self.point_lights);
+    }
+
     pub fn new() -> Services {
         Services {
             bomb_evo: crate::weapon_evo::Evolution::from_env(),

@@ -1,6 +1,6 @@
 # ReRAC Weapon Evolution
 
-Weapon Evolution **v0.1.6.39**, with the English preset launcher **v0.5.1**, built on the supplied ReRAC **0.3.4** source snapshot.
+Public release **0.3.1**: gameplay patch **0.1.6.49**, configuration capability **48**, English preset launcher **0.10.0**, built on the supplied ReRAC **0.3.4** source snapshot.
 
 **Runtime compatibility: ReRAC 0.3.4-alpha**, using the modified game runtime supplied with Weapon Evolution or built from this repository.
 
@@ -10,6 +10,8 @@ This is a source repository. It contains the modified Rust workspace, launcher s
 
 The full ReRAC source base is included because the mod integrates with many gameplay and rendering systems. No earlier patch installation is required. [MOD_FILES.md](MOD_FILES.md) identifies the mod modules and integration points; [mod/source-map.json](mod/source-map.json) provides their hashes.
 
+See the [release notes](docs/releases/v0.3.1.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md), and [respawn investigation](docs/mod/RESPAWN_LIFECYCLE.md) for current behavior. The v40 audio investigation is historical; temporary probes have been removed.
+
 ## Features
 
 - Independent weapon XP and five configurable grades; localized in-game weapon names and colored grade icons.
@@ -18,7 +20,10 @@ The full ReRAC source base is included because the mod integrates with many game
 - Camera-locked movement and combat, directional leg animation and R2 firing while locked.
 - Weapon HUD name, grade, XP bar and synchronized fades.
 - English launcher with optional saved presets, editable defaults, portable runtime selection and a standalone Windows EXE build.
-- v39 fixes for Umbris hit origin handling and related enemy filters, while retaining encounter phase protection.
+- Preserve encounter phase protection while fixing independent weapon hit handling.
+- Experimental cluster bombs, triple flames, crate ammunition, a second Tesla chain, continuous-missile or 35-pellet R.Y.N.O., flame mines and a Drone Device Sand Mouse companion.
+- XP below the pause-menu weapon-name panel, up to ten ordered drones, directional boot poses and expanded/stabilized locked-camera aim.
+- Death-reload cleanup for stale effects, companion IDs and reaction state; uninterrupted accepted stream damage with separate reaction cooldowns.
 
 ## For developers modifying the mod
 
@@ -28,7 +33,7 @@ Start with the [Developer guide](docs/mod/DEVELOPER_GUIDE.md). It maps concrete 
 
 Build the modded **ReRAC 0.3.4-alpha** runtime from this checkout before packaging the launcher.
 
-Authoring requires Rust with the MSVC toolchain, Visual Studio C++ build tools and a Windows SDK, plus 64-bit Python 3.10 or later with Tcl/Tk. The game uses the dependencies pinned in `Cargo.lock`. The launcher build installs its pinned PyInstaller version in a local tools environment.
+Authoring requires Rust 1.99.1 with the MSVC toolchain, Visual Studio C++ build tools and a Windows SDK, plus 64-bit Python 3.10 or later with Tcl/Tk. The game uses the dependencies pinned in `Cargo.lock`. The launcher build installs its pinned PyInstaller version in a local tools environment.
 
 1. Extract or clone this repository into any writable folder.
 2. Open **x64 Native Tools Command Prompt for VS**, change to that folder and run:
@@ -55,7 +60,7 @@ Authoring requires Rust with the MSVC toolchain, Visual Studio C++ build tools a
 
    Output is written under `launcher/dist/`. Share the complete generated player ZIP. It includes the launcher EXE, patched game runtime, shaders, configuration and collected launcher licenses. Players do not need Python, Rust or earlier patches.
 
-An optional `launcher/launcher.ico` customizes the launcher icon. The build cache tracks changes to this file. It is a local authoring input and is ignored by Git.
+The tracked `launcher/launcher.ico` is the supplied custom icon. The build cache tracks changes to this file.
 
 ## Configuration
 
@@ -98,4 +103,12 @@ ReRAC and its contributors retain their existing [ISC license](LICENSE) and copy
 
 The supplied base archive already contained an earlier Weapon Evolution version. Its original upstream Git commit was not supplied, so this repository does not claim to reproduce official upstream Git history. The included patch compares against that exact supplied snapshot. See [mod/provenance.json](mod/provenance.json).
 
-To publish this prepared local repository under your own GitHub account, follow [docs/mod/PUBLISHING.md](docs/mod/PUBLISHING.md).
+For player ZIPs, draft releases and the Windows build workflow, read [docs/mod/PUBLISHING.md](docs/mod/PUBLISHING.md).
+
+To package an already edited local INI without installing the tracked defaults, use:
+
+```bat
+py -3 launcher\package_launcher.py --exe launcher\runtime\rerac.exe --ini launcher\weapons.ini --no-presets
+```
+
+The Windows release workflow builds and smoke-tests both executables, packages the tracked default, uploads checksums and prepares a **draft** release. Gameplay validation is still required before publishing.

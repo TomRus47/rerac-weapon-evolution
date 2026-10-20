@@ -215,8 +215,14 @@ pub const HEAD_ATTACH: usize = 4;
 /// is written (inherited, flag 0x80) when it is not 1, its translation when it differs from the item's rest. The item
 /// is evaluated with it as key A (t = 0), placed on its attach matrix without column normalisation.
 pub fn pose_from_host(host: &MobyAnimClass, host_state: &AnimState, host_snap: Option<&MobyFrame>, item: &MobyAnimClass, joints: &[u8], extra: usize) -> Option<MobyFrame> {
+    pose_from_host_layered(host, host_state, host_snap, item, joints, extra, &[])
+}
+
+/// Replacement boots copy the signed leg clock, while head items use native keys.
+#[allow(clippy::too_many_arguments)]
+pub fn pose_from_host_layered(host: &MobyAnimClass, host_state: &AnimState, host_snap: Option<&MobyFrame>, item: &MobyAnimClass, joints: &[u8], extra: usize, layers: &[moby_anim::PoseLayer]) -> Option<MobyFrame> {
     use rc_formats::moby_anim::{MobyFrameHeader, ScaleRec, TransRec};
-    let local = moby_anim::snapshot(host, host_state, host_snap)?;
+    let local = moby_anim::snapshot_layered(host, host_state, host_snap, layers)?;
     let mut quats: Vec<[i16; 4]> = vec![[0, 0, 0, 0x7fff]];
     let (mut scales, mut trans) = (Vec::new(), Vec::new());
     for (k, &j) in joints.iter().enumerate() {

@@ -130,7 +130,7 @@ fn hits(w: &mut World, id: MobyId) {
     let hit = w.get_hit(id, 0x37_0000, false);
     let r = damage::resolve(w, id, hit, pvo::RECORD, 5, 4);
     if let Some(h) = hit {
-        if r.out5 != 1 && w.m(id).state != 8 {
+        if r.out5 != 1 && w.m(id).state != 8 && !r.settle_quiet_stream(w, id, pvo::RECORD) {
             let health = c::pf(w, id, pvo::RECORD) - r.damage;
             c::set_pf(w, id, pvo::RECORD, health);
             let mut reaction = r.reaction;

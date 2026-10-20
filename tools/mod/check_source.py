@@ -13,7 +13,7 @@ def check():
     files=[name.decode('utf-8') for name in listing.split(b'\0') if name]
     if not files:raise ValueError('No tracked source files. Initialize and stage the source checkout first.')
     forbidden={'.exe','.dll','.pdb','.iso','.zip','.bundle','.pyc'}
-    roots={'.cargo','.gitattributes','.gitignore','01_BUILD_GAME.bat','02_OPEN_LAUNCHER.bat',
+    roots={'AGENTS.md','.github','.cargo','.gitattributes','.gitignore','01_BUILD_GAME.bat','02_OPEN_LAUNCHER.bat',
         'BUILD_FINAL_WINDOWS_EXE.bat','Cargo.lock','Cargo.toml','LICENSE','CHANGELOG.md',
         'README.md','README.ReRAC.md','MOD_FILES.md','crates','tools','docs','launcher','mod'}
     for name in files:
@@ -37,16 +37,20 @@ def check():
     if embedded.read_bytes()!=runtime_profile(default):raise ValueError('Optional embedded profile differs from the public default.')
     record=json.loads((ROOT/'mod/source-map.json').read_text())
     for item in record['files']:
-        actual=hashlib.sha256((ROOT/item['path']).read_bytes()).hexdigest()
+        data=(ROOT/item['path']).read_bytes()
+        if Path(item['path']).suffix == '.bat':data=data.replace(b'\r\n',b'\n')
+        actual=hashlib.sha256(data).hexdigest()
         if actual!=item['sha256']:raise ValueError('Export source hash differs: '+item['path'])
     for name in ['rc-game','rc-engine','rc-formats','rc-data','rc-video','rc-extract']:
         if not (ROOT/'crates'/name/'Cargo.toml').is_file():raise ValueError('Missing workspace crate: '+name)
     cap=(ROOT/'crates/rc-engine/src/disc_source.rs').read_text()
-    if '"weapon_evolution_config":39' not in cap:raise ValueError('Missing v39 runtime capability.')
+    if '"weapon_evolution_config":48' not in cap:raise ValueError('Missing configuration capability 48.')
+    if not (ROOT/'launcher/launcher.ico').is_file():raise ValueError('Missing supplied launcher icon.')
+    if '"weapon_evolution_patch":"0.1.6.49"' not in cap:raise ValueError('Missing v49 runtime identity.')
     local=['target/release/rerac.exe','extracted/toc.bin','launcher/runtime/rerac.exe',
         'launcher/launcher-settings.json','launcher/weapons.ini','launcher/presets/Personal.ini',
         'launcher/runs/session/weapons.ini','launcher/.launcher-tools/venv/python.exe',
-        'launcher/dist/Player.zip','launcher/launcher.ico']
+        'launcher/dist/Player.zip']
     ignored=subprocess.run(['git','check-ignore','--stdin'],cwd=ROOT,input='\n'.join(local)+'\n',capture_output=True,text=True)
     if set(ignored.stdout.splitlines())!=set(local):raise ValueError('Local output is not completely ignored by Git.')
     print(f'Source export OK: {len(files)} tracked files, {len(record["files"])} indexed mod files, {len(doc.entries)} default INI values.')

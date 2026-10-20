@@ -91,7 +91,7 @@ pub struct Pyro {
     /// +0x00: the pilot flame.
     pub glow: Option<MobyId>,
     /// +0x04..: the kept flames, each with "created this tick" (not yet stepped by `UpdateParts`).
-    pub hits: [Option<(Flame, bool)>; 15],
+    pub hits: [Option<(Flame, bool)>; 45],
     /// +0x44: the point light (−1: none). (+0x4a, the loop's sound slot, is `super::fx::HeroFx::item_loops[0]`.)
     pub light: i32,
     /// +0x4c / +0x4e: the fire and smoke timers.
@@ -104,7 +104,7 @@ pub struct Pyro {
 }
 
 impl Default for Pyro {
-    fn default() -> Self { Pyro { glow: None, hits: [None; 15], light: -1, fire_timer: 0, ammo_timer: 0, smoke_timer: 0, hold: 0 } }
+    fn default() -> Self { Pyro { glow: None, hits: [None; 45], light: -1, fire_timer: 0, ammo_timer: 0, smoke_timer: 0, hold: 0 } }
 }
 
 /// `0x2cde98`'s other half (the item not being put away; from the disassembly): while the "hold ○" help (record 0x4e)
@@ -337,6 +337,48 @@ fn firing(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn 
         (true, Some((eye, fwd)), Some(up)) => (sub3(eye, with_len(up, 1.0)), with_len(fwd, range + 0.75)),
         _ => (nozzle, with_len(rows[0], range + 0.75)),
     }};
+    let stats = hero.weapons.pyro_evo.unwrap_or_default();
+    for (lane, direction) in flame_directions_asymmetric(dir, rows[2], stats.triple_flame_enabled, stats.side_flame_left_angle_degrees.unwrap_or(stats.side_flame_angle_degrees), stats.side_flame_right_angle_degrees.unwrap_or(stats.side_flame_angle_degrees)).into_iter().enumerate() {
+        emit_flame(hero, table, env, hits, rng, nozzle, start, direction, range, first_person, gold, rows[0], lane);
+    }
+    let ammo_interval = hero.weapons.pyro_evo.map(|s| s.ammo_interval_ticks);
+    if ammo_due(&mut hero.weapons.pyro, env.frame, ammo_interval) {
+        hero.weapons.use_ammo(id, 1);
+    }
+    let ammo = hero.weapons.has_ammo(id) != 0;
+    if dec(&mut hero.weapons.pyro.fire_timer) {
+        if held && hero.items.f13fc == 0 && ammo { return; }
+        if let Some(it) = hero.items.slot.item.as_mut() { it.mstate = 2; }
+        super::weapons::put_away(hero);
+        hero.fx.item_voices.push(SoundCmd::ItemRelease { n: 0 });
+        if !ammo { hero.fx.item_sounds.push(EMPTY_SOUND); }
+    }
+}
+
+/// Side jets rotate around Ratchet's local up axis, preserving pitch and reach.
+#[cfg(test)]
+fn flame_directions(dir: [f32; 3], up: [f32; 3], triple: bool, degrees: f32) -> Vec<[f32; 3]> {
+    flame_directions_asymmetric(dir, up, triple, degrees, degrees)
+}
+
+fn flame_directions_asymmetric(dir: [f32; 3], up: [f32; 3], triple: bool, left: f32, right: f32) -> Vec<[f32; 3]> {
+    let mut out = vec![dir];
+    if triple {
+        let axis = with_len(up, 1.0);
+        for angle in [-right.to_radians(), left.to_radians()] {
+            let (sn, cs) = angle.sin_cos();
+            let dot: f32 = (0..3).map(|i| axis[i] * dir[i]).sum();
+            let cross = [axis[1]*dir[2]-axis[2]*dir[1], axis[2]*dir[0]-axis[0]*dir[2], axis[0]*dir[1]-axis[1]*dir[0]];
+            out.push(std::array::from_fn(|i| dir[i]*cs + cross[i]*sn + axis[i]*dot*(1.0-cs)));
+        }
+    }
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_flame(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng,
+    nozzle: [f32; 3], start: [f32; 3], dir: [f32; 3], range: f32, first_person: bool, gold: u8,
+    forward: [f32; 3], lane: usize) {
     let end = add3(start, dir);
     let mut probe = |a: [f32; 3], b: [f32; 3]| -> Option<[f32; 3]> {
         match hits.probe(table, from_f32x3(a), from_f32x3(b), 2, None) {
@@ -372,35 +414,23 @@ fn firing(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn 
             if flags & 4 != 0 { life = ((life as i32 * (gold as i32 + 2)) / 2) as i16; }
             let size = (if flags & 1 != 0 { 1.0 } else { 0.25 }) * 210000.0 * width;
             let f = Flame { pos, vel, len, life, size, flags, life0: life as u8 };
-            if let Some(e) = hero.weapons.pyro.hits.iter_mut().find(|e| e.is_none()) { *e = Some((f, true)); }
+            if let Some(e) = hero.weapons.pyro.hits[lane * 15..(lane + 1) * 15].iter_mut().find(|e| e.is_none()) { *e = Some((f, true)); }
         }
     }
     // The two hit spheres at the nozzle.
     let damage_mult = hero.weapons.pyro_evo.map_or(1.0, |s| s.damage_multiplier);
     let tmpl = template(env, step, gold, false, damage_mult);
     for back in [-0.3f32, -0.8] {
-        let c = add3(scale3(rows[0], back), nozzle);
+        let c = add3(scale3(forward, back), nozzle);
         hits.sphere(table, Pf::f(0.42 * width), from_f32x3(c), 5, Some(env.hero_moby), &tmpl);
     }
     // The smoke: a type-25 spark along the flame now and then.
-    if dec(&mut hero.weapons.pyro.smoke_timer) {
+    if lane == 0 && dec(&mut hero.weapons.pyro.smoke_timer) {
         hero.weapons.pyro.smoke_timer = rng.randf(10.0, 30.0) as i32 as i16;
         let r = rng.rand_vec(0.0, DT + DT);
         let k = rng.randf(0.5, 0.1);
         let vel = add3(scale3(step, k), r);
         super::fx::spark(hero, rng, [start[0], start[1], start[2], 0.0], [vel[0], vel[1], vel[2], 0.0], gold != 0);
-    }
-    let ammo_interval = hero.weapons.pyro_evo.map(|s| s.ammo_interval_ticks);
-    if ammo_due(&mut hero.weapons.pyro, env.frame, ammo_interval) {
-        hero.weapons.use_ammo(id, 1);
-    }
-    let ammo = hero.weapons.has_ammo(id) != 0;
-    if dec(&mut hero.weapons.pyro.fire_timer) {
-        if held && hero.items.f13fc == 0 && ammo { return; }
-        if let Some(it) = hero.items.slot.item.as_mut() { it.mstate = 2; }
-        super::weapons::put_away(hero);
-        hero.fx.item_voices.push(SoundCmd::ItemRelease { n: 0 });
-        if !ammo { hero.fx.item_sounds.push(EMPTY_SOUND); }
     }
 }
 
@@ -458,7 +488,7 @@ pub fn shut_down(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &m
         p.light = -1;
     }
     if hero.fx.item_loops[0].is_some() { hero.fx.item_voices.push(SoundCmd::ItemRelease { n: 0 }); }
-    p.hits = [None; 15];
+    p.hits = [None; 45];
 }
 
 /// The item is gone (swapped away, the slot emptied) with the Pyrocitor's resources still out.
@@ -494,4 +524,50 @@ mod tests {
         let mut native = Pyro::default();
         for frame in 1..=30 { assert_eq!(ammo_due(&mut native, frame, None), frame % 10 == 0); }
     }
+    #[test]
+    fn side_jets_share_origin_reach_and_pitched_local_up() {
+        for (dir, up) in [([10.0, 0.0, 0.0], [0.0, 0.0, 1.0]),
+                          ([8.0, 0.0, 6.0], [-0.6, 0.0, 0.8])] {
+            let jets = flame_directions(dir, up, true, 33.0);
+            assert_eq!(jets.len(), 3); assert_eq!(jets[0], dir);
+            for j in &jets[1..] {
+                assert!((len3(*j)-10.0).abs()<0.001);
+                let dot: f32 = (0..3).map(|i| j[i]*dir[i]).sum();
+                assert!((dot/100.0-33.0f32.to_radians().cos()).abs()<0.001);
+            }
+            assert_eq!(flame_directions(dir,up,false,33.0),[dir]);
+        }
+    }
+
+    #[test]
+    fn triple_emission_keeps_one_ammo_clock_and_separate_live_flame_slots() {
+        use super::super::items::{ItemData,NoHits};
+        use crate::pad::PadState;
+        let run=|triple| {
+            let mut h=Hero::spawn([10.0,10.0,1.0],0.0);
+            h.moby_rows=[[Pf::ONE,Pf::ZERO,Pf::ZERO,Pf::ZERO],
+                [Pf::ZERO,Pf::ONE,Pf::ZERO,Pf::ZERO],[Pf::ZERO,Pf::ZERO,Pf::ONE,Pf::ZERO],[Pf::ZERO,Pf::ZERO,Pf::ZERO,Pf::ONE]];
+            h.weapons.pyro_evo=Some(crate::weapon_evo::PyroStats { triple_flame_enabled:triple,ammo_interval_ticks:1,..Default::default() });
+            h.weapons.uses_ammo[16]=true;h.weapons.ammo[16]=10;h.weapons.pyro.fire_timer=100;
+            let mut table=MobyTable::default();let data=ItemData::default();let pad=PadState::default();
+            let env=ItemEnv { data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[] };
+            firing(&mut h,&mut table,&env,&mut NoHits,&mut Rng::new(),[10.0,10.0,1.0],true,16,0);
+            h
+        };
+        let single=run(false);let triple=run(true);
+        assert_eq!(single.weapons.ammo[16],9);assert_eq!(triple.weapons.ammo[16],9);
+        let count=|h:&Hero|h.fx.parts.iter().filter(|p|matches!(p,PartSpawn::Flame {..})).count();
+        assert_eq!(count(&triple),3*count(&single));
+        for lane in 0..3 { assert!(triple.weapons.pyro.hits[lane*15..(lane+1)*15].iter().any(Option::is_some)); }
+    }
+
+    #[test]
+    fn v44_side_jets_have_independent_angles_and_keep_the_main_jet_unchanged() {
+        let jets=flame_directions_asymmetric([1.0,0.0,0.0],[0.0,0.0,1.0],true,12.0,37.0);
+        assert_eq!(jets[0],[1.0,0.0,0.0]);
+        assert!((jets[1][1].atan2(jets[1][0]).to_degrees()+37.0).abs()<0.0001);
+        assert!((jets[2][1].atan2(jets[2][0]).to_degrees()-12.0).abs()<0.0001);
+        assert_eq!(flame_directions_asymmetric([1.0,0.0,0.0],[0.0,0.0,1.0],false,12.0,37.0).len(),1);
+    }
+
 }

@@ -133,7 +133,7 @@ fn flight(w: &mut World, id: MobyId, dir: c::V, gravity: f32, dist: f32, height:
 fn hits(w: &mut World, id: MobyId) {
     let hit = w.get_hit(id, 0x33_0000, false);
     let res = damage::resolve(w, id, hit, lp::D, 0, 4);
-    if let Some(h) = res.hit.filter(|_| res.out5 != 1 && state(w, id) != 5) {
+    if let Some(h) = res.hit.filter(|_| res.out5 != 1 && state(w, id) != 5 && !res.settle_quiet_stream(w, id, lp::D)) {
         let hp = c::pf(w, id, lp::D) - res.damage;
         c::set_pf(w, id, lp::D, hp);
         let reaction = if hp <= 0.0 { 1 } else { res.reaction };
