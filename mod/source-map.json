@@ -1537,7 +1537,7 @@
     },
     {
       "path": "tools/mod/check_source.py",
-      "sha256": "e1402b66b4cc39a440ee686bdf71ab5ec2ce46c0e380b5a6f00d5657002ad23b",
+      "sha256": "f29c1b8fae756dad95ca18dc427768016227aaff9f2c1459fe481c6951215285",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]

@@ -51,8 +51,12 @@ def check():
         'launcher/launcher-settings.json','launcher/weapons.ini','launcher/presets/Personal.ini',
         'launcher/runs/session/weapons.ini','launcher/.launcher-tools/venv/python.exe',
         'launcher/dist/Player.zip']
-    ignored=subprocess.run(['git','check-ignore','--stdin'],cwd=ROOT,input='\n'.join(local)+'\n',capture_output=True,text=True)
-    if set(ignored.stdout.splitlines())!=set(local):raise ValueError('Local output is not completely ignored by Git.')
+    # NUL-delimited bytes avoid Windows text pipes translating LF to CRLF,
+    # which Git can treat as a literal carriage return in each requested path.
+    ignored=subprocess.run(['git','check-ignore','-z','--stdin'],cwd=ROOT,
+        input=('\0'.join(local)+'\0').encode('utf-8'),capture_output=True,check=True)
+    found={name.decode('utf-8') for name in ignored.stdout.split(b'\0') if name}
+    if found!=set(local):raise ValueError('Local output is not completely ignored by Git: '+repr(set(local)-found))
     print(f'Source export OK: {len(files)} tracked files, {len(record["files"])} indexed mod files, {len(doc.entries)} default INI values.')
 
 if __name__=='__main__':
