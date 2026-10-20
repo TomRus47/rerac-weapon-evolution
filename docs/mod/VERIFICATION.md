@@ -4,9 +4,10 @@
 
 - Python launcher/release suite: 89 tests passed on Linux, without failures.
 - Source/default/example/embedded-profile integrity: 1,168 approved INI values unchanged; custom icon byte-identical to v49.
-- Native Rust release regression suite and the linked Windows build are in progress at this source revision. Do not interpret the historical v49 totals below as current v50 results.
+- Rust 1.99.1, Linux x64, optimized release: **975 game tests passed**; **154 formats tests passed, 1 ignored**. These local results preceded the added first-frame anchor assertion; the refreshed native suite and linked Windows build are in progress.
 - New fixtures cover whole-volley admission, allocation rollback/two-tick quarantine, visible pellet heads under particle pressure, residual-range lifetime expiry, normal range expiry, and shared recognition equivalence/cache lifetime.
-- Loading benchmark and exact package results will be recorded after completion. In-game validation is still pending; see [LOADING_AND_SHOTGUN.md](LOADING_AND_SHOTGUN.md).
+- Serialized synthetic recognition benchmark: median **4,903.198 ms before**, **115.333 ms after**, identical checksum in all six runs. This is only the repeated-recognition workload, not a planet-load speed claim. [Raw measurements](recognition-benchmark-v50.json).
+- In-game validation and exact Windows package results are still pending; see [LOADING_AND_SHOTGUN.md](LOADING_AND_SHOTGUN.md).
 
 The Windows draft workflow gates packaging on source checks, library tests,
 linked compilation, runtime identity, launcher GUI self-test and packaging.

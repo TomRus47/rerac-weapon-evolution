@@ -16,7 +16,8 @@ permissions:
 
 concurrency:
   group: weapon-evolution-windows-release
-  cancel-in-progress: false
+  # Newer source supersedes an unfinished build; published releases are preserved.
+  cancel-in-progress: true
 
 jobs:
   build:

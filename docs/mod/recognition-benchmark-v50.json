@@ -1,0 +1,61 @@
+{
+  "workload": "synthetic repeated overlay recognition; not whole-planet load time",
+  "runs": [
+    {
+      "target_words": 131072,
+      "recognizers": 32,
+      "elapsed_ms": 4903.198,
+      "checksum": 83951616,
+      "mode": "baseline",
+      "trial": 1
+    },
+    {
+      "target_words": 131072,
+      "recognizers": 32,
+      "elapsed_ms": 115.333,
+      "checksum": 83951616,
+      "mode": "optimized",
+      "trial": 1
+    },
+    {
+      "target_words": 131072,
+      "recognizers": 32,
+      "elapsed_ms": 4607.266,
+      "checksum": 83951616,
+      "mode": "baseline",
+      "trial": 2
+    },
+    {
+      "target_words": 131072,
+      "recognizers": 32,
+      "elapsed_ms": 161.773,
+      "checksum": 83951616,
+      "mode": "optimized",
+      "trial": 2
+    },
+    {
+      "target_words": 131072,
+      "recognizers": 32,
+      "elapsed_ms": 6570.876,
+      "checksum": 83951616,
+      "mode": "baseline",
+      "trial": 3
+    },
+    {
+      "target_words": 131072,
+      "recognizers": 32,
+      "elapsed_ms": 112.728,
+      "checksum": 83951616,
+      "mode": "optimized",
+      "trial": 3
+    }
+  ],
+  "median_ms": {
+    "baseline": 4903.198,
+    "optimized": 115.333
+  },
+  "toolchain": "Rust 1.99.1, Linux x64, optimized release",
+  "baseline_commit": "56150afeb043b978bed0e6b38558629db3f1eef7",
+  "optimized_commit": "ab0bec3524f388b2fc853f48c9b819ae1167cab4",
+  "procedure": "Three serialized baseline/optimized pairs after local compilation completed; shared-host timing can vary. Same resolved address and checksum in every run."
+}

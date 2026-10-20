@@ -601,6 +601,10 @@ mod shotgun_tests {
             size: 1., rgba: 0x7fff_ffff, pellet: false };
         super::super::fx::create_one(&mut particles, &native, 0);
         assert_eq!(particles.pool.count as usize, crate::particles::POOL_RECORDS / 2 + 1);
+        // Exercise the actual same-frame particle update, not just allocation:
+        // a new projectile was born after the moby anchor snapshot was built.
+        particles.update_parts(&mut Rng::new());
+        assert_eq!(particles.pool.recs.iter().filter(|r| r[0] == 26 && r[1] & crate::particles::FLAG_DEAD == 0).count(), 105);
     }
 
     #[test]

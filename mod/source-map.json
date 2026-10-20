@@ -4,7 +4,7 @@
   "files": [
     {
       "path": ".github/workflows/windows-release.yml",
-      "sha256": "69f40be846bc3c6f452501663c91a6ef227c8835f657b47b6c3cdcd0b9034b40",
+      "sha256": "2474cfc63ae7fee982a1d1d5d88d932be7c5030669589712b970ba1c1ed423ee",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -336,7 +336,7 @@
     },
     {
       "path": "crates/rc-game/src/hero/ryno.rs",
-      "sha256": "2357d83337717501fe7e9eee35f213cb177c827393cc4f371c0cfd77fe7f6ea7",
+      "sha256": "8860eaeab436c09cd785da051d782ae28f4e08302e575d72152af7fbd16e64dd",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"

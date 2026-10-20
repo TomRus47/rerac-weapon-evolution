@@ -481,7 +481,14 @@ pub fn create_one(sys: &mut Particles, s: &PartSpawn, gold: u8) {
         PartSpawn::Ring46 { size, spin, pos, vel, mut rng } => { type46::spawn_on(sys, &mut rng, size, spin, pos, vel, type45::HERO_WATER_LEVEL); }
         PartSpawn::Drop35 { pos, vel, kind, life, mut rng } => { type35::spawn(sys, &mut rng, pos, vel, kind, life); }
         PartSpawn::Spark27 { size, pos, vel, rgba, life, rot } => { crate::particles::type27::spawn(sys, size, pos, vel, rgba, life, rot); }
-        PartSpawn::Glow26 { size, moby, rgba, life, at, mut rng, .. } => { crate::particles::type26::spawn(sys, &mut rng, size, moby, rgba, life, -1, at); }
+        PartSpawn::Glow26 { size, moby, rgba, life, at, mut rng, pellet } => {
+            if crate::particles::type26::spawn(sys, &mut rng, size, moby, rgba, life, -1, at).is_some() && pellet {
+                // The hero fires after the moby pass. This newborn head has
+                // no anchor in that pass's snapshot yet; keep it alive until
+                // the next moby pass takes ownership of its moving anchor.
+                sys.joint_anchors.insert((moby, -1), at);
+            }
+        }
         PartSpawn::Trail72 { moby, slot, pos, draws, size, rgba, pellet } => {
             // Preserve native Blaster effects. Optional shotgun tails may use
             // spare capacity only, leaving room for heads and world effects.

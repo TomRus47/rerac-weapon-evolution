@@ -36,7 +36,12 @@ hook now creates every shotgun head before its optional tails. Optional shotgun
 tails stop allocating above half of the shared pool; regular Blaster tails and
 all projectile movement, collision and damage are unchanged. This preserves
 headroom for subsequent heads and world effects without enlarging the global
-pool. Under extreme unrelated particle saturation, native particle allocation
+pool. A newborn head also receives its initial anchor immediately: hero firing
+runs after the moby anchor snapshot, and without that initial anchor type 26
+would delete the head on its very first particle update. The next moby pass
+owns subsequent movement/deletion normally. The pressure regression runs the
+same-frame particle update and checks that all 105 heads from three volleys
+survive, rather than checking allocation alone. Under extreme unrelated particle saturation, native particle allocation
 can still fail; this does not turn a projectile into a non-damaging shot.
 
 ## Repeated level recognition
@@ -75,6 +80,12 @@ render uploads, shader compilation or the user's frame time. Run with:
 ```sh
 cargo run --release -p rc-formats --example overlay_recognition_perf
 ```
+
+Three serialized baseline/optimized pairs on Rust 1.99.1 Linux x64 gave medians
+4,903.198 ms and 115.333 ms, with checksum 83,951,616 in every run. The baseline
+is commit 56150af, the optimized code ab0bec3. These are shared-host measurements
+with variable scheduling, not a predicted speedup for any complete game load.
+[Raw measurements](recognition-benchmark-v50.json) retain all six runs.
 
 Manual checks: hold shotgun fire through several volleys in an empty area and
 near enemies/walls; wait for every free-flight pellet to disappear; repeat with
