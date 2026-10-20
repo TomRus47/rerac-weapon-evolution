@@ -560,6 +560,7 @@ pub fn collect(w: &mut World, id: MobyId) {
         }
     }
     w.svc.counters.bolts += val;
+    w.svc.counters.ammo_mode_bolts = w.svc.counters.ammo_mode_bolts.saturating_add(val.max(0) as u64);
     if challenge != 0 || (w.svc.counters.challenge_on != 0 && id < w.table.first_dynamic) {
         w.svc.counters.challenge_bolts += val;
     }
@@ -593,6 +594,7 @@ pub fn spawn(w: &mut World, src: MobyId, pos: V4, vel: V4, flags: u32, value: i3
     };
     let Some(b) = w.create_moby(class) else {
         w.svc.counters.bolts += value;
+        w.svc.counters.ammo_mode_bolts = w.svc.counters.ammo_mode_bolts.saturating_add(value.max(0) as u64);
         return None;
     };
     let mut root = src;

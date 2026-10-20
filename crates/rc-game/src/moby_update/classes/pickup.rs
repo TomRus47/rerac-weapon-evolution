@@ -225,7 +225,12 @@ pub fn pickup_spawn(w: &mut World, pos: V4, ty: i32, amount: i32, a3: i32) -> Op
     if class <= 0 { return None; }
     let m = w.create_moby(class)?;
     w.svc.fx.pickups += 1;
-    let amt = if amount != -1 { amount } else { w.inventory.pickup_amount(ty.max(0) as usize) as i32 };
+    let amt = if amount != -1 { amount } else {
+        let native = w.inventory.pickup_amount(ty.max(0) as usize) as i32;
+        // Some disc tables omit a R.Y.N.O. pickup quantity because ordinary
+        // US ammo crates never selected it. Such a pack still contains one shot.
+        if ty == 23 { native.max(1) } else { native }
+    };
     let t16 = w.ticks(0x10);
     let hero_light = w.hero_moby.map(|h| (w.m(h).light, w.m(h).ambient));
     {
@@ -256,49 +261,47 @@ pub fn pickup_spawn(w: &mut World, pos: V4, ty: i32, amount: i32, a3: i32) -> Op
 /// `0x26bff8(m, &type)`: keeps `type` unless it is ≤ 0 or the dropper's death bit is set; else picks an owned
 /// ammo item of the vendor list, weighted to those below max (none: one with a max; nothing owned: 10). Returns
 /// the pickup count, `randi(5) ≠ 0 ? 1 : 2`.
-pub fn ammo_pick(w: &mut World, id: Option<MobyId>, ty: &mut i32) -> i32 {
-    let repick = if *ty > 0 {
-        match id {
-            None => false,
-            Some(i) => { let s = w.m(i).spawn_id; w.svc.save.death.contains(&(w.svc.level, s)) }
-        }
+/// Choose a pack independently. In the experimental mode even unowned weapons
+/// participate; ordinary play keeps the native owned/low-ammo preference and
+/// also admits the otherwise omitted R.Y.N.O. with a small relative weight.
+pub fn random_ammo_item(w: &mut World, unrestricted: bool) -> Option<i32> {
+    use crate::weapon_evo::ammo_mode;
+    let candidates: Vec<usize> = if unrestricted {
+        ammo_mode::AMMO_IDS.into_iter().filter(|&id| w.inventory.max_ammo(id) > 0).collect()
     } else {
-        true
-    };
-    if repick {
-        let list = w.inventory.ammo_list();
-        let owned = |w: &World, e: usize| w.inventory.owned(e);
-        let max = |w: &World, e: usize| w.inventory.max_ammo(e) as i32;
-        let (mut t1, mut t2, mut t3) = (0, 0, 0);
-        for &e in list.iter().take_while(|&&e| e != 0xff) {
-            let i = (e & 0x3f) as usize;
-            if !owned(w, i) { continue; }
-            t3 += 1;
-            if max(w, i) != 0 { t1 += 1; }
-            if item_ammo(w, i) < max(w, i) { t2 += 1; }
+        let mut items = Vec::new();
+        for entry in w.inventory.ammo_list().into_iter().take_while(|&id| id != 0xff) {
+            let id = (entry & 0x3f) as usize;
+            if w.inventory.owned(id) && w.inventory.max_ammo(id) > 0 && !items.contains(&id) { items.push(id); }
         }
-        let pick = |w: &mut World, n: i32, low: bool| -> i32 {
-            let mut r = w.rng.randi(n);
-            let mut s = 0usize;
-            loop {
-                let e = (list.get(s).copied().unwrap_or(0xff) & 0x3f) as usize;
-                if owned(w, e) {
-                    let hit = if low { item_ammo(w, e) < max(w, e) } else { max(w, e) != 0 };
-                    r -= hit as i32;
-                }
-                if r < 0 { break; }
-                s += 1;
-            }
-            (list.get(s).copied().unwrap_or(0) & 0x3f) as i32
-        };
-        *ty = if t2 != 0 {
-            pick(w, t2, true)
-        } else if t3 == 0 {
-            10
-        } else {
-            pick(w, t1, false)
-        };
+        if w.inventory.owned(23) && w.inventory.max_ammo(23) > 0 && !items.contains(&23) { items.push(23); }
+        let low: Vec<_> = items.iter().copied().filter(|&id| item_ammo(w,id) < w.inventory.max_ammo(id) as i32).collect();
+        if low.is_empty() { items } else { low }
+    };
+    let weight = |id| if unrestricted { ammo_mode::weapon_weight(id) } else if id == 23 { 1 } else { 20 };
+    let sum: i32 = candidates.iter().map(|&id| weight(id)).sum();
+    if sum == 0 { return None; }
+    let mut ticket = w.rng.randi(sum);
+    if unrestricted { return ammo_mode::weighted_item(&candidates, ticket).map(|id| id as i32); }
+    for id in candidates {
+        let n = weight(id);
+        if ticket < n { return Some(id as i32); }
+        ticket -= n;
     }
+    None
+}
+
+pub fn ammo_pick(w: &mut World, id: Option<MobyId>, ty: &mut i32) -> i32 {
+    if crate::weapon_evo::ammo_mode::enabled() {
+        *ty = random_ammo_item(w, true).unwrap_or(10);
+        let gold = w.svc.interact.game.gold_bolts.max(0) as u32;
+        return crate::weapon_evo::ammo_mode::pack_count(gold, w.rng.randi(4000));
+    }
+    let repick = *ty <= 0 || id.is_some_and(|i| {
+        let spawn = w.m(i).spawn_id;
+        w.svc.save.death.contains(&(w.svc.level, spawn))
+    });
+    if repick { *ty = random_ammo_item(w, false).unwrap_or(10); }
     if w.rng.randi(5) != 0 { 1 } else { 2 }
 }
 
@@ -1053,6 +1056,22 @@ const HIDDEN: u16 = mode::HIDDEN;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ryno_is_pickable_outside_the_mode_and_locked_weapons_enter_its_pool() {
+        use crate::moby_runtime::MobyTable;
+        let mut recs = vec![[0u8;0x18];N];
+        for id in crate::weapon_evo::ammo_mode::AMMO_IDS { recs[id][0xe..0x10].copy_from_slice(&50u16.to_le_bytes()); }
+        let mut hero=crate::hero::Hero::new();hero.owned.0[10]=1;hero.owned.0[23]=1;
+        let inventory=ItemTables::new(&recs,[10,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff]).with_hero(&hero);
+        let mut table=MobyTable::default();let mut rng=crate::rng::Rng::new();
+        let classes=crate::moby_update::ClassTable::default();let mut svc=crate::moby_update::Services::new();
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);w.inventory=&inventory;
+        let normal:Vec<_>=(0..2000).map(|_|random_ammo_item(&mut w,false).unwrap()).collect();
+        assert!(normal.contains(&23));assert!(normal.iter().all(|id|matches!(id,10|23)));
+        let unrestricted:std::collections::HashSet<_>=(0..10_000).map(|_|random_ammo_item(&mut w,true).unwrap()).collect();
+        for id in crate::weapon_evo::ammo_mode::AMMO_IDS { assert!(unrestricted.contains(&(id as i32))); }
+    }
 
     #[test]
     fn cubic_runs_from_b_to_c() {

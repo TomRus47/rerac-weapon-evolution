@@ -402,11 +402,16 @@ fn build_dual(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut 
         if secondary.cooldown[k] > 0 { secondary.cooldown[k] -= 1; }
     }
     std::mem::swap(&mut hero.weapons.tesla, &mut secondary);
+    // Only the primary beam owns weapon audio. The native builder also queues
+    // a lock-on sound on target acquisition; discard the secondary's additions
+    // without touching sounds already queued by the primary or other systems.
+    let primary_sounds = hero.fx.item_sounds.len();
     {
         let mut channel = BeamHits { inner: hits, secondary: true, primary: &mut primary_hits };
         build_native(hero, table, env, &mut channel, rng, true, preferred);
     }
     std::mem::swap(&mut hero.weapons.tesla, &mut secondary);
+    hero.fx.item_sounds.truncate(primary_sounds);
     hero.weapons.tesla.secondary = Some(secondary);
 }
 
@@ -1015,7 +1020,9 @@ mod tests {
         let data=ItemData::default();let pad=crate::pad::PadState::default();
         let env=ItemEnv{data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,camera:Some(([100.0,100.0,51.0],[1.0,0.0,0.0])),camera_up:None,targets:&[1,1,2,1]};
         let mut hits=DualHits::default();let mut rng=Rng::new();
+        hero.fx.item_sounds.push(DUD_SOUND);
         build_dual(&mut hero,&mut table,&env,&mut hits,&mut rng);
+        assert_eq!(hero.fx.item_sounds,[DUD_SOUND],"secondary acquisition must stay silent without clearing earlier audio");
         assert_eq!(hero.weapons.tesla.targets,[Some(1),None]);
         assert_eq!(hero.weapons.tesla.secondary.as_ref().unwrap().targets,[Some(2),None]);
         assert_eq!(hits.0,[(1,2.0),(2,2.0)]);assert_eq!(hero.weapons.ammo[19],50);
@@ -1027,6 +1034,11 @@ mod tests {
         assert_eq!(hero.weapons.tesla.targets,[Some(1),None]);
         assert_eq!(hero.weapons.tesla.secondary.as_ref().unwrap().targets,[Some(1),None]);
         assert_eq!(hits.0,[(1,2.0),(1,2.0)]);assert_eq!(hero.weapons.ammo[19],50);
+        hero.fx.item_sounds.clear();
+        hero.weapons.tesla.targets=[None;2];
+        hero.weapons.tesla.secondary.as_mut().unwrap().targets=[None;2];
+        build_dual(&mut hero,&mut table,&env,&mut hits,&mut rng);
+        assert_eq!(hero.fx.item_sounds,[LOCK_SOUND],"simultaneous acquisition queues exactly one audible lock");
     }
     #[test]
     fn v45_both_native_rays_remain_visible_when_no_enemy_can_be_locked() {

@@ -1,6 +1,6 @@
 # Weapon Evolution source map
 
-Gameplay 0.1.6.50; launcher 0.10.0. This repository contains the complete modified ReRAC 0.3.4-alpha workspace. The following 216 indexed files are mod implementations, integration points or developer tools; the rest is the supplied port source.
+Gameplay 0.1.6.51; launcher 0.11.0. This repository contains the complete modified ReRAC 0.3.4-alpha workspace. The following 232 indexed files are mod implementations, integration points or developer tools; the rest is the supplied port source.
 
 Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md) and [respawn lifecycle](docs/mod/RESPAWN_LIFECYCLE.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). Historical changes-since-supplied-snapshot.patch describes the original export boundary, not the full current update.
 
@@ -222,3 +222,19 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `tools/mod/package_release.py` | Weapon Evolution implementation or integration |
 | `tools/mod/refresh_source_map.py` | Weapon Evolution implementation or integration |
 | `tools/mod/setup_msvc.bat` | Weapon Evolution implementation or integration |
+| `CHANGELOG.md` | Weapon Evolution implementation, integration or developer documentation |
+| `README.md` | Weapon Evolution implementation, integration or developer documentation |
+| `crates/rc-game/src/hero/pda.rs` | Weapon Evolution implementation, integration or developer documentation |
+| `crates/rc-game/src/moby_update/classes/bolt.rs` | Weapon Evolution implementation, integration or developer documentation |
+| `crates/rc-game/src/moby_update/classes/item_offer.rs` | Weapon Evolution implementation, integration or developer documentation |
+| `crates/rc-game/src/moby_update/classes/units/rilgar_story.rs` | Weapon Evolution implementation, integration or developer documentation |
+| `crates/rc-game/src/moby_update/classes/vendor.rs` | Weapon Evolution implementation, integration or developer documentation |
+| `crates/rc-game/src/weapon_evo_ammo.rs` | Weapon Evolution implementation, integration or developer documentation |
+| `docs/mod/AMMO_UNLOCK_MODE.md` | Weapon Evolution implementation, integration or developer documentation |
+| `docs/mod/CONFIG_REFERENCE.md` | Weapon Evolution implementation, integration or developer documentation |
+| `docs/mod/CURRENT_IMPLEMENTATION.md` | Weapon Evolution implementation, integration or developer documentation |
+| `docs/mod/DEVELOPER_GUIDE.md` | Weapon Evolution implementation, integration or developer documentation |
+| `docs/mod/PUBLISHING.md` | Weapon Evolution implementation, integration or developer documentation |
+| `docs/mod/VERIFICATION.md` | Weapon Evolution implementation, integration or developer documentation |
+| `docs/releases/v0.3.3.md` | Weapon Evolution implementation, integration or developer documentation |
+| `launcher/tests/test_v51.py` | Weapon Evolution implementation, integration or developer documentation |

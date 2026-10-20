@@ -1,4 +1,6 @@
-# Current implementation map: gameplay v50 / launcher 0.10.0
+# Current implementation map: gameplay v51 / launcher 0.11.0
+
+See [ammo-unlock mode](AMMO_UNLOCK_MODE.md) for the v51 inventory, drop, shop and companion-save integration. All evolving weapons expose per-grade Gold appearance; the OmniWrench uses a global visual setting.
 
 Paths below are relative to `crates/rc-game/src` unless qualified. Native ports
 intentionally preserve PS2 operation order; read module comments and tests

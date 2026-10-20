@@ -1,10 +1,12 @@
-//! Weapon Evolution v0.1.6.13 for ReRAC v0.3.4-alpha.
+//! Weapon Evolution v0.1.6.51 for ReRAC v0.3.4-alpha.
 //! Per-weapon V1..V5 tracks. Active only with RC_WEAPON_EVOLUTION_INI.
 //! XP and grades are stored beside each native save; native save bytes remain unmodified.
 #[path = "weapon_evo_save.rs"]
 pub mod save;
 #[path = "weapon_evo_notice.rs"]
 pub mod notice;
+#[path = "weapon_evo_ammo.rs"]
+pub mod ammo_mode;
 #[cfg(feature = "weapon-evo-release")]
 const RELEASE_PROFILE: &str = include_str!("weapon_evo_release.ini");
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
@@ -446,6 +448,8 @@ impl PyroEvolution {
 
 #[derive(Clone, Debug)]
 pub struct Evolution {
+    pub ammo_unlock_mode: bool,
+    pub wrench_gold_texture: bool,
     pub enabled: bool,
     pub level: usize,
     pub applied_level: usize,
@@ -472,7 +476,7 @@ pub struct Evolution {
 }
 impl Default for Evolution {
     fn default() -> Self {
-        Self { enabled: false, level: 1, applied_level: 0,
+        Self { ammo_unlock_mode: false, wrench_gold_texture: false, enabled: false, level: 1, applied_level: 0,
             xp: 0.0, xp_per_damage: 1.0, real_hp: false, combat_epoch: 0, damage_hp: [[None; 5]; 37], stats: [Stats::default(); 5],
             xp_required: [6.0; 4], last_hit_xp: 0.0, pyro: PyroEvolution::default(), extras: extra_tracks(), hud: HudOptions::default(), award_once: HashSet::new(), pending_special: Default::default(), terminal_targets: HashSet::new(), state_progress: Default::default() }
     }
@@ -501,6 +505,7 @@ impl Evolution {
         if CONFIG_ACTIVE.load(Ordering::Relaxed) {
             for icon in &ICON_LEVELS { icon.store(0, Ordering::Relaxed); }
             for flag in &GOLD_TEXTURE { flag.store(-1, Ordering::Relaxed); }
+            GOLD_TEXTURE[8].store(i8::from(self.wrench_gold_texture), Ordering::Relaxed);
             if self.enabled { GOLD_TEXTURE[BOMB].store(i8::from(self.current().gold_texture), Ordering::Relaxed); }
             if self.pyro.enabled { GOLD_TEXTURE[PYRO].store(i8::from(self.pyro.current().gold_texture), Ordering::Relaxed); }
             if self.enabled { ICON_LEVELS[BOMB].store(self.level as u8, Ordering::Relaxed); }
@@ -519,6 +524,7 @@ impl Evolution {
             }
             if let Ok(mut registry) = level_values().write() {
                 registry.clear();
+                registry.insert((-1, ammo_mode::KEY.to_string()), f32::from(u8::from(self.ammo_unlock_mode)));
                 if self.real_hp {
                     registry.insert((-1, "real_hp".to_string()), 1.0);
                     for (item, hp) in self.absolute_values() {
@@ -799,7 +805,9 @@ impl Evolution {
                 return Err(format!("unsupported or unknown section [{section}] at line {}; gameplay hooks for this level are not active yet", lineno+1));
             }
             if section == "general" {
-                if key == "xp_per_damage" { evo.xp_per_damage = parse_number(val, &key)?; }
+                if key == ammo_mode::KEY { evo.ammo_unlock_mode = parse_bool(val)?; }
+                else if key == "wrench_gold_texture" { evo.wrench_gold_texture = parse_bool(val)?; }
+                else if key == "xp_per_damage" { evo.xp_per_damage = parse_number(val, &key)?; }
                 else if key == "damage_mode" { evo.real_hp = match val {
                     "real_hp" => true, "legacy" => false,
                     _ => return Err("damage_mode must be real_hp or legacy".into()),
@@ -1554,8 +1562,11 @@ pub fn profile_uses_extra(item:i32,key:&str)->bool {
     let raw=match std::env::var("RC_WEAPON_EVOLUTION_INI").ok().and_then(|p|std::fs::read_to_string(p).ok()) {
         Some(raw)=>raw,None=>return false,
     };
-    Evolution::parse(&raw).is_ok_and(|e|e.extras.iter().find(|t|t.id==item)
-        .is_some_and(|t|t.params.iter().any(|p|p.get(key).is_some_and(|&v|v!=0.0))))
+    Evolution::parse(&raw).is_ok_and(|e| {
+        if item == -1 && key == ammo_mode::KEY { return e.ammo_unlock_mode; }
+        e.extras.iter().find(|t|t.id==item)
+            .is_some_and(|t|t.params.iter().any(|p|p.get(key).is_some_and(|&v|v!=0.0)))
+    })
 }
 
 #[cfg(test)]
@@ -1645,5 +1656,30 @@ mod v48_tests {
                 assert!(Evolution::parse(&ini).is_err());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod v51_configuration_tests {
+    use super::*;
+    #[test]
+    fn gold_appearance_is_independent_for_new_weapons_and_global_mode_is_opt_in() {
+        let mut ini=String::from("[general]\nexperimental_ammo_unlock_mode=true\nwrench_gold_texture=true\n");
+        for grade in 1..=5 { ini+=&format!("[weapon.bomb_glove.level{grade}]\n"); }
+        for weapon in ["visibomb","taunter","walloper","ryno"] {
+            for grade in 1..=5 { ini+=&format!("[weapon.{weapon}.level{grade}]\ngold_texture={}\ngold_effects=false\n",grade%2==0); }
+        }
+        let evo=Evolution::parse(&ini).unwrap();
+        assert!(evo.ammo_unlock_mode && evo.wrench_gold_texture);
+        for weapon in ["visibomb","taunter","walloper","ryno"] {
+            let track=evo.extras.iter().find(|t|t.section==weapon).unwrap();
+            for grade in 0..5 {
+                assert_eq!(track.params[grade]["gold_texture"], if grade%2==1 {1.0}else{0.0});
+                assert_eq!(track.params[grade]["gold_effects"],0.0);
+            }
+        }
+        assert!(!Evolution::default().ammo_unlock_mode);
+        assert!(Evolution::parse(&ini.replace("unlock_mode=true","unlock_mode=maybe")).is_err());
+        assert!(Evolution::parse(&ini.replace("wrench_gold_texture=true","wrench_gold_texture=2")).is_err());
     }
 }

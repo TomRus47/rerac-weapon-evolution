@@ -94,6 +94,31 @@ def ensure_experimental_fields(raw):
     return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(result).encode('utf-8')
 
 
+def ensure_global_fields(raw):
+    """Append the opt-in mode after general fields without changing their values."""
+    from launcher_core import IniDocument
+    from schema import GLOBAL_EXPERIMENTAL_DEFAULTS, GLOBAL_STANDARD_DEFAULTS
+    doc = IniDocument(raw)
+    newline = '\r\n' if b'\r\n' in raw else '\n'
+    additions = [f'{key} = {value}'+newline for key, value in {**GLOBAL_STANDARD_DEFAULTS, **GLOBAL_EXPERIMENTAL_DEFAULTS}.items()
+                 if ('general', key) not in doc.entries]
+    if not additions: return raw
+    lines = list(doc.lines)
+    if 'general' not in doc.sections:
+        lines = ['[general]'+newline, *additions, newline, *lines]
+    else:
+        at = next(i for i, line in enumerate(lines) if line.strip().lower() == '[general]') + 1
+        while at < len(lines) and not lines[at].lstrip().startswith('['): at += 1
+        if at and not lines[at-1].endswith(('\n','\r')): lines[at-1] += newline
+        # Existing experimental fields stay after newly added standard fields.
+        experimental_at = next((i for i in range(at) if lines[i].lstrip().startswith(('experimental_ammo_unlock_mode', '; Experimental game mode'))), at)
+        standard = [line for line in additions if line.split('=',1)[0].strip() in GLOBAL_STANDARD_DEFAULTS]
+        extra = [line for line in additions if line not in standard]
+        lines[at:at] = [*extra, newline] if extra else []
+        lines[experimental_at:experimental_at] = standard
+    return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
+
+
 def convert(raw):
     """Keep absolute HP values; remove obsolete UI fields and the internal model flag."""
     from launcher_core import IniDocument
@@ -110,7 +135,7 @@ def convert(raw):
         if section=='weapon.wrench' or section.startswith('weapon.wrench.level'):continue
         if i not in remove:lines.append(line)
     output=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
-    return ensure_experimental_fields(ensure_stream_fields(output)),[]
+    return ensure_global_fields(ensure_experimental_fields(ensure_stream_fields(output))),[]
 
 def runtime_profile(raw):
     """Add the engine's real-HP flag only to the private session copy."""

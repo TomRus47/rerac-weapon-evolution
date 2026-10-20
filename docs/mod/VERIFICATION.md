@@ -1,4 +1,19 @@
-# Verification: gameplay 0.1.6.50 / public 0.3.2
+# Verification: gameplay 0.1.6.51 / public 0.3.3
+
+## Current v51 checks
+
+- Python launcher/release suite: **92 tests passed** locally, without failures.
+- All **1,168 existing INI values** and the custom launcher icon remain unchanged; **22 controls added**, for **1,190** total entries. The new mode defaults off.
+- New regression fixtures cover exact pack distributions at every Gold Bolt count, weapon rarity, last-ammo locking/re-unlocking with a full ring, permanent bolt thresholds, per-slot isolation, last-round guided Visibomb completion, normal R.Y.N.O. loot and independent Gold controls.
+- Save fixtures cover legacy companion migration, v2 mode-state round trips and mode/XP synchronization without resetting combat epochs.
+- Tesla dual-chain fixtures verify that secondary acquisition is silent, existing queued audio survives, and primary acquisition still sounds once.
+- Rust 1.99.1, Linux x64 release: **984 game tests passed** and **154 formats tests passed, 1 ignored**.
+- The linked Windows package record is pending while this revision is built.
+- Required in-game checks are in [AMMO_UNLOCK_MODE.md](AMMO_UNLOCK_MODE.md). No player disc data is available to validate imported models or subjective audio/render behavior here.
+
+The following v50/v49 records are historical, not claims that the new v51 binary has passed those exact checks.
+
+# Historical v50 / public 0.3.2
 
 ## Current v50 checks
 

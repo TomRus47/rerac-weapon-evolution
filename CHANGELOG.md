@@ -1,5 +1,12 @@
 ## Weapon Evolution 0.1.6.50 (public 0.3.2, launcher 0.10.0)
 
+## Weapon Evolution 0.3.3 / gameplay 0.1.6.51
+
+- Optional ammo-based weapon unlocking, independent crate packs, Gold-Bolt pack probabilities and collectible-bolt permanent unlocks.
+- Per-slot mode state with old XP companion migration; weapon/ammo shops disabled only in this mode.
+- R.Y.N.O. ammo in ordinary randomized crates, all-weapon Gold appearance and silent secondary Tesla acquisition.
+- English launcher 0.11.0 with lossless profile migration. See [release notes](docs/releases/v0.3.3.md).
+
 - Admit all 35 R.Y.N.O. shotgun pellets before charging ammunition, starting cooldown or queuing effects; retry without charge when the dynamic object table is full.
 - Prioritize shotgun heads over optional trails, preserve their first-frame anchors, and cap optional tail allocations under shared particle pressure.
 - Enforce pellet lifetime as well as range/collision expiry, including floating-point range residue, and install the experimental update independently of native per-level update entries.

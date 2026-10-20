@@ -3,17 +3,18 @@ import hashlib,json,sys,unittest
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 import launcher_core as c
 from migrate_ini import convert,runtime_profile
-from schema import LABELS,EDITOR_WEAPONS,HELP,EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS
+from schema import LABELS,EDITOR_WEAPONS,HELP,EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS,GLOBAL_STANDARD_DEFAULTS,GLOBAL_EXPERIMENTAL_DEFAULTS
 
 class ProfileTests(unittest.TestCase):
     def setUp(self):self.raw=(ROOT/'weapons.default.ini').read_bytes()
     def test_all_approved_balance_values_are_preserved_exactly(self):
         d=c.profile_document(self.raw)
         new_keys={(f'weapon.{weapon}.level{grade}',k) for catalog in [EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS] for weapon,fields in catalog.items() for grade in range(1,6) for k in fields}
+        new_keys |= {('general', k) for k in [*GLOBAL_STANDARD_DEFAULTS, *GLOBAL_EXPERIMENTAL_DEFAULTS]}
         # The supplied v48 INI is the approved v49 publication baseline.
         canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items() if (s,k) not in new_keys),ensure_ascii=True).encode()
         self.assertEqual(hashlib.sha256(canonical).hexdigest(),'caf361ea2ac07ceed29750385154ddef52a42275a74343cf29948c7786e4afc0')
-        self.assertEqual(len(d.entries),1168);self.assertEqual(len(d.sections),92)
+        self.assertEqual(len(d.entries),1190);self.assertEqual(len(d.sections),92)
         self.assertEqual(d.entries['general','xp_per_damage'],'0.12')
     def test_public_profile_has_no_damage_model_or_wrench_and_keeps_functioning_opacity(self):
         d=c.profile_document(self.raw)

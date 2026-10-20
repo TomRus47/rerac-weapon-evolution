@@ -8,8 +8,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 /// The wrench does not evolve. IDs are part of the versioned disk format.
 pub const IDS: [i32; 15] = [9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25];
-const MAGIC: &[u8; 8] = b"WEVO\0\x01\0\0";
-const SIZE: usize = 8 + 20 + 15 * 12 + 20;
+const MAGIC_V1: &[u8; 8] = b"WEVO\0\x01\0\0";
+const MAGIC: &[u8; 8] = b"WEVO\0\x02\0\0";
+const SIZE_V1: usize = 8 + 20 + 15 * 12 + 20;
+const SIZE: usize = SIZE_V1 + 56;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Track {
@@ -19,13 +21,16 @@ pub struct Track {
 impl Default for Track { fn default() -> Self { Self { level: 1, xp: 0.0 } } }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Progress { pub tracks: [Track; 15] }
+pub struct Progress {
+    pub tracks: [Track; 15],
+    pub ammo_mode: super::ammo_mode::State,
+}
 
 fn invalid(message: &str) -> io::Error { io::Error::new(io::ErrorKind::InvalidData, message) }
 
 impl Progress {
     pub fn valid(&self) -> bool {
-        self.tracks.iter().all(|t| (1..=5).contains(&t.level) && t.xp.is_finite()
+        self.ammo_mode.valid() && self.tracks.iter().all(|t| (1..=5).contains(&t.level) && t.xp.is_finite()
             && (0.0..=1_000_000.0).contains(&t.xp) && (t.level != 5 || t.xp == 0.0))
     }
 
@@ -38,20 +43,38 @@ impl Progress {
             out.extend_from_slice(&track.level.to_le_bytes());
             out.extend_from_slice(&track.xp.to_le_bytes());
         }
+        let mode = self.ammo_mode;
+        for word in [u32::from(mode.active), mode.restore_owned, mode.available, mode.next_quick] {
+            out.extend_from_slice(&word.to_le_bytes());
+        }
+        out.extend_from_slice(&mode.normal_bolts.to_le_bytes());
+        for item in mode.restore_quick { out.extend_from_slice(&item.to_le_bytes()); }
         let checksum = sha1(&out); out.extend_from_slice(&checksum);
         Ok(out)
     }
 
     pub fn decode(bytes: &[u8], native: &[u8]) -> io::Result<Self> {
-        if bytes.len() != SIZE || &bytes[..8] != MAGIC { return Err(invalid("weapon progress format/version")); }
+        let legacy = bytes.len() == SIZE_V1 && &bytes[..8] == MAGIC_V1;
+        if !legacy && (bytes.len() != SIZE || &bytes[..8] != MAGIC) { return Err(invalid("weapon progress format/version")); }
         if bytes[8..28] != sha1(native) { return Err(invalid("weapon progress belongs to another save")); }
-        if bytes[SIZE-20..] != sha1(&bytes[..SIZE-20]) { return Err(invalid("weapon progress checksum")); }
+        let end = bytes.len()-20;
+        if bytes[end..] != sha1(&bytes[..end]) { return Err(invalid("weapon progress checksum")); }
         let mut out = Self::default();
         for (i, expected) in IDS.into_iter().enumerate() {
             let at = 28 + i * 12;
             let word = |o| u32::from_le_bytes(bytes[o..o+4].try_into().unwrap());
             if word(at) as i32 != expected { return Err(invalid("weapon progress weapon ID")); }
             out.tracks[i] = Track { level: word(at+4), xp: f32::from_bits(word(at+8)) };
+        }
+        if !legacy {
+            let at = SIZE_V1-20;
+            let word = |offset| u32::from_le_bytes(bytes[offset..offset+4].try_into().unwrap());
+            if word(at) > 1 { return Err(invalid("invalid arsenal active flag")); }
+            out.ammo_mode = super::ammo_mode::State {
+                active: word(at) != 0, restore_owned: word(at+4), available: word(at+8), next_quick: word(at+12),
+                normal_bolts: u64::from_le_bytes(bytes[at+16..at+24].try_into().unwrap()),
+                restore_quick: std::array::from_fn(|i| word(at+24+i*4) as i32),
+            };
         }
         if !out.valid() { return Err(invalid("weapon progress level/XP")); }
         Ok(out)
@@ -60,13 +83,16 @@ impl Progress {
 
 impl Evolution {
     pub fn sync_progress(&mut self, state: &mut Progress) {
-        if *state != self.state_progress { self.restore_progress(state); }
+        // Arsenal updates must not reset combat epochs or overwrite live XP.
+        if state.tracks != self.state_progress.tracks { self.restore_progress(state); }
+        let ammo_mode = state.ammo_mode;
         *state = self.progress();
+        state.ammo_mode = ammo_mode;
         self.state_progress = *state;
     }
 
     pub fn progress(&self) -> Progress {
-        let mut out = Progress::default();
+        let mut out = Progress { ammo_mode: self.state_progress.ammo_mode, ..Default::default() };
         for (id, value) in IDS.into_iter().zip(&mut out.tracks) {
             let (level, xp) = match id {
                 10 => (self.level, self.xp),
@@ -124,7 +150,7 @@ pub fn load(slot: &Path, native: &[u8]) -> io::Result<Progress> {
     match std::fs::metadata(&path) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Progress::default()),
         Err(e) => return Err(e),
-        Ok(m) if m.len() != SIZE as u64 => return Err(invalid("weapon progress size")),
+        Ok(m) if m.len() != SIZE as u64 && m.len() != SIZE_V1 as u64 => return Err(invalid("weapon progress size")),
         Ok(_) => {}
     }
     Progress::decode(&std::fs::read(path)?, native)
@@ -158,6 +184,40 @@ mod tests {
         p
     }
 
+    #[test]
+    fn legacy_companions_migrate_and_arsenal_state_round_trips_per_slot() {
+        let original = sample();
+        let current = original.encode(b"native").unwrap();
+        let mut legacy = current[..SIZE_V1-20].to_vec();
+        legacy[..8].copy_from_slice(MAGIC_V1);
+        let checksum = sha1(&legacy); legacy.extend_from_slice(&checksum);
+        assert_eq!(Progress::decode(&legacy,b"native").unwrap(),original);
+        let mut mode = original;
+        mode.ammo_mode = super::super::ammo_mode::State {
+            active:true, restore_owned:1<<10, restore_quick:[10,12,0,0,0,0,0,0],
+            available:(1<<10)|(1<<14), next_quick:3, normal_bolts:50_000,
+        };
+        let bytes = mode.encode(b"native").unwrap();
+        assert_eq!(Progress::decode(&bytes,b"native").unwrap(),mode);
+        assert!(Progress::decode(&bytes,b"other slot").is_err());
+        mode.ammo_mode.next_quick=8;assert!(mode.encode(b"native").is_err());
+    }
+
+    #[test]
+    fn arsenal_changes_do_not_restore_stale_xp_or_reset_combat() {
+        let mut evolution=Evolution::default();
+        let mut progress=Progress::default();
+        evolution.restore_progress(&progress);
+        evolution.xp=4.5;
+        progress.ammo_mode.active=true;
+        progress.ammo_mode.normal_bolts=75_000;
+        let epoch=evolution.combat_epoch;
+        evolution.sync_progress(&mut progress);
+        assert_eq!(progress.tracks[IDS.iter().position(|&id|id==10).unwrap()].xp,4.5);
+        assert_eq!(progress.ammo_mode.normal_bolts,75_000);
+        assert_eq!(evolution.combat_epoch,epoch);
+    }
+
     struct Temp(PathBuf);
     impl Temp {
         fn new() -> Self {
@@ -177,7 +237,7 @@ mod tests {
         assert!(Progress::decode(&b[..SIZE-1], b"native slot").is_err());
         let mut bad = b.clone(); bad[30] ^= 1;
         assert!(Progress::decode(&bad, b"native slot").is_err());
-        let mut bad = b; bad[5] = 2;
+        let mut bad = b; bad[5] = 3;
         assert!(Progress::decode(&bad, b"native slot").is_err());
     }
 

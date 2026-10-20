@@ -1,4 +1,4 @@
-//! Import only the two Sonic Summoner classes needed by the Drone Device.
+//! Import missing ammo pickup models and the optional Sonic Summoner classes.
 //! This runs on the level loader worker; no disc reads occur during a summon.
 use anyhow::{Context, Result};
 use rc_formats::{
@@ -33,7 +33,8 @@ fn load(root: &Path) -> Result<Arc<Vec<Asset>>> {
     let gs = crate::disc_source::level_file(root, 1, "gs_ram.bin")?;
     let mut core = rc_formats::level::parse_level_core(&index, data.len())?;
     core.moby_classes
-        .retain(|c| matches!(c.o_class, 1818 | 1633));
+        .retain(|c| matches!(c.o_class, 1818 | 1633)
+            || rc_game::moby_update::classes::pickup::AMMO_CLASSES.contains(&(c.o_class as i16)));
     let mut assets = Vec::new();
     for class in moby::parse_level_mobys(&core, &data)? {
         let block = core
@@ -79,7 +80,7 @@ fn load(root: &Path) -> Result<Arc<Vec<Asset>>> {
         });
     }
     anyhow::ensure!(
-        assets.len() == 2,
+        [1818, 1633].iter().all(|id| assets.iter().any(|a| a.class.o_class == *id)),
         "both companion classes must be available in level 01"
     );
     let assets = Arc::new(assets);
@@ -88,25 +89,27 @@ fn load(root: &Path) -> Result<Arc<Vec<Asset>>> {
 }
 
 static ENABLED: OnceLock<bool> = OnceLock::new();
+static AMMO_MODE: OnceLock<bool> = OnceLock::new();
 
 pub fn install(
     root: &Path,
     mobys: &mut crate::moby_render::LevelMobys,
     textures: &mut Vec<LevelTexture>,
 ) -> Result<()> {
-    if !*ENABLED.get_or_init(|| rc_game::weapon_evo::profile_uses_extra(24, "sand_mouse_enabled")) {
-        return Ok(());
-    }
-    if [1818, 1633]
-        .iter()
-        .all(|id| mobys.classes.iter().any(|c| c.o_class == *id))
+    let companion = *ENABLED.get_or_init(|| rc_game::weapon_evo::profile_uses_extra(24, "sand_mouse_enabled"));
+    let ammo_mode = *AMMO_MODE.get_or_init(|| rc_game::weapon_evo::profile_uses_extra(-1, rc_game::weapon_evo::ammo_mode::KEY));
+    let mut requested: Vec<i32> = if ammo_mode {
+        rc_game::moby_update::classes::pickup::AMMO_CLASSES.iter().map(|&c| c as i32).collect()
+    } else { vec![1438] }; // R.Y.N.O. ammo is now eligible in ordinary play too.
+    if companion { requested.extend([1818, 1633]); }
+    if requested.iter().all(|id| mobys.classes.iter().any(|c| c.o_class == *id))
     {
         return Ok(());
     }
     let assets = load(root)?;
     for a in assets
         .iter()
-        .filter(|a| !mobys.classes.iter().any(|c| c.o_class == a.class.o_class))
+        .filter(|a| requested.contains(&a.class.o_class) && !mobys.classes.iter().any(|c| c.o_class == a.class.o_class))
         .collect::<Vec<_>>()
     {
         let mut class = a.class.clone();
@@ -138,5 +141,7 @@ pub fn install(
         mobys.classes.push(class);
         mobys.anim.push(a.anim.clone());
     }
+    anyhow::ensure!(requested.iter().all(|id| mobys.classes.iter().any(|c| c.o_class == *id)),
+        "missing ammo/companion reference class after import");
     Ok(())
 }

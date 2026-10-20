@@ -179,6 +179,7 @@ pub struct Entry {
 /// (bit 0x40) → its ammo when it has an ammo price), then the ammo of every owned item with an ammo price that is
 /// not listed yet.
 pub fn build_list(gs: &GameState, shop: &ShopTable, remote: bool) -> Vec<Entry> {
+    if crate::weapon_evo::ammo_mode::enabled() { return Vec::new(); }
     let g = &gs.global;
     let n = g.vendor.iter().position(|&b| b == 0xff).unwrap_or(g.vendor.len());
     let mut out: Vec<Entry> = Vec::new();
@@ -631,6 +632,7 @@ impl Vendor {
     /// The buy flow 0x2af7e8.
     #[allow(clippy::too_many_arguments)]
     fn buy_flow(&mut self, inp: &MenuInput, gs: &mut GameState, items: &ItemTables, session: &mut SessionState, assets: &MenuAssets, rng: &mut Rng, out: &mut VendorOut) {
+        if crate::weapon_evo::ammo_mode::enabled() { self.buy = 0; return; }
         let Some(e) = self.current() else {
             self.buy = 0;
             return;

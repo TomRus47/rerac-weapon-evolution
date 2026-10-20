@@ -1,6 +1,6 @@
 # Developer guide
 
-This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.50 gameplay implementation and v0.10.0 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
+This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.51 gameplay implementation and v0.11.0 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
 
 ## 1. Start here
 
@@ -237,3 +237,7 @@ Read [CURRENT_IMPLEMENTATION.md](CURRENT_IMPLEMENTATION.md) for the per-weapon i
 Refresh reviewed source hashes with `python tools/mod/refresh_source_map.py`; pass `--add path/to/new_module.rs` to index a new integration file. Stage new source files before running the export checker.
 
 Source-map hashes use Git LF normalization for BAT files so Windows CRLF checkout does not change integrity results. Other source bytes and binary icons are hashed exactly.
+
+## v51 ammunition-based arsenal
+
+Start with [AMMO_UNLOCK_MODE.md](AMMO_UNLOCK_MODE.md) for ownership reconciliation, per-slot state, independent pack drops, shop gates and the ordinary R.Y.N.O. ammo fix. Native save chunks are unchanged; the mod companion has backward-compatible v1 reading and writes version 2. Keep mode changes independent of the XP synchronization/combat epoch.

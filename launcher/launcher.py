@@ -375,9 +375,12 @@ class Launcher:
         if not getattr(self, 'doc', None):
             self.ttk.Label(self.form, text='Load a valid weapons.ini to get started.', padding=20).pack(); return
         if self.page == 'global':
-            for section, label in [('general', 'Global experience'), ('hud', 'XP bar and HUD')]:
+            for section, label in [('general', 'General settings'), ('hud', 'XP bar and HUD')]:
                 card = self.card(self.form, label); card.pack(fill='x', padx=5, pady=6)
-                self.fields(card, section, self.doc.keys(section))
+                self.fields(card, section, [k for k in self.doc.keys(section) if k != 'experimental_ammo_unlock_mode'])
+            experimental = self.card(self.form, 'Experimental game mode')
+            experimental.pack(fill='x', padx=5, pady=6)
+            self.fields(experimental, 'general', ['experimental_ammo_unlock_mode'])
         else:
             section = f'weapon.{self.page}'
             profile = self.card(self.form, 'XP progression', '#597c9f'); profile.pack(fill='x', padx=5, pady=6)

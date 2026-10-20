@@ -91,4 +91,7 @@ jobs:
             echo "Release already exists; it was preserved. Download this run's artifact to review the new build."
             exit 0
           fi
+          source_name="ReRAC_Weapon_Evolution_${tag#v}_source"
+          git archive --format=zip --prefix="$source_name/" -o "release-assets/$source_name.zip" "$GITHUB_SHA"
+          (cd release-assets && sha256sum "$source_name.zip" > "$source_name.zip.sha256")
           gh release create "$tag" release-assets/* --draft --target "$GITHUB_SHA" --title "$title" --notes-file "$notes"

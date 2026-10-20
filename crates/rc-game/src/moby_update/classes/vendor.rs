@@ -70,6 +70,13 @@ fn child(w: &World, id: MobyId) -> Option<MobyId> {
 
 /// The vendor update (0x2bb128).
 pub fn update(w: &mut World, id: MobyId) {
+    if crate::weapon_evo::ammo_mode::enabled() {
+        if w.m(id).pvars.len() >= CHILD+4 {
+            if let Some(c) = child(w, id) { w.delete_moby(c); }
+        }
+        w.delete_moby(id);
+        return;
+    }
     if w.m(id).pvars.len() < PVAR_SIZE { w.mm(id).pvars.resize(PVAR_SIZE, 0); }
     // The glow.
     let g = &mut w.svc.interact.vendor;

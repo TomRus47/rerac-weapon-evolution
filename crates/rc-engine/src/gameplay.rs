@@ -934,6 +934,7 @@ fn class_table(lv: &crate::level_load::LoadedLevel, ext: &dyn Fn(i16) -> Option<
         let update=match oc {
             1818=>Some(rc_game::moby_update::classes::mouse::MOUSE_FN),
             1633=>Some(rc_game::moby_update::classes::mouse::SHOT_FN),
+            c if rc_game::moby_update::classes::pickup::AMMO_CLASSES.contains(&c) => Some(rc_game::moby_update::classes::pickup::AMMO_UPDATE_FN),
             _=>level_ports().update_fn(oc).or_else(||ext(oc)),
         };
         let mut info = scheduler::class_info(&c.class, slot as u8, update);
@@ -2337,6 +2338,10 @@ fn tick(
     // The moby collision the hero and the camera query (and Ratchet's MobyBuildMatrix, the camera's crate hit).
     let mut world = HeroWorld { world: SharedServices { svc: &svc_cell, classes: classes_arc.clone() }, water: HeroWater(&svc_cell) };
     let mut hooks = TickHooks { mobys: &mut mobys, particles: &mut parts, world: Some(&mut world) };
+    // Reconcile experimental ownership before quick-select and hero mirrors read it.
+    if let (Some(gs), Some(sess)) = (state.as_deref_mut(), session.as_deref_mut()) {
+        rc_game::weapon_evo::ammo_mode::reconcile_with_guidance(&mut gs.0, &mut sess.0, svc_cell.borrow().bomb_evo.ammo_unlock_mode, 0, p.game.hero.weapons.visibomb.missile.is_some());
+    }
     // The hand-swap globals in from the saved game / session (the quick-select ring writes the request).
     p.game.item_globals = item_globals(state.as_deref().map(|s| &s.0), session.as_deref().map(|s| &s.0));
     // The item table 0x13d4c0 (the hero's owned mirror) and the back slot's globals: the saved back item 0x14166c
@@ -2582,6 +2587,11 @@ fn tick(
             let lb = c.level_bolts[level_index as usize % 20];
             if l.bolts != lb { l.bolts = lb; }
         }
+    }
+    // All accepted pickups, ammo use and story grants have now been written back.
+    let collected = std::mem::take(&mut p.svc.counters.ammo_mode_bolts);
+    if let (Some(gs), Some(sess)) = (state.as_deref_mut(), session.as_deref_mut()) {
+        rc_game::weapon_evo::ammo_mode::reconcile_with_guidance(&mut gs.0, &mut sess.0, p.svc.bomb_evo.ammo_unlock_mode, collected, p.game.hero.weapons.visibomb.missile.is_some());
     }
     if let Some(o) = occl.as_deref_mut() { drive_statics(p, lv, o, anim.as_deref_mut()); }
 

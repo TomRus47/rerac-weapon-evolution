@@ -49,6 +49,7 @@ fn owned(w: &World, k: i32) -> bool {
 
 /// `ItemOfferUpdate` (0x2e1ac0).
 pub fn update(w: &mut World, id: MobyId) {
+    if crate::weapon_evo::ammo_mode::enabled() { w.delete_moby(id); return; }
     let k = if w.m(id).pvars.len() >= 0x44 { p::i32(&w.m(id).pvars, 0x40) } else { -1 };
     if k != -1 && k & 1 == 0 && w.svc.counters.times_completed == 0 {
         w.delete_moby(id);

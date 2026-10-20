@@ -22,6 +22,7 @@ pub const PDA: i32 = 0x20;
 
 /// `HeroPdaGadget` case 0x20.
 pub fn fire(h: &mut Hero, c: &mut Ctx) {
+    if crate::weapon_evo::ammo_mode::enabled() { return; }
     if !(h.group < 3 || h.group == 4 || h.group == 5) { return; }
     if c.env.pad.pressed_within(h.items.slot.fire_mask, ticks(8)).is_none() { return; }
     // `OpenVendorMenu(0)`'s hero part: `SetState(100, 1)`, 0x1413f5 = 1, 0x1413fc = 1 (Ratchet hidden: the engine's

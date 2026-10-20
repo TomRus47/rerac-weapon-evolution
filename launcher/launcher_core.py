@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.10.0'
+VERSION = '0.11.0'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -96,7 +96,7 @@ class IniDocument:
         return (b'\xef\xbb\xbf' if self.bom else b'') + ''.join(lines).encode('utf-8')
 
 def allowed_keys(section):
-    if section == 'general': return {'xp_per_damage', 'damage_mode'}
+    if section == 'general': return {'xp_per_damage', 'damage_mode', 'experimental_ammo_unlock_mode', 'wrench_gold_texture'}
     if section == 'hud': return HUD
     if section.startswith('weapon.') and section[7:] in WEAPONS:
         return {'id', *XP, *(NAMES-{'name'})}
@@ -319,7 +319,7 @@ def probe_exe(exe, required_config=0):
     if str(version['version']).endswith('-fixed'):
         raise ValueError('This fixed-profile build ignores external configurations. Build the editable v45 game and select its runtime/rerac.exe.')
     if required_config and version.get('weapon_evolution_config', 0) < required_config:
-        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v48 runtime/rerac.exe included with this mod.')
+        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v51 runtime/rerac.exe included with this mod.')
     if not (exe.parent/'assets/shaders').is_dir():
         raise ValueError('Missing assets/shaders beside rerac.exe. Select the complete mod runtime.')
     return version
@@ -354,6 +354,7 @@ class LaunchSession:
 def required_config(doc):
     from schema import EXPERIMENTAL_DEFAULTS, STANDARD_DEFAULTS
     keys = {k for fields in [*EXPERIMENTAL_DEFAULTS.values(), *STANDARD_DEFAULTS.values()] for k in fields}
+    if ('general', 'experimental_ammo_unlock_mode') in doc.entries: return 51
     if any(k == 'drone_count' for _, k in doc.entries): return 48
     if any(k in {'shotgun_horizontal_spread_degrees','shotgun_vertical_spread_degrees'} for _,k in doc.entries): return 46
     return 45 if any(k in keys for _, k in doc.entries) else 38

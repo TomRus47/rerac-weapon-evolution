@@ -847,7 +847,10 @@ pub fn drop_bolts(w: &mut World, id: MobyId) {
     };
     let count = pickup::ammo_pick(w, Some(id), &mut ty);
     let pos = pv(w.m(id).position);
-    for _ in 0..count {
+    for pack in 0..count {
+        if pack != 0 && crate::weapon_evo::ammo_mode::enabled() {
+            ty = pickup::random_ammo_item(w, true).unwrap_or(10);
+        }
         let Some(mm) = pickup::pickup_spawn(w, pos, ty, -1, 0) else { break };
         let c4 = p::i16(&w.m(id).pvars, 0xc4);
         p::set_i16(&mut w.mm(mm).pvars, 4, c4);

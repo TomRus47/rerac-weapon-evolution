@@ -763,6 +763,9 @@ pub struct SaveBits {
 /// Game-state words the ported classes read or add to (owned here until the game-state port takes them).
 #[derive(Clone, Debug, Default)]
 pub struct GameCounters {
+    /// Normal bolts actually collected this tick (not wallet changes or Gold Bolts).
+    /// Drained into the per-slot experimental arsenal counter by the engine.
+    pub ammo_mode_bolts: u64,
     /// `0x15ed98`: the bolt count.
     pub bolts: i32,
     /// `0x13df38[level]`: bolts collected per planet.

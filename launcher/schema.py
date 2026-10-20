@@ -1,4 +1,4 @@
-"""Field vocabulary from the local Weapon Evolution parser (v0.1.6.48)."""
+"""Field vocabulary from the local Weapon Evolution parser (v0.1.6.51)."""
 WEAPONS = {
     'wrench': (8, 'OmniWrench'), 'suck_cannon': (9, 'Suck Cannon'),
     'bomb_glove': (10, 'Bomb Glove'), 'devastator': (11, 'Devastator'),
@@ -77,6 +77,22 @@ EXPERIMENTAL_DEFAULTS = {
         'suck_ammo_crates': 'true', 'suck_nanotech_crates': 'true'},
     'tesla_claw': {'dual_beam_enabled': 'false'},
 }
+
+# Gold appearance is independent of native Gold mechanics, including weapons
+# which had no purchasable Gold variant in the original game.
+for weapon in ('visibomb', 'taunter', 'walloper', 'ryno'):
+    STANDARD_DEFAULTS.setdefault(weapon, {}).setdefault('gold_texture', 'false')
+GLOBAL_STANDARD_DEFAULTS = {'wrench_gold_texture': 'false'}
+BOOLEANS.update(GLOBAL_STANDARD_DEFAULTS)
+LABELS['wrench_gold_texture'] = 'OmniWrench Gold texture'
+HELP['wrench_gold_texture'] = 'Gold appearance for the OmniWrench metal surface, without changing its damage or introducing weapon grades.'
+GLOBAL_EXPERIMENTAL_DEFAULTS = {'experimental_ammo_unlock_mode': 'false'}
+BOOLEANS.update(GLOBAL_EXPERIMENTAL_DEFAULTS)
+LABELS['experimental_ammo_unlock_mode'] = 'Experimental ammo-unlock mode: on/off'
+HELP['experimental_ammo_unlock_mode'] = ('Unlock ammo weapons while ammo remains; each unlock inserts the quick-select icon. '
+    'No weapon/ammo shops. Ammo crates drop 1-4 independent packs, including unowned weapons; Gold Bolts improve pack count. '
+    'Taunter unlocks at 25,000 collected normal bolts, Suck Cannon at 50,000, Morph-o-Ray at 75,000. '
+    'Walloper is available immediately. State is saved per slot. Disabling restores native ownership.')
 
 # v45 additions remain in the same grade, with experiments at the footer.
 STANDARD_DEFAULTS.setdefault('ryno', {}).update({'homing_strength_multiplier': '1', 'missile_max_range': '0', 'explosion_damage_radius': '0', 'explosion_visual_size_multiplier': '1'})

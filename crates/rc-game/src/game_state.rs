@@ -505,6 +505,11 @@ impl GameState {
 
     /// `GiveItem` L01 0x275760 (help sound not modelled).
     pub fn give_item(&mut self, id: usize, equip: bool, items: &ItemTables, session: &mut SessionState) {
+        self.weapon_progress.ammo_mode.record_native_grant(id);
+        if self.weapon_progress.ammo_mode.active && crate::weapon_evo::ammo_mode::is_weapon(id) {
+            self.global.acquired[id] = 1;
+            return;
+        }
         let g = &mut self.global;
         g.acquired[id] = 1;
         if g.owned[id] != 0 { return; }
