@@ -1,5 +1,5 @@
 {
-  "gameplay_version": "0.1.6.49",
+  "gameplay_version": "0.1.6.50",
   "launcher_version": "0.10.0",
   "files": [
     {
@@ -25,7 +25,7 @@
     },
     {
       "path": "crates/rc-engine/src/disc_source.rs",
-      "sha256": "69d6aab5eec8233489ee065106ca7c9b02f8da3d913b1eabcb1b7e6aeadead5d",
+      "sha256": "474705f0ab324fc548914408a4f3b32d3743210e16ab69a13f271ca57d99edf6",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -33,7 +33,7 @@
     },
     {
       "path": "crates/rc-engine/src/gameplay.rs",
-      "sha256": "979925fc21ce6a0088a9e8bcc22faac6957ca8f4d813bd1b32c8fca8daa21759",
+      "sha256": "a5d54e48bd7a2f0f77bb798cdc32626f75014fa3d17c2511740234a9a48ac3d9",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -73,14 +73,14 @@
     },
     {
       "path": "crates/rc-engine/src/menu_models.rs",
-      "sha256": "89d8333360423f986f713b46efd02feea10cb8281dbe2a538796159cbd7a7614",
+      "sha256": "e5f3068dbd30e3cf766f2df490c1eba51b19e602c9dd2012d465091f5dbc266f",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "crates/rc-engine/src/menu_render.rs",
-      "sha256": "32c2be6a67a87d2b86c2d355ae668d1266b6a8590c4d645e4969a48bc9a7c4be",
+      "sha256": "0b5a77f3e69419c977dd8591629fbc5cb068cb79250e6a3294d668310b1f4393",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -128,11 +128,25 @@
       ]
     },
     {
+      "path": "crates/rc-formats/examples/overlay_recognition_perf.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "1f20c9e91b0c2030c64c20076e264905ad851f97765a37b653df4c303a5be120"
+    },
+    {
       "path": "crates/rc-formats/src/gadget.rs",
       "sha256": "a9a728f0a54a83d4fcf8a6d50ff6197ae4145c4f3863160a8a78a38a648dbbaa",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
+    },
+    {
+      "path": "crates/rc-formats/src/level_overlay.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "acb88b5d15038ae27f331e8cf8ba0ad07ad550f6ece80dc66b99c48c2e85e37a"
     },
     {
       "path": "crates/rc-formats/src/moby.rs",
@@ -322,7 +336,7 @@
     },
     {
       "path": "crates/rc-game/src/hero/ryno.rs",
-      "sha256": "be65a1723531cb49989e0fcd6329f10de70cdf15d29b728c2ed4cb5ce8fbc826",
+      "sha256": "2357d83337717501fe7e9eee35f213cb177c827393cc4f371c0cfd77fe7f6ea7",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -416,10 +430,17 @@
     },
     {
       "path": "crates/rc-game/src/menus/mod.rs",
-      "sha256": "efbe059f2fe107c7c737624b1ae705334244192a95adcd9223e6ec5ddeb71598",
+      "sha256": "859adea879c6a2dbf63b1525438fe4fe7bbde7920cfc2b11d96d88046ef4e097",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
+    },
+    {
+      "path": "crates/rc-game/src/menus/overlay_tests.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "cd0d4226a9cfb332b396c9ecc65c0478fc4597847745016dee47715d8a17d6ce"
     },
     {
       "path": "crates/rc-game/src/menus/pause.rs",
@@ -480,7 +501,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/blaster_shot.rs",
-      "sha256": "2e085ec558e41e50740b9bde47b461fd888a9cd9794a23b77761a7c7c3756005",
+      "sha256": "1d5271144f0f02a1718bef7932a555e109a5c10a4dee28a5042e0cb8c66f5101",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -1397,7 +1418,7 @@
     },
     {
       "path": "launcher/editabile.py",
-      "sha256": "2ce3d109033c275c402a661c9cc15d7b5ea299e760fba7ecc1767651435c9d44",
+      "sha256": "1369d0ba22430397d72ce349211049ad5b0a9de4dbcd68ee8e862c23b40bf272",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -1537,7 +1558,7 @@
     },
     {
       "path": "tools/mod/check_source.py",
-      "sha256": "f29c1b8fae756dad95ca18dc427768016227aaff9f2c1459fe481c6951215285",
+      "sha256": "4bb5489d5dfca57f846f72b940ec052708af942fe3212e619bd71df54532e22f",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]

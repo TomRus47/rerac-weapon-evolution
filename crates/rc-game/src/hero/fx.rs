@@ -67,10 +67,10 @@ pub enum PartSpawn {
     Spark27 { size: f32, pos: [f32; 4], vel: [f32; 4], rgba: u32, life: i32, rot: u8 },
     /// `PartType26Spawn(size, moby, rgba, life, −1)` 0x282b00: a glow riding a moby the hero code created (the Blaster
     /// shot), at `at`; `rng` = the stream at the spawner's `rand()` (made at the call).
-    Glow26 { size: f32, moby: usize, rgba: u32, life: i32, at: [f32; 3], rng: Rng },
+    Glow26 { size: f32, moby: usize, rgba: u32, life: i32, at: [f32; 3], rng: Rng, pellet: bool },
     /// Spawner 0x28a3f0 of type 72 for moby `moby`'s pointer slot `slot` (the Blaster shot's trail; the record is
     /// linked in `Particles::links`), with the spawner's draws and the shot's size / colour writes after it.
-    Trail72 { moby: usize, slot: u8, pos: [f32; 4], draws: crate::particles::type72::Draws, size: f32, rgba: u32 },
+    Trail72 { moby: usize, slot: u8, pos: [f32; 4], draws: crate::particles::type72::Draws, size: f32, rgba: u32, pellet: bool },
     /// `PartType23Spawn(jitter, lo, hi, size, pos, spin, vel, rgba)` 0x282060 then the caller's patch (the Blaster
     /// shot's impact smoke `0x2e2a18`: timer `life`, phase 2 fading from `alpha`, ALPHA 0x44 when `normal`); `rng` = the
     /// stream at the spawner's first draw (its five draws were made at the call).
@@ -456,7 +456,11 @@ pub fn create_particles(h: &Hero, sys: &mut Particles) {
     sys.hero_plat = crate::hero::physics::to_f32x3(h.plat_applied);
     // 0x13f5e0, the gravity direction type 78 homes around.
     sys.gravity = crate::hero::physics::to_f32x3(h.gravity_dir);
-    for s in &h.fx.parts { create_one(sys, s, gold); }
+    // A shotgun volley must not spend the shared pool on the first row's
+    // decorative trail before the last row gets its visible projectile head.
+    let priority = |s: &PartSpawn| matches!(s, PartSpawn::Glow26 { pellet: true, .. });
+    for s in h.fx.parts.iter().filter(|s| priority(s)) { create_one(sys, s, gold); }
+    for s in h.fx.parts.iter().filter(|s| !priority(s)) { create_one(sys, s, gold); }
 }
 
 /// One queued spawn's record(s) (the hero's hook, and the moby updates that describe their spawns the same way: the
@@ -477,8 +481,11 @@ pub fn create_one(sys: &mut Particles, s: &PartSpawn, gold: u8) {
         PartSpawn::Ring46 { size, spin, pos, vel, mut rng } => { type46::spawn_on(sys, &mut rng, size, spin, pos, vel, type45::HERO_WATER_LEVEL); }
         PartSpawn::Drop35 { pos, vel, kind, life, mut rng } => { type35::spawn(sys, &mut rng, pos, vel, kind, life); }
         PartSpawn::Spark27 { size, pos, vel, rgba, life, rot } => { crate::particles::type27::spawn(sys, size, pos, vel, rgba, life, rot); }
-        PartSpawn::Glow26 { size, moby, rgba, life, at, mut rng } => { crate::particles::type26::spawn(sys, &mut rng, size, moby, rgba, life, -1, at); }
-        PartSpawn::Trail72 { moby, slot, pos, draws, size, rgba } => {
+        PartSpawn::Glow26 { size, moby, rgba, life, at, mut rng, .. } => { crate::particles::type26::spawn(sys, &mut rng, size, moby, rgba, life, -1, at); }
+        PartSpawn::Trail72 { moby, slot, pos, draws, size, rgba, pellet } => {
+            // Preserve native Blaster effects. Optional shotgun tails may use
+            // spare capacity only, leaving room for heads and world effects.
+            if pellet && sys.pool.count as usize >= crate::particles::POOL_RECORDS / 2 { return; }
             if let Some(i) = crate::particles::type72::spawn(sys, pos, &draws) {
                 let r = &mut sys.pool.recs[i];
                 crate::particles::rec::set_ff(r, 0xc, size);

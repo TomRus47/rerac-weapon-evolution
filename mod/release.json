@@ -1,10 +1,10 @@
 {
-  "tag": "v0.3.1",
-  "title": "Weapon Evolution 0.3.1 — ReRAC 0.3.4-alpha",
-  "patch": "0.1.6.49",
+  "tag": "v0.3.2",
+  "title": "Weapon Evolution 0.3.2 — ReRAC 0.3.4-alpha",
+  "patch": "0.1.6.50",
   "config_capability": 48,
   "launcher": "0.10.0",
-  "notes": "docs/releases/v0.3.1.md",
-  "asset": "ReRAC_Weapon_Evolution_0.3.1_windows_x64",
-  "build_revision": 3
+  "notes": "docs/releases/v0.3.2.md",
+  "asset": "ReRAC_Weapon_Evolution_0.3.2_windows_x64",
+  "build_revision": 1
 }

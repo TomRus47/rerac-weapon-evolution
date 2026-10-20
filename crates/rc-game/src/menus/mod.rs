@@ -21,6 +21,10 @@ use crate::ps2v::Pf;
 use rc_formats::font::{measure_text_width, parse_overlay_sections, read_overlay, Font, OverlaySection};
 use rc_formats::strings::{self, Message};
 
+#[cfg(test)]
+#[path = "overlay_tests.rs"]
+mod overlay_tests;
+
 /// The level overlay as the EE sees it (loaded sections; `.bss` reads as absent), with the level-01 → this level
 /// address map of the menu data (docs/plan/level_generalisation.md M1–M7).
 ///
@@ -33,7 +37,7 @@ use rc_formats::strings::{self, Message};
 /// and an overlay made by [`Overlay::parse`], map every address to itself.
 #[derive(Clone, Debug, Default)]
 pub struct Overlay {
-    sections: Vec<OverlaySection>,
+    sections: std::sync::Arc<Vec<OverlaySection>>,
     /// Label → this level's address (data).
     at: std::collections::HashMap<u32, u32>,
     /// This level's callback address → its label.
@@ -43,16 +47,22 @@ pub struct Overlay {
 impl Overlay {
     /// From the raw overlay lump (`LevelFiles::overlay`, `levels/NN/overlay.bin`), addresses as they are (level 01).
     pub fn parse(bytes: &[u8]) -> rc_formats::buf::Result<Overlay> { Ok(Overlay::from_sections(parse_overlay_sections(bytes)?)) }
-    pub fn from_sections(sections: Vec<OverlaySection>) -> Overlay { Overlay { sections, ..Default::default() } }
+    pub fn from_sections(sections: Vec<OverlaySection>) -> Overlay { Overlay { sections: std::sync::Arc::new(sections), ..Default::default() } }
 
     /// This level's overlay `bytes` with its address map against the level-01 overlay `reference` (type doc).
     pub fn relocated(bytes: &[u8], reference: &[u8]) -> rc_formats::buf::Result<Overlay> {
-        use rc_formats::level_overlay::{LevelOverlay, Relocation};
-        let mut ov = Overlay::parse(bytes)?;
+        use rc_formats::level_overlay::LevelOverlay;
         let (target, refo) = (LevelOverlay::parse(bytes)?, LevelOverlay::parse(reference)?);
-        let rel = Relocation::new(&refo, &target);
-        if rel.is_identity() { return Ok(ov); }
-        let reference_ov = Overlay::parse(reference)?;
+        Ok(Self::relocated_parsed(&target, &refo))
+    }
+
+    /// Reuse the loader's immutable parsed overlays instead of reparsing the
+    /// same code for the map, menus, preview lights and cheat tables.
+    pub fn relocated_parsed(target: &rc_formats::level_overlay::LevelOverlay, reference: &rc_formats::level_overlay::LevelOverlay) -> Overlay {
+        let mut ov = Overlay { sections: target.sections.clone(), ..Default::default() };
+        let rel = rc_formats::level_overlay::Relocation::new(reference, target);
+        if rel.is_identity() { return ov; }
+        let reference_ov = Overlay { sections: reference.sections.clone(), ..Default::default() };
         for &a in DATA_LABELS.iter().chain(vendor::layout::DATA_LABELS) {
             if let Some(b) = rel.data(a) { ov.at.insert(a, b); }
         }
@@ -60,7 +70,7 @@ impl Overlay {
         let (records, callbacks) = pause::correlate(&reference_ov, &ov, &roots);
         ov.at.extend(records);
         ov.label = callbacks;
-        Ok(ov)
+        ov
     }
 
     /// This level's address of the level-01 address `label` (itself when unmapped).

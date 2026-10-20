@@ -135,7 +135,7 @@ pub fn trail_curve(t: f32) -> f32 {
 /// hero's particle spawns), or — muzzle behind a face — its sparks and smoke and no shot.
 #[allow(clippy::too_many_arguments)]
 pub fn spawn(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::MobyTable, env: &crate::hero::items::ItemEnv, hits: &mut dyn crate::hero::items::HitSink, rng: &mut crate::rng::Rng, aim: (f32, f32), rot: (f32, f32), muzzle: [f32; 3], owner_pos: [f32; 3], target: Option<MobyId>, gold: i32) -> Option<MobyId> {
-    spawn_impl(hero, table, env, hits, rng, aim, rot, muzzle, owner_pos, target, gold, None)
+    spawn_impl(hero, table, env, hits, rng, aim, rot, muzzle, owner_pos, target, gold, None, None)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -150,18 +150,18 @@ pub fn is_ryno_pellet(m: &crate::moby_runtime::Moby) -> bool {
     m.o_class == CLASS && m.pvars.len() >= PELLET_LEN && p::u32(&m.pvars, 0x80) == RYNO_TAG
 }
 
-pub fn spawn_ryno(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::MobyTable,
+pub(crate) fn spawn_ryno(id: MobyId, hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::MobyTable,
     env: &crate::hero::items::ItemEnv, hits: &mut dyn crate::hero::items::HitSink, rng: &mut crate::rng::Rng,
     aim: (f32, f32), muzzle: [f32; 3], pellet: RynoPellet) -> Option<MobyId> {
     let owner = crate::hero::physics::to_f32x3(hero.pos);
-    spawn_impl(hero, table, env, hits, rng, aim, aim, muzzle, owner, None, 0, Some(pellet))
+    spawn_impl(hero, table, env, hits, rng, aim, aim, muzzle, owner, None, 0, Some(pellet), Some(id))
 }
 
 #[allow(clippy::too_many_arguments)]
 fn spawn_impl(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::MobyTable, env: &crate::hero::items::ItemEnv,
     hits: &mut dyn crate::hero::items::HitSink, rng: &mut crate::rng::Rng, aim: (f32,f32), rot: (f32,f32),
-    muzzle: [f32;3], owner_pos: [f32;3], target: Option<MobyId>, gold: i32, pellet: Option<RynoPellet>) -> Option<MobyId> {
-    let id = hits.create_moby(table, CLASS, env.frame as u64)?;
+    muzzle: [f32;3], owner_pos: [f32;3], target: Option<MobyId>, gold: i32, pellet: Option<RynoPellet>, reserved: Option<MobyId>) -> Option<MobyId> {
+    let id = match reserved { Some(id) => id, None => hits.create_moby(table, CLASS, env.frame as u64)? };
     let (light, ambient) = table.mobys.get(env.hero_moby).map_or((0, [0x40; 4]), |h| (h.light, h.ambient));
     let tp = target.and_then(|t| table.mobys.get(t)).map(crate::targeting::aim_point);
     let life = pellet.map_or_else(|| crate::targeting::reach::blaster(gold).0, |p| (p.range / p.speed * 60.0).ceil() as i32 + 1);
@@ -194,6 +194,10 @@ fn spawn_impl(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::Mob
             p::set_ff(&mut m.pvars, 0x88, pellet.range);
             p::set_ff(&mut m.pvars, 0x8c, pellet.hp);
             m.scale *= pellet.size;
+            // This port owns pellet movement even if the native class table
+            // has no update entry for Blaster shots on this planet.
+            m.update_fn = Some(UPDATE_FN);
+            m.mode &= !crate::moby_runtime::mode::NO_UPDATE;
             m.update_dist = 0xff;
             m.draw_dist = 0xff;
         }
@@ -209,14 +213,14 @@ fn spawn_impl(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::Mob
         None => {
             let glow_rng = *rng;
             let _ = rng.rand();
-            hero.fx.parts.push(PartSpawn::Glow26 { size: GLOW_SIZE * size_k, moby: id, rgba: colors.projectile(0x2f4f_7f7f), life, at: muzzle, rng: glow_rng });
+            hero.fx.parts.push(PartSpawn::Glow26 { size: GLOW_SIZE * size_k, moby: id, rgba: colors.projectile(0x2f4f_7f7f), life, at: muzzle, rng: glow_rng, pellet: pellet.is_some() });
             for i in 0..TRAIL {
                 let draws = crate::particles::type72::Draws::draw(rng);
                 let mut size = rng.randf(TRAIL_LO, TRAIL_HI);
                 let f = trail_curve(i as f32 / 16.0);
                 size += (TRAIL_END - size) * f;
                 let a = (f * -64.0 + 128.0) as i32 as u32;
-                hero.fx.parts.push(PartSpawn::Trail72 { moby: id, slot: i as u8, pos: at(muzzle), draws, size: size * size_k, rgba: colors.trail(a << 24 | 0xff_ffff) });
+                hero.fx.parts.push(PartSpawn::Trail72 { moby: id, slot: i as u8, pos: at(muzzle), draws, size: size * size_k, rgba: colors.trail(a << 24 | 0xff_ffff), pellet: pellet.is_some() });
             }
             Some(id)
         }
@@ -616,8 +620,51 @@ fn update_ryno(w: &mut World, id: MobyId) {
     p::set_ff(&mut w.mm(id).pvars, 0x88, (left - len3(step)).max(0.0));
     let life = p::i16(&w.m(id).pvars, pv::LIFE).saturating_sub(1);
     p::set_i16(&mut w.mm(id).pvars, pv::LIFE, life);
-    if hit.is_some() || left <= len3(step) || !crate::moby_update::creature::projectile::in_world(w.m(id).position) {
+    if life <= 0 || hit.is_some() || left <= len3(step) || !crate::moby_update::creature::projectile::in_world(w.m(id).position) {
         end(w, id, hit.is_some());
         w.delete_moby(id);
     } else { trail(w, id, old); }
+}
+
+
+#[cfg(test)]
+mod ryno_lifetime_tests {
+    use super::*;
+    use crate::moby_runtime::{Moby, MobyTable};
+    use crate::moby_update::services::{ClassTable, Services};
+
+    #[test]
+    fn stationary_range_residue_expires_and_releases_dynamic_slot() {
+        let mut table = MobyTable::new(Vec::new(), 1);
+        let id = table.create(CLASS, None, 0).unwrap();
+        let shot = &mut table.mobys[id];
+        shot.position = [410., 410., 100., 1.]; shot.pvars.resize(PELLET_LEN, 0);
+        p::set_u32(&mut shot.pvars, 0x80, RYNO_TAG);
+        p::set_ff(&mut shot.pvars, 0x84, 40.);
+        // Length calculation underflows although the residual is positive.
+        p::set_ff(&mut shot.pvars, 0x88, f32::MIN_POSITIVE);
+        p::set_i16(&mut shot.pvars, pv::LIFE0, 2);
+        p::set_i16(&mut shot.pvars, pv::LIFE, 2);
+        let hero = crate::hero::Hero::new();
+        let classes = ClassTable::default(); let mut services = Services::new(); let mut rng = crate::rng::Rng::new();
+        update_ryno(&mut World::new(&mut table, &hero, &mut rng, &classes, &mut services, 10), id);
+        assert!(!table.mobys[id].is_deleted());
+        assert_eq!(table.mobys[id].position[..3], [410., 410., 100.]);
+        update_ryno(&mut World::new(&mut table, &hero, &mut rng, &classes, &mut services, 11), id);
+        assert!(table.mobys[id].is_deleted());
+        assert_eq!(table.available_dynamic_slots(12), 0);
+        assert_eq!(table.available_dynamic_slots(13), 1);
+    }
+
+    #[test]
+    fn ordinary_range_endpoint_deletes_without_waiting_for_lifetime() {
+        let mut shot = Moby::zeroed(); shot.o_class = CLASS; shot.position = [410., 410., 100., 1.];
+        shot.pvars.resize(PELLET_LEN, 0); p::set_u32(&mut shot.pvars, 0x80, RYNO_TAG);
+        p::set_ff(&mut shot.pvars, 0x84, 60.); p::set_ff(&mut shot.pvars, 0x88, 0.5);
+        p::set_i16(&mut shot.pvars, pv::LIFE, 90);
+        let mut table = MobyTable::new(vec![shot], 0); let hero = crate::hero::Hero::new();
+        let classes = ClassTable::default(); let mut services = Services::new(); let mut rng = crate::rng::Rng::new();
+        update_ryno(&mut World::new(&mut table, &hero, &mut rng, &classes, &mut services, 0), 0);
+        assert!(table.mobys[0].is_deleted());
+    }
 }

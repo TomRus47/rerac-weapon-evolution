@@ -10,7 +10,7 @@ saves, personal settings or build folders as source commits.
 Use Rust 1.99.1 (MSVC), Visual Studio C++/Windows SDK and x64 Python with Tk.
 Run `01_BUILD_GAME.bat` in an x64 developer prompt. The game is built from this
 checkout and staged with shaders in `launcher/runtime/`.
-Verify `launcher/runtime/rerac.exe --version-json`: patch 0.1.6.49, capability 48,
+Verify `launcher/runtime/rerac.exe --version-json`: patch 0.1.6.50, capability 48,
 audio diagnostics false, and an editable version without the `-fixed` suffix.
 
 Run the gameplay cases in [VERIFICATION.md](VERIFICATION.md), especially repeated
@@ -50,13 +50,13 @@ release automatically.
 
 ## Versioning and source downloads
 
-Public tag v0.3.1 follows the existing public v0.3 release. It identifies the mod,
+Public tag v0.3.2 follows the previous 0.3-series packages. It identifies the mod,
 not a new ReRAC version: compatibility remains ReRAC 0.3.4-alpha. Gameplay patch
-0.1.6.49, launcher 0.10.0 and profile capability 48 have separate purposes.
+0.1.6.50, launcher 0.10.0 and profile capability 48 have separate purposes.
 Update `mod/release.json`, runtime identity and documented checks deliberately.
 For a future profile feature also update capability negotiation and all grades.
 
-Use [docs/releases/v0.3.1.md](../releases/v0.3.1.md) as the release body. Attach
+Use [docs/releases/v0.3.2.md](../releases/v0.3.2.md) as the release body. Attach
 the player ZIP, its SHA256 and identity report as assets. GitHub automatically
 adds Source code ZIP/tar downloads for the tag; those contain the full source
 and no EXEs. A separate upload of the same source archive is unnecessary.

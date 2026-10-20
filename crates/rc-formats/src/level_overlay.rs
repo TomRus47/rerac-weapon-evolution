@@ -27,6 +27,10 @@
 
 use crate::font::{parse_overlay_sections, read_overlay, OverlaySection};
 use std::collections::{BTreeSet, HashMap};
+use std::sync::{Arc, Mutex};
+
+type CodeIndex = HashMap<[u32; 4], Vec<u32>>;
+type AddressSites = HashMap<u32, Vec<(u32, usize)>>;
 
 /// Index of `lvl.vtbl` in the overlay's section list (the same on all 19 levels).
 pub const VTBL_SECTION: usize = 3;
@@ -64,10 +68,15 @@ pub struct CamVtblEntry {
 /// A parsed level overlay.
 #[derive(Clone, Debug)]
 pub struct LevelOverlay {
-    pub sections: Vec<OverlaySection>,
+    pub sections: Arc<Vec<OverlaySection>>,
     text_start: u32,
     text: Vec<u32>,
     starts: BTreeSet<u32>,
+    /// Recognition data depends only on the private immutable text, not on a
+    /// particular reference/target pair. Share it across all recognizers and
+    /// initialized overlay clones, and build it only when actually requested.
+    code_index: Arc<Mutex<Option<Arc<CodeIndex>>>>,
+    address_sites: Arc<Mutex<Option<Arc<AddressSites>>>>,
 }
 
 const fn op(w: u32) -> u32 { w >> 26 }
@@ -193,7 +202,7 @@ impl LevelOverlay {
             .get(TEXT_SECTION)
             .map(|s| (s.dest, s.data.as_chunks::<4>().0.iter().map(|c| u32::from_le_bytes(*c)).collect()))
             .unwrap_or_default();
-        let mut ov = LevelOverlay { sections, text_start, text, starts: BTreeSet::new() };
+        let mut ov = LevelOverlay { sections: Arc::new(sections), text_start, text, starts: BTreeSet::new(), code_index: Default::default(), address_sites: Default::default() };
         let end = ov.text_end();
         let mut starts: BTreeSet<u32> = ov
             .text
@@ -219,6 +228,35 @@ impl LevelOverlay {
     pub fn u32(&self, addr: u32) -> Option<u32> { self.read(addr, 4).map(|b| u32::from_le_bytes(b.try_into().unwrap())) }
 
     fn text_end(&self) -> u32 { self.text_start + 4 * self.text.len() as u32 }
+
+    fn code_index(&self) -> Arc<CodeIndex> {
+        self.code_index.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(|| {
+            let mut index = HashMap::<_, Vec<_>>::new();
+            for p in 0..self.text.len().saturating_sub(3) {
+                index.entry(key(&self.text[p..p + 4])).or_default().push(self.text_start + 4 * p as u32);
+            }
+            Arc::new(index)
+        }).clone()
+    }
+
+    fn address_sites(&self) -> Arc<AddressSites> {
+        self.address_sites.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(|| {
+            let mut sites = HashMap::<_, Vec<_>>::new();
+            for &f in &self.starts {
+                let Some(code) = self.extent(f).and_then(|n| self.code(f, n)) else { continue };
+                for (offset, address) in address_refs(code) { sites.entry(address).or_default().push((f, offset)); }
+            }
+            Arc::new(sites)
+        }).clone()
+    }
+
+    /// Release temporary recognition maps after loader preparation. Parsed
+    /// overlays and resolved tables stay valid; in-flight readers retain their
+    /// Arc leases. A later recognizer can rebuild the same maps lazily.
+    pub fn clear_recognition_cache(&self) {
+        self.code_index.lock().unwrap_or_else(|e| e.into_inner()).take();
+        self.address_sites.lock().unwrap_or_else(|e| e.into_inner()).take();
+    }
 
     /// `words` code words at `addr` of `.text`.
     pub fn code(&self, addr: u32, words: usize) -> Option<&[u32]> {
@@ -273,24 +311,13 @@ pub struct Relocation<'a> {
     reference: &'a LevelOverlay,
     target: &'a LevelOverlay,
     identity: bool,
-    /// Target `.text` positions by the masked key of their first 4 words.
-    index: HashMap<[u32; 4], Vec<u32>>,
-    /// Reference data address → the (function start, word offset) that form it (built on the first
-    /// [`Relocation::data`]).
-    xrefs: std::cell::OnceCell<HashMap<u32, Vec<(u32, usize)>>>,
 }
 
 impl<'a> Relocation<'a> {
     /// Identity when the target is the reference itself (same bytes).
     pub fn new(reference: &'a LevelOverlay, target: &'a LevelOverlay) -> Relocation<'a> {
         let identity = reference.text_start == target.text_start && reference.text == target.text && reference.sections == target.sections;
-        let mut r = Relocation { reference, target, identity, index: HashMap::new(), xrefs: std::cell::OnceCell::new() };
-        if identity { return r; }
-        let t = &target.text;
-        for p in 0..t.len().saturating_sub(3) {
-            r.index.entry(key(&t[p..p + 4])).or_default().push(target.text_start + 4 * p as u32);
-        }
-        r
+        Relocation { reference, target, identity }
     }
 
     /// Whether the target is the reference overlay itself.
@@ -313,7 +340,8 @@ impl<'a> Relocation<'a> {
     pub fn copies(&self, ref_fn: u32) -> Vec<u32> {
         if self.identity { return self.reference.code(ref_fn, 1).map(|_| vec![ref_fn]).unwrap_or_default(); }
         let Some(m) = self.ref_masked(ref_fn).filter(|m| m.len() >= 4) else { return Vec::new() };
-        let Some(cands) = self.index.get(&[m[0], m[1], m[2], m[3]]) else { return Vec::new() };
+        let index = self.target.code_index();
+        let Some(cands) = index.get(&[m[0], m[1], m[2], m[3]]) else { return Vec::new() };
         cands.iter().copied().filter(|&c| self.target.code(c, m.len()).is_some_and(|w| mask(w) == m)).collect()
     }
 
@@ -330,15 +358,8 @@ impl<'a> Relocation<'a> {
     /// function forms it with `lui`/`%lo`, or none of those functions has a copy in the target.
     pub fn data(&self, ref_addr: u32) -> Option<u32> {
         if self.identity { return Some(ref_addr); }
-        let xrefs = self.xrefs.get_or_init(|| {
-            let mut x: HashMap<u32, Vec<(u32, usize)>> = HashMap::new();
-            for &f in &self.reference.starts {
-                let Some(code) = self.reference.extent(f).and_then(|n| self.reference.code(f, n)) else { continue };
-                for (off, a) in address_refs(code) { x.entry(a).or_default().push((f, off)); }
-            }
-            x
-        });
-        let sites = xrefs.get(&ref_addr)?;
+        let address_sites = self.reference.address_sites();
+        let sites = address_sites.get(&ref_addr)?;
         for &(f, off) in sites {
             let Some(g) = self.func(f) else { continue };
             let n = self.reference.extent(f)?;
@@ -351,7 +372,8 @@ impl<'a> Relocation<'a> {
             let n = (off + 16).min(self.reference.extent(f)?);
             let m = mask(self.reference.code(f, n)?);
             if m.len() < 4 { continue; }
-            let Some(cands) = self.index.get(&[m[0], m[1], m[2], m[3]]) else { continue };
+            let index = self.target.code_index();
+            let Some(cands) = index.get(&[m[0], m[1], m[2], m[3]]) else { continue };
             let hits: Vec<u32> = cands.iter().copied().filter(|&c| self.target.code(c, n).is_some_and(|w| mask(w) == m)).collect();
             if let [g] = hits.as_slice() {
                 if let Some(&(_, a)) = address_refs(self.target.code(*g, n)?).iter().find(|(o, _)| *o == off) { return Some(a); }
@@ -364,6 +386,76 @@ impl<'a> Relocation<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn overlay(start: u32, text: &[u32]) -> LevelOverlay {
+        let mut sections = vec![OverlaySection { dest: 0, kind: 1, entry: 0, data: Vec::new() }; TEXT_SECTION + 1];
+        sections[TEXT_SECTION].dest = start;
+        sections[TEXT_SECTION].data = text.iter().flat_map(|w| w.to_le_bytes()).collect();
+        LevelOverlay::from_sections(sections)
+    }
+
+    const BODY: [u32; 8] = [0x27bd_fff0, 0xafbf_0000, 0x2402_1234, 0x2443_5678,
+                             0x03e0_0008, 0x27bd_0010, 0x0c09_0000, 0];
+
+    #[test]
+    fn shared_recognition_preserves_all_copies_and_ambiguity() {
+        let reference = overlay(0x24_0000, &BODY);
+        let code: Vec<_> = [BODY.as_slice(), &[0; 8], BODY.as_slice()].concat();
+        let target = overlay(0x28_0000, &code);
+        let masked = mask(reference.code(0x24_0000, reference.extent(0x24_0000).unwrap()).unwrap());
+        let expected: Vec<_> = code.windows(masked.len()).enumerate()
+            .filter(|(_, words)| mask(words) == masked)
+            .map(|(i, _)| 0x28_0000 + 4 * i as u32).collect();
+        assert_eq!(expected.len(), 2);
+        for _ in 0..3 {
+            let relocation = Relocation::new(&reference, &target);
+            assert_eq!(relocation.copies(0x24_0000), expected);
+            assert_eq!(relocation.func(0x24_0000), None);
+        }
+        let other = overlay(0x2c_0000, &code);
+        assert_eq!(Relocation::new(&reference, &other).copies(0x24_0000),
+                   expected.iter().map(|a| a + 0x4_0000).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn recognition_is_lazy_and_initialized_clones_share_the_index() {
+        let reference = overlay(0x24_0000, &BODY);
+        let target = overlay(0x28_0000, &BODY);
+        let relocation = Relocation::new(&reference, &target);
+        assert!(target.code_index.lock().unwrap().is_none());
+        assert!(relocation.same_code(0x24_0000, 0x28_0000));
+        assert!(target.code_index.lock().unwrap().is_none());
+        assert_eq!(relocation.func(0x24_0000), Some(0x28_0000));
+        let cloned = target.clone();
+        assert!(Arc::ptr_eq(&target.code_index(), &cloned.code_index()));
+        assert!(reference.address_sites.lock().unwrap().is_none());
+        assert_eq!(relocation.data(0x1234), None);
+        let cloned_reference = reference.clone();
+        assert!(Arc::ptr_eq(&reference.address_sites(), &cloned_reference.address_sites()));
+        assert!(Relocation::new(&reference, &reference).is_identity());
+        let lease = target.code_index();
+        let weak = Arc::downgrade(&lease);
+        target.clear_recognition_cache();
+        assert!(cloned.code_index.lock().unwrap().is_none());
+        assert!(weak.upgrade().is_some());
+        drop(lease);
+        assert!(weak.upgrade().is_none());
+        assert_eq!(relocation.func(0x24_0000), Some(0x28_0000));
+        reference.clear_recognition_cache();
+        assert!(reference.address_sites.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn loader_and_consumers_can_share_recognition_across_threads() {
+        let reference = overlay(0x24_0000, &BODY);
+        let target = overlay(0x28_0000, &BODY);
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                scope.spawn(|| assert_eq!(Relocation::new(&reference, &target).func(0x24_0000), Some(0x28_0000)));
+            }
+        });
+        assert!(target.code_index.lock().unwrap().is_some());
+    }
 
     #[test]
     fn masking_follows_lui_through_moves_and_keeps_constants() {

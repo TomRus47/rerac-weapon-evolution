@@ -296,6 +296,12 @@ impl MobyTable {
 
     fn reusable(m: &Moby, counter: u64) -> bool { m.state >= state::DELETED && m.delete_tick <= counter }
 
+    /// Current capacity using the allocator's actual reuse rule. Unlike the
+    /// native bookkeeping count, this works before the tick's free-slot pass.
+    pub fn available_dynamic_slots(&self, counter: u64) -> usize {
+        self.mobys[self.first_dynamic..].iter().filter(|m| Self::reusable(m, counter)).count()
+    }
+
     /// `CreateMoby__Fi` (0x263390): the first reusable dynamic slot at tick `counter` (`0x15f5cc`),
     /// initialised by [`Moby::init_instance`] with a zeroed 0x80-byte pvar block. `None` when full.
     pub fn create(&mut self, o_class: i16, class: Option<&ClassInfo>, counter: u64) -> Option<MobyId> {

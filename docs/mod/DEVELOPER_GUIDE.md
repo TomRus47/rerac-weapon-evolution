@@ -1,6 +1,6 @@
 # Developer guide
 
-This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.49 gameplay implementation and v0.10.0 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
+This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.50 gameplay implementation and v0.10.0 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
 
 ## 1. Start here
 
@@ -188,7 +188,7 @@ Launcher sessions are stored in ignored `launcher/runs/`: inspect `session.json`
 |---|---|---|
 | ReRAC workspace version | Base runtime/crate version | Root `Cargo.toml`, currently 0.3.4 |
 | Compatible ReRAC runtime | Runtime release targeted by Weapon Evolution | 0.3.4-alpha, using the modded game executable supplied with the mod or built from this checkout |
-| Weapon Evolution version/tag | Mod source/release identity | Repository docs and Git tags, patch 0.1.6.49 / public release 0.3.1 |
+| Weapon Evolution version/tag | Mod source/release identity | Repository docs and Git tags, patch 0.1.6.50 / public release 0.3.2 |
 | Launcher version | Frozen launcher identity and cache/self-test | `launcher_core.VERSION`, currently 0.10.0 |
 | Runtime configuration capability | Reject unsupported INI/runtime combinations | `disc_source::version_json`, currently 48 |
 | Source helper runtime requirement | Ensure staged game is new enough | `editabile.editable_version`, currently minimum 48 |

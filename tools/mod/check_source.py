@@ -46,7 +46,7 @@ def check():
     cap=(ROOT/'crates/rc-engine/src/disc_source.rs').read_text()
     if '"weapon_evolution_config":48' not in cap:raise ValueError('Missing configuration capability 48.')
     if not (ROOT/'launcher/launcher.ico').is_file():raise ValueError('Missing supplied launcher icon.')
-    if '"weapon_evolution_patch":"0.1.6.49"' not in cap:raise ValueError('Missing v49 runtime identity.')
+    if '"weapon_evolution_patch":"0.1.6.50"' not in cap:raise ValueError('Missing v50 runtime identity.')
     local=['target/release/rerac.exe','extracted/toc.bin','launcher/runtime/rerac.exe',
         'launcher/launcher-settings.json','launcher/weapons.ini','launcher/presets/Personal.ini',
         'launcher/runs/session/weapons.ini','launcher/.launcher-tools/venv/python.exe',

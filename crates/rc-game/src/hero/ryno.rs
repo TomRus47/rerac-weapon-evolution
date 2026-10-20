@@ -352,6 +352,12 @@ mod tests {
 /// Experimental modes take complete ownership of firing: neither falls through
 /// to the native seven-missile salvo. Only one ammo clock is advanced.
 fn experimental_fire(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng) {
+    experimental_fire_mode(hero, table, env, hits, rng,
+        crate::weapon_evo::extra_flag(RYNO, "shotgun_enabled", false));
+}
+
+fn experimental_fire_mode(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv,
+    hits: &mut dyn HitSink, rng: &mut Rng, shotgun: bool) {
     hero.items.slot.swap = 0;
     if let Some(item) = &mut hero.items.slot.item { item.mstate = 2; }
     let ready = guns::dec16(&mut hero.weapons.ryno.shot_timer);
@@ -364,7 +370,17 @@ fn experimental_fire(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits
         super::weapons::put_away(hero);
         return;
     }
-    if !ready || !hero.weapons.use_ammo(RYNO, 1) { return; }
+    if !ready { return; }
+    // Admit a whole volley before charging ammo or queuing any effects. Slot
+    // exhaustion must never silently remove the last rows of a 7 x 5 grid.
+    let reserved = if shotgun {
+        let Some(ids) = reserve_shotgun(table, env, hits) else { return };
+        Some(ids)
+    } else { None };
+    if !hero.weapons.use_ammo(RYNO, 1) {
+        if let Some(ids) = reserved { for id in ids { hits.delete_moby(table, id, env.frame as u64); } }
+        return;
+    }
     hero.weapons.pending_draw = true;
     hero.weapons.ryno.shot_timer = ticks(crate::weapon_evo::extra(RYNO, "fire_interval_ticks", 9.0).round().max(1.0) as i32) as i16;
     let fwd = match (super::combat_strafe::active(hero) || hero.state == 0x1e, env.camera) {
@@ -373,7 +389,7 @@ fn experimental_fire(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits
     };
     let yaw = atan(fwd[0], fwd[1]);
     let pitch = -atan(fwd[0].hypot(fwd[1]), fwd[2]);
-    if crate::weapon_evo::extra_flag(RYNO, "shotgun_enabled", false) {
+    if let Some(reserved) = reserved {
         use crate::moby_update::classes::blaster_shot::{spawn_ryno, RynoPellet};
         let value = |key, default| crate::weapon_evo::extra(RYNO, key, default);
         let profile = RynoPellet { hp: value("shotgun_damage_hp", 100.0), speed: value("shotgun_speed", 40.0),
@@ -402,7 +418,7 @@ fn experimental_fire(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits
                 let muzzle=add3(centre,add3(scale3(right,half[0]*cell[0]),scale3(up,half[1]*cell[1])));
                 let dir=shotgun_direction(forward,right,up,cell,horizontal,vertical);
                 let aim=(atan(dir[0],dir[1]),-atan(dir[0].hypot(dir[1]),dir[2]));
-                spawn_ryno(hero,table,env,hits,rng,aim,muzzle,profile);
+                spawn_ryno(reserved[row * 7 + column],hero,table,env,hits,rng,aim,muzzle,profile);
             }
         }
         let at = guns::item_point(hero, env, 4);
@@ -415,6 +431,24 @@ fn experimental_fire(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits
         let (height, target) = (hero.weapons.ryno.aim_height, hero.weapons.ryno.target);
         crate::moby_update::classes::ryno_missile::spawn(hero, table, env, hits, rng, height, yaw, pitch, muzzle, target);
     }
+}
+
+/// Reservation has no muzzle probes, particles or ammo side effects. The
+/// preflight prevents churning nearly-full tables; rollback also covers a hit
+/// sink that rejects allocation despite available native slots.
+fn reserve_shotgun(table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink) -> Option<[MobyId; 35]> {
+    if table.available_dynamic_slots(env.frame as u64) < 35 { return None; }
+    let mut ids = [0; 35];
+    for n in 0..ids.len() {
+        match hits.create_moby(table, crate::moby_update::classes::blaster_shot::CLASS, env.frame as u64) {
+            Some(id) => ids[n] = id,
+            None => {
+                for &id in &ids[..n] { hits.delete_moby(table, id, env.frame as u64); }
+                return None;
+            }
+        }
+    }
+    Some(ids)
 }
 
 /// Symmetric 7-column / 5-row coordinates. The exact centre has no spread.
@@ -435,6 +469,7 @@ fn shotgun_direction(forward:[f32;3],right:[f32;3],up:[f32;3],cell:[f32;2],horiz
 #[cfg(test)]
 mod shotgun_tests {
     use super::*;
+    use crate::ps2v::Pf;
     fn firing_pose() -> Hero {
         use super::super::items::HandItem;
         let class = rc_formats::moby_anim::MobyAnimClass {
@@ -495,6 +530,95 @@ mod shotgun_tests {
             assert!(hero.weapons.pending_idle);
             assert_eq!(hero.weapons.ryno.shot_timer, 11);
         }
+    }
+
+    #[derive(Default)]
+    struct Allocator { calls: usize, fail_at: Option<usize> }
+    impl HitSink for Allocator {
+        fn sphere(&mut self, _: &mut MobyTable, _: Pf, _: [Pf; 4], _: u32,
+            _: Option<MobyId>, _: &crate::moby_update::services::HitTemplate) -> Option<MobyId> { None }
+        fn line(&mut self, _: &mut MobyTable, _: [Pf; 4], _: [Pf; 4], _: u32,
+            _: Option<MobyId>, _: &crate::moby_update::services::HitTemplate) -> Option<Option<MobyId>> { None }
+        fn create_moby(&mut self, table: &mut MobyTable, class: i16, tick: u64) -> Option<MobyId> {
+            let n = self.calls; self.calls += 1;
+            if self.fail_at == Some(n) { return None; }
+            // Missing native update entry is intentional: experimental pellets
+            // must install their own update and clear NO_UPDATE.
+            table.create(class, Some(&crate::moby_runtime::ClassInfo { scale: 1.0, ..Default::default() }), tick)
+        }
+    }
+
+    fn shotgun_tick(hero: &mut Hero, table: &mut MobyTable, allocator: &mut Allocator, frame: i32) {
+        let data = super::super::items::ItemData::default();
+        let mut pad = crate::pad::PadState::default(); pad.held = crate::pad::button::CIRCLE;
+        let env = ItemEnv { data: &data, pad: &pad, frame, hero_moby: 0,
+            coll: None, camera: Some(([0.; 3], [1., 0., 0.])), camera_up: Some([0., 0., 1.]), targets: &[] };
+        hero.state = 0x1e;
+        hero.items.slot.item.as_mut().unwrap().position = [410., 410., 100.];
+        experimental_fire_mode(hero, table, &env, allocator, &mut Rng::new(), true);
+    }
+
+    #[test]
+    fn full_volley_is_admitted_before_ammo_and_all_slots_keep_updating() {
+        for capacity in [0, 34, 35, 70] {
+            let mut hero = firing_pose(); hero.weapons.ryno.shot_timer = 0;
+            let mut table = MobyTable::new(vec![crate::moby_runtime::Moby::zeroed()], capacity);
+            let mut allocator = Allocator::default();
+            shotgun_tick(&mut hero, &mut table, &mut allocator, 10);
+            let expected = if capacity < 35 { 0 } else { 35 };
+            let live: Vec<_> = table.mobys.iter().filter(|m| crate::moby_update::classes::blaster_shot::is_ryno_pellet(m) && !m.is_deleted()).collect();
+            assert_eq!(live.len(), expected);
+            assert_eq!(allocator.calls, expected);
+            assert_eq!(hero.weapons.ammo[RYNO as usize], if expected == 0 { 10 } else { 9 });
+            assert_eq!(hero.weapons.pending_draw, expected != 0);
+            assert_eq!(hero.fx.item_voices.len(), usize::from(expected != 0));
+            for pellet in live {
+                assert_eq!(pellet.update_fn, Some(crate::moby_update::classes::blaster_shot::UPDATE_FN));
+                assert_eq!(pellet.mode & crate::moby_runtime::mode::NO_UPDATE, 0);
+                assert!(crate::moby_update::scheduler::is_active(pellet, [Pf::f(9000.); 4]));
+            }
+        }
+    }
+
+    #[test]
+    fn every_pellet_gets_a_head_before_optional_trails_under_particle_pressure() {
+        let mut hero = firing_pose(); hero.weapons.ryno.shot_timer = 0;
+        let mut table = MobyTable::new(vec![crate::moby_runtime::Moby::zeroed()], 105);
+        let mut allocator = Allocator::default();
+        for frame in 10..13 {
+            hero.weapons.ryno.shot_timer = 0;
+            shotgun_tick(&mut hero, &mut table, &mut allocator, frame);
+        }
+        let mut particles = crate::particles::Particles::new(None, Vec::new());
+        for _ in 0..700 { particles.create_part(1).unwrap(); }
+        super::super::fx::create_particles(&hero, &mut particles);
+        let heads = particles.pool.recs.iter().filter(|r| r[0] == 26 && r[1] & crate::particles::FLAG_DEAD == 0).count();
+        assert_eq!(heads, 105, "all rows remain visible before spending room on tails");
+        assert_eq!(particles.pool.count as usize, crate::particles::POOL_RECORDS / 2);
+        // The soft budget applies only to the shotgun's optional tails.
+        let native = super::super::fx::PartSpawn::Trail72 { moby: 999, slot: 0,
+            pos: [0.; 4], draws: crate::particles::type72::Draws::draw(&mut Rng::new()),
+            size: 1., rgba: 0x7fff_ffff, pellet: false };
+        super::super::fx::create_one(&mut particles, &native, 0);
+        assert_eq!(particles.pool.count as usize, crate::particles::POOL_RECORDS / 2 + 1);
+    }
+
+    #[test]
+    fn failed_reservation_rolls_back_without_charge_or_partial_effects() {
+        let mut hero = firing_pose(); hero.weapons.ryno.shot_timer = 0;
+        let mut table = MobyTable::new(vec![crate::moby_runtime::Moby::zeroed()], 35);
+        let mut allocator = Allocator { fail_at: Some(17), ..Default::default() };
+        shotgun_tick(&mut hero, &mut table, &mut allocator, 10);
+        assert_eq!(hero.weapons.ammo[RYNO as usize], 10);
+        assert!(hero.fx.parts.is_empty()); assert!(hero.fx.item_voices.is_empty());
+        assert_eq!(table.available_dynamic_slots(10), 18);
+        assert_eq!(table.available_dynamic_slots(12), 35);
+        allocator.fail_at = None;
+        shotgun_tick(&mut hero, &mut table, &mut allocator, 11);
+        assert_eq!(hero.weapons.ammo[RYNO as usize], 10);
+        shotgun_tick(&mut hero, &mut table, &mut allocator, 12);
+        assert_eq!(hero.weapons.ammo[RYNO as usize], 9);
+        assert_eq!(table.available_dynamic_slots(12), 0);
     }
 
     #[test]

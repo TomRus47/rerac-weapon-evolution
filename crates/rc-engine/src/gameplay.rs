@@ -653,10 +653,11 @@ pub fn level_ports() -> &'static rc_game::moby_update::classes::LevelPorts {
 
 /// Overlays are immutable within a running game (one data root). Reuse parsed
 /// reference overlays across the class, camera and reaction recognizers.
+static PARSED_OVERLAYS: crate::level_load::PerLevel<Option<std::sync::Arc<rc_formats::level_overlay::LevelOverlay>>> =
+    [const { std::sync::OnceLock::new() }; 20];
+
 fn parsed_overlay(root: &std::path::Path, index: u32) -> Option<std::sync::Arc<rc_formats::level_overlay::LevelOverlay>> {
-    static OVERLAYS: crate::level_load::PerLevel<Option<std::sync::Arc<rc_formats::level_overlay::LevelOverlay>>> =
-        [const { std::sync::OnceLock::new() }; 20];
-    OVERLAYS[index.min(19) as usize].get_or_init(|| {
+    PARSED_OVERLAYS[index.min(19) as usize].get_or_init(|| {
         let bytes = crate::disc_source::level_file(root, index, "overlay.bin").ok()?;
         rc_formats::level_overlay::LevelOverlay::parse(&bytes).ok().map(std::sync::Arc::new)
     }).clone()
@@ -678,12 +679,41 @@ pub(crate) fn level_ports_for(root: &std::path::Path, index: u32) -> &'static rc
 /// Pure table recognition belongs to the worker, before the transition reports
 /// ready. It changes no world, active-level global, save, game RNG or audio state.
 pub(crate) fn prepare_level_tables(root: &std::path::Path, index: u32) {
-    if !enabled() { return; }
     let start = std::time::Instant::now();
-    let _ = level_ports_for(root, index);
-    let _ = camera_ports_for(root, index);
-    let _ = level_reactions_for(root, index);
+    if enabled() {
+        let _ = level_ports_for(root, index);
+        let _ = camera_ports_for(root, index);
+        let _ = level_reactions_for(root, index);
+    }
+    let _ = menu_overlay_for(root, index);
+    // Pause-map callbacks are labeled with the reference level's records.
+    let _ = menu_overlay_for(root, 1);
+    // Recognition maps can be much larger than their final tables. Do not
+    // retain one full instruction index for every visited planet.
+    for overlay in PARSED_OVERLAYS.iter().filter_map(|cell| cell.get().and_then(Option::as_ref)) {
+        overlay.clear_recognition_cache();
+    }
     println!("gameplay tables: level {index:02} prepared in background ({:.1} ms)", start.elapsed().as_secs_f64()*1e3);
+}
+
+/// One immutable menu/map address map per destination level. Previously four
+/// first-frame systems reparsed and relocated it independently on the main
+/// thread, after the worker had already reported the planet ready.
+pub(crate) fn menu_overlay_for(root: &std::path::Path, index: u32) -> Option<&'static rc_game::menus::Overlay> {
+    static MENUS: crate::level_load::PerLevel<Option<rc_game::menus::Overlay>> =
+        [const { std::sync::OnceLock::new() }; 20];
+    MENUS[index.min(19) as usize].get_or_init(|| {
+        if let (Some(target), Some(reference)) = (parsed_overlay(root, index), parsed_overlay(root, 1)) {
+            return Some(rc_game::menus::Overlay::relocated_parsed(&target, &reference));
+        }
+        // Preserve the previous raw-reader fallback when the reference is
+        // missing, and its parse failure when a present overlay is invalid.
+        let bytes = crate::disc_source::level_file(root, index, "overlay.bin").ok()?;
+        match crate::disc_source::level_file(root, 1, "overlay.bin") {
+            Ok(reference) => rc_game::menus::Overlay::relocated(&bytes, &reference).ok(),
+            Err(_) => rc_game::menus::Overlay::parse(&bytes).ok(),
+        }
+    }).as_ref()
 }
 
 /// The help system's part of the tick (rc_game::help): the hero's help calls and record writes (the Pyrocitor, the
@@ -756,13 +786,8 @@ fn help_frame(p: &mut Play, report: &rc_game::tick::TickReport, other_frame: boo
 /// level 01's); twelve empty patterns when the overlay cannot be read (no cheat matches).
 fn cheat_patterns() -> Vec<Vec<u8>> {
     let (root, index) = (crate::level_load::extracted_root(), crate::level_load::level_index());
-    let reference = crate::disc_source::level_file(&root, 1, "overlay.bin");
-    let ov = crate::disc_source::level_file(&root, index, "overlay.bin").ok().and_then(|b| match &reference {
-        Ok(r) => rc_game::menus::Overlay::relocated(&b, r).ok(),
-        Err(_) => rc_game::menus::Overlay::parse(&b).ok(),
-    });
-    match ov {
-        Some(ov) => rc_game::cheats::CheatTables::read(&ov).patterns,
+    match menu_overlay_for(&root, index) {
+        Some(ov) => rc_game::cheats::CheatTables::read(ov).patterns,
         None => vec![Vec::new(); rc_game::cheats::SLOTS],
     }
 }
@@ -785,11 +810,11 @@ fn help_setup(svc: &mut Services, lv: &crate::level_load::LoadedLevel, index: u3
 /// Map-o-Matic set when owned[33]) and its fog mask (the saved chunk 3002, else the zone tiles).
 fn map_setup(svc: &mut Services, index: u32, gs: Option<&GameState>) {
     let root = crate::level_load::extracted_root();
-    let (Ok(target), Ok(reference)) = (crate::disc_source::level_file(&root, index, "overlay.bin"), crate::disc_source::level_file(&root, 1, "overlay.bin")) else {
+    if parsed_overlay(&root, 1).is_none() {
         eprintln!("gameplay: overlay not read: no map");
         return;
-    };
-    let Some(tables) = rc_game::menus::Overlay::relocated(&target, &reference).ok().and_then(|ov| rc_game::map::Tables::read(&ov)) else {
+    }
+    let Some(tables) = menu_overlay_for(&root, index).and_then(rc_game::map::Tables::read) else {
         eprintln!("gameplay: map tables not found: no map");
         return;
     };

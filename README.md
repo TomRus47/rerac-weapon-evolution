@@ -1,6 +1,6 @@
 # ReRAC Weapon Evolution
 
-Public release **0.3.1**: gameplay patch **0.1.6.49**, configuration capability **48**, English preset launcher **0.10.0**, built on the supplied ReRAC **0.3.4** source snapshot.
+Public release **0.3.2**: gameplay patch **0.1.6.50**, configuration capability **48**, English preset launcher **0.10.0**, built on the supplied ReRAC **0.3.4** source snapshot.
 
 **Runtime compatibility: ReRAC 0.3.4-alpha**, using the modified game runtime supplied with Weapon Evolution or built from this repository.
 
@@ -10,7 +10,7 @@ This is a source repository. It contains the modified Rust workspace, launcher s
 
 The full ReRAC source base is included because the mod integrates with many gameplay and rendering systems. No earlier patch installation is required. [MOD_FILES.md](MOD_FILES.md) identifies the mod modules and integration points; [mod/source-map.json](mod/source-map.json) provides their hashes.
 
-See the [release notes](docs/releases/v0.3.1.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md), and [respawn investigation](docs/mod/RESPAWN_LIFECYCLE.md) for current behavior. The v40 audio investigation is historical; temporary probes have been removed.
+See the [release notes](docs/releases/v0.3.2.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md), and [respawn investigation](docs/mod/RESPAWN_LIFECYCLE.md) for current behavior. See the [loading and shotgun investigation](docs/mod/LOADING_AND_SHOTGUN.md) for the v50 fixes and measurement limits. The v40 audio investigation is historical; temporary probes have been removed.
 
 ## Features
 

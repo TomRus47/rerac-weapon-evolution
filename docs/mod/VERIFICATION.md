@@ -1,4 +1,21 @@
-# Verification: gameplay 0.1.6.49 / public 0.3.1
+# Verification: gameplay 0.1.6.50 / public 0.3.2
+
+## Current v50 checks
+
+- Python launcher/release suite: 89 tests passed on Linux, without failures.
+- Source/default/example/embedded-profile integrity: 1,168 approved INI values unchanged; custom icon byte-identical to v49.
+- Native Rust release regression suite and the linked Windows build are in progress at this source revision. Do not interpret the historical v49 totals below as current v50 results.
+- New fixtures cover whole-volley admission, allocation rollback/two-tick quarantine, visible pellet heads under particle pressure, residual-range lifetime expiry, normal range expiry, and shared recognition equivalence/cache lifetime.
+- Loading benchmark and exact package results will be recorded after completion. In-game validation is still pending; see [LOADING_AND_SHOTGUN.md](LOADING_AND_SHOTGUN.md).
+
+The Windows draft workflow gates packaging on source checks, library tests,
+linked compilation, runtime identity, launcher GUI self-test and packaging.
+A successful build does not establish planet-load speed or validate the user's
+exact saved encounter. No audio probes are enabled.
+
+---
+
+# Historical verification: gameplay 0.1.6.49 / public 0.3.1
 
 ## Evidence and scope
 

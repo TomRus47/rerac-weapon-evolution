@@ -1,4 +1,4 @@
-# Current implementation map: gameplay v49 / launcher 0.10.0
+# Current implementation map: gameplay v50 / launcher 0.10.0
 
 Paths below are relative to `crates/rc-game/src` unless qualified. Native ports
 intentionally preserve PS2 operation order; read module comments and tests
@@ -11,7 +11,7 @@ before changing their timing. Avoid broad reformatting of those routines.
 | Suck Cannon | `hero/suck_cannon.rs`, `moby_update/classes/cannon_crate.rs` | Store actual crate type/contents; interrupted suction restores it; normal attack delivery and native drops once |
 | Walloper | `hero/walloper.rs` | Held lunge extends propulsion and hit window together; one attack serial; 100% native timing |
 | Tesla Claw | `hero/tesla.rs`, engine `tesla_render.rs` | Two native chains including free firing; secondary same-target damage configurable, 25% fallback; independent other target possible |
-| R.Y.N.O. | `hero/ryno.rs`, `moby_update/classes/ryno_missile.rs` | Mutually exclusive continuous/shotgun replacements; distinct 7x5 pellet origins and two spread axes; center unaffected; trigger release clears stance without resetting cooldown |
+| R.Y.N.O. | `hero/ryno.rs`, `moby_update/classes/ryno_missile.rs` | Mutually exclusive continuous/shotgun replacements; distinct 7x5 pellet origins and two spread axes; center unaffected; whole-volley admission before ammo, bounded pellet lifetime, trigger release clears stance without resetting cooldown |
 | Mine Glove | `moby_update/classes/mine.rs`, `mine/experimental.rs` | Native collision/landing; four flame arms with independent color, DPS/XP, local sound, lifetime and population limit; replaces proximity mode |
 | Drone Device | `moby_update/classes/drone.rs`, `mouse/companion.rs` | Up to ten ordered drones; shared native/experimental companion singleton; lifetime/shot/damage/range settings; active companion blocks another summon without spending ammo |
 | Taunter | `hero/taunter.rs`, `moby_update/services.rs` | Attraction, damage and stun remain distinct; optional launch on successful stun |
@@ -58,3 +58,5 @@ Tesla target-exclusion design. Current code/reference take precedence.
 Patch 49 introduces no field: capability remains 48 and launcher remains 0.10.0.
 The public default reflects the latest attached v48 profile; installed profiles
 are preserved by the incremental updater.
+
+- [Loading and shotgun lifecycle](LOADING_AND_SHOTGUN.md) documents atomic volley admission, bounded pellet lifetime and loader-owned shared recognition caches.

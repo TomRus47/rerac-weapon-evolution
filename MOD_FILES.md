@@ -1,6 +1,6 @@
 # Weapon Evolution source map
 
-Gameplay 0.1.6.49; launcher 0.10.0. This repository contains the complete modified ReRAC 0.3.4-alpha workspace. The following 213 indexed files are mod implementations, integration points or developer tools; the rest is the supplied port source.
+Gameplay 0.1.6.50; launcher 0.10.0. This repository contains the complete modified ReRAC 0.3.4-alpha workspace. The following 216 indexed files are mod implementations, integration points or developer tools; the rest is the supplied port source.
 
 Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md) and [respawn lifecycle](docs/mod/RESPAWN_LIFECYCLE.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). Historical changes-since-supplied-snapshot.patch describes the original export boundary, not the full current update.
 
@@ -23,7 +23,9 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-engine/src/scene_render.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-engine/src/tesla_render.rs` | changed since supplied snapshot |
 | `crates/rc-engine/src/travel_render.rs` | Weapon Evolution implementation or integration |
+| `crates/rc-formats/examples/overlay_recognition_perf.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-formats/src/gadget.rs` | Weapon Evolution implementation or integration |
+| `crates/rc-formats/src/level_overlay.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-formats/src/moby.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-formats/src/moby_anim.rs` | changed since supplied snapshot |
 | `crates/rc-game/Cargo.toml` | changed since supplied snapshot |
@@ -61,6 +63,7 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-game/src/lib.rs` | Weapon Evolution implementation or integration; original mod integration backup exists in supplied snapshot |
 | `crates/rc-game/src/memcard.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/menus/mod.rs` | Weapon Evolution implementation or integration |
+| `crates/rc-game/src/menus/overlay_tests.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/menus/pause.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/menus/pause/gadgets.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/menus/pause/pages.rs` | Weapon Evolution implementation or integration |

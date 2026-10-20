@@ -319,12 +319,8 @@ fn setup(
     // The menu light (set 14, crate::menu_render's frame mobys).
     // The level's overlay with its address map against level 01's (as crate::menu_render reads it).
     let root = crate::level_load::extracted_root();
-    let bytes = crate::disc_source::level_file(&root, crate::level_load::level_index(), "overlay.bin").unwrap_or_default();
-    let ov = match crate::disc_source::level_file(&root, 1, "overlay.bin") {
-        Ok(r) => rc_game::menus::Overlay::relocated(&bytes, &r),
-        Err(_) => rc_game::menus::Overlay::parse(&bytes),
-    }
-    .unwrap_or_default();
+    let empty = rc_game::menus::Overlay::default();
+    let ov = crate::gameplay::menu_overlay_for(&root, crate::level_load::level_index()).unwrap_or(&empty);
     let q = |a: u32| -> [f32; 4] { std::array::from_fn(|k| f32::from_bits(ov.u32(ov.at(a) + 4 * k as u32).unwrap_or(0))) };
     let bank = lv.mobys.lighting.as_ref().map(|l| {
         let mut bank = l.bank.clone();

@@ -1,3 +1,10 @@
+## Weapon Evolution 0.1.6.50 (public 0.3.2, launcher 0.10.0)
+
+- Admit all 35 R.Y.N.O. shotgun pellets before charging ammunition, starting cooldown or queuing effects; retry without charge when the dynamic object table is full.
+- Enforce pellet lifetime as well as range/collision expiry, including floating-point range residue, and install the experimental update independently of native per-level update entries.
+- Reuse immutable overlay instruction/address indexes during level recognition, prepare menu/map tables on the loader worker and share section storage with consumers.
+- Release temporary recognition indexes after preparation; preserve final per-level tables, balance, configuration, saves and the launcher icon. No audio probes are added.
+
 ## Weapon Evolution 0.1.6.49 (public 0.3.1, launcher 0.10.0)
 
 - Reset deferred draw callbacks before installing a compacted death-reload table; reproduce the Oltanis arc panic in a regression fixture.

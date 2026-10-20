@@ -277,16 +277,9 @@ fn setup(
     let (root, index) = (crate::level_load::extracted_root(), crate::level_load::level_index());
     // The level's overlay with its menu address map against level 01's (the code names the records by their
     // level-01 addresses: rc_game::menus::Overlay::relocated).
-    let reference = crate::disc_source::level_file(&root, 1, "overlay.bin");
-    let overlay = match crate::disc_source::level_file(&root, index, "overlay.bin").and_then(|b| Ok(match &reference {
-        Ok(r) => Overlay::relocated(&b, r)?,
-        Err(_) => Overlay::parse(&b)?,
-    })) {
-        Ok(o) => o,
-        Err(e) => {
-            eprintln!("menus: overlay not read ({e:#}): no menus");
-            return;
-        }
+    let Some(overlay) = crate::gameplay::menu_overlay_for(&root, index).cloned() else {
+        eprintln!("menus: overlay not read: no menus");
+        return;
     };
     let items = crate::disc_source::read_path(&root, &root.join("boot/SCUS_971.99"))
         .and_then(|elf| Ok(ItemTables::load(&elf, &crate::disc_source::level_file(&root, index, "overlay.bin")?)?));
@@ -300,8 +293,8 @@ fn setup(
     let mut menu = PageMenu::load(&overlay);
     // The map's mission and marker lists from the level-01 overlay: the same records in every overlay, and their
     // callbacks are ported by their level-01 addresses (rc_game::menus::pause::map_page::callback).
-    if let (Some(m), Ok(r)) = (menu.as_mut(), reference.as_ref()) {
-        if let Ok(ov1) = rc_game::menus::Overlay::parse(r) { m.map.tables = rc_game::menus::pause::map_page::MapTables::read(&ov1); }
+    if let (Some(m), Some(ov1)) = (menu.as_mut(), crate::gameplay::menu_overlay_for(&root, 1)) {
+        m.map.tables = rc_game::menus::pause::map_page::MapTables::read(ov1);
     }
     // The item definitions for the Gadgets / Weapons grids (rc_game::inventory; the overlay's 0x179f40 table).
     if let (Some(m), Ok(t)) = (menu.as_mut(), &items) {
