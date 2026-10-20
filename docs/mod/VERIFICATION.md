@@ -53,3 +53,22 @@ verification of every change.
 
 Historical v40 verification is retained in Git history; it is not a current
 claim that audio diagnostics should be enabled or that old test totals apply.
+
+## Completed Windows release build — 2026-10-20
+
+[Windows workflow run 39416546919](https://github.com/TomRus47/rerac-weapon-evolution/actions/runs/39416546919) completed successfully for source commit
+`d14687ed9a94e35be0f6ccda364bab0fff253b97`. Both build and draft-release jobs passed.
+
+- Windows MSVC release: 969 game tests passed; 151 formats tests passed, 1 ignored.
+- Windows Python: 89 tests run, 1 platform-specific test skipped; no failures.
+- The linked game runtime passed exact patch/capability/clean-audio checks.
+- The frozen x64 launcher passed its Tcl/Tk GUI self-test and packaging checks.
+- Player asset: `ReRAC_Weapon_Evolution_0.3.1_windows_x64.zip`, 45,854,264 bytes.
+- Player ZIP SHA256: `85c1aaebae9ec9acec5ea0abc3d8990db5b22bfab19eb3da70d9c94a668e9aff`.
+- The draft includes the ZIP, SHA256 sidecar and `release-build.json` with the
+  compiled runtime identity, source commit, profile and icon hashes.
+
+The release remains a draft pending the in-game Oltanis/Quartu checks above.
+This successful linked build supersedes any earlier statement that only a
+Windows type-check had been performed; the incremental author ZIP itself still
+contains source payloads, not executables.
