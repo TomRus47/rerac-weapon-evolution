@@ -1,6 +1,6 @@
 # Developer guide
 
-This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.51 gameplay implementation and v0.11.0 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
+This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.54 gameplay implementation and v0.14.0 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
 
 ## 1. Start here
 
@@ -60,7 +60,7 @@ An inventory weapon ID is different from a projectile class ID and from a runtim
 | 24 | `drone_device` | `hero/gloves.rs` | `moby_update/classes/drone.rs` |
 | 25 | `decoy_glove` | `hero/gloves.rs` | `moby_update/classes/decoy.rs` |
 
-All hero/class paths in the last two columns are under `crates/rc-game/src/`. Inventory ID 8 is the wrench: it participates in locked combat but has no evolution track or launcher weapon page. For the authoritative mapping from hit template to inventory ID, read `real_hp::weapon`; some weapons have several attack sources.
+All hero/class paths in the last two columns are under `crates/rc-game/src/`. Inventory ID 8 is the OmniWrench: it has a five-grade track and launcher page. `weapon_evo_wrench.rs` documents grade hooks; WEVO-v3 appends its saved track. See [v54 behavior](WRENCH_AND_PROJECTILES_V54.md). For the authoritative mapping from hit template to inventory ID, read `real_hp::weapon`; some weapons have several attack sources.
 
 ## 3. Configuration from disk to gameplay
 

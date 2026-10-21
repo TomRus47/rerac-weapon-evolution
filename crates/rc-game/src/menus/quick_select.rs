@@ -658,7 +658,7 @@ impl QuickSelect {
                 let gold = usize::try_from(e.item).ok().and_then(|k| g.gold_weapons.get(k)).is_some_and(|&b| b != 0);
                 let stage = crate::weapon_evo::weapon_icon_level(e.item);
                 // V1 native, V5 gold if the disc actually provides frame 4.
-                let want_gold = match stage { Some(5) => true, Some(_) => false, None => gold };
+                let want_gold = stage.is_none() && gold;
                 let gold_frame = a.frame(e.icon as u16, 4);
                 let fr = if want_gold && gold_frame != 0 { gold_frame } else { a.frame(e.icon as u16, 0) };
                 let (tw, th) = a.frame_size(fr);

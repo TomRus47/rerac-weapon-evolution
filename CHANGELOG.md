@@ -1,3 +1,28 @@
+## Weapon Evolution 0.1.6.54 (local test only, launcher 0.14.0)
+
+- Evolve the OmniWrench through five saved grades, with actual hit HP, proportional slam damage, throw range/speed and additive passive bolt attraction.
+- Move its Gold appearance to each grade; add top-left-only HUD and moving-combo switches plus a crate-only ground-slam Crate Breaker.
+- Preserve v1/v2 progress when reading new WEVO-v3 companion saves; native save format is unchanged.
+- Prioritize brighter R.Y.N.O. pellet cores over optional trails, reclaim own trails under pressure and retry missing cores without changing physical damage.
+- Fix Visibomb grenade markers and air detonation at the range boundary; continue falling to actual contact, explode on water and remove silently in death regions.
+- Add Devastator firing sound to successful grenade launches. Preserve all other v53 settings and the supplied icon. No GitHub update or release.
+
+## Weapon Evolution 0.1.6.53 (local test only, launcher 0.13.0)
+
+- Bright shared grade icons; V4 orange and V5 golden yellow across all evolving weapons.
+- Standard per-grade Visibomb missile blast radius, captured at launch.
+- Optional Visibomb grenade launcher: free player movement/camera, native bomb spin, landing marker and throw feedback; editable size/arc/range/interval/HP/colors; explosion-owned Visibomb XP.
+- Experimental flame mine size (150% default), matching body/flame rotation and scaled ground clearance.
+- Preserve existing profile values, icon and saves. Local source/build/open kit only; no GitHub update.
+
+## Weapon Evolution 0.1.6.52 (local test only, launcher 0.12.0)
+
+- Configure four collected-bolt unlock milestones: Taunter 10,000; Suck Cannon 25,000; Walloper 50,000; Morph-o-Ray 75,000.
+- Expose eleven normalized ammo pack probabilities, including zero to exclude a type and an actual-chance preview.
+- Start new games with no Bomb Glove ammo while ammo-unlock mode is active; native planet-entry grants cannot refill/equip the locked glove. Preserve existing-save ammo.
+- Group Global Settings into Base settings and Experimental ammo-unlock mode, with the enabler first in its card.
+- Add a complete local source-overlay/build/open kit with personal-profile migration, backups, rollback on write failure and reuse of Cargo's target cache. No GitHub update or launcher EXE rebuild is required.
+
 ## Weapon Evolution 0.1.6.50 (public 0.3.2, launcher 0.10.0)
 
 ## Weapon Evolution 0.3.3 / gameplay 0.1.6.51

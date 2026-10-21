@@ -56,6 +56,13 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
     let v = &mut hero.weapons.visibomb;
     guns::dec(&mut v.fire_timer);
     if v.missile.is_some_and(|m| table.mobys.get(m).is_none_or(|mo| mo.o_class != missile::CLASS || mo.state >= 0x80)) { v.missile = None; }
+    if crate::weapon_evo::extra_flag(VISIBOMB,"grenade_launcher_enabled",false) && hero.weapons.visibomb.missile.is_none() {
+        grenade_update(hero,table,env,hits,rng,&class);
+        if let Some(it)=hero.items.slot.item.as_mut() {
+            if it.anim.flags&2!=0 && it.anim.seq_b!=REST_SEQ {moby_anim::set_sequence(&mut it.anim,&class.anim,REST_SEQ,0,0,&mut it.snapshot);}
+        }
+        return;
+    }
     let pressed = env.pad.pressed & hero.items.slot.fire_mask != 0;
     let fires = pressed
         && hero.weapons.visibomb.fire_timer == 0
@@ -112,4 +119,99 @@ fn fire(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn Hi
     hero.weapons.visibomb.missile = launched;
     if launched.is_some() { hero.weapons.deferred = Some(super::scripted::MISSILE); }
     hero.weapons.visibomb.fire_timer = ticks(0x3c);
+}
+
+/// Same launch solution supplies the landing marker and the actual grenade.
+fn grenade_shot(hero:&Hero,env:&ItemEnv,settings:crate::moby_update::classes::bomb::visibomb_grenade::Settings)
+    ->crate::moby_update::classes::bomb::visibomb_grenade::Shot {
+    use super::physics::{from_f32x3,line_world};
+    let from=aim(hero,env).2;
+    let facing=[hero.rot[2].to_f32().cos(),hero.rot[2].to_f32().sin(),0.];
+    let camera_aim=env.pad.held&crate::pad::button::STRAFE!=0 || hero.f13f5!=0;
+    let direction=if camera_aim {env.camera.map_or(facing,|c|c.1)} else {facing};
+    let horizontal=direction[0].hypot(direction[1]);
+    let direction=if horizontal>0.0001 {direction.map(|v|v/horizontal)} else {facing};
+    let end=[from[0]+direction[0]*settings.max_range,from[1]+direction[1]*settings.max_range,
+        from[2]+direction[2].clamp(-8.,8.)*settings.max_range];
+    let eye=if camera_aim {env.camera.map_or(from,|c|c.0)} else {from};
+    let hit=env.coll.and_then(|coll|line_world(coll,from_f32x3(eye),from_f32x3(end),2));
+    let target=if let Some(hit)=hit {hit.point} else {
+        let top=[end[0],end[1],end[2]+1.];let bottom=[end[0],end[1],end[2]-settings.max_range.max(100.)*2.];
+        env.coll.and_then(|coll|line_world(coll,from_f32x3(top),from_f32x3(bottom),2)).map_or([end[0],end[1],from[2]],|h|h.point)
+    };
+    crate::moby_update::classes::bomb::visibomb_grenade::solve(from,target,settings.arc_height,settings.max_range)
+}
+
+/// No hero state/velocity, deferred missile state or camera ownership changes.
+/// Charge ammo and queue native Bomb Glove feedback only after successful creation.
+fn grenade_update(hero:&mut Hero,table:&mut MobyTable,env:&ItemEnv,hits:&mut dyn HitSink,rng:&mut Rng,class:&super::items::ItemClass) {
+    use crate::moby_update::classes::bomb::visibomb_grenade as grenade;
+    let pressed=env.pad.pressed&hero.items.slot.fire_mask!=0;
+    let allowed=hero.items.f13fc==0 && group_fires(hero.group) && !matches!(hero.state,0x72|0x65);
+    if !allowed {return;}
+    if hero.weapons.has_ammo(VISIBOMB)<=0 {if pressed {hero.fx.item_sounds.push(EMPTY_SOUND);}return;}
+    let settings=grenade::Settings::current();let shot=grenade_shot(hero,env,settings);
+    let fire=pressed && hero.weapons.visibomb.fire_timer==0;
+    let mut launched=false;
+    hits.world(table,hero,rng,env.frame as u64,&mut |w| {
+        grenade::preview(w,shot);
+        if fire {launched=grenade::launch(w,shot,settings).is_some();}
+    });
+    if launched {
+        hero.weapons.use_ammo(VISIBOMB,1);
+        hero.fx.item_voices.push(super::packs::SoundCmd::MobySound {moby:env.hero_moby,o_class:super::devastator::CLASS,pos:shot.from,index:super::devastator::FIRE_SOUND,flags:0});
+        hero.fx.item_voices.push(super::packs::SoundCmd::Voice {index:super::weapons::THROW_VOICE,flags:0});
+        hero.weapons.visibomb.fire_timer=ticks(settings.fire_interval);
+        if let Some(it)=hero.items.slot.item.as_mut() {moby_anim::set_sequence(&mut it.anim,&class.anim,FIRE_SEQ,0,0,&mut it.snapshot);}
+    }
+}
+
+#[cfg(test)]
+mod grenade_tests {
+    use super::*;
+    use crate::hero::V4;
+    use crate::ps2v::Pf;
+    use crate::moby_update::classes::bomb_water::tests::classes_with;
+    use crate::moby_update::services::{ClassTable,HitTemplate,Services,World};
+    struct Sink {classes:ClassTable,services:Services}
+    impl HitSink for Sink {
+        fn sphere(&mut self,_:&mut MobyTable,_:Pf,_:V4,_:u32,_:Option<usize>,_:&HitTemplate)->Option<usize>{None}
+        fn line(&mut self,_:&mut MobyTable,_:V4,_:V4,_:u32,_:Option<usize>,_:&HitTemplate)->Option<Option<usize>>{None}
+        fn world(&mut self,table:&mut MobyTable,hero:&Hero,rng:&mut Rng,counter:u64,f:&mut dyn FnMut(&mut World))->bool {
+            f(&mut World::new(table,hero,rng,&self.classes,&mut self.services,counter));true
+        }
+    }
+    fn fire_once(with_model:bool)->(Hero,MobyTable,Sink) {
+        let mut hero=Hero::new();hero.state=1;hero.group=1;hero.grounded_ticks=0;
+        hero.vel=super::super::physics::v4(0.2,-0.3,0.1);hero.disp=super::super::physics::v4(0.01,-0.02,0.03);
+        hero.items.slot.id=VISIBOMB;hero.items.slot.fire_mask=crate::pad::button::CIRCLE;
+        hero.weapons.ammo[13]=3;hero.weapons.uses_ammo[13]=true;
+        let mut table=MobyTable::new(vec![],96);
+        let mut sink=Sink{classes:classes_with(&[]),services:Services::new()};
+        if !with_model {sink.classes.classes.remove(&crate::moby_update::classes::bomb::BOMB_CLASS);}
+        let class=super::super::items::ItemClass{o_class:CLASS,scale:1.,chains:vec![],
+            anim:rc_formats::moby_anim::MobyAnimClass{joint_count:1,skeleton:vec![],rest:vec![[0.;3]],parent_word:vec![0],sequences:vec![]}};
+        let data=super::super::items::ItemData::default();let mut pad=crate::pad::PadState::default();pad.pressed=crate::pad::button::CIRCLE;
+        let env=ItemEnv{data:&data,pad:&pad,frame:1,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+        grenade_update(&mut hero,&mut table,&env,&mut sink,&mut Rng::new(),&class);(hero,table,sink)
+    }
+    #[test]
+    fn replacement_preserves_movement_camera_and_native_throw_feedback() {
+        let (hero,table,sink)=fire_once(true);
+        assert_eq!(hero.state,1);assert_eq!(hero.vel,super::super::physics::v4(0.2,-0.3,0.1));
+        assert_eq!(hero.disp,super::super::physics::v4(0.01,-0.02,0.03));
+        assert_eq!(hero.weapons.deferred,None);assert_eq!(hero.weapons.visibomb.missile,None);
+        assert_eq!(hero.weapons.ammo[13],2);
+        assert_eq!(table.mobys.iter().filter(|m|crate::moby_update::classes::bomb::visibomb_grenade::is_grenade(m)).count(),1);
+        assert!(!table.mobys.iter().any(|m|m.o_class==missile::CLASS));assert!(sink.services.visibomb.missile.is_none());
+        assert!(hero.fx.item_voices.contains(&super::super::packs::SoundCmd::Voice{index:super::super::weapons::THROW_VOICE,flags:0}));
+        assert_eq!(hero.fx.item_voices.iter().filter(|s|matches!(s,super::super::packs::SoundCmd::MobySound{o_class:super::super::devastator::CLASS,index:super::super::devastator::FIRE_SOUND,..})).count(),1);
+    }
+    #[test]
+    fn missing_model_does_not_charge_ammo_or_throw_feedback() {
+        let (hero,table,_)=fire_once(false);assert_eq!(hero.weapons.ammo[13],3);
+        assert_eq!(hero.weapons.visibomb.fire_timer,0);assert!(hero.fx.item_voices.is_empty());
+        assert!(!table.mobys.iter().any(crate::moby_update::classes::bomb::visibomb_grenade::is_grenade));
+        assert_eq!(hero.weapons.deferred,None);
+    }
 }

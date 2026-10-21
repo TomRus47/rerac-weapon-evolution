@@ -26,21 +26,21 @@ class V51Tests(unittest.TestCase):
         after = core.checked_document(migrated)
         for pair, value in before.entries.items(): self.assertEqual(after.entries[pair], value)
         self.assertEqual(after.entries['general', 'experimental_ammo_unlock_mode'], 'false')
-        self.assertEqual(after.entries['general', 'wrench_gold_texture'], 'false')
-        self.assertEqual(len(after.entries)-len(before.entries), 22)
+        self.assertNotIn(('general','wrench_gold_texture'),after.entries)
+        self.assertEqual(len(after.entries)-len(before.entries), 36)
         self.assertEqual(convert(migrated)[0], migrated)
 
     def test_custom_gold_and_mode_values_survive_all_grade_migrations(self):
         doc = core.checked_document(self.raw)
         changes = {('general', 'experimental_ammo_unlock_mode'): 'true',
-                   ('general', 'wrench_gold_texture'): 'true'}
+                   ('weapon.wrench.level2', 'gold_texture'): 'true'}
         changes.update({(f'weapon.{w}.level{n}', 'gold_texture'): 'true'
                         for w in ['visibomb', 'taunter', 'walloper', 'ryno'] for n in range(1, 6)})
         raw = doc.render(changes)
         migrated, _ = convert(raw)
         loaded = core.checked_document(runtime_profile(migrated))
         for pair, value in changes.items(): self.assertEqual(loaded.entries[pair], value)
-        self.assertEqual(core.required_config(loaded), 51)
+        self.assertEqual(core.required_config(loaded), 56)
         for n in range(1, 6):
             keys = loaded.keys(f'weapon.ryno.level{n}')
             standard, experimental = field_groups('ryno', keys)

@@ -3,7 +3,8 @@
 This is an independent mod for ReRAC 0.3.4-alpha. Keep the distinction between
 the mod author, the ReRAC developers and the original game's developers clear.
 
-- Write product strings, configuration comments and developer documentation in English.
+- Write code comments, configuration comments and developer documentation in English.
+  Maintain localized launcher UI text in the shared language catalogs.
 - Preserve existing balance, colors, XP requirements, presets and save data.
 - In every weapon grade, place **all standard settings first**. Place experimental
   on/off switches and all their parameters **after every standard setting**, in
@@ -19,3 +20,11 @@ the mod author, the ReRAC developers and the original game's developers clear.
 - Keep immutable level-table recognition on the loader worker. Use the explicit
   destination level index there; never change the active-level global to warm a cache.
 - Do not commit executables, build outputs, disc data, personal paths or author settings.
+
+- Launcher UI is localized in English, Italian, French, German and Spanish.
+  Keep code/docs/INI keys/comments in English. Add localized labels/help alongside
+  new UI fields; preserve the selected language and dirty values when rebuilding UI.
+- Use Off/On dropdowns for every boolean. Keep canonical false/true in profiles.
+- Share field/section ordering between INI and editor. Colors always finish their
+  own frame; Gold controls immediately precede standard colors. Register experiment
+  enablers explicitly and keep runtime alternate-capacity selection in sync.

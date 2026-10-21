@@ -1,14 +1,14 @@
-# Ammunition-based arsenal (experimental, v51)
+# Ammunition-based arsenal (experimental, v52)
 
 Enable **Experimental ammo-unlock mode** under **Global Settings** in launcher
-0.11.0, or set this in the public `weapons.ini`:
+0.12.0, or set this in the public `weapons.ini`:
 
 ```ini
 [general]
 experimental_ammo_unlock_mode = true
 ```
 
-The default is `false`. This requires the v51 / configuration-capability 51
+The default is `false`. This requires the v52 / configuration-capability 52
 runtime. It is independent of per-weapon experimental firing modes. Gold
 purchases retain their normal meaning outside this mode.
 
@@ -27,21 +27,20 @@ The ring still has eight slots. An unlock uses an empty slot first; a full
 ring replaces a slot in rotating order, avoiding the equipped item. It cannot
 display the entire fifteen-weapon arsenal simultaneously.
 
-The OmniWrench remains available. The ammo-free Walloper is available from the
-start. The other ammo-free weapons unlock permanently at these totals:
+The OmniWrench remains available. The four ammo-free weapons unlock at these configurable collected-bolt totals:
 
 | Weapon | Collected normal bolts |
 |---|---:|
-| Taunter | 25,000 |
-| Suck Cannon | 50,000 |
+| Taunter | 10,000 |
+| Suck Cannon | 25,000 |
+| Walloper | 50,000 |
 | Morph-o-Ray | 75,000 |
 
 These are **collected** normal bolts, not wallet balance, Gold Bolts or XP.
 Spending bolts does not reverse an unlock. Actual bolt pickups and the native
 bolt-pool overflow credit count; arbitrary wallet awards and refunds do not.
 When enabling the mode in an existing save, its saved per-planet collection
-statistics seed the total. Existing ammunition remains; enabling the mode does
-not grant or delete rounds. Subsequent ordinary story weapon grants keep their
+statistics seed the total. New games created with the mode enabled start with zero Bomb Glove ammo and the OmniWrench. Native planet-entry grants cannot refill or equip the locked glove. Existing ammunition remains when enabling the mode on an existing save; loading or changing planets never clears collected rounds. Subsequent ordinary story weapon grants keep their
 story-acquired flag and their ownership for restoration, without granting free
 weapon ammo or bypassing the mode's unlock rule. Utility gadgets remain native.
 
@@ -72,7 +71,7 @@ spent versus unspent Gold Bolts.
 | Visibomb Gun, Decoy Glove | 3 each |
 | R.Y.N.O. | 1 |
 
-The weights total 147. Weapons at full ammo remain eligible in this mode, so
+These are the default ratios (total 147). v52 exposes all eleven normalized percentage inputs in Global Settings and `ammo_drop_chance_<weapon>` under `[general]`. Set zero to exclude a type; at least one input must be positive. The launcher shows the normalized actual chances. Default inputs preserve these ratios. Weapons at full ammo remain eligible in this mode, so
 ownership or ammo capacity cannot remove the intended rarity. Packs obey the
 normal physical pickup and inventory-capacity rules.
 
@@ -140,3 +139,9 @@ the weapon. Inspect Gold materials in hand and pause previews on several
 planets, and listen to dual Tesla acquisition with zero, one and two enemies.
 Automated fixtures cover rules and persistence; they cannot establish the
 player's disc asset coverage or subjective sound/render appearance.
+
+## Local v52 configuration
+
+The four `[general]` milestone fields are `ammo_unlock_taunter_bolts`, `ammo_unlock_suck_cannon_bolts`, `ammo_unlock_walloper_bolts`, and `ammo_unlock_morph_ray_bolts` (integer 0–1,000,000,000). They compare with lifetime collected normal bolts and do not spend currency. Changing the configuration recalculates availability from that total.
+
+Global Settings contains exactly two cards: Base settings (general and HUD) followed by Experimental ammo-unlock mode, with its on/off switch first, four milestones next and eleven ammo probabilities last. Use the [local test kit](LOCAL_TEST_KIT.md) to rebuild and open the updated Python editor without recompiling its EXE or contacting GitHub.

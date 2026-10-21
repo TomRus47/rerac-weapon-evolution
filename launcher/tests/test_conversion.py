@@ -12,15 +12,15 @@ class ProfileTests(unittest.TestCase):
         new_keys={(f'weapon.{weapon}.level{grade}',k) for catalog in [EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS] for weapon,fields in catalog.items() for grade in range(1,6) for k in fields}
         new_keys |= {('general', k) for k in [*GLOBAL_STANDARD_DEFAULTS, *GLOBAL_EXPERIMENTAL_DEFAULTS]}
         # The supplied v48 INI is the approved v49 publication baseline.
-        canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items() if (s,k) not in new_keys),ensure_ascii=True).encode()
+        canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items() if (s,k) not in new_keys and not s.startswith('weapon.wrench')),ensure_ascii=True).encode()
         self.assertEqual(hashlib.sha256(canonical).hexdigest(),'caf361ea2ac07ceed29750385154ddef52a42275a74343cf29948c7786e4afc0')
-        self.assertEqual(len(d.entries),1190);self.assertEqual(len(d.sections),92)
+        self.assertEqual(len(d.entries),1359);self.assertEqual(len(d.sections),98)
         self.assertEqual(d.entries['general','xp_per_damage'],'0.12')
     def test_public_profile_has_no_damage_model_or_wrench_and_keeps_functioning_opacity(self):
         d=c.profile_document(self.raw)
         self.assertNotIn(('general','damage_mode'),d.entries)
-        self.assertNotIn('wrench',EDITOR_WEAPONS)
-        self.assertFalse(any(s.startswith('weapon.wrench') for s in d.sections))
+        self.assertIn('wrench',EDITOR_WEAPONS)
+        self.assertTrue(any(s.startswith('weapon.wrench') for s in d.sections))
         self.assertEqual(d.entries['hud','name_opacity_percent'],'100')
         self.assertEqual(LABELS['name_opacity_percent'],'Weapon name opacity (%)')
         self.assertIn('3D',HELP['name_opacity_percent'])
@@ -49,9 +49,9 @@ class ProfileTests(unittest.TestCase):
         self.assertFalse(runtime_profile(raw).startswith(b'\xef\xbb\xbf'))
     def test_old_hidden_fields_are_removed_from_the_editor(self):
         raw=self.raw.replace(b'[hud]',b'[hud]\nxp_bar_opacity_percent = 50',1)
-        raw+=b'\n[weapon.wrench]\nid = 8\n'
+
         d=c.profile_document(raw)
         self.assertNotIn(('hud','xp_bar_opacity_percent'),d.entries)
-        self.assertNotIn('weapon.wrench',d.sections)
+        self.assertIn('weapon.wrench',d.sections)
 
 if __name__=='__main__':unittest.main()

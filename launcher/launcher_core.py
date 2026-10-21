@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.11.0'
+VERSION = '0.16.0'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -96,7 +96,9 @@ class IniDocument:
         return (b'\xef\xbb\xbf' if self.bom else b'') + ''.join(lines).encode('utf-8')
 
 def allowed_keys(section):
-    if section == 'general': return {'xp_per_damage', 'damage_mode', 'experimental_ammo_unlock_mode', 'wrench_gold_texture'}
+    if section == 'general':
+        from schema import GLOBAL_EXPERIMENTAL_DEFAULTS, GLOBAL_STANDARD_DEFAULTS
+        return {'xp_per_damage', 'damage_mode', *GLOBAL_EXPERIMENTAL_DEFAULTS, *GLOBAL_STANDARD_DEFAULTS}
     if section == 'hud': return HUD
     if section.startswith('weapon.') and section[7:] in WEAPONS:
         return {'id', *XP, *(NAMES-{'name'})}
@@ -110,13 +112,18 @@ def allowed_keys(section):
     return set(EXTRA.get(WEAPONS[name][0], '').split()) | extra | {'max_ammo', 'damage_multiplier', 'gold', 'gold_effects', 'gold_texture'}
 
 def numeric_range(section, key):
+    if section.startswith("weapon.wrench.level") and key in {"hit_radius_multiplier","knockback_multiplier"}: return (0.1,10) if key=="hit_radius_multiplier" else (0,10)
     from schema import EXPERIMENTAL_RANGES
+    if section.startswith("weapon.wrench.level") and key == "throw_range": return 0.5,100
+    if key == 'experimental_max_ammo': return (0,10) if section.startswith('weapon.suck_cannon.level') else (1,999) if section.startswith(('weapon.bomb_glove.level','weapon.pyrocitor.level')) else (0,9999)
     if key in EXPERIMENTAL_RANGES and (key != "beam_range_multiplier" or section.startswith("weapon.tesla_claw.level")) and (key != "homing_strength_multiplier" or section.startswith("weapon.ryno.level")): return EXPERIMENTAL_RANGES[key]
     if key == 'damage_interval_ticks': return 1, 600
     if key == 'ammo_interval_ticks': return 1, 9999
     if key in {'damage_hp','chicken_damage_hp'} or (key == 'damage_per_second' and section.startswith(('weapon.pyrocitor.level','weapon.tesla_claw.level'))): return 0, 1_000_000
     if key in XP or key == 'xp_to_next': return .1, 1_000_000
-    if section == 'general': return 0, 100
+    if section == 'general':
+        from schema import AMMO_UNLOCK_DEFAULTS
+        return (0, 1_000_000_000) if key in AMMO_UNLOCK_DEFAULTS else (0, 100)
     if section == 'hud':
         return {'name_opacity_percent': (0, 100), 'xp_bar_height_px': (2, 16),
                 'xp_bar_horizontal_inset_px': (0, 24), 'level_up_popup_duration_seconds': (.5, 15),
@@ -161,7 +168,7 @@ def validate_value(section, key, value):
     low, high = numeric_range(section, key)
     if not math.isfinite(number) or not low <= number <= high:
         raise ValueError(f'{address}: allowed range {low:g} … {high:g}.')
-    if section == 'general' and struct.unpack('f', struct.pack('f', number))[0] <= 0:
+    if section == 'general' and key == 'xp_per_damage' and struct.unpack('f', struct.pack('f', number))[0] <= 0:
         raise ValueError(f'{address}: the value must be positive and representable by the game.')
     if key in INTEGER and not re.fullmatch(r'[+]?[0-9]+', value):
         raise ValueError(f'{address}: use an integer.')
@@ -173,7 +180,6 @@ def validate_value(section, key, value):
 def validate_document(doc: IniDocument):
     for name, (item, _) in WEAPONS.items():
         section = f'weapon.{name}'
-        if name == 'wrench' and section not in doc.sections: continue
         if doc.entries.get((section, 'id')) != str(item): raise ValueError(f'Missing [{section}] id = {item}.')
         for key in XP:
             if (section, key) not in doc.entries: raise ValueError(f'Missing [{section}] {key}.')
@@ -184,11 +190,14 @@ def validate_document(doc: IniDocument):
         section=f'weapon.ryno.level{grade}'
         if all(doc.entries.get((section,k),'false').lower() in {'true','1','yes','on'} for k in ('continuous_missiles_enabled','shotgun_enabled')):
             raise ValueError(f'[{section}] Select either continuous missiles or shotgun mode, not both.')
+    from schema import AMMO_DROP_DEFAULTS, normalized_ammo_chances
+    normalized_ammo_chances({key: doc.entries.get(('general', key), default)
+                             for key, default in AMMO_DROP_DEFAULTS.items()})
     for section in doc.sections: allowed_keys(section)
     for (section, key), value in doc.entries.items(): validate_value(section, key, value)
     if doc.entries.get(('general','damage_mode'),'real_hp') == 'real_hp':
         for weapon in WEAPONS:
-            if weapon in {'wrench','taunter'}: continue
+            if weapon == 'taunter': continue
             field = 'damage_per_second' if weapon in {'pyrocitor','tesla_claw'} else 'chicken_damage_hp' if weapon == 'morph_ray' else 'damage_hp'
             for level in range(1,6):
                 section=f'weapon.{weapon}.level{level}'
@@ -272,7 +281,7 @@ def read_settings(kit):
     path = kit/'launcher-settings.json'
     value = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
     if not isinstance(value, dict): raise ValueError('Invalid launcher-settings.json.')
-    return {k: v for k, v in value.items() if k in {'exe', 'data', 'save', 'last_preset'} and isinstance(v, str)}
+    return {k: v for k, v in value.items() if k in {'exe', 'data', 'save', 'last_preset', 'language'} and isinstance(v, str)}
 
 def save_settings(kit, settings):
     atomic_write(kit/'launcher-settings.json', (json.dumps(settings, ensure_ascii=False, indent=2)+'\n').encode('utf-8'))
@@ -319,7 +328,7 @@ def probe_exe(exe, required_config=0):
     if str(version['version']).endswith('-fixed'):
         raise ValueError('This fixed-profile build ignores external configurations. Build the editable v45 game and select its runtime/rerac.exe.')
     if required_config and version.get('weapon_evolution_config', 0) < required_config:
-        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v51 runtime/rerac.exe included with this mod.')
+        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v56 runtime/rerac.exe included with this mod.')
     if not (exe.parent/'assets/shaders').is_dir():
         raise ValueError('Missing assets/shaders beside rerac.exe. Select the complete mod runtime.')
     return version
@@ -352,8 +361,14 @@ class LaunchSession:
     preset: str
 
 def required_config(doc):
+    if any(sec.startswith("weapon.wrench.level") and key in {"hit_radius_multiplier","knockback_multiplier"} for sec,key in doc.entries): return 56
+    if any(key == "experimental_max_ammo" for _,key in doc.entries): return 55
+    if any(sec.startswith("weapon.wrench") for sec,_ in doc.entries): return 54
+    if any(k.startswith('grenade_') or k == 'flame_mine_size_percent' or (sec.startswith('weapon.visibomb.level') and k == 'explosion_damage_radius') for sec,k in doc.entries): return 53
     from schema import EXPERIMENTAL_DEFAULTS, STANDARD_DEFAULTS
     keys = {k for fields in [*EXPERIMENTAL_DEFAULTS.values(), *STANDARD_DEFAULTS.values()] for k in fields}
+    from schema import AMMO_UNLOCK_DEFAULTS, AMMO_DROP_DEFAULTS
+    if any(('general', key) in doc.entries for key in (*AMMO_UNLOCK_DEFAULTS, *AMMO_DROP_DEFAULTS)): return 52
     if ('general', 'experimental_ammo_unlock_mode') in doc.entries: return 51
     if any(k == 'drone_count' for _, k in doc.entries): return 48
     if any(k in {'shotgun_horizontal_spread_degrees','shotgun_vertical_spread_degrees'} for _,k in doc.entries): return 46
@@ -391,7 +406,7 @@ def log_confirmation(text, ini):
 
 PLAYER_README = 'ReRAC Weapon Evolution - Windows x64\n\n1. Extract the entire ZIP into a folder.\n2. Open ReRAC_Weapon_Evolution.exe.\n3. On first launch, choose your extracted Ratchet & Clank game data folder.\n   It must contain toc.bin and extract-info.json.\n4. Press Save and launch. No preset is required.\n\nWith no named preset selected, the launcher opens weapons.ini. Edit it manually\nwhile the launcher is closed, then open the launcher and start immediately.\nChanges made in the default editor are saved to weapons.ini with a backup.\nSave as creates an optional named preset; select one explicitly to use it.\nThe next startup restores the last selected preset. Select Default configuration to return to weapons.ini.\n\nOnly the real-HP damage system is supported. There is no damage model switch.\nWeapon name opacity affects the HUD name, grade and their background only.\n100 = normal; 50 = semi-transparent; 0 = hidden. The 3D weapon is unaffected.\n\nPython and Tcl/Tk are included. Players do not need to install them.\nRust, compilation and earlier patches are not required.\nThe modded game is included in runtime; copyrighted game data is not included.\nKeep the EXE, INI files and runtime folder together when moving the mod.\nExisting game saves use the default save location unless you choose another.\nOpen the included EXE directly; do not import this ZIP into the official launcher.\n'
 
-DISTRIBUTED_FILES = ('icon_assets.py', 'final_release.py', 'weapons.default.ini', 'frozen_support.py', 'build_launcher_exe.py', 'windows_entry.py', 'CREA_LAUNCHER_EXE.bat', 'launcher.py', 'launcher_core.py', 'schema.py', 'Editor.bat', 'LEGGIMI.txt',
+DISTRIBUTED_FILES = ('i18n.py', 'icon_assets.py', 'final_release.py', 'weapons.default.ini', 'frozen_support.py', 'build_launcher_exe.py', 'windows_entry.py', 'CREA_LAUNCHER_EXE.bat', 'launcher.py', 'launcher_core.py', 'schema.py', 'Editor.bat', 'LEGGIMI.txt',
                      'CREA_PACCHETTO.bat', 'package_launcher.py', 'migrate_ini.py', 'LICENSE')
 
 def package_distribution(kit, destination, raw, exe, include_presets=True, launcher_exe=None):

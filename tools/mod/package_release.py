@@ -48,7 +48,9 @@ def main() -> int:
         "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
         "default_ini_sha256": hashlib.sha256((KIT / "weapons.default.ini").read_bytes()).hexdigest(),
         "icon_sha256": hashlib.sha256((KIT / "launcher.ico").read_bytes()).hexdigest(),
-        "gameplay_validation": "Pending; keep the GitHub release as a draft.",
+        "gameplay_validation": ("Author approved publication after local testing of v56."
+                                if release["tag"] == "v0.3" else
+                                "Pending; keep the GitHub release as a draft."),
     }
     (destination.parent / "release-build.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8"

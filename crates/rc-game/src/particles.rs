@@ -361,6 +361,8 @@ pub type UpdateFn = fn(&mut Particles, usize, &mut Rng);
 
 /// The particle system state the game keeps in globals.
 pub struct Particles {
+    pub ryno_heads:std::collections::HashMap<usize,usize>,
+    pub ryno_trails:std::collections::HashSet<usize>,
     pub pool: PartPool,
     pub time: TimeBase,
     /// 0x1b2300.
@@ -528,7 +530,7 @@ impl Particles {
         table[78] = Some(type78::update as UpdateFn);
         table[79] = Some(type79::update79 as UpdateFn);
         table[80] = Some(type79::update80 as UpdateFn);
-        Particles { pool: PartPool::new(), time: TimeBase::NTSC, table, defs, owners, stats: PartStats::default(), frame_load: [0; 2], camera: [0; 3], coll: None, hero: [0.0; 3], hero_body: [0.0; 3], cam_yaw: 0.0, counter: 0, anchors: Default::default(), anchor_scales: Default::default(), joint_anchors: Default::default(), water_z: 0.0, level: 0, gold: 0, links: Default::default(), hero_plat: [0.0; 3], moby_frames: Default::default(), joint_frames: Default::default(), pvar_points: Default::default(), pvar_heads: Default::default(), descs74: Vec::new(), gravity: [0.0, 0.0, -1.0], grid: None, weather: Weather::default(), hits: Vec::new(), lines: Vec::new() }
+        Particles { ryno_heads:Default::default(),ryno_trails:Default::default(),pool: PartPool::new(), time: TimeBase::NTSC, table, defs, owners, stats: PartStats::default(), frame_load: [0; 2], camera: [0; 3], coll: None, hero: [0.0; 3], hero_body: [0.0; 3], cam_yaw: 0.0, counter: 0, anchors: Default::default(), anchor_scales: Default::default(), joint_anchors: Default::default(), water_z: 0.0, level: 0, gold: 0, links: Default::default(), hero_plat: [0.0; 3], moby_frames: Default::default(), joint_frames: Default::default(), pvar_points: Default::default(), pvar_heads: Default::default(), descs74: Vec::new(), gravity: [0.0, 0.0, -1.0], grid: None, weather: Weather::default(), hits: Vec::new(), lines: Vec::new() }
     }
 
     pub fn create_part(&mut self, ty: u8) -> Option<usize> {
@@ -538,6 +540,10 @@ impl Particles {
     }
 
     pub fn kill_part(&mut self, i: usize) {
+        self.ryno_trails.remove(&i);
+        if let Some((owner,_))=type26::anchor_of(&self.pool.recs[i]) {
+            if self.ryno_heads.get(&owner)==Some(&i) {self.ryno_heads.remove(&owner);}
+        }
         self.pool.kill_part(i);
         self.stats.killed += 1;
     }

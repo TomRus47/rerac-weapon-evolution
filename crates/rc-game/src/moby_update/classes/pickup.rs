@@ -199,7 +199,7 @@ pub fn add_ammo(w: &mut World, item: usize, n: i32) -> i32 {
 
 /// Ratchet's pickup volume (bolts 0x2bb758 and ammo 0x2db028): |dz| ≤ `0x1415dc` and xy distance ≤ `0x1415d8`.
 pub fn in_reach(w: &World, pos: [f32; 3]) -> bool {
-    let (rx, rz) = w.bolt_radii();
+    let (rx, rz) = w.pickup_radii();
     let h = f3(w.hero.pos);
     if (pos[2] - h[2]).abs() > rz.to_f32() { return false; }
     let d = ((pos[0] - h[0]).powi(2) + (pos[1] - h[1]).powi(2)).sqrt();
@@ -278,11 +278,13 @@ pub fn random_ammo_item(w: &mut World, unrestricted: bool) -> Option<i32> {
         let low: Vec<_> = items.iter().copied().filter(|&id| item_ammo(w,id) < w.inventory.max_ammo(id) as i32).collect();
         if low.is_empty() { items } else { low }
     };
-    let weight = |id| if unrestricted { ammo_mode::weapon_weight(id) } else if id == 23 { 1 } else { 20 };
+    if unrestricted {
+        return w.svc.bomb_evo.ammo_mode_settings.random_choice(&candidates, w.rng).map(|id| id as i32);
+    }
+    let weight = |id| if id == 23 { 1 } else { 20 };
     let sum: i32 = candidates.iter().map(|&id| weight(id)).sum();
     if sum == 0 { return None; }
     let mut ticket = w.rng.randi(sum);
-    if unrestricted { return ammo_mode::weighted_item(&candidates, ticket).map(|id| id as i32); }
     for id in candidates {
         let n = weight(id);
         if ticket < n { return Some(id as i32); }
@@ -293,7 +295,8 @@ pub fn random_ammo_item(w: &mut World, unrestricted: bool) -> Option<i32> {
 
 pub fn ammo_pick(w: &mut World, id: Option<MobyId>, ty: &mut i32) -> i32 {
     if crate::weapon_evo::ammo_mode::enabled() {
-        *ty = random_ammo_item(w, true).unwrap_or(10);
+        let Some(item) = random_ammo_item(w, true) else { *ty = 0; return 0; };
+        *ty = item;
         let gold = w.svc.interact.game.gold_bolts.max(0) as u32;
         return crate::weapon_evo::ammo_mode::pack_count(gold, w.rng.randi(4000));
     }

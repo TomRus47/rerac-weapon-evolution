@@ -1,6 +1,6 @@
 # Weapon Evolution source map
 
-Gameplay 0.1.6.51; launcher 0.11.0. This repository contains the complete modified ReRAC 0.3.4-alpha workspace. The following 232 indexed files are mod implementations, integration points or developer tools; the rest is the supplied port source.
+Local gameplay 0.1.6.54; launcher 0.14.0. This repository contains the complete modified ReRAC 0.3.4-alpha workspace. The following 249 indexed files are mod implementations, integration points or developer tools; the rest is the supplied port source.
 
 Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md) and [respawn lifecycle](docs/mod/RESPAWN_LIFECYCLE.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). Historical changes-since-supplied-snapshot.patch describes the original export boundary, not the full current update.
 
@@ -238,3 +238,13 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `docs/mod/VERIFICATION.md` | Weapon Evolution implementation, integration or developer documentation |
 | `docs/releases/v0.3.3.md` | Weapon Evolution implementation, integration or developer documentation |
 | `launcher/tests/test_v51.py` | Weapon Evolution implementation, integration or developer documentation |
+
+Local v54 authoring tools: `tools/mod/local_test_update.py`, `tools/mod/create_local_test_kit.py`; see `docs/mod/LOCAL_TEST_KIT.md`. Config/UI and updater regression coverage: `launcher/tests/test_v54.py`.
+
+Local v54 additions: `bomb/visibomb_grenade.rs`, `launcher/tests/test_v54.py` and [grenade/mine implementation notes](docs/mod/VISIBOMB_GRENADES_V53.md).
+
+Local v54: [OmniWrench and projectile corrections](docs/mod/WRENCH_AND_PROJECTILES_V54.md). New runtime module: `crates/rc-game/src/weapon_evo_wrench.rs`; new editor fixtures: `launcher/tests/test_v54.py`. Native melee/Comet Strike, particle bookkeeping and WEVO saves are integration points.
+
+Local v55: `launcher/i18n.py`, `launcher/tests/test_v55.py` and [launcher/capacity notes](docs/mod/LAUNCHER_V55.md). Shared schema/migration ordering and runtime ammo publication are integration points.
+
+Local v56: [wrench progression and combat tuning](docs/mod/WRENCH_TUNING_V56.md). `weapon_evo_wrench.rs`, native melee/Comet Strike and `launcher/tests/test_v56.py` cover the new controls and XP renderer.

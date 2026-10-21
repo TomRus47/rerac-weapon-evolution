@@ -70,6 +70,10 @@ const DT: f32 = 1.0 / 60.0;
 /// The wrench's flight fields (its pvars +0x40..+0x7e while thrown) and its rotation (moby +0x40).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Flight {
+    pub configured: bool,
+    pub range_left: f32,
+    pub damage_hp: f32,
+    pub tuning: crate::weapon_evo::wrench::AttackTuning,
     /// +0x40: the unit direction out.
     pub dir: [f32; 3],
     /// +0x60 / +0x64: speed (u/tick) and its change per tick.
@@ -229,6 +233,10 @@ pub fn throw_wrench(h: &mut Hero, env: &Env, _from_check: bool) {
             }
         }
     }
+    let wrench_settings=crate::weapon_evo::wrench::throw_settings();
+    h.melee.attack_serial=h.melee.attack_serial.wrapping_add(1);
+    h.melee.damage_hp=wrench_settings.2;
+    h.melee.tuning=crate::weapon_evo::wrench::AttackTuning::capture();
     let Some(it) = h.items.slot.item.as_mut().filter(|m| m.o_class == super::melee::WRENCH_CLASS) else { return };
     if h.items.slot.state != 2 { return; }
     h.items.slot.detached = 1;
@@ -253,7 +261,9 @@ pub fn throw_wrench(h: &mut Hero, env: &Env, _from_check: bool) {
         f.euler = launch_euler(&moby_rows);
     }
     f.accel = 0.0;
-    f.speed = DT * 23.0;
+    f.configured=crate::weapon_evo::weapon_menu_level(8).is_some();
+    f.range_left=wrench_settings.0;f.damage_hp=wrench_settings.2;f.tuning=h.melee.tuning;
+    f.speed=DT*wrench_settings.1;
     // fun_00212f90(wrench, 6, 0, 5): the spin sequence (applied at the start of the item update).
     h.items.pending_blend = Some((6, 0, ticks(5)));
     // The wrench's after-images (0x277400(wrench, 0x140b00), 0x277428 × 2: 0x30 / 0x17 at 3 / 5 ticks back;
@@ -322,10 +332,16 @@ pub fn thrown_update(hero: &mut Hero, table: &mut MobyTable, anim: &dyn AnimCtl,
     let f = &mut it.flight;
     if it.mstate == OUT {
         pos = add3(pos, scale3(disp, 0.7));
-        pos = add3(pos, setlen(f.dir, f.speed));
-        f.accel += DT * DT * DT * 170.0;
-        approach(0.0, f.accel, &mut f.speed);
-        if f.speed == 0.0 { it.mstate = BACK; }
+        if f.configured {
+            let used=f.speed.min(f.range_left);pos=add3(pos,setlen(f.dir,used));
+            f.range_left=(f.range_left-used).max(0.);
+            if f.range_left<=0.00001 {it.mstate=BACK;f.accel=0.;}
+        } else {
+            pos = add3(pos, setlen(f.dir, f.speed));
+            f.accel += DT * DT * DT * 170.0;
+            approach(0.0, f.accel, &mut f.speed);
+            if f.speed == 0.0 { it.mstate = BACK; }
+        }
     } else {
         let d = sub3(hand, pos);
         f.accel += DT * DT * 0.9;
@@ -379,15 +395,16 @@ pub fn thrown_update(hero: &mut Hero, table: &mut MobyTable, anim: &dyn AnimCtl,
     // The hit test: 0.4 at joint list 1, else list 0.
     let k = if mstate == BACK { f32::from_bits(0xbebd_70a4) } else { f32::from_bits(0x3f99_999a) };
     let d = setlen(dir, k);
+    let tuning=hero.items.slot.item.as_ref().unwrap().flight.tuning;
     let tmpl = HitTemplate {
-        dir: [Pf::f(d[0]), Pf::f(d[1]), Pf::ONE, Pf::b(0x45af_df66)],
-        attacker: None,
+        dir: tuning.push([Pf::f(d[0]), Pf::f(d[1]), Pf::ONE, Pf::b(0x45af_df66)]),
+        attacker: crate::weapon_evo::weapon_menu_level(8).map(|_|env.hero_moby),
         flags: 0x1_0000,
         b18: 0,
         b19: 1,
         h1a: (hero.melee.comet_side + 1) as u16,
-        damage: Pf::ONE,
-        w20: 1,
+        damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.items.slot.item.as_ref().unwrap().flight.damage_hp,1.)),
+        w20: 1 | if hero.items.slot.item.as_ref().unwrap().flight.configured {crate::weapon_evo::wrench::THROWN} else {0},
     };
     let ignore = Some(env.hero_moby);
     let it = hero.items.slot.item.as_ref().unwrap();
@@ -396,7 +413,7 @@ pub fn thrown_update(hero: &mut Hero, table: &mut MobyTable, anim: &dyn AnimCtl,
         let p = moby_anim::evaluate_chains(&class.anim, &it.anim, it.snapshot.as_ref(), &[chain.as_slice()]);
         Some(super::melee::list_point(&p[0], &it.rows, it.position, it.scale))
     };
-    let r = Pf::b(0x3ecc_cccd);
+    let r = tuning.radius(Pf::b(0x3ecc_cccd));
     let mut hit = None;
     let mut at = from_f32x3(it.position);
     for list in [1, 0] {
@@ -578,6 +595,23 @@ mod tests {
         assert_eq!(r.hero.items.pending_blend, Some((6, 0, 5)));
     }
 
+    #[test]
+    fn configured_throw_range_does_not_depend_on_its_speed() {
+        for speed in [12.,48.] {
+            let mut h=Hero::spawn([410.,410.,100.],0.);let mut it=wrench();it.mstate=OUT;
+            it.flight=Flight{dir:[1.,0.,0.],speed:speed/60.,configured:true,range_left:9.,damage_hp:150.,..Default::default()};
+            h.items.slot=items::HandSlot{item:Some(it),state:2,id:8,detached:1,hand_point:[410.,410.,101.],..Default::default()};
+            let d=data();let pad=crate::pad::PadState::default();let env=ItemEnv{data:&d,pad:&pad,frame:1,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+            let mut table=MobyTable::new(vec![crate::moby_runtime::Moby::zeroed()],4);let anim=KeyAnim::default();let mut frames=0;
+            while h.items.slot.item.as_ref().unwrap().mstate==OUT && frames<200 {
+                thrown_update(&mut h,&mut table,&anim,&env,&mut NoHits,&mut Rng::new());frames+=1;
+            }
+            let it=h.items.slot.item.as_ref().unwrap();assert_eq!(it.mstate,BACK);
+            assert!((it.position[0]-419.).abs()<0.001);assert!((frames as f32-(9./speed*60.).ceil()).abs()<=1.);
+            assert_eq!(it.flight.damage_hp,150.);
+        }
+    }
+
     /// The flight: out along +x decelerating (170·dt³ per tick more each tick) until the speed is 0 (~31 ticks, ~7.8
     /// units), back to the hand point accelerating, the whoosh started going out and released at the catch, the
     /// catch's loop exit, voice 5 and +0x20 = 0 on arrival.
@@ -586,7 +620,7 @@ mod tests {
         let mut h = Hero::spawn([410.0, 410.0, 100.0], 0.0);
         let mut it = wrench();
         it.mstate = OUT;
-        it.flight = Flight { dir: [1.0, 0.0, 0.0], speed: 23.0 / 60.0, accel: 0.0, wall_close: false, euler: [0.0; 3] };
+        it.flight = Flight { dir: [1.0, 0.0, 0.0], speed: 23.0 / 60.0, accel: 0.0, wall_close: false, euler: [0.0; 3], ..Default::default() };
         h.items.slot = items::HandSlot { item: Some(it), fire_mask: button::SQUARE, state: 2, id: 8, detached: 1, hand_point: [410.0, 410.0, 101.0], ..Default::default() };
         let d = data();
         let pad = crate::pad::PadState::default();
@@ -629,7 +663,7 @@ mod tests {
         let mut h = Hero::spawn([410.0, 410.0, 100.0], 0.0);
         let mut it = wrench();
         it.mstate = OUT;
-        it.flight = Flight { dir: [1.0, 0.0, 0.0], speed: 23.0 / 60.0, accel: 0.0, wall_close: true, euler: [0.0; 3] };
+        it.flight = Flight { dir: [1.0, 0.0, 0.0], speed: 23.0 / 60.0, accel: 0.0, wall_close: true, euler: [0.0; 3], ..Default::default() };
         h.items.slot = items::HandSlot { item: Some(it), fire_mask: button::SQUARE, state: 2, id: 8, detached: 1, hand_point: [410.0, 410.0, 101.0], ..Default::default() };
         let d = data();
         let pad = crate::pad::PadState::default();
@@ -731,7 +765,7 @@ mod tests {
         let mut h = Hero::spawn([410.0, 410.0, 100.0], 0.0);
         let mut it = wrench();
         it.mstate = OUT;
-        it.flight = Flight { dir: [1.0, 0.0, 0.0], speed: 23.0 / 60.0, accel: 0.0, wall_close: false, euler: [0.0; 3] };
+        it.flight = Flight { dir: [1.0, 0.0, 0.0], speed: 23.0 / 60.0, accel: 0.0, wall_close: false, euler: [0.0; 3], ..Default::default() };
         h.items.slot = items::HandSlot { item: Some(it), fire_mask: button::SQUARE, state: 2, id: 8, detached: 1, hand_point: [410.0, 410.0, 101.0], ..Default::default() };
         let d = data();
         let pad = crate::pad::PadState::default();

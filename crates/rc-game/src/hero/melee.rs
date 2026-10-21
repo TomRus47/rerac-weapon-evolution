@@ -73,6 +73,10 @@ pub fn wrench_hit_sound(table: &MobyTable, hit: Option<MobyId>) -> i32 {
 /// The melee fields of the hero block (0x13fd40..0x13fdcc).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Melee {
+    /// One accepted hit per enemy per swing/throw, with damage captured at entry.
+    pub attack_serial: u64,
+    pub damage_hp: f32,
+    pub tuning: crate::weapon_evo::wrench::AttackTuning,
     /// 0x13fd40 / 0x13fd50: Ratchet's hand (joint list 0) and the wrench head this tick; 0x13fd60 /
     /// 0x13fd70: last tick's.
     pub hand: V4,
@@ -255,6 +259,11 @@ impl Hero {
     /// target cleared, hit flag cleared; then per state.
     pub(super) fn melee_entry(&mut self, c: &mut Ctx, id: i32, play: bool) {
         self.group = 6;
+        if matches!(id,0x13|0x14|0x15|0x70) {
+            self.melee.attack_serial=self.melee.attack_serial.wrapping_add(1);
+            self.melee.damage_hp=crate::weapon_evo::extra(8,"damage_hp",100.);
+            self.melee.tuning=crate::weapon_evo::wrench::AttackTuning::capture();
+        }
         self.melee.speed_k = Pf::ONE;
         self.f15d4 = 0;
         self.melee.aimed = 0;
@@ -356,7 +365,7 @@ impl Hero {
         } else if !(row[C_STEP] == 1 && !blending && Pf::b(0x40e0_0000) < frame) {
             self.melee_aim(env);
         }
-        if super::combat_strafe::separate_motion(self) {
+        if super::combat_strafe::separate_motion(self) && crate::weapon_evo::extra_flag(8,"moving_attacks_enabled",true) {
             // Attack timing stays native; the locomotion is the same as L2 run,
             // without the combo's forward lunge, including a neutral-stick stop.
             self.stick_target_table(env);
@@ -602,16 +611,20 @@ pub fn wrench_update(hero: &mut Hero, table: &mut MobyTable, anim: &dyn AnimCtl,
     dir = set_len2(dir, s);
     dir[2] = Pf::ONE;
     dir[3] = Pf::b(0x45af_df66);
-    let tmpl = HitTemplate { dir, attacker: None, flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::from_i32(dmg), w20: 1 };
+    let tuning=hero.melee.tuning;
+    let dir=tuning.push(dir);
+    let tmpl = HitTemplate { dir, attacker: crate::weapon_evo::weapon_menu_level(8).map(|_|env.hero_moby), flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.melee.damage_hp,dmg as f32)), w20: 1 };
     let ignore = Some(env.hero_moby);
     // FUN_0026ebe8: five lines between last tick's and this tick's hand → head.
     let k = Pf::ONE / Pf::from_i32(5);
-    let (dh, dt) = (vsub(hand, hand_prev), vsub(tip, tip_prev));
+    let collision_tip=tuning.point(hand,tip);
+    let collision_tip_prev=tuning.point(hand_prev,tip_prev);
+    let (dh, dt) = (vsub(hand, hand_prev), vsub(collision_tip, collision_tip_prev));
     let mut t = k;
     let mut swept = None;
     for _ in 0..5 {
         let a = vadd(vscale(dh, t), hand_prev);
-        let b = vadd(vscale(dt, t), tip_prev);
+        let b = vadd(vscale(dt, t), collision_tip_prev);
         if let Some(h) = hits.line(table, a, b, 0, ignore, &tmpl) {
             swept = Some(h);
             break;
@@ -637,7 +650,7 @@ pub fn wrench_update(hero: &mut Hero, table: &mut MobyTable, anim: &dyn AnimCtl,
     let mut r = Pf::b(0x3eb3_3333);
     if hero.group == 0xf { r = Pf::b(0x3f33_3333); }
     if jump { r = Pf::b(0x3ef0_a3d7); }
-    let sphere = hits.sphere(table, r, c, 0, ignore, &tmpl);
+    let sphere = hits.sphere(table, tuning.radius(r), tuning.point(hand,c), 0, ignore, &tmpl);
     // (0x1742d8 is the last test's moby: the sphere's when it listed one, else still the line's.)
     let last = sphere.or(match swept { Some(Some(m)) => Some(m), _ => None });
     if let Some(m) = sphere.filter(|&m| class_type_of(table, hits, m) != Some(0x12)) {
@@ -733,8 +746,10 @@ impl Hero {
 /// {dir, Ratchet's moby, flags 0x10000, damage 2, class 0x47})`.
 pub fn jump_attack_shockwave(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink) {
     let Some((p, dir)) = hero.shockwave.take() else { return };
-    let tmpl = HitTemplate { dir, attacker: Some(env.hero_moby), flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::b(0x4000_0000), w20: 1 };
-    hits.sphere(table, Pf::b(0x3ecc_cccd), p, 0x10, Some(env.hero_moby), &tmpl);
+    let dir=hero.melee.tuning.push(dir);
+    let tmpl = HitTemplate { dir, attacker: Some(env.hero_moby), flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.melee.damage_hp,2.)), w20: 1 };
+    crate::weapon_evo::wrench::break_crates(hero,table,env,hits,p);
+    hits.sphere(table, hero.melee.tuning.radius(Pf::b(0x3ecc_cccd)), p, 0x10, Some(env.hero_moby), &tmpl);
 }
 
 /// One moby of the target list 0x1abe80 as the melee aim search `0x22e238` reads it: its position (+0x10), its record's

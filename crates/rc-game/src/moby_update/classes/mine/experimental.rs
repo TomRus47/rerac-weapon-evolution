@@ -16,22 +16,27 @@ const HP: usize = 0xb0;
 const TAG: u32 = 0x5745_4635;
 const LIGHT_SLOT: usize = 0xb4;
 const LIGHT_GENERATION: usize = 0xb8;
-const LEN: usize = 0xbc;
+const SIZE_PERCENT: usize = 0xbc;
+const BASE_SCALE: usize = 0xc0;
+const LEN: usize = 0xc4;
 
 pub fn snapshot(m: &mut crate::moby_runtime::Moby) {
+    snapshot_configured(m, |key,native|crate::weapon_evo::extra(17,key,native), |key|crate::weapon_evo::extra_color(17,key));
+}
+fn snapshot_configured(m:&mut crate::moby_runtime::Moby,value:impl Fn(&str,f32)->f32,color:impl Fn(&str)->Option<u32>) {
+    let base_scale=if valid(m) {p::ff(&m.pvars,BASE_SCALE)} else {m.scale};
     m.pvars.resize(LEN.max(m.pvars.len()), 0);
+    p::set_ff(&mut m.pvars,BASE_SCALE,base_scale);
     p::set_u32(&mut m.pvars, TAG_AT, TAG);
     p::set_i32(&mut m.pvars, LIGHT_SLOT, -1);
     p::set_u32(
         &mut m.pvars,
         FLAGS,
-        u32::from(crate::weapon_evo::extra_flag(
-            17,
-            "flame_mine_enabled",
-            false,
-        )),
+        u32::from(value("flame_mine_enabled",0.)!=0.),
     );
-    let value = |key, native| crate::weapon_evo::extra(17, key, native);
+    let size=if p::u32(&m.pvars,FLAGS)!=0 {value("flame_mine_size_percent",150.)} else {100.};
+    p::set_ff(&mut m.pvars,SIZE_PERCENT,size);
+    m.scale=base_scale*size/100.;
     p::set_i32(
         &mut m.pvars,
         LIFE,
@@ -64,7 +69,7 @@ pub fn snapshot(m: &mut crate::moby_runtime::Moby) {
         p::set_i32(
             &mut m.pvars,
             off,
-            crate::weapon_evo::extra_color(17, key).map_or(-1, |rgb| rgb as i32),
+            color(key).map_or(-1, |rgb| rgb as i32),
         );
     }
 }
@@ -135,6 +140,8 @@ pub(super) fn update(w: &mut World, id: MobyId) -> bool {
     }
     let angle = c::add_rot(c::pf(w, id, ANGLE), c::pf(w, id, ROTATION));
     c::set_pf(w, id, ANGLE, angle);
+    w.mm(id).rotation[2]=angle;
+    w.build_matrix(id);
     let mut start = c::pos(w, id);
     start[2] += 0.12;
     let range = c::pf(w, id, RANGE);
@@ -213,14 +220,16 @@ const LANDED_HEIGHT: f32 = 0.4;
 /// Test both the centre and the lower hull, with the native two-sided terrain
 /// mask. A missing class collision primitive must never let the mine tunnel.
 fn flight(w: &mut World, id: MobyId) {
+    let size=c::pf(w,id,SIZE_PERCENT).max(1.)/100.;
+    let body_radius=BODY_RADIUS*size;let landed_height=LANDED_HEIGHT*size;
     w.mm(id).has_collision = false;
     let old = c::pos(w,id);
     let mut vel = c::pv4(w,id,pv::VEL);
     let new = c::add(old,vel);
     let flags = 0x12; // two-sided world / platform triangles, no owner primitives
     let centre = w.coll_line(pvq(old),pvq(new),flags,Some(id));
-    let bottom_old = c::add(old,[0.0,0.0,-BODY_RADIUS,0.0]);
-    let bottom_new = c::add(new,[0.0,0.0,-BODY_RADIUS,0.0]);
+    let bottom_old = c::add(old,[0.0,0.0,-body_radius,0.0]);
+    let bottom_new = c::add(new,[0.0,0.0,-body_radius,0.0]);
     let bottom = w.coll_line(pvq(bottom_old),pvq(bottom_new),flags,Some(id));
     let hit = match (centre,bottom) {
         (Some(a),Some(b)) => {
@@ -236,7 +245,7 @@ fn flight(w: &mut World, id: MobyId) {
         if c::dot3(normal,vel)>0.0 {normal=c::scale(normal,-1.0);}
         let point=[hit.point[0],hit.point[1],hit.point[2],1.0];
         if normal[2]>=0.5 && vel[2]<=0.0 {
-            c::set_pos(w,id,c::add(point,c::scale(normal,LANDED_HEIGHT)));
+            c::set_pos(w,id,c::add(point,c::scale(normal,landed_height)));
             w.mm(id).state=OUT|LANDED;
             c::set_pv4(w,id,pv::VEL,[0.0;4]);
             w.mm(id).has_collision=w.classes.info(CLASS).is_some_and(|info|info.has_collision);
@@ -244,7 +253,7 @@ fn flight(w: &mut World, id: MobyId) {
         } else {
             // A wall/ceiling redirects the mine; it does not activate a fire
             // cross in midair or allow the next position to enter the surface.
-            c::set_pos(w,id,c::add(point,c::scale(normal,BODY_RADIUS+0.02)));
+            c::set_pos(w,id,c::add(point,c::scale(normal,body_radius+0.02)));
             vel=c::scale(reflect(vel,normal),0.5);
             vel[2]-=DT2*9.8;
             c::set_pv4(w,id,pv::VEL,vel);
@@ -252,12 +261,12 @@ fn flight(w: &mut World, id: MobyId) {
     } else {
         // A sphere at the next centre catches a grazing face missed by the two
         // segment probes. The downward support probe uses the same terrain mask.
-        if let Some(hit)=w.coll_sphere(pvq(new),Pf::f(BODY_RADIUS),flags,Some(id)) {
+        if let Some(hit)=w.coll_sphere(pvq(new),Pf::f(body_radius),flags,Some(id)) {
             let mut normal=c::set_len3([hit.normal[0],hit.normal[1],hit.normal[2],0.0],1.0);
             if c::dot3(normal,vel)>0.0 {normal=c::scale(normal,-1.0);}
             if normal[2]>=0.5 && vel[2]<=0.0 && hit.surface_id()!=0 {
                 let point=[hit.point[0],hit.point[1],hit.point[2],1.0];
-                c::set_pos(w,id,c::add(point,c::scale(normal,LANDED_HEIGHT)));
+                c::set_pos(w,id,c::add(point,c::scale(normal,landed_height)));
                 w.mm(id).state=OUT|LANDED;
                 c::set_pv4(w,id,pv::VEL,[0.0;4]);
                 w.mm(id).has_collision=w.classes.info(CLASS).is_some_and(|info|info.has_collision);
@@ -266,7 +275,7 @@ fn flight(w: &mut World, id: MobyId) {
             }
             if hit.surface_id()==0 {retire(w,id);return;}
             let point=[hit.point[0],hit.point[1],hit.point[2],1.0];
-            c::set_pos(w,id,c::add(point,c::scale(normal,BODY_RADIUS+0.02)));
+            c::set_pos(w,id,c::add(point,c::scale(normal,body_radius+0.02)));
             vel=c::scale(reflect(vel,normal),0.5);vel[2]-=DT2*9.8;
             c::set_pv4(w,id,pv::VEL,vel);
             return;
@@ -300,6 +309,17 @@ fn owned_light(w: &World, id: MobyId) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn size_is_idempotent_and_body_tracks_flame_rotation() {
+        let (mut b,id)=dropped_mine(12.,-10.);let base=b.table.mobys[id].scale;
+        let config=|key:&str,native|match key {"flame_mine_enabled"=>1.,"flame_mine_size_percent"=>150.,"mine_flame_rotation_degrees_per_second"=>90.,_=>native};
+        snapshot_configured(&mut b.table.mobys[id],config,|_|None);snapshot_configured(&mut b.table.mobys[id],config,|_|None);
+        assert!((b.table.mobys[id].scale-base*1.5).abs()<0.000001);
+        b.tick(None);b.tick(None);assert_ne!(b.table.mobys[id].state&LANDED,0);assert!(b.table.mobys[id].position[2]>=8.59);
+        let before=b.table.mobys[id].rotation[2];b.tick(None);let m=&b.table.mobys[id];assert_eq!(m.rotation[2],p::ff(&m.pvars,ANGLE));
+        assert!((c::add_rot(before,std::f32::consts::FRAC_PI_2/60.)-m.rotation[2]).abs()<0.0001);
+        p::set_ff(&mut b.table.mobys[id].pvars,ROTATION,0.);let before=b.table.mobys[id].rotation[2];b.tick(None);assert_eq!(b.table.mobys[id].rotation[2],before);
+    }
     fn dropped_mine(z:f32,vz:f32)->(crate::moby_update::classes::bomb_water::tests::Bench,MobyId) {
         use crate::moby_update::classes::bomb_water::tests::{Bench,pool};
         let mut b=Bench::new(pool(8.0,-100.0),&[CLASS],[40.,40.,20.]);

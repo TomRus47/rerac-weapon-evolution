@@ -45,6 +45,7 @@ pub struct Events {
     pub frame: u64,
     pub hero: Option<MobyId>,
     pub melee_serial: u64,
+    pub wrench_serial: u64,
     pub values: HashMap<i32, f32>,
     /// Pyrocitor, Tesla: number of actual contact ticks per damage pulse.
     pub stream_intervals: [u32; 2],
@@ -81,6 +82,8 @@ pub fn donor(m: &Moby) -> bool {
 
 pub fn weapon(t: &HitTemplate, hero: Option<MobyId>) -> Option<i32> {
     Some(match t.h1a {
+        0x47 if t.attacker==hero && hero.is_some() => 8,
+        1 | 2 if t.attacker==hero && hero.is_some() && t.w20 & crate::weapon_evo::wrench::THROWN!=0 => 8,
         121 => 10, 153 => 11, 172 => 13, 305 | 168 => 15,
         176 if t.b18 == 5 && t.attacker == hero => 16,
         0 if t.b18 == 5 && hero.is_some() && t.attacker == hero => 16,
@@ -117,11 +120,12 @@ impl Events {
     /// True means delivery was handled, including a duplicate or contact-only sweep.
     pub fn queue(&mut self, table: &MobyTable, target: MobyId, t: &HitTemplate, sweep: bool, pos: [Pf; 4], prim: i32) -> bool {
         if !self.enabled || !table.mobys.get(target).is_some_and(donor) { return false; }
-        let item = if t.attacker.and_then(|id| table.mobys.get(id)).is_some_and(super::classes::mouse::companion::owned_shot) {
+        let item = if t.attacker.and_then(|id|table.mobys.get(id)).is_some_and(super::classes::bomb::visibomb_grenade::is_grenade) {Some(13)} else if t.attacker.and_then(|id| table.mobys.get(id)).is_some_and(super::classes::mouse::companion::owned_shot) {
             Some(24)
         } else if t.attacker.and_then(|id| table.mobys.get(id)).is_some_and(super::classes::blaster_shot::is_ryno_pellet) {
             Some(23)
         } else { weapon(t, self.hero) };
+        if item==Some(8) && !self.values.contains_key(&8) {return false;}
         let Some(item) = item else {
             // A Doom bot's contact never becomes HP damage; detonation owns it.
             return t.h1a == 186;
@@ -131,7 +135,7 @@ impl Events {
         let Some(attacker) = t.attacker else { return false; };
         let stream = item == 16 || item == 19 || (item == 17 && t.b18 == 5);
         let channel = u8::from(item == 19 && t.w20 & TESLA_SECONDARY != 0);
-        let phase = if item == 18 { self.melee_serial } else if stream || item == 14 || t.h1a == 168 { self.frame.saturating_mul(2) + channel as u64 } else { u64::MAX };
+        let phase = if item==8 {self.wrench_serial} else if item == 18 { self.melee_serial } else if stream || item == 14 || t.h1a == 168 { self.frame.saturating_mul(2) + channel as u64 } else { u64::MAX };
         let key = (attacker, item, phase);
         let instance = match self.sources.get(&key).copied() {
             Some(id) => id,
@@ -151,7 +155,7 @@ impl Events {
             return true;
         }
         let hp = self.source_damage_hp.get(&(attacker, item)).or_else(|| self.values.get(&item)).copied().unwrap_or_else(|| t.damage.to_f32() * HP_SCALE);
-        let hp = if item == 19 && t.w20 & TESLA_OVERLAP != 0 {
+        let hp = if item==8 {t.damage.to_f32()*HP_SCALE} else if item == 19 && t.w20 & TESLA_OVERLAP != 0 {
             hp * crate::weapon_evo::extra(19, "secondary_beam_damage_percent", 25.0) / 100.0
         } else { hp };
         let mut damage = hp / HP_SCALE / if stream { 60.0 } else { 1.0 };
@@ -172,12 +176,12 @@ impl Events {
         // enemy filters: otherwise fire/electricity is mistaken for the wrench.
         let stream_class = match item { 17 if stream => Some(176), 16 => Some(176), 19 => Some(177), _ => None };
         let r = HitRecord { pos, dir: t.dir, attacker: t.attacker, flags: t.flags,
-            b28: t.b18, b29: t.b19, h2a: stream_class.unwrap_or(t.h1a as i16) as u16, damage: Pf::f(damage), w30: t.w20 & !TESLA_OVERLAP,
+            b28: t.b18, b29: t.b19, h2a: stream_class.unwrap_or(t.h1a as i16) as u16, damage: Pf::f(damage), w30: t.w20 & !TESLA_OVERLAP & if item==8 {!crate::weapon_evo::wrench::THROWN} else {u32::MAX},
             target, prim, doom_explosion: 0,
             evolution: Some(Attack { burn_color: if item == 16 { Some(crate::weapon_evo::pyro_burn_color()) }
                 else if item == 17 { Some(table.mobys.get(attacker).and_then(super::classes::mine::experimental::burn_color)) }
                 else { None }, instance, weapon: item, damage, damage_only: false,
-                origin: table.mobys.get(attacker).map(|m| Origin { class: stream_class.unwrap_or(m.o_class), position: m.position }) }) };
+                origin: table.mobys.get(attacker).map(|m| Origin { class: if item==8 {0x47} else {stream_class.unwrap_or(m.o_class)}, position: m.position }) }) };
         if stream {
             if let Some(old) = self.pending.get_mut(&target).and_then(|q| q.iter_mut().find(|h|
                 h.attacker == Some(attacker) && h.w30 == r.w30 && h.evolution.is_some_and(|a|
@@ -244,7 +248,7 @@ impl Events {
     pub fn begin_frame(&mut self, frame: u64) {
         if self.frame != frame {
             // Per-frame flow identities need not survive after their records were copied.
-            self.sources.retain(|(_, item, phase), _| *phase == u64::MAX || (*item == 18 && *phase == self.melee_serial));
+            self.sources.retain(|(_, item, phase), _| *phase == u64::MAX || (*item == 18 && *phase == self.melee_serial) || (*item==8 && *phase==self.wrench_serial));
             self.frame = frame;
             self.muzzle_bound=false;
         }

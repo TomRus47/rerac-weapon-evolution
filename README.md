@@ -1,6 +1,6 @@
 # ReRAC Weapon Evolution
 
-Unreleased development version **0.3.3**: gameplay patch **0.1.6.51**, configuration capability **51**, English preset launcher **0.11.0**, built on the supplied ReRAC **0.3.4** source snapshot.
+Weapon Evolution **0.3**: gameplay patch **0.1.6.56**, configuration capability **56**, multilingual preset launcher **0.16.0**, built on the supplied ReRAC **0.3.4** source snapshot.
 
 **Runtime compatibility: ReRAC 0.3.4-alpha**, using the modified game runtime supplied with Weapon Evolution or built from this repository.
 
@@ -10,18 +10,22 @@ This is a source repository. It contains the modified Rust workspace, launcher s
 
 The full ReRAC source base is included because the mod integrates with many gameplay and rendering systems. No earlier patch installation is required. [MOD_FILES.md](MOD_FILES.md) identifies the mod modules and integration points; [mod/source-map.json](mod/source-map.json) provides their hashes.
 
-See the [release notes](docs/releases/v0.3.3.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md), and [respawn investigation](docs/mod/RESPAWN_LIFECYCLE.md) for current behavior. See the [loading and shotgun investigation](docs/mod/LOADING_AND_SHOTGUN.md) for the v50 fixes and measurement limits. The v40 audio investigation is historical; temporary probes have been removed.
+See the [release notes](docs/releases/v0.3.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md), and [respawn investigation](docs/mod/RESPAWN_LIFECYCLE.md) for current behavior. See the [loading and shotgun investigation](docs/mod/LOADING_AND_SHOTGUN.md) for the v50 fixes and measurement limits. The v40 audio investigation is historical; temporary probes have been removed.
+
+Local v53 changes: [Visibomb grenades, icon colors and mine geometry](docs/mod/VISIBOMB_GRENADES_V53.md).
+
+Local v54: [OmniWrench grades, additive bolt attraction and projectile fixes](docs/mod/WRENCH_AND_PROJECTILES_V54.md).
 
 ## Features
 
-- Optional [ammo-unlock mode](docs/mod/AMMO_UNLOCK_MODE.md): independent ammo packs, collectible-bolt unlocks and per-slot persistence; Gold appearance for every weapon and a silent second Tesla beam.
+- Optional [Ammo-Survival Mode](docs/mod/AMMO_UNLOCK_MODE.md): independent ammo packs, collectible-bolt unlocks and per-slot persistence; Gold appearance for every weapon and a silent second Tesla beam.
 
 - Independent weapon XP and five configurable grades; localized in-game weapon names and colored grade icons.
 - Real HP damage, actual-health-loss XP attribution and independent projectile/explosion hit tracking.
 - Per-grade ammunition, damage, firing intervals, stream intervals, targeting ranges, gold behavior and weapon effects.
 - Camera-locked movement and combat, directional leg animation and R2 firing while locked.
 - Weapon HUD name, grade, XP bar and synchronized fades.
-- English launcher with optional saved presets, editable defaults, portable runtime selection and a standalone Windows EXE build.
+- Launcher in English, Italian, French, German and Spanish with optional saved presets, editable defaults, portable runtime selection and a standalone Windows EXE build.
 - Preserve encounter phase protection while fixing independent weapon hit handling.
 - Experimental cluster bombs, triple flames, crate ammunition, a second Tesla chain, continuous-missile or 35-pellet R.Y.N.O., flame mines and a Drone Device Sand Mouse companion.
 - XP below the pause-menu weapon-name panel, up to ten ordered drones, directional boot poses and expanded/stabilized locked-camera aim.
@@ -30,6 +34,8 @@ See the [release notes](docs/releases/v0.3.3.md), [current implementation map](d
 ## For developers modifying the mod
 
 Start with the [Developer guide](docs/mod/DEVELOPER_GUIDE.md). It maps concrete tasks to files and symbols, follows the damage/XP and save lifecycles, and gives implementation recipes for new INI controls and enemy support. It also explains camera/animation integration, runtime compatibility, debugging and release checks. The [Configuration reference](docs/mod/CONFIG_REFERENCE.md) documents the public fields by weapon with launcher types, bounds and help text.
+
+For the source-overlay test workflow, read [LOCAL_TEST_KIT.md](docs/mod/LOCAL_TEST_KIT.md). It reuses your local build cache and does not update GitHub.
 
 ## Build on Windows x64
 
@@ -113,4 +119,8 @@ To package an already edited local INI without installing the tracked defaults, 
 py -3 launcher\package_launcher.py --exe launcher\runtime\rerac.exe --ini launcher\weapons.ini --no-presets
 ```
 
-The Windows release workflow builds and smoke-tests both executables, packages the tracked default, uploads checksums and prepares a **draft** release. Gameplay validation is still required before publishing.
+The Windows release workflow tests and builds both executables, packages the tracked default, and attaches matching source and checksums. Ordinary pushes produce test artifacts. Release 0.3 is explicitly approved for publication; see [Publishing](docs/mod/PUBLISHING.md) for the guarded release trigger.
+
+Local v55: [localized launcher, consistent field organization and experimental ammo](docs/mod/LAUNCHER_V55.md).
+
+Local v56: [wrench XP layout, hit radius and horizontal enemy push](docs/mod/WRENCH_TUNING_V56.md).

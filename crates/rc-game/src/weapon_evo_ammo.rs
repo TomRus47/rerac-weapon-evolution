@@ -7,7 +7,81 @@ use crate::game_state::{GameState, SessionState};
 pub const KEY: &str = "experimental_ammo_unlock_mode";
 /// All ammunition weapons, including R.Y.N.O.; no utility gadgets enter this pool.
 pub const AMMO_IDS: [usize; 11] = [10, 15, 16, 11, 17, 19, 20, 24, 13, 25, 23];
-pub const PERMANENT: [(usize, u64); 4] = [(18, 0), (14, 25_000), (9, 50_000), (21, 75_000)];
+/// Threshold order is shared by the runtime parser and launcher schema.
+pub const PERMANENT: [(usize, u64); 4] = [(14, 10_000), (9, 25_000), (18, 50_000), (21, 75_000)];
+pub const UNLOCK_KEYS: [&str; 4] = ["ammo_unlock_taunter_bolts", "ammo_unlock_suck_cannon_bolts",
+    "ammo_unlock_walloper_bolts", "ammo_unlock_morph_ray_bolts"];
+pub const CHANCE_KEYS: [&str; 11] = ["ammo_drop_chance_bomb_glove", "ammo_drop_chance_blaster",
+    "ammo_drop_chance_pyrocitor", "ammo_drop_chance_devastator", "ammo_drop_chance_mine_glove",
+    "ammo_drop_chance_tesla_claw", "ammo_drop_chance_glove_of_doom", "ammo_drop_chance_drone_device",
+    "ammo_drop_chance_visibomb", "ammo_drop_chance_decoy_glove", "ammo_drop_chance_ryno"];
+pub const CHANCE_TICKETS: i32 = 1_000_000;
+
+/// Profile values, independent of per-slot saved ownership and collected bolts.
+/// Chance inputs are normalized together. A zero input excludes that ammo type.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Settings {
+    pub unlock_bolts: [u64; 4],
+    pub drop_chances: [f64; 11],
+}
+impl Default for Settings {
+    fn default() -> Self {
+        Self { unlock_bolts: PERMANENT.map(|(_, bolts)| bolts),
+            drop_chances: [30., 30., 30., 10., 10., 10., 10., 10., 3., 3., 1.].map(|w| w * 100. / 147.) }
+    }
+}
+impl Settings {
+    pub fn parse_field(&mut self, key: &str, value: &str) -> Result<bool, String> {
+        if let Some(i) = UNLOCK_KEYS.iter().position(|&k| k == key) {
+            let n = value.parse::<u64>().map_err(|_| format!("{key} must be an integer 0..1000000000"))?;
+            if n > 1_000_000_000 { return Err(format!("{key} must be 0..1000000000")); }
+            self.unlock_bolts[i] = n;
+        } else if let Some(i) = CHANCE_KEYS.iter().position(|&k| k == key) {
+            let n = value.parse::<f64>().map_err(|_| format!("{key} must be a percentage 0..100"))?;
+            if !n.is_finite() || !(0.0..=100.0).contains(&n) { return Err(format!("{key} must be 0..100")); }
+            self.drop_chances[i] = n;
+        } else { return Ok(false); }
+        Ok(true)
+    }
+    pub fn validate(&self) -> Result<(), String> {
+        if self.drop_chances.iter().sum::<f64>() <= 0.0 { return Err("At least one ammo drop chance must be greater than zero".into()); }
+        Ok(())
+    }
+    pub fn chance(&self, id: usize) -> f64 {
+        AMMO_IDS.iter().position(|&i| i == id).map_or(0., |i| self.drop_chances[i])
+    }
+    pub fn random_choice(&self, items: &[usize], rng: &mut crate::rng::Rng) -> Option<usize> {
+        // Native randi only has 15 bits and cannot cover a million-ticket pool.
+        // Use the full 31-bit stream with rejection to avoid modulo bias.
+        if !items.iter().any(|&id| self.chance(id) > 0.) { return None; }
+        let span=1u64 << 31;
+        let limit=span-span%CHANCE_TICKETS as u64;
+        loop {
+            let value=rng.rand() as u64;
+            if value<limit { return self.choose(items,(value%CHANCE_TICKETS as u64) as i32); }
+        }
+    }
+    pub fn choose(&self, items: &[usize], ticket: i32) -> Option<usize> {
+        let total: f64 = items.iter().map(|&id| self.chance(id)).sum();
+        if total <= 0. { return None; }
+        let mut at = ticket.rem_euclid(CHANCE_TICKETS) as f64 * total / CHANCE_TICKETS as f64;
+        for &id in items {
+            let chance = self.chance(id);
+            if at < chance { return Some(id); }
+            at -= chance;
+        }
+        items.iter().copied().rev().find(|&id| self.chance(id) > 0.)
+    }
+}
+
+/// Only the new-game template path calls this. Loading an existing save or
+/// toggling the mode never deletes ammunition already collected by the player.
+pub fn initialize_new_game(gs: &mut GameState, on: bool, settings: &Settings) {
+    if !on { return; }
+    gs.global.ammo[10] = 0;
+    reconcile_configured(gs, &mut SessionState::default(), true, 0, false, settings);
+    gs.global.equipped[0] = 8;
+}
 const MASK: u32 = (1 << 9) | (1 << 10) | (1 << 11) | (1 << 13) | (1 << 14)
     | (1 << 15) | (1 << 16) | (1 << 17) | (1 << 18) | (1 << 19)
     | (1 << 20) | (1 << 21) | (1 << 23) | (1 << 24) | (1 << 25);
@@ -57,6 +131,10 @@ pub fn reconcile(gs: &mut GameState, session: &mut SessionState, on: bool, colle
 /// The last Visibomb must finish its guided flight before a forced hand swap.
 /// Ownership and the ring still lock immediately; only the swap is deferred.
 pub fn reconcile_with_guidance(gs: &mut GameState, session: &mut SessionState, on: bool, collected: u64, guiding: bool) {
+    reconcile_configured(gs, session, on, collected, guiding, &Settings::default());
+}
+
+pub fn reconcile_configured(gs: &mut GameState, session: &mut SessionState, on: bool, collected: u64, guiding: bool, settings: &Settings) {
     let mut mode = gs.weapon_progress.ammo_mode;
     if !on {
         if mode.active {
@@ -87,8 +165,8 @@ pub fn reconcile_with_guidance(gs: &mut GameState, session: &mut SessionState, o
     for id in AMMO_IDS {
         if gs.global.ammo[id] > 0 { available |= 1 << id; }
     }
-    for (id, threshold) in PERMANENT {
-        if mode.normal_bolts >= threshold { available |= 1 << id; }
+    for (i, (id, _)) in PERMANENT.into_iter().enumerate() {
+        if mode.normal_bolts >= settings.unlock_bolts[i] { available |= 1 << id; }
     }
     for id in 0..gs.global.owned.len() {
         if is_weapon(id) { gs.global.owned[id] = u8::from(available & (1 << id) != 0); }
@@ -129,9 +207,11 @@ pub fn pack_count(gold_bolts: u32, ticket: i32) -> i32 {
     }
     unreachable!("pack weights always total 4000")
 }
+#[cfg(test)]
 pub fn weapon_weight(id: usize) -> i32 {
     match id { 10 | 15 | 16 => 30, 13 | 25 => 3, 23 => 1, _ => 10 }
 }
+#[cfg(test)]
 pub fn weighted_item(items: &[usize], ticket: i32) -> Option<usize> {
     let sum: i32 = items.iter().map(|&id| weapon_weight(id)).sum();
     if sum == 0 { return None; }
@@ -149,6 +229,73 @@ mod tests {
     use super::*;
     fn game() -> GameState { GameState::zeroed(rc_formats::save_game::ChunkTables { global: vec![], level: vec![] }) }
 
+    #[test]
+    fn custom_thresholds_apply_to_each_weapon_and_never_spend_the_wallet() {
+        let mut g=game(); let mut session=SessionState::default();
+        let settings=Settings { unlock_bolts: [3,7,11,15], ..Default::default() };
+        g.global.bolts=99;
+        for amount in 0..=15 {
+            reconcile_configured(&mut g,&mut session,true,u64::from(amount!=0),false,&settings);
+            for (i,(id,_)) in PERMANENT.into_iter().enumerate() {
+                assert_eq!(g.global.owned[id],u8::from(amount>=settings.unlock_bolts[i]));
+            }
+            assert_eq!(g.global.bolts,99);
+        }
+    }
+    #[test]
+    fn chance_inputs_normalize_and_zero_types_can_never_drop() {
+        let mut settings=Settings { drop_chances: [0.;11], ..Default::default() };
+        assert!(settings.validate().is_err());
+        settings.drop_chances[0]=20.; settings.drop_chances[10]=60.;
+        settings.validate().unwrap();
+        let mut bomb=0;
+        for ticket in 0..CHANCE_TICKETS {
+            match settings.choose(&AMMO_IDS,ticket) {
+                Some(10)=>bomb+=1, Some(23)=>{}, other=>panic!("excluded ammo: {other:?}"),
+            }
+        }
+        assert_eq!(bomb,250_000);
+        assert_eq!(settings.choose(&[15],0),None,"no excluded-ammo fallback");
+        settings.drop_chances[0]=0.;
+        assert_eq!(settings.choose(&AMMO_IDS,0),Some(23));
+    }
+    #[test]
+    fn new_game_only_removes_template_bombs_and_blocks_native_free_refills() {
+        let mut original=game(); original.global.owned[10]=1;original.global.ammo[10]=40;
+        original.global.ammo[15]=17;
+        let settings=Settings::default();
+        let mut vanilla=original.clone();initialize_new_game(&mut vanilla,false,&settings);
+        assert_eq!(vanilla.global.ammo[10],40);
+        let mut fresh=original.clone();initialize_new_game(&mut fresh,true,&settings);
+        assert_eq!(fresh.global.ammo[10],0);assert_eq!(fresh.global.owned[10],0);
+        assert_eq!(fresh.global.ammo[15],17);assert!(fresh.weapon_progress.ammo_mode.active);
+        assert_eq!(fresh.global.equipped[0],8);
+        let mut loaded=original;reconcile_configured(&mut loaded,&mut SessionState::default(),true,0,false,&settings);
+        assert_eq!(loaded.global.ammo[10],40,"enabling on an existing save preserves ammo");
+        // Exercise the real planet-entry grant with a native 40-ammo record.
+        use rc_formats::save_game::{ItemRecord,ItemTables,ITEM_COUNT,VENDOR_TABLE_LEN};
+        let mut items=ItemTables { vendor_items:[0;VENDOR_TABLE_LEN], records:[ItemRecord([0;0x18]);ITEM_COUNT],
+            slot_type:[0;ITEM_COUNT], item_defs_addr:0 };
+        items.records[10].0[8..10].copy_from_slice(&1u16.to_le_bytes());
+        items.records[10].0[0x12..0x14].copy_from_slice(&40u16.to_le_bytes());
+        fresh.apply_level_start(0,&items,&mut SessionState::default());
+        assert_eq!(fresh.global.ammo[10],0,"native level start must not refill the new-game bombs");
+        assert_eq!(fresh.global.equipped[0],8,"native bomb grant must not equip a locked weapon");
+        assert_eq!(fresh.global.acquired[10],1,"retain the native story acquisition");
+    }
+    #[test]
+    fn profile_parameters_round_trip_and_reject_nonfinite_or_invalid_values() {
+        let base="[general]\nexperimental_ammo_unlock_mode=true\n".to_string()
+            + &(1..=5).map(|g|format!("[weapon.bomb_glove.level{g}]\n")).collect::<String>();
+        let custom=base.replacen("[general]", "[general]\nammo_unlock_walloper_bolts=123456789\nammo_drop_chance_ryno=37.5",1);
+        let e=super::super::Evolution::parse(&custom).unwrap();
+        assert_eq!(e.ammo_mode_settings.unlock_bolts[2],123456789);
+        assert_eq!(e.ammo_mode_settings.chance(23),37.5);
+        for (key,bad) in [(UNLOCK_KEYS[0],"-1"),(UNLOCK_KEYS[1],"2.5"),(UNLOCK_KEYS[2],"1000000001"),
+                          (CHANCE_KEYS[0],"NaN"),(CHANCE_KEYS[1],"inf"),(CHANCE_KEYS[2],"101")] {
+            assert!(super::super::Evolution::parse(&base.replacen("[general]",&format!("[general]\n{key}={bad}"),1)).is_err());
+        }
+    }
     #[test]
     fn pack_distribution_is_exact_and_monotonic_for_every_gold_count() {
         let mut previous = pack_weights(0);
@@ -195,9 +342,10 @@ mod tests {
     #[test]
     fn collected_bolts_unlock_permanently_spending_does_not_and_slots_are_isolated() {
         let mut g=game();let mut s=SessionState::default();
-        reconcile(&mut g,&mut s,true,24_999);assert_eq!(g.global.owned[14],0);
+        reconcile(&mut g,&mut s,true,9_999);assert_eq!(g.global.owned[14],0);
         reconcile(&mut g,&mut s,true,1);assert_eq!(g.global.owned[14],1);
-        g.global.bolts=0;reconcile(&mut g,&mut s,true,25_000);assert_eq!(g.global.owned[9],1);
+        g.global.bolts=0;reconcile(&mut g,&mut s,true,15_000);assert_eq!(g.global.owned[9],1);
+        reconcile(&mut g,&mut s,true,25_000);assert_eq!(g.global.owned[18],1);
         reconcile(&mut g,&mut s,true,25_000);assert_eq!(g.global.owned[21],1);
         let mut fresh=game();reconcile(&mut fresh,&mut s,true,0);assert_eq!(fresh.global.owned[21],0);
         g.weapon_progress.ammo_mode.record_native_grant(11);

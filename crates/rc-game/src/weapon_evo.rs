@@ -1,4 +1,4 @@
-//! Weapon Evolution v0.1.6.51 for ReRAC v0.3.4-alpha.
+//! Weapon Evolution v0.1.6.56 for ReRAC v0.3.4-alpha.
 //! Per-weapon V1..V5 tracks. Active only with RC_WEAPON_EVOLUTION_INI.
 //! XP and grades are stored beside each native save; native save bytes remain unmodified.
 #[path = "weapon_evo_save.rs"]
@@ -9,6 +9,8 @@ pub mod notice;
 pub mod ammo_mode;
 #[cfg(feature = "weapon-evo-release")]
 const RELEASE_PROFILE: &str = include_str!("weapon_evo_release.ini");
+#[path="weapon_evo_wrench.rs"]
+pub mod wrench;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{OnceLock, RwLock, Mutex};
@@ -51,13 +53,15 @@ pub fn extra_color(item: i32, key: &str) -> Option<u32> {
 /// No new configuration key is accepted unless a gameplay hook consumes it.
 fn supported_extra_stat(item: i32, key: &str) -> bool {
     if matches!(key, "max_ammo" | "damage_multiplier" | "gold" | "gold_texture" | "gold_effects") { return true; }
+    if key == "experimental_max_ammo" { return matches!(item, 9|13|17|19|23|24); }
     let fields: &[&str] = match item {
+        8 => &["hit_radius_multiplier", "knockback_multiplier", "throw_range", "throw_speed", "show_hud", "crate_breaker_enabled", "crate_breaker_radius", "moving_attacks_enabled", "bolt_attraction_bonus"],
         9 => &["capacity", "suck_range_multiplier", "shot_damage_multiplier", "crate_suction_enabled", "suck_wooden_crates", "suck_explosive_crates", "suck_steel_crates", "suck_ammo_crates", "suck_nanotech_crates"],
         11 => &["fire_interval_ticks", "homing_strength_multiplier", "missile_speed_multiplier", "missile_range_multiplier", "explosion_radius_multiplier", "explosion_visual_size_multiplier", "explosion_color", "trail_color"],
-        13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding"],
+        13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding", "explosion_damage_radius", "grenade_launcher_enabled", "grenade_size_percent", "grenade_arc_height", "grenade_max_range", "grenade_fire_interval_ticks", "grenade_damage_hp", "grenade_explosion_radius", "grenade_explosion_color", "grenade_color"],
         14 => &["lure_range", "lure_cone_degrees", "xp_attract_fraction", "stun_range", "stun_duration_ticks", "stun_efficiency_percent", "damage_range", "damage_per_second", "wave_speed_multiplier", "wave_size_multiplier", "wave_range_multiplier", "wave_interval_ticks", "wave_alpha", "wave_color", "stun_launch_distance"],
         15 => &["fire_interval_ticks", "projectile_speed_multiplier", "projectile_range_multiplier", "projectile_color", "trail_color", "impact_color"],
-        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier", "max_active_mines", "mine_lifetime_seconds", "flame_core_color", "flame_outer_color", "burn_flame_color", "explosion_color", "light_color", "flame_mine_enabled", "mine_flame_range", "mine_flame_rotation_degrees_per_second", "mine_flame_damage_per_second"],
+        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier", "max_active_mines", "mine_lifetime_seconds", "flame_core_color", "flame_outer_color", "burn_flame_color", "explosion_color", "light_color", "flame_mine_enabled", "mine_flame_range", "mine_flame_rotation_degrees_per_second", "mine_flame_damage_per_second", "flame_mine_size_percent"],
         18 => &["held_lunge_duration_percent", "knockback_multiplier", "hit_radius_multiplier", "electric_fx_size_multiplier", "gold_electric_fx", "air_dash_enabled", "electric_core_color", "electric_glow_color", "fist_glow_color", "impact_color"],
         19 => &["beam_size_percent", "beam_range_multiplier", "dual_beam_enabled", "target_range_multiplier", "ammo_interval_ticks", "damage_interval_ticks", "lock_cone_multiplier", "beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color", "arc_core_color", "arc_glow_color", "claw_core_color", "claw_glow_color", "spark_color", "spark_core_color", "impact_color", "light_color", "weapon_glow_color", "secondary_beam_damage_percent"],
         20 => &["robot_count", "robot_max_alive", "robot_detection_range", "explosion_radius_multiplier"],
@@ -89,7 +93,7 @@ pub fn gold_texture(item: i32, original: bool) -> bool {
 
 
 /// Real XP level for weapon-name labels, unaffected by icon-only preview modes.
-/// Non-evolvable weapons (including the wrench) return None.
+/// Weapons without an enabled evolution track return None.
 pub fn weapon_menu_level(item: i32) -> Option<u8> {
     if !CONFIG_ACTIVE.load(Ordering::Relaxed) { return None; }
     let i = usize::try_from(item).ok()?;
@@ -114,11 +118,16 @@ pub fn weapon_icon_level(item: i32) -> Option<u8> {
 /// Native GS MODULATE is 0x7f per channel (RGB byte order is BBGGRR).
 /// V1 stays unmodified; subsequent levels tint ONLY the 2-D weapon icon.
 pub fn weapon_icon_tint(item: i32) -> Option<u32> {
-    match weapon_icon_level(item)? {
-        2 => Some(0x8064_107f), // bright fuchsia (approximately #FF20C8)
-        3 => Some(0x8028_287f), // bright red (approximately #FF5050)
-        4 => Some(0x8010_4a7f), // orange
-        5 => Some(0x8018_727f), // golden yellow
+    icon_grade_tint(weapon_icon_level(item)?)
+}
+
+/// Bright GS modulation on a neutral source frame, shared by every weapon.
+pub fn icon_grade_tint(level:u8)->Option<u32> {
+    match level {
+        2 => Some(0x80ef_28ff), // bright fuchsia (approximately #FF20C8)
+        3 => Some(0x8038_38ff), // bright red (approximately #FF5050)
+        4 => Some(0x8000_78ff), // orange
+        5 => Some(0x8000_e8ff), // golden yellow
         _ => None,
     }
 }
@@ -246,6 +255,7 @@ pub struct Stats {
     pub explosion_color: Option<u32>,
     pub cooldown_seconds: f32,
     pub max_ammo: i32,
+    pub experimental_max_ammo: Option<i32>,
     pub damage_multiplier: f32,
     pub gold: bool,
     pub gold_texture: bool,
@@ -253,11 +263,15 @@ pub struct Stats {
 impl Default for Stats {
     fn default() -> Self {
         Self { cluster: ClusterStats::default(), throw_range: 1.0, auto_lock_range: None, trajectory_height: 1.0, explosion_radius: 1.0, explosion_color: None, cooldown_seconds: 20.0/60.0,
-            max_ammo: 40, damage_multiplier: 1.0, gold: false, gold_texture: false }
+            max_ammo: 40, experimental_max_ammo: None, damage_multiplier: 1.0, gold: false, gold_texture: false }
     }
 }
 
 impl Stats {
+    fn ammo_capacity(self)->i32 {
+        if self.cluster.enabled {self.experimental_max_ammo.unwrap_or(self.max_ammo)} else {self.max_ammo}
+    }
+
     /// A lower arc shortens the native free throw; a configured auto-lock range
     /// can narrow that reach but cannot advertise a target beyond the throw.
     pub fn auto_lock_distance(self) -> f32 {
@@ -282,12 +296,19 @@ pub struct PyroStats {
     pub flame_outer_color: Option<u32>,
     pub light_color: Option<u32>,
     pub max_ammo: i32,
+    pub experimental_max_ammo: Option<i32>,
     pub gold: bool,
     pub gold_texture: bool,
     pub burn_flame_color: Option<u32>,
 }
 impl Default for PyroStats {
-    fn default() -> Self { Self { triple_flame_enabled: false, side_flame_angle_degrees: 22.0, side_flame_left_angle_degrees: None, side_flame_right_angle_degrees: None, ammo_interval_ticks: 10, damage_interval_ticks: 1, flame_range: 1.0, flame_width: 1.0, damage_multiplier: 1.0, flame_core_color: None, flame_outer_color: None, light_color: None, max_ammo: 100, gold: false, gold_texture: false, burn_flame_color: None } }
+    fn default() -> Self { Self { triple_flame_enabled: false, side_flame_angle_degrees: 22.0, side_flame_left_angle_degrees: None, side_flame_right_angle_degrees: None, ammo_interval_ticks: 10, damage_interval_ticks: 1, flame_range: 1.0, flame_width: 1.0, damage_multiplier: 1.0, flame_core_color: None, flame_outer_color: None, light_color: None, max_ammo: 100, experimental_max_ammo: None, gold: false, gold_texture: false, burn_flame_color: None } }
+}
+
+impl PyroStats {
+    fn ammo_capacity(self)->i32 {
+        if self.triple_flame_enabled {self.experimental_max_ammo.unwrap_or(self.max_ammo)} else {self.max_ammo}
+    }
 }
 
 /// Global UI settings. Full opacity is 100% (GS alpha 0x80).
@@ -449,6 +470,7 @@ impl PyroEvolution {
 #[derive(Clone, Debug)]
 pub struct Evolution {
     pub ammo_unlock_mode: bool,
+    pub ammo_mode_settings: ammo_mode::Settings,
     pub wrench_gold_texture: bool,
     pub enabled: bool,
     pub level: usize,
@@ -476,7 +498,7 @@ pub struct Evolution {
 }
 impl Default for Evolution {
     fn default() -> Self {
-        Self { ammo_unlock_mode: false, wrench_gold_texture: false, enabled: false, level: 1, applied_level: 0,
+        Self { ammo_unlock_mode: false, ammo_mode_settings: Default::default(), wrench_gold_texture: false, enabled: false, level: 1, applied_level: 0,
             xp: 0.0, xp_per_damage: 1.0, real_hp: false, combat_epoch: 0, damage_hp: [[None; 5]; 37], stats: [Stats::default(); 5],
             xp_required: [6.0; 4], last_hit_xp: 0.0, pyro: PyroEvolution::default(), extras: extra_tracks(), hud: HudOptions::default(), award_once: HashSet::new(), pending_special: Default::default(), terminal_targets: HashSet::new(), state_progress: Default::default() }
     }
@@ -533,13 +555,17 @@ impl Evolution {
                 }
                 for track in &self.extras {
                     if !track.enabled { continue; }
-                    for (name, &value) in &track.params[track.level.saturating_sub(1).min(4)] {
-                        registry.insert((track.id, name.clone()), value);
+                    let params=&track.params[track.level.saturating_sub(1).min(4)];
+                    for (name, &value) in params { registry.insert((track.id, name.clone()), value); }
+                    if experimental_ammo_enabled(track.id, params) {
+                        if let Some(&cap)=params.get("experimental_max_ammo") {
+                            registry.insert((track.id, if track.id==9 {"capacity"} else {"max_ammo"}.into()), cap);
+                        }
                     }
                 }
             }
-            BOMB_AMMO_CAP.store(if self.enabled { self.current().max_ammo } else { 0 }, Ordering::Relaxed);
-            PYRO_AMMO_CAP.store(if self.pyro.enabled { self.pyro.current().max_ammo } else { 0 }, Ordering::Relaxed);
+            BOMB_AMMO_CAP.store(if self.enabled { self.current().ammo_capacity() } else { 0 }, Ordering::Relaxed);
+            PYRO_AMMO_CAP.store(if self.pyro.enabled { self.pyro.current().ammo_capacity() } else { 0 }, Ordering::Relaxed);
             let p = self.pyro.current();
             PYRO_CORE.store(p.flame_core_color.unwrap_or(u32::MAX), Ordering::Relaxed);
             PYRO_OUTER.store(p.flame_outer_color.unwrap_or(u32::MAX), Ordering::Relaxed);
@@ -553,12 +579,15 @@ impl Evolution {
         match weapon {
             10 if self.enabled => Some(self.fraction()),
             16 if self.pyro.enabled => Some(self.pyro.fraction()),
-            8 => None, // The OmniWrench never has Weapon Evolution HUD.
             _ => self.extras.iter().find(|t| t.id == weapon && t.enabled).map(ExtraTrack::fraction),
         }
     }
+    pub fn weapon_hud_enabled(&self,weapon:i32)->bool {
+        weapon!=8 || self.extras.iter().find(|t|t.id==8 && t.enabled).is_some_and(|t|
+            t.params[t.level.saturating_sub(1).min(4)].get("show_hud").copied().unwrap_or(1.)!=0.)
+    }
     pub fn weapon_level(&self, weapon: i32) -> Option<usize> {
-        match weapon { 8 => None, 10 if self.enabled => Some(self.level), 16 if self.pyro.enabled => Some(self.pyro.level),
+        match weapon { 10 if self.enabled => Some(self.level), 16 if self.pyro.enabled => Some(self.pyro.level),
             _ => self.extras.iter().find(|t| t.id == weapon && t.enabled).map(|t| t.level) }
     }
     /// The renderer supplies the disc's localized bytes (including its font encoding).
@@ -753,7 +782,7 @@ impl Evolution {
                         t.enabled = true;
                         continue;
                     }
-                    let v = if matches!(key.as_str(), "continuous_missiles_enabled" | "shotgun_enabled" | "flame_mine_enabled" | "sand_mouse_enabled" | "crate_suction_enabled" | "suck_wooden_crates" | "suck_explosive_crates" | "suck_steel_crates" | "suck_ammo_crates" | "suck_nanotech_crates" | "dual_beam_enabled" | "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
+                    let v = if matches!(key.as_str(), "show_hud" | "crate_breaker_enabled" | "moving_attacks_enabled" | "grenade_launcher_enabled" | "continuous_missiles_enabled" | "shotgun_enabled" | "flame_mine_enabled" | "sand_mouse_enabled" | "crate_suction_enabled" | "suck_wooden_crates" | "suck_explosive_crates" | "suck_steel_crates" | "suck_ammo_crates" | "suck_nanotech_crates" | "dual_beam_enabled" | "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
                         if parse_bool(val)? { 1.0 } else { 0.0 }
                     } else { parse_number(val, &key)? };
                     validate_v45_extra(t.id, &key, v).map_err(|e| format!("{e} in [{section}]"))?;
@@ -806,6 +835,7 @@ impl Evolution {
             }
             if section == "general" {
                 if key == ammo_mode::KEY { evo.ammo_unlock_mode = parse_bool(val)?; }
+                else if evo.ammo_mode_settings.parse_field(&key, val)? { /* validated global mode parameter */ }
                 else if key == "wrench_gold_texture" { evo.wrench_gold_texture = parse_bool(val)?; }
                 else if key == "xp_per_damage" { evo.xp_per_damage = parse_number(val, &key)?; }
                 else if key == "damage_mode" { evo.real_hp = match val {
@@ -849,6 +879,7 @@ impl Evolution {
                     "explosion_radius" => stat.explosion_radius = parse_number(val, &key)?,
                     "cooldown_seconds" => stat.cooldown_seconds = parse_number(val, &key)?,
                     "max_ammo" => stat.max_ammo = parse_ammo(val)?,
+                    "experimental_max_ammo" => { let cap=parse_ammo(val)?; if !(1..=999).contains(&cap) { return Err("experimental_max_ammo must be 1..999".into()); } stat.experimental_max_ammo=Some(cap); },
                     "damage_multiplier" => stat.damage_multiplier = parse_number(val, &key)?,
                     "gold" => { let v = parse_bool(val)?; stat.gold = v; stat.gold_texture = v; },
                     "gold_effects" => stat.gold = parse_bool(val)?,
@@ -878,6 +909,7 @@ impl Evolution {
                     "flame_outer_color" => stat.flame_outer_color = parse_rgb(val)?,
                     "light_color" => stat.light_color = parse_rgb(val)?,
                     "max_ammo" => stat.max_ammo = parse_ammo(val)?,
+                    "experimental_max_ammo" => { let cap=parse_ammo(val)?; if !(1..=999).contains(&cap) { return Err("experimental_max_ammo must be 1..999".into()); } stat.experimental_max_ammo=Some(cap); },
                     "gold" => { let v = parse_bool(val)?; stat.gold = v; stat.gold_texture = v; },
                     "gold_effects" => stat.gold = parse_bool(val)?,
                     "gold_texture" => stat.gold_texture = parse_bool(val)?,
@@ -923,7 +955,7 @@ impl Evolution {
                     if let Some(hp) = evo.damage_hp[t.id as usize][i] {
                         let gold = t.params[i].get("gold_effects").or_else(|| t.params[i].get("gold")).copied().unwrap_or(0.0) >= 0.5;
                         let (key, base) = match t.id {
-                            9 => ("shot_damage_multiplier", 2.0), 15 => ("damage_multiplier", 1.0),
+                            8 => ("damage_multiplier", 1.0), 9 => ("shot_damage_multiplier", 2.0), 15 => ("damage_multiplier", 1.0),
                             11 | 17 | 18 | 20 | 23 => ("damage_multiplier", 3.0),
                             13 => ("damage_multiplier", 6.0), 19 => ("damage_multiplier", if gold {4.0} else {2.0}),
                             24 => ("damage_multiplier", 1.0), 25 => ("explosion_damage_multiplier", if gold {4.0} else {2.0}),
@@ -941,6 +973,7 @@ impl Evolution {
                 }
             }
         }
+        evo.ammo_mode_settings.validate()?;
         Ok(evo)
     }
     /// Called by creature hit handlers only after their native damage resolution.
@@ -1518,6 +1551,13 @@ mod v43_tests {
 }
 
 fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
+    if item==8 && matches!(key,"hit_radius_multiplier"|"knockback_multiplier") {
+        let low=if key=="hit_radius_multiplier" {0.1} else {0.0};
+        if !(low..=10.0).contains(&v) {return Err(format!("{key} must be {low}..10"));}
+    }
+    if key == "experimental_max_ammo" && (v.fract()!=0.0 || !(0.0..=if item==9 {10.0} else {9999.0}).contains(&v)) {
+        return Err("experimental_max_ammo must be an integer within this weapon's capacity limit".into());
+    }
     if key=="homing_strength_multiplier" && item!=23 { return Ok(()); }
     let bounds = match key {
         "homing_strength_multiplier" => Some((0.0, 8.0)),
@@ -1542,12 +1582,23 @@ fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
         "sand_mouse_shot_range" => Some((0.5, 500.0)),
         "sand_mouse_shot_damage_hp" => Some((0.0, 9999.0)),
         "secondary_beam_damage_percent" => Some((0.0, 100.0)),
+        "throw_range" if item==8 => Some((0.5,100.)),
+        "throw_speed" if item==8 => Some((1.,200.)),
+        "crate_breaker_radius" if item==8 => Some((0.,100.)),
+        "bolt_attraction_bonus" if item==8 => Some((0.,100.)),
+        "grenade_size_percent" => Some((1.,1000.)),
+        "grenade_arc_height" => Some((0.1,50.)),
+        "grenade_max_range" => Some((0.5,500.)),
+        "grenade_fire_interval_ticks" => Some((1.,600.)),
+        "grenade_damage_hp" => Some((0.,9999.)),
+        "grenade_explosion_radius" => Some((0.1,8.)),
+        "flame_mine_size_percent" => Some((1.,500.)),
         _ => None,
     };
     if let Some((lo, hi)) = bounds {
         if !(lo..=hi).contains(&v) { return Err(format!("{key} must be {lo}..{hi}")); }
     }
-    if matches!(key, "max_active_mines" | "sand_mouse_mode" | "sand_mouse_max_shots" | "sand_mouse_fire_interval_ticks") && v.fract() != 0.0 {
+    if matches!(key, "grenade_fire_interval_ticks" | "max_active_mines" | "sand_mouse_mode" | "sand_mouse_max_shots" | "sand_mouse_fire_interval_ticks") && v.fract() != 0.0 {
         return Err(format!("{key} must be an integer"));
     }
     Ok(())
@@ -1555,18 +1606,28 @@ fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
 
 /// Loader-only inspection. Unlike from_env this never publishes or resets the
 /// active registry, icon levels, ammo caps, XP or gameplay state.
-pub fn profile_uses_extra(item:i32,key:&str)->bool {
+fn inspect_profile() -> Option<Evolution> {
     #[cfg(feature="weapon-evo-release")]
     let raw=RELEASE_PROFILE.to_string();
     #[cfg(not(feature="weapon-evo-release"))]
-    let raw=match std::env::var("RC_WEAPON_EVOLUTION_INI").ok().and_then(|p|std::fs::read_to_string(p).ok()) {
-        Some(raw)=>raw,None=>return false,
-    };
-    Evolution::parse(&raw).is_ok_and(|e| {
+    let raw=std::env::var("RC_WEAPON_EVOLUTION_INI").ok().and_then(|p|std::fs::read_to_string(p).ok())?;
+    Evolution::parse(&raw).ok()
+}
+
+pub fn profile_uses_extra(item:i32,key:&str)->bool {
+    inspect_profile().is_some_and(|e| {
         if item == -1 && key == ammo_mode::KEY { return e.ammo_unlock_mode; }
         e.extras.iter().find(|t|t.id==item)
             .is_some_and(|t|t.params.iter().any(|p|p.get(key).is_some_and(|&v|v!=0.0)))
     })
+}
+
+/// The disc template may contain Bomb Glove ammunition. Apply the opt-in
+/// new-game policy before native level-start grants, without touching loads.
+pub fn initialize_ammo_mode_new_game(gs: &mut crate::game_state::GameState) {
+    if let Some(e) = inspect_profile() {
+        ammo_mode::initialize_new_game(gs, e.ammo_unlock_mode, &e.ammo_mode_settings);
+    }
 }
 
 #[cfg(test)]
@@ -1681,5 +1742,94 @@ mod v51_configuration_tests {
         assert!(!Evolution::default().ammo_unlock_mode);
         assert!(Evolution::parse(&ini.replace("unlock_mode=true","unlock_mode=maybe")).is_err());
         assert!(Evolution::parse(&ini.replace("wrench_gold_texture=true","wrench_gold_texture=2")).is_err());
+    }
+}
+
+#[cfg(test)]
+mod v53_tests {
+    use super::*;
+    #[test]
+    fn per_grade_geometry_and_grenade_hp_are_independent() {
+        let mut ini=String::new();for grade in 1..=5 {ini+=&format!("[weapon.bomb_glove.level{grade}]\n");}
+        for grade in 1..=5 {ini+=&format!("[weapon.visibomb.level{grade}]\ngrenade_launcher_enabled={}\ngrenade_damage_hp={}\nexplosion_damage_radius={}\ngrenade_color=FF4400\n[weapon.mine_glove.level{grade}]\nflame_mine_size_percent={}\n",grade%2==0,grade*125,grade+2,100+grade*10);}
+        let e=Evolution::parse(&ini).unwrap();let v=e.extras.iter().find(|t|t.id==13).unwrap();let m=e.extras.iter().find(|t|t.id==17).unwrap();
+        for grade in 0..5 {assert_eq!(v.params[grade]["grenade_damage_hp"],(grade+1) as f32*125.);assert_eq!(v.params[grade]["grenade_launcher_enabled"],if grade%2==1 {1.} else {0.});assert_eq!(m.params[grade]["flame_mine_size_percent"],110.+grade as f32*10.);}
+        for (key,value) in [("grenade_size_percent","0"),("grenade_arc_height","0"),("grenade_max_range","NaN"),("grenade_fire_interval_ticks","2.5"),("grenade_explosion_radius","9"),("grenade_launcher_enabled","maybe")] {assert!(Evolution::parse(&ini.replace("grenade_color=FF4400",&format!("{key}={value}"))).is_err(),"{key}");}
+    }
+    #[test]
+    fn vivid_orange_and_gold_remain_distinct() {
+        assert_eq!(icon_grade_tint(1),None);let orange=icon_grade_tint(4).unwrap();let gold=icon_grade_tint(5).unwrap();
+        assert_eq!(orange&255,255);assert_eq!(gold&255,255);assert_eq!((orange>>16)&255,0);assert_eq!((gold>>16)&255,0);
+        assert!(((gold>>8)&255)>((orange>>8)&255)+80);assert_ne!(icon_grade_tint(2),icon_grade_tint(3));
+    }
+}
+
+
+/// Mode switches only: crate filters and presentation controls never change capacity.
+/// Keep in sync with launcher/schema.py EXPERIMENTAL_ENABLERS.
+fn experimental_ammo_enabled(item:i32, values:&BTreeMap<String,f32>)->bool {
+    let keys:&[&str]=match item {
+        9=>&["crate_suction_enabled"],13=>&["grenade_launcher_enabled"],
+        17=>&["flame_mine_enabled"],19=>&["dual_beam_enabled"],
+        23=>&["continuous_missiles_enabled","shotgun_enabled"],24=>&["sand_mouse_enabled"],_=>&[],
+    };
+    keys.iter().any(|key|values.get(*key).is_some_and(|&v|v>=0.5))
+}
+
+
+#[cfg(test)]
+mod v56_ammo_tests {
+    use super::*;
+    #[test]
+    fn every_grade_selects_independent_capacity_only_with_its_mode_enabled() {
+        let mut ini=String::from("[general]\ndamage_mode=real_hp\n");
+        for n in 1..=5 {
+            for (name,key) in [("bomb_glove","cluster_bombs_enabled"),("pyrocitor","triple_flame_enabled"),
+                ("suck_cannon","crate_suction_enabled"),("visibomb","grenade_launcher_enabled"),
+                ("mine_glove","flame_mine_enabled"),("tesla_claw","dual_beam_enabled"),
+                ("ryno","shotgun_enabled"),("drone_device","sand_mouse_enabled")] {
+                let standard=if name=="suck_cannon" {"capacity=5"} else {"max_ammo=40"};
+                ini+=&format!("[weapon.{name}.level{n}]\n{standard}\n{key}={}\nexperimental_max_ammo={}\n",n%2==0,n+5);
+            }
+        }
+        let e=Evolution::parse(&ini).unwrap();
+        for i in 0..5 {
+            let active=(i+1)%2==0;let alt=(i+6) as i32;
+            assert_eq!(e.stats[i].ammo_capacity(),if active {alt} else {40});
+            assert_eq!(e.pyro.stats[i].ammo_capacity(),if active {alt} else {40});
+            for t in e.extras.iter().filter(|t|matches!(t.id,9|13|17|19|23|24)) {
+                assert_eq!(experimental_ammo_enabled(t.id,&t.params[i]),active);
+                assert_eq!(t.params[i]["experimental_max_ammo"],alt as f32);
+            }
+        }
+        // Legacy profiles and disabled modes preserve native/standard values.
+        assert_eq!(Stats{cluster:ClusterStats{enabled:true,..Default::default()},..Default::default()}.ammo_capacity(),40);
+        assert_eq!(PyroStats{triple_flame_enabled:true,..Default::default()}.ammo_capacity(),100);
+        let mut params=BTreeMap::new();params.insert("continuous_missiles_enabled".into(),1.0);
+        assert!(experimental_ammo_enabled(23,&params));
+        assert!(!experimental_ammo_enabled(19,&params));
+    }
+    fn complete_profile(extra:&str)->String {
+        let mut base=String::new();
+        for n in 1..=5 {base+=&format!("[weapon.bomb_glove.level{n}]\n[weapon.pyrocitor.level{n}]\n");}
+        base+extra
+    }
+    #[test]
+    fn capacity_limits_match_standard_and_reject_invalid_numbers() {
+        for name in ["bomb_glove","pyrocitor","suck_cannon","visibomb","mine_glove","tesla_claw","ryno","drone_device"] {
+            for value in ["-1","1.5","NaN","inf","10000"] {
+                let ini=format!("[weapon.{name}.level1]\nexperimental_max_ammo={value}\n");
+                assert!(Evolution::parse(&complete_profile(&ini)).is_err(),"{name}: {value}");
+            }
+        }
+        for name in ["bomb_glove","pyrocitor"] {
+            assert!(Evolution::parse(&complete_profile(&format!("[weapon.{name}.level1]\nexperimental_max_ammo=0"))).is_err());
+        }
+        for name in ["suck_cannon","visibomb","mine_glove","tesla_claw","ryno","drone_device"] {
+            assert!(Evolution::parse(&complete_profile(&format!("[weapon.{name}.level1]\nexperimental_max_ammo=0"))).is_ok());
+        }
+        assert!(Evolution::parse(&complete_profile("[weapon.suck_cannon.level1]\nexperimental_max_ammo=11")).is_err());
+        assert!(Evolution::parse(&complete_profile("[weapon.pyrocitor.level1]\nexperimental_max_ammo=1000")).is_err());
+        assert!(Evolution::parse(&complete_profile("[weapon.bomb_glove.level1]\nexperimental_max_ammo=1000")).is_err());
     }
 }

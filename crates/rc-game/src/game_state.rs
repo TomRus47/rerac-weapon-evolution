@@ -378,6 +378,7 @@ impl GameState {
         let r = s.load_card_file(template)?;
         if r.total() != 0 { return Err(FormatError::Invalid(format!("save template restored with errors {:?}", r.errors))); }
         s.global.level = 0;
+        crate::weapon_evo::initialize_ammo_mode_new_game(&mut s);
         Ok(s)
     }
 
@@ -555,7 +556,9 @@ impl GameState {
             if self.global.owned[item::BOMB_GLOVE] == 0 {
                 self.give_item(item::BOMB_GLOVE, true, items, session);
                 self.global.vendor[0] = item::BOMB_GLOVE as u8 | VENDOR_OWNED;
-                self.global.equipped[0] = item::BOMB_GLOVE as i32;
+                if !self.weapon_progress.ammo_mode.active {
+                    self.global.equipped[0] = item::BOMB_GLOVE as i32;
+                }
             }
             let vt = &items.vendor_items;
             for b in self.global.vendor.iter_mut() {

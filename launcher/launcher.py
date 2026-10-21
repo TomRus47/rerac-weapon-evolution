@@ -9,7 +9,9 @@ import sys
 import threading
 from pathlib import Path
 import launcher_core as core
-from schema import WEAPONS, EDITOR_WEAPONS, XP, NAMES, BOOLEANS, COLORS, title, help_text, field_groups
+import i18n
+from i18n import tr
+from schema import WEAPONS, EDITOR_WEAPONS, XP, NAMES, BOOLEANS, COLORS, title, help_text, field_groups, global_field_groups, AMMO_DROP_DEFAULTS, normalized_ammo_chances
 
 BASE_LABEL = 'Default configuration (weapons.ini)'
 GRADE_COLORS = ('#8997aa', '#e1ba49', '#e88042', '#bd7be4', '#9cc956')
@@ -40,20 +42,21 @@ def main():
 
 class Launcher:
     def __init__(self, root, kit, tk, ttk, filedialog, messagebox, simpledialog, colorchooser):
+        global BASE_LABEL
         self.root, self.kit, self.tk, self.ttk = root, kit, tk, ttk
         self.files, self.messages, self.dialogs, self.colors = filedialog, messagebox, simpledialog, colorchooser
         self.store = core.PresetStore(kit)
         self.current_name = ''; self.page = 'global'; self.loading = False
         self.session = None; self.launch_busy = False; self.events = queue.Queue()
         self.log_offset = 0; self.log_text = ''; self.confirmed = False; self.cards = []; self.columns = 0
-        self.root.title('ReRAC · Weapon Evolution · Launcher '+core.VERSION)
+        self.root.title('ReRAC · Weapon Evolution · '+tr('Launcher')+' '+core.VERSION)
         width = min(1450, root.winfo_screenwidth()-60); height = min(920, root.winfo_screenheight()-80)
         self.root.geometry(f'{width}x{height}'); self.root.minsize(930, 620)
         self.root.configure(bg='#161b26')
         self.root.protocol('WM_DELETE_WINDOW', self.close)
         self.preset_var = tk.StringVar(value=BASE_LABEL); self.search = tk.StringVar()
-        self.status = tk.StringVar(value='Ready.'); self.context = tk.StringVar()
-        self.document_info = tk.StringVar(); self.game_status = tk.StringVar(value='Game closed')
+        self.status = tk.StringVar(value=tr('Ready.')); self.context = tk.StringVar()
+        self.document_info = tk.StringVar(); self.game_status = tk.StringVar(value=tr('Game closed'))
         self.settings = {}; startup_warning = ''
         try: self.settings = core.read_settings(kit)
         except (ValueError, OSError) as error: startup_warning = str(error)
@@ -62,6 +65,10 @@ class Launcher:
         self.exe_var = tk.StringVar(value=str(exe or ''))
         self.data_var = tk.StringVar(value=str(data or ''))
         self.save_var = tk.StringVar(value=str(core.resolve_path(self.settings.get('save'), kit) or ''))
+        i18n.set_language(self.settings.get('language','en'))
+        BASE_LABEL = tr('Default configuration (weapons.ini)')
+        self.preset_var.set(BASE_LABEL)
+        self.status.set(tr('Ready.'));self.game_status.set(tr('Game closed'))
         self.configure_style(); self.build_ui()
         try:
             path, source = core.bootstrap_ini(kit)
@@ -69,19 +76,37 @@ class Launcher:
             previous = self.settings.get('last_preset', '')
             if previous and previous in self.store.names():
                 self.load_document(self.store.read(previous), previous)
-            self.status.set('Preset loaded: '+self.current_name if self.current_name else 'Initial configuration: '+source)
+            self.status.set(tr('Preset loaded: ')+self.current_name if self.current_name else tr('Initial configuration: ')+source)
         except (ValueError, OSError, UnicodeError) as error:
             # Keep the user's invalid file untouched; let them choose a corrected INI.
             self.doc = None; self.variables = {}; self.base_values = {}
-            self.render_page(); self.messages.showerror('Invalid configuration', str(error), parent=root)
+            self.render_page(); self.error(error)
         self.refresh_presets()
         self.search.trace_add('write', lambda *_: self.render_page())
         self.root.bind('<Control-s>', lambda _: self.save_preset())
         self.root.after(200, self.poll)
         if getattr(sys,'frozen',False) and not core.valid_data(data):
-            self.status.set('First launch: choose your extracted game data folder.')
+            self.status.set(tr('First launch: choose your extracted game data folder.'))
             self.root.after(300, self.launch_options)
-        if startup_warning: self.messages.showwarning('Launcher settings', startup_warning, parent=root)
+        if startup_warning: self.messages.showwarning(tr('Launcher settings'), startup_warning, parent=root)
+
+    def restore_value(self,pair):
+        self.variables[pair].set(self.base_values[pair]);self.render_page()
+
+    def change_language(self,_=None):
+        selected=next(k for k,v in i18n.LANGUAGES.items() if v==self.language_var.get())
+        i18n.set_language(selected)
+        global BASE_LABEL
+        BASE_LABEL=tr('Default configuration (weapons.ini)')
+        # Rebuild labels only; canonical document, unsaved StringVars, preset and
+        # running session remain untouched. Tk callbacks are re-bound once.
+        for child in self.root.winfo_children():child.destroy()
+        self.cards=[];self.columns=0
+        self.preset_var.set(self.current_name or BASE_LABEL)
+        self.build_ui();self.refresh_presets();self.render_page();self.changed()
+        self.game_status.set(tr('Game running') if self.session else tr('Game closed'))
+        self.status.set(tr('Ready.'))
+        self.remember_settings()
 
     def configure_style(self):
         style = self.ttk.Style(self.root)
@@ -99,14 +124,18 @@ class Launcher:
         tk, ttk = self.tk, self.ttk
         header = ttk.Frame(self.root, padding=(14, 10)); header.pack(fill='x')
         ttk.Label(header, text='ReRAC  /  WEAPON EVOLUTION', style='Title.TLabel').pack(side='left')
-        ttk.Button(header, text='Launch settings', command=self.launch_options).pack(side='right')
+        ttk.Button(header, text=tr('Launch settings'), command=self.launch_options).pack(side='right')
+        self.language_var = tk.StringVar(value=i18n.LANGUAGES[i18n.language()])
+        language_box=ttk.Combobox(header,textvariable=self.language_var,values=list(i18n.LANGUAGES.values()),state='readonly',width=12)
+        language_box.pack(side='right',padx=8);language_box.bind('<<ComboboxSelected>>',self.change_language)
+        ttk.Label(header,text=tr('Language')).pack(side='right')
         controls = ttk.Frame(self.root, padding=(14, 0, 14, 8)); controls.pack(fill='x')
-        ttk.Label(controls, text='Preset').pack(side='left', padx=(0, 7))
+        ttk.Label(controls, text=tr('Preset')).pack(side='left', padx=(0, 7))
         self.preset_box = ttk.Combobox(controls, textvariable=self.preset_var, width=28, state='readonly')
         self.preset_box.pack(side='left'); self.preset_box.bind('<<ComboboxSelected>>', self.select_preset)
-        for text, command in [('Save', self.save_preset), ('Save as…', self.save_as),
-                              ('Import INI', self.import_ini), ('Export INI', self.export_ini),
-                              ('Remove', self.remove_preset)]:
+        for text, command in [(tr('Save'), self.save_preset), (tr('Save as…'), self.save_as),
+                              (tr('Import INI'), self.import_ini), (tr('Export INI'), self.export_ini),
+                              (tr('Remove'), self.remove_preset)]:
             ttk.Button(controls, text=text, command=command).pack(side='left', padx=(5, 0))
         body = ttk.Frame(self.root); body.pack(fill='both', expand=True)
         navigation = tk.Frame(body, bg='#161b26', width=205); navigation.pack(side='left', fill='y')
@@ -119,9 +148,9 @@ class Launcher:
         nav.bind('<Configure>', lambda _: nav_canvas.configure(scrollregion=nav_canvas.bbox('all')))
         nav_canvas.bind('<Configure>', lambda e: nav_canvas.itemconfigure(nav_window, width=e.width))
         self.nav_buttons = {}
-        for index, (key, label) in enumerate([('global', 'Global Settings')]+[(k, v[1]) for k, v in EDITOR_WEAPONS.items()]):
+        for index, (key, label) in enumerate([('global', tr('Global Settings'))]+[(k, i18n.weapon_name(k)) for k in EDITOR_WEAPONS]):
             button = tk.Button(nav, text=label, anchor='w', relief='flat', bd=0,
-                font=('Segoe UI', 10, 'bold'), bg='#242d40', fg='#e7edf8', activebackground='#3b4b6a',
+                font=('Segoe UI', 10, 'bold'), wraplength=180, justify='left', bg='#242d40', fg='#e7edf8', activebackground='#3b4b6a',
                 activeforeground='white', padx=14, pady=7, command=lambda p=key: self.select_page(p))
             button.pack(fill='x', padx=8, pady=(8 if index == 0 else 2, 2))
             self.nav_buttons[key] = button
@@ -129,7 +158,7 @@ class Launcher:
         top = ttk.Frame(content); top.pack(fill='x', pady=(0, 6))
         self.page_title = ttk.Label(top, style='Heading.TLabel'); self.page_title.pack(side='left')
         ttk.Entry(top, textvariable=self.search, width=24).pack(side='right')
-        ttk.Label(top, text='Find setting:').pack(side='right', padx=6)
+        ttk.Label(top, text=tr('Find setting:')).pack(side='right', padx=6)
         ttk.Label(content, textvariable=self.document_info, style='Small.TLabel').pack(anchor='w', pady=(0, 5))
         frame = ttk.Frame(content); frame.pack(fill='both', expand=True)
         self.canvas = tk.Canvas(frame, highlightthickness=0, bg='#edf0f5')
@@ -143,16 +172,16 @@ class Launcher:
         footer = ttk.Frame(self.root, padding=(14, 8)); footer.pack(fill='x')
         help_frame = ttk.Frame(footer); help_frame.pack(side='left', fill='both', expand=True)
         ttk.Label(help_frame, textvariable=self.context, style='Small.TLabel', wraplength=790, justify='left').pack(anchor='w')
-        self.play_button = ttk.Button(footer, text='Save and launch', style='Play.TButton', command=self.play)
+        self.play_button = ttk.Button(footer, text=tr('Save and launch'), style='Play.TButton', command=self.play)
         self.play_button.pack(side='right', padx=(15, 0))
-        ttk.Button(footer, text='Open log', command=self.open_log).pack(side='right', padx=5)
+        ttk.Button(footer, text=tr('Open log'), command=self.open_log).pack(side='right', padx=5)
         bottom = ttk.Frame(self.root, padding=(14, 4, 14, 8)); bottom.pack(fill='x')
         ttk.Label(bottom, textvariable=self.status, wraplength=940).pack(side='left')
         ttk.Label(bottom, textvariable=self.game_status, style='Small.TLabel').pack(side='right')
 
     def resize_content(self, event):
         self.canvas.itemconfigure(self.form_window, width=event.width)
-        columns = max(1, min(5, event.width//305))
+        columns = max(1, min(5, event.width//355))
         if columns != self.columns:
             self.columns = columns; self.arrange_cards()
 
@@ -192,11 +221,12 @@ class Launcher:
     def changed(self, *_):
         if self.loading: return
         count = sum(v.get() != self.base_values[p] for p, v in self.variables.items())
-        self.document_info.set(f'{self.current_name or BASE_LABEL}  ·  {count} unsaved changes  ·  configuration values')
-        self.root.title(('• ' if count else '')+'ReRAC · Weapon Evolution · Launcher '+core.VERSION)
+        self.document_info.set(tr('{profile}  ·  {count} unsaved changes  ·  configuration values',profile=self.current_name or BASE_LABEL,count=count))
+        self.root.title(('• ' if count else '')+'ReRAC · Weapon Evolution · '+tr('Launcher')+' '+core.VERSION)
+        self.update_ammo_chance_summary()
 
     def checked_raw(self):
-        if not self.doc: raise ValueError('Load a valid weapons.ini before continuing.')
+        if not self.doc: raise ValueError(tr('Load a valid weapons.ini before continuing.'))
         edits = {}
         for pair, variable in self.variables.items():
             if variable.get() != self.base_values[pair]: edits[pair] = core.validate_value(*pair, variable.get())
@@ -205,7 +235,7 @@ class Launcher:
 
     def can_discard(self):
         if not self.dirty(): return True
-        answer = self.messages.askyesnocancel('Unsaved changes', 'Save changes before switching configurations?', parent=self.root)
+        answer = self.messages.askyesnocancel(tr('Unsaved changes'), tr('Save changes before switching configurations?'), parent=self.root)
         if answer is None: return False
         return self.save_preset() if answer else True
 
@@ -218,7 +248,7 @@ class Launcher:
         try:
             name = '' if selected == BASE_LABEL else selected
             doc = core.profile_document((self.kit/'weapons.ini').read_bytes()) if not name else self.store.read(name)
-            self.load_document(doc, name); self.status.set('Loaded: '+(name or BASE_LABEL))
+            self.load_document(doc, name); self.status.set(tr('Loaded: ')+(name or BASE_LABEL))
             self.remember_settings()
         except (ValueError, OSError, UnicodeError) as error:
             self.preset_var.set(self.current_name or BASE_LABEL); self.error(error)
@@ -230,60 +260,60 @@ class Launcher:
                 path=core.save_base_profile(self.kit,raw,getattr(self,'base_file_raw',None))
                 self.load_document(core.profile_document(path.read_bytes()),'')
                 self.refresh_presets();self.remember_settings()
-                self.status.set('Default configuration saved: '+str(path));return True
+                self.status.set(tr('Default configuration saved: ')+str(path));return True
             if not name:
-                name = self.dialogs.askstring('Save', 'Preset name:', initialvalue=self.current_name or 'Custom', parent=self.root)
+                name = self.dialogs.askstring(tr('Save'), tr('Preset name:'), initialvalue=self.current_name or tr('Custom'), parent=self.root)
                 if name is None: return False
             name = core.preset_name(name)
-            if name == BASE_LABEL: raise ValueError('Choose a name other than the default configuration label.')
+            if name in set(i18n.TEXT['Default configuration (weapons.ini)'].values()): raise ValueError(tr('Choose a name other than the default configuration label.'))
             path = self.store.path(name)
             if path.exists() and name.casefold() != self.current_name.casefold():
-                if not self.messages.askyesno('Existing preset', f'Update {path.stem}? The previous version will be backed up.', parent=self.root): return False
+                if not self.messages.askyesno(tr('Existing preset'), tr('Update {name}? The previous version will be backed up.',name=path.stem), parent=self.root): return False
             path = self.store.save(name, raw)
             self.load_document(core.profile_document(raw), path.stem); self.refresh_presets(); self.remember_settings()
-            self.status.set('Preset saved: '+str(path)); return True
+            self.status.set(tr('Preset saved: ')+str(path)); return True
         except (ValueError, OSError, UnicodeError) as error: self.error(error); return False
 
     def save_as(self): self.save_preset(new=True)
 
     def remove_preset(self):
-        if not self.current_name: self.status.set('The default configuration cannot be removed.'); return
+        if not self.current_name: self.status.set(tr('The default configuration cannot be removed.')); return
         if not self.can_discard(): return
         try:
             base = core.profile_document((self.kit/'weapons.ini').read_bytes())
             destination = self.store.remove(self.current_name)
             self.load_document(base, ''); self.refresh_presets(); self.remember_settings()
-            self.status.set('Preset moved to backup: '+str(destination))
+            self.status.set(tr('Preset moved to backup: ')+str(destination))
         except (ValueError, OSError, UnicodeError) as error: self.error(error)
 
     def import_ini(self):
-        path = self.files.askopenfilename(title='Import weapons.ini', filetypes=[('INI', '*.ini'), ('All files', '*.*')], parent=self.root)
+        path = self.files.askopenfilename(title=tr('Import weapons.ini'), filetypes=[('INI', '*.ini'), (tr('All files'), '*.*')], parent=self.root)
         if not path: return
         try:
             from migrate_ini import convert
             converted, _ = convert(Path(path).read_bytes())
             imported = core.profile_document(converted)
             if not self.can_discard(): return
-            name = self.dialogs.askstring('Import as preset', 'New preset name:', initialvalue=Path(path).stem, parent=self.root)
+            name = self.dialogs.askstring(tr('Import as preset'), tr('New preset name:'), initialvalue=Path(path).stem, parent=self.root)
             if name is None: return
             name = core.preset_name(name)
-            if name == BASE_LABEL: raise ValueError('This name is reserved for the default configuration.')
+            if name in set(i18n.TEXT['Default configuration (weapons.ini)'].values()): raise ValueError(tr('This name is reserved for the default configuration.'))
             if self.store.path(name).exists():
-                if not self.messages.askyesno('Existing preset', 'Update this preset? The previous version will be backed up.', parent=self.root): return
+                if not self.messages.askyesno(tr('Existing preset'), tr('Update this preset? The previous version will be backed up.'), parent=self.root): return
             dest = self.store.save(name, imported.raw)
             self.load_document(imported, dest.stem); self.refresh_presets(); self.remember_settings()
-            self.status.set('INI imported: '+str(dest))
+            self.status.set(tr('INI imported: ')+str(dest))
         except (ValueError, OSError, UnicodeError) as error: self.error(error)
 
     def export_ini(self):
         try:
             raw = self.checked_raw()
-            selected = self.files.asksaveasfilename(title='Export preset INI', initialfile=(self.current_name or 'weapons')+'.ini', defaultextension='.ini', filetypes=[('INI', '*.ini')], parent=self.root)
+            selected = self.files.asksaveasfilename(title=tr('Export preset INI'), initialfile=(self.current_name or 'weapons')+'.ini', defaultextension='.ini', filetypes=[('INI', '*.ini')], parent=self.root)
             if not selected: return
             path = Path(selected).resolve()
-            if path == (self.kit/'weapons.ini').resolve(): raise ValueError('Use Save to update weapons.ini, or choose another export filename.')
+            if path == (self.kit/'weapons.ini').resolve(): raise ValueError(tr('Use Save to update weapons.ini, or choose another export filename.'))
             if path.exists(): core.atomic_write(self.kit/'backup/export'/core.stamp()/path.name, path.read_bytes())
-            core.atomic_write(path, raw); self.status.set('Exported: '+str(path))
+            core.atomic_write(path, raw); self.status.set(tr('Exported: ')+str(path))
         except (ValueError, OSError, UnicodeError) as error: self.error(error)
 
     def select_page(self, page):
@@ -291,7 +321,7 @@ class Launcher:
 
     def matches(self, section, key):
         search = self.search.get().strip().casefold()
-        return not search or search in (key+' '+title(key)+' '+section).casefold()
+        return not search or search in (key+' '+i18n.label(key)+' '+section).casefold()
 
     def card(self, parent, label, color='#526d99'):
         frame = self.ttk.Frame(parent, style='Card.TFrame', padding=(12, 10))
@@ -304,20 +334,25 @@ class Launcher:
             if key in NAMES or key in {'xp_bar_opacity_percent','damage_mode'} or not self.matches(section, key): continue
             pair = section, key
             row = self.ttk.Frame(card, style='Card.TFrame'); row.pack(fill='x', pady=5)
-            label = self.ttk.Label(row, text=title(key), style='Card.TLabel', wraplength=185)
+            label = self.ttk.Label(row, text=i18n.label(key), style='Card.TLabel', wraplength=185)
             label.grid(row=0, column=0, sticky='w', padx=(0, 8)); row.columnconfigure(0, weight=1)
             cell = self.ttk.Frame(row, style='Card.TFrame'); cell.grid(row=0, column=1, sticky='e')
             variable = self.variables[pair]
-            if key == 'sand_mouse_mode':
-                widget = self.ttk.Combobox(cell,textvariable=variable,values=['1','2','3'],state='readonly',width=10)
-            elif key in BOOLEANS or key in {'level_up_sound','damage_mode'}:
-                options = ['real_hp'] if key == 'damage_mode' else ['true', 'false'] if key in BOOLEANS else ['help_notice', 'off']
-                if variable.get() not in options: options.append(variable.get())
-                widget = self.ttk.Combobox(cell, textvariable=variable, values=options, state='readonly', width=10)
+            if key in BOOLEANS or key in ('level_up_sound','sand_mouse_mode'):
+                if key in BOOLEANS:
+                    codes=('false','true'); options=('Off','On'); selected=i18n.boolean_display(variable.get())
+                elif key=='level_up_sound':
+                    codes=('off','help_notice');options=('Off',tr('Notification sound'))
+                    selected=options[0 if variable.get().lower() in ('off','false','0','no') else 1]
+                else:
+                    codes=('1','2','3');options=(tr('Companion only'),tr('Companion and drones'),tr('Companion with Sonic Summoner'))
+                    selected=options[int(variable.get())-1]
+                display=self.tk.StringVar(value=selected)
+                widget=self.ttk.Combobox(cell,textvariable=display,values=options,state='readonly',width=10 if key in BOOLEANS else 20)
+                widget.bind('<<ComboboxSelected>>',lambda _,v=variable,d=display,o=options,c=codes:v.set(c[o.index(d.get())]))
             else:
                 widget = self.ttk.Entry(cell, textvariable=variable, width=12, state='readonly' if key == 'id' else 'normal')
             widget.pack(side='left')
-            self.ttk.Label(row, text=key, style='CardSmall.TLabel', wraplength=270).grid(row=1, column=0, columnspan=2, sticky='w')
             if key in COLORS:
                 swatch = self.tk.Button(cell, width=2, height=1, relief='flat', bd=1,
                     command=lambda p=pair: self.pick_color(p))
@@ -335,23 +370,23 @@ class Launcher:
             widget.bind('<Button-3>', lambda e, p=pair: self.field_menu(e, p))
 
     def show_help(self, section, key):
-        text = help_text(section, key)
+        text = i18n.help_text(section, key)
         if key not in COLORS and key not in BOOLEANS and key not in NAMES and key not in {'id', 'level_up_sound','damage_mode'}:
             low, high = core.numeric_range(section, key)
-            text += f' Range: {low:g} … {high:g}.'
+            text += tr(' Range: {low} … {high}.',low=f'{low:g}',high=f'{high:g}')
         self.context.set(text)
 
     def pick_color(self, pair):
         variable = self.variables[pair]; value = variable.get().lstrip('#')
-        chosen = self.colors.askcolor(color='#'+value if core.COLOR.fullmatch(value) else '#ffffff', title=title(pair[1]), parent=self.root)[1]
+        chosen = self.colors.askcolor(color='#'+value if core.COLOR.fullmatch(value) else '#ffffff', title=i18n.label(pair[1]), parent=self.root)[1]
         if chosen: variable.set(chosen[1:].upper()); self.render_page()
 
     def field_menu(self, event, pair):
         menu = self.tk.Menu(self.root, tearoff=False)
-        menu.add_command(label='Restore saved value', command=lambda: self.variables[pair].set(self.base_values[pair]))
+        menu.add_command(label=tr('Restore saved value'), command=lambda: self.restore_value(pair))
         if core.LEVEL.fullmatch(pair[0]):
-            menu.add_command(label='Copy this value to the other grades', command=lambda: self.copy_to_grades(pair))
-        if pair[1] in COLORS: menu.add_command(label='Original color (default)', command=lambda: self.reset_color(pair))
+            menu.add_command(label=tr('Copy this value to the other grades'), command=lambda: self.copy_to_grades(pair))
+        if pair[1] in COLORS: menu.add_command(label=tr('Original color (default)'), command=lambda: self.reset_color(pair))
         menu.tk_popup(event.x_root, event.y_root)
 
     def reset_color(self, pair): self.variables[pair].set('default'); self.render_page()
@@ -363,7 +398,7 @@ class Launcher:
             for n in range(1, 6):
                 target = f'{prefix}.level{n}', pair[1]
                 if target in self.variables: self.variables[target].set(core.validate_value(*target, value))
-            self.render_page(); self.status.set('Value copied to all five grades: '+pair[1])
+            self.render_page(); self.status.set(tr('Value copied to all five grades: ')+i18n.label(pair[1]))
         except ValueError as error: self.error(error)
 
     def render_page(self):
@@ -371,21 +406,38 @@ class Launcher:
         for child in self.form.winfo_children(): child.destroy()
         self.cards = []; self.card_area = self.ttk.Frame(self.form)
         for key, button in self.nav_buttons.items(): button.configure(bg='#405784' if key == self.page else '#242d40')
-        self.page_title.configure(text='Global Settings' if self.page == 'global' else WEAPONS[self.page][1])
+        self.page_title.configure(text=tr('Global Settings') if self.page == 'global' else i18n.weapon_name(self.page))
         if not getattr(self, 'doc', None):
-            self.ttk.Label(self.form, text='Load a valid weapons.ini to get started.', padding=20).pack(); return
+            self.ttk.Label(self.form, text=tr('Load a valid weapons.ini to get started.'), padding=20).pack(); return
         if self.page == 'global':
-            for section, label in [('general', 'General settings'), ('hud', 'XP bar and HUD')]:
-                card = self.card(self.form, label); card.pack(fill='x', padx=5, pady=6)
-                self.fields(card, section, [k for k in self.doc.keys(section) if k != 'experimental_ammo_unlock_mode'])
-            experimental = self.card(self.form, 'Experimental game mode')
-            experimental.pack(fill='x', padx=5, pady=6)
-            self.fields(experimental, 'general', ['experimental_ammo_unlock_mode'])
+            base_fields, mode_fields = global_field_groups(self.doc)
+            base = self.card(self.form, tr('Base settings')); base.pack(fill='x', padx=5, pady=6)
+            self.fields(base, 'general', [key for section,key in base_fields if section == 'general'])
+            self.ttk.Separator(base, orient='horizontal').pack(fill='x', pady=(12,6))
+            self.ttk.Label(base, text=tr('XP bar and HUD'), style='Card.TLabel').pack(anchor='w')
+            self.fields(base, 'hud', [key for section,key in base_fields if section == 'hud'])
+            mode = self.card(self.form, tr('Ammo-Survival Mode'))
+            mode.pack(fill='x', padx=5, pady=6)
+            self.fields(mode, 'general', ['experimental_ammo_unlock_mode'])
+            self.ttk.Label(mode, text=tr('New games start with zero Bomb Glove ammo. Existing save ammo is preserved.'),
+                           style='CardSmall.TLabel', wraplength=700).pack(anchor='w', pady=(0,8))
+            self.ttk.Label(mode, text=tr('Permanent weapon unlocks (collected normal bolts)'), style='Card.TLabel').pack(anchor='w')
+            self.fields(mode, 'general', [key for _,key in mode_fields if key.startswith('ammo_unlock_')])
+            self.ttk.Separator(mode, orient='horizontal').pack(fill='x', pady=(12,6))
+            self.ttk.Label(mode, text=tr('Ammo crate pack probabilities'), style='Card.TLabel').pack(anchor='w')
+            self.ttk.Label(mode, text=tr('Inputs are normalized to 100%. Set 0 to exclude an ammo type.'),
+                           style='CardSmall.TLabel').pack(anchor='w')
+            self.fields(mode, 'general', [key for _,key in mode_fields if key in AMMO_DROP_DEFAULTS])
+            self.ammo_chance_summary = self.tk.StringVar()
+            self.ttk.Label(mode, textvariable=self.ammo_chance_summary, style='CardSmall.TLabel',
+                           wraplength=700).pack(anchor='w', pady=(8,0))
+            self.update_ammo_chance_summary()
+
         else:
             section = f'weapon.{self.page}'
-            profile = self.card(self.form, 'XP progression', '#597c9f'); profile.pack(fill='x', padx=5, pady=6)
+            profile = self.card(self.form, tr('XP progression'), '#597c9f'); profile.pack(fill='x', padx=5, pady=6)
             if section in self.doc.sections:
-                self.ttk.Label(profile, text='Game ID: '+self.doc.entries.get((section, 'id'), '?')+'  ·  XP required for each upgrade', style='CardSmall.TLabel').pack(anchor='w', pady=(0, 7))
+                self.ttk.Label(profile, text=tr('Game ID: ')+self.doc.entries.get((section, 'id'), '?')+tr('  ·  XP required for each upgrade'), style='CardSmall.TLabel').pack(anchor='w', pady=(0, 7))
                 strip = self.ttk.Frame(profile, style='Card.TFrame'); strip.pack(fill='x')
                 for i, key in enumerate(XP):
                     if (section, key) not in self.variables or not self.matches(section, key): continue
@@ -396,44 +448,56 @@ class Launcher:
                     entry.bind('<Enter>', lambda _, s=section, k=key: self.show_help(s, k))
             self.card_area.pack(fill='x')
             for n in range(1, 6):
-                card = self.card(self.card_area, f'V{n}  /  Grade {n}', GRADE_COLORS[n-1]); self.cards.append(card)
+                card = self.card(self.card_area, tr('V{grade}  /  Grade {grade}',grade=n), GRADE_COLORS[n-1]); self.cards.append(card)
                 level = section+f'.level{n}'; keys = self.doc.keys(level)
                 standard, experimental = field_groups(self.page, keys)
-                self.fields(card, level, standard)
+                standard_frame=self.ttk.LabelFrame(card,text=tr('Standard settings'),padding=8)
+                standard_frame.pack(fill='x',pady=(0,8))
+                self.fields(standard_frame, level, standard)
                 if experimental:
-                    self.ttk.Separator(card, orient='horizontal').pack(fill='x', pady=(12, 6))
-                    self.ttk.Label(card, text='Experimental settings', style='Card.TLabel').pack(anchor='w', pady=(0, 6))
-                    self.fields(card, level, experimental)
+                    experimental_frame=self.ttk.LabelFrame(card,text=tr('Experimental settings'),padding=8)
+                    experimental_frame.pack(fill='x',pady=(0,8))
+                    self.fields(experimental_frame, level, experimental)
                 if not keys:
-                    self.ttk.Label(card, text='No settings for this grade in the INI.', style='CardSmall.TLabel', wraplength=230).pack(anchor='w')
+                    self.ttk.Label(card, text=tr('No settings for this grade in the INI.'), style='CardSmall.TLabel', wraplength=230).pack(anchor='w')
             self.arrange_cards()
-        self.context.set('All five grades are on this page. Scroll to see them all. Right-click a value to copy it to the other grades.' if self.page != 'global' else 'Global XP, HUD and level-up settings. In-game weapon names follow the game language.')
+        self.context.set(tr('All five grades are on this page. Scroll to see them all. Right-click a value to copy it to the other grades.') if self.page != 'global' else tr('Global XP, HUD and level-up settings. In-game weapon names follow the game language.'))
+
+    def update_ammo_chance_summary(self):
+        if not hasattr(self, 'ammo_chance_summary'): return
+        try:
+            chances = normalized_ammo_chances({key: self.variables['general',key].get() for key in AMMO_DROP_DEFAULTS})
+            text = tr('Actual chance per pack: ')+ ' · '.join(
+                i18n.weapon_name(key.removeprefix('ammo_drop_chance_'))+f' {value:.2f}%'
+                for key,value in chances.items())
+        except (ValueError, KeyError): text = tr('Enter valid probabilities; at least one ammo type must be above zero.')
+        self.ammo_chance_summary.set(text)
 
     def remember_settings(self):
-        settings = {'last_preset': self.current_name}
+        settings = {'last_preset': self.current_name, 'language':i18n.language()}
         for key, variable in [('exe', self.exe_var), ('data', self.data_var), ('save', self.save_var)]:
             path = core.resolve_path(variable.get(), self.kit)
             settings[key] = core.portable_path(path, self.kit) if path else ''
         core.save_settings(self.kit, settings); self.settings = settings
 
     def launch_options(self):
-        window = self.tk.Toplevel(self.root); window.title('Launch settings'); window.transient(self.root)
+        window = self.tk.Toplevel(self.root); window.title(tr('Launch settings')); window.transient(self.root)
         frame = self.ttk.Frame(window, padding=18); frame.pack(fill='both', expand=True)
-        options = [('Extracted game data', self.data_var, False), ('Save folder (leave empty to use the default)', self.save_var, False)]
-        options.insert(0,('Modded ReRAC executable', self.exe_var, True))
+        options = [(tr('Extracted game data'), self.data_var, False), (tr('Save folder (leave empty to use the default)'), self.save_var, False)]
+        options.insert(0,(tr('Modded ReRAC executable'), self.exe_var, True))
         for row, (label, variable, is_file) in enumerate(options):
             self.ttk.Label(frame, text=label).grid(row=row*2, column=0, columnspan=2, sticky='w', pady=(8, 2))
             self.ttk.Entry(frame, textvariable=variable, width=75, state='readonly' if is_file and getattr(sys,'frozen',False) else 'normal').grid(row=row*2+1, column=0, sticky='ew')
-            self.ttk.Button(frame, text='Browse…', command=lambda v=variable, f=is_file: self.choose_path(v, f, window), state='disabled' if is_file and getattr(sys,'frozen',False) else 'normal').grid(row=row*2+1, column=1, padx=(6, 0))
-        self.ttk.Label(frame, text='Choose the folder containing toc.bin and extract-info.json.\nThe included modded game is selected automatically.\nLeave the save folder empty to keep using your existing saves.', wraplength=650).grid(row=6, column=0, columnspan=2, sticky='w', pady=14)
+            self.ttk.Button(frame, text=tr('Browse…'), command=lambda v=variable, f=is_file: self.choose_path(v, f, window), state='disabled' if is_file and getattr(sys,'frozen',False) else 'normal').grid(row=row*2+1, column=1, padx=(6, 0))
+        self.ttk.Label(frame, text=tr('Choose the folder containing toc.bin and extract-info.json.\nThe included modded game is selected automatically.\nLeave the save folder empty to keep using your existing saves.'), wraplength=650).grid(row=6, column=0, columnspan=2, sticky='w', pady=14)
         def save():
             try: self.remember_settings(); window.destroy()
             except (OSError, ValueError) as error: self.error(error)
-        self.ttk.Button(frame, text='Save settings', command=save).grid(row=7, column=1, sticky='e')
+        self.ttk.Button(frame, text=tr('Save settings'), command=save).grid(row=7, column=1, sticky='e')
         window.grab_set()
 
     def choose_path(self, variable, is_file, parent):
-        selected = self.files.askopenfilename(title='Choose rerac.exe', filetypes=[('Executable', '*.exe'), ('All files', '*.*')], parent=parent) if is_file else self.files.askdirectory(parent=parent)
+        selected = self.files.askopenfilename(title=tr('Choose rerac.exe'), filetypes=[(tr('Executable'), '*.exe'), (tr('All files'), '*.*')], parent=parent) if is_file else self.files.askdirectory(parent=parent)
         if selected: variable.set(selected)
 
     def prepare_launch_raw(self):
@@ -453,9 +517,9 @@ class Launcher:
             data = core.resolve_path(self.data_var.get(), self.kit)
             save = core.resolve_path(self.save_var.get(), self.kit)
             if exe is None or data is None:
-                self.status.set('Choose the game data folder in Launch settings.'); self.launch_options(); return
+                self.status.set(tr('Choose the game data folder in Launch settings.')); self.launch_options(); return
             self.remember_settings()
-            self.launch_busy = True; self.play_button.configure(state='disabled'); self.status.set('Checking the game and configuration…')
+            self.launch_busy = True; self.play_button.configure(state='disabled'); self.status.set(tr('Checking the game and configuration…'))
             preset = self.current_name or BASE_LABEL
             def worker():
                 try: self.events.put(('started', core.launch_game(self.kit, raw, preset, exe, data, save)))
@@ -470,8 +534,8 @@ class Launcher:
                 self.launch_busy = False
                 if kind == 'started':
                     self.session = value; self.log_offset = 0; self.log_text = ''; self.confirmed = False
-                    self.status.set('Started: '+value.preset+' · waiting for the game to confirm the configuration.')
-                    self.game_status.set('Game running')
+                    self.status.set(tr('Started: ')+value.preset+tr(' · waiting for the game to confirm the configuration.'))
+                    self.game_status.set(tr('Game running'))
                 else:
                     self.play_button.configure(state='normal'); self.error(value)
         except queue.Empty: pass
@@ -481,31 +545,31 @@ class Launcher:
                     stream.seek(self.log_offset); block = stream.read(128*1024); self.log_offset = stream.tell()
                 self.log_text = (self.log_text+block.decode('utf-8', errors='replace'))[-512*1024:]
                 if not self.confirmed and core.log_confirmation(self.log_text, self.session.ini):
-                    self.confirmed = True; self.status.set('Configuration confirmed by the game: '+self.session.preset)
+                    self.confirmed = True; self.status.set(tr('Configuration confirmed by the game: ')+self.session.preset)
                 code = self.session.process.poll()
                 if code is not None:
                     # Drain remaining data on subsequent ticks before reporting exit.
                     if len(block) < 128*1024:
-                        self.status.set(f'Game closed (exit code {code}). '+('Configuration confirmed.' if self.confirmed else 'Configuration loading has not been confirmed. Open the log.'))
-                        self.game_status.set('Game closed'); self.play_button.configure(state='normal')
+                        self.status.set(tr('Game closed (exit code {code}). ',code=code)+(tr('Configuration confirmed.') if self.confirmed else tr('Configuration loading has not been confirmed. Open the log.')))
+                        self.game_status.set(tr('Game closed')); self.play_button.configure(state='normal')
                         self.last_log = self.session.log; self.session = None
-            except OSError as error: self.status.set('Reading log: '+str(error))
+            except OSError as error: self.status.set(tr('Reading log: ')+str(error))
         self.root.after(250, self.poll)
 
     def open_log(self):
         path = self.session.log if self.session else getattr(self, 'last_log', None)
-        if not path or not path.exists(): self.status.set('No log available. Start the game from the launcher.'); return
+        if not path or not path.exists(): self.status.set(tr('No log available. Start the game from the launcher.')); return
         try:
             if os.name == 'nt': os.startfile(str(path))
             else: subprocess.Popen(['xdg-open', str(path)])
         except OSError as error: self.error(error)
 
     def error(self, error):
-        self.messages.showerror('Weapon Evolution', str(error), parent=self.root)
+        self.messages.showerror('Weapon Evolution', tr('Could not complete the operation.')+'\n\n'+tr('Technical details:')+'\n'+str(error), parent=self.root)
 
     def close(self):
         if self.launch_busy:
-            self.status.set('Wait for startup to finish before closing the launcher.'); return
+            self.status.set(tr('Wait for startup to finish before closing the launcher.')); return
         if not self.can_discard(): return
         try: self.remember_settings()
         except OSError as error: self.error(error); return

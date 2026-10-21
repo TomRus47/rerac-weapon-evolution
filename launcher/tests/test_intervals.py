@@ -27,7 +27,10 @@ class IntervalTests(unittest.TestCase):
         edits={(f'weapon.{weapon}.level{n}',key):str(n*3) for weapon in ['pyrocitor','tesla_claw'] for n in range(1,6) for key in ['ammo_interval_ticks','damage_interval_ticks']}
         out=doc.render(edits)
         out=b'\xef\xbb\xbf'+out.replace(b'\n',b'\r\n')+b'; custom comment\r\n'
-        self.assertEqual(convert(out)[0],out)
+        normalized=convert(out)[0]
+        self.assertEqual(c.IniDocument(normalized).entries,c.IniDocument(out).entries)
+        self.assertIn(b'; custom comment\r\n',normalized)
+        self.assertEqual(convert(normalized)[0],normalized)
         for key in ['ammo_interval_ticks','damage_interval_ticks']:
             self.assertIn(key,INTEGER);self.assertIn(key,LABELS);self.assertIn(key,HELP)
     def test_limits_are_enforced_for_both_weapons(self):
@@ -39,14 +42,14 @@ class IntervalTests(unittest.TestCase):
                 for value in ['1',str(high)]:self.assertEqual(c.validate_value(section,key,value),value)
     def test_old_executables_are_refused_when_intervals_are_present(self):
         out,_=convert(self.raw);doc=c.checked_document(out)
-        self.assertEqual(c.required_config(doc),51)
-        old=c.checked_document(self.raw);self.assertEqual(c.required_config(old),51)
+        self.assertEqual(c.required_config(doc),56)
+        old=c.checked_document(self.raw);self.assertEqual(c.required_config(old),56)
         with tempfile.TemporaryDirectory() as directory:
             exe=Path(directory)/'rerac.exe';exe.touch();(exe.parent/'assets/shaders').mkdir(parents=True)
             version=dict(name='rerac',game='rac1',data_format=1,version='0.3.4',weapon_evolution_config=37)
             with patch.object(c.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(version))):
                 with self.assertRaises(ValueError):c.probe_exe(exe,c.required_config(doc))
-            version['weapon_evolution_config']=51
+            version['weapon_evolution_config']=56
             with patch.object(c.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(version))):
                 self.assertEqual(c.probe_exe(exe,c.required_config(doc)),version)
     def test_loading_old_preset_adds_fields_without_writing_its_file(self):

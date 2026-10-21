@@ -213,7 +213,7 @@ fn spawn_impl(hero: &mut crate::hero::Hero, table: &mut crate::moby_runtime::Mob
         None => {
             let glow_rng = *rng;
             let _ = rng.rand();
-            hero.fx.parts.push(PartSpawn::Glow26 { size: GLOW_SIZE * size_k, moby: id, rgba: colors.projectile(0x2f4f_7f7f), life, at: muzzle, rng: glow_rng, pellet: pellet.is_some() });
+            hero.fx.parts.push(PartSpawn::Glow26 { size: GLOW_SIZE * size_k, moby: id, rgba: colors.projectile(if pellet.is_some() {0x7f4f_7f7f} else {0x2f4f_7f7f}), life, at: muzzle, rng: glow_rng, pellet: pellet.is_some() });
             for i in 0..TRAIL {
                 let draws = crate::particles::type72::Draws::draw(rng);
                 let mut size = rng.randf(TRAIL_LO, TRAIL_HI);
@@ -600,8 +600,21 @@ mod tests {
     }
 }
 
+/// A missing cosmetic record never changes the physical pellet. Retry its core
+/// using the current point/lifetime; optional own trails can yield a pool slot.
+fn ensure_ryno_head(w:&mut World,id:MobyId) {
+    let m=w.m(id);let colors=ShotColors::of_shot(m);let pos=m.position;
+    let base=w.classes.info(CLASS).map_or(1.,|c|c.scale).max(0.00001);
+    let size=m.scale/base;let life=p::i16(&m.pvars,pv::LIFE) as i32;let rng=*w.rng;
+    let Some(sys)=w.particles.as_deref_mut() else {return;};
+    let valid=sys.ryno_heads.get(&id).is_some_and(|&i|sys.pool.recs.get(i).is_some_and(|r|crate::particles::type26::anchor_of(r)==Some((id,-1))));
+    if !valid && life>0 {crate::hero::fx::create_one(sys,&PartSpawn::Glow26 {size:GLOW_SIZE*size,moby:id,
+        rgba:colors.projectile(0x7f4f7f7f),life,at:[pos[0],pos[1],pos[2]],rng,pellet:true},0);}
+}
+
 /// Straight independent pellets retain the native model, glow, trail and impact.
 fn update_ryno(w: &mut World, id: MobyId) {
+    ensure_ryno_head(w,id);
     take_links(w, id);
     let pvs = &w.m(id).pvars;
     let (speed, left, hp) = (p::ff(pvs, 0x84), p::ff(pvs, 0x88), p::ff(pvs, 0x8c));

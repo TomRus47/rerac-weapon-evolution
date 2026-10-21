@@ -26,6 +26,7 @@ pub fn active(hero: &Hero) -> bool { hero.combat_strafe && eligible(hero) }
 
 /// Locomotion keeps its own world direction until the body has caught up.
 pub fn separate_motion(hero: &Hero) -> bool {
+    if hero.state==0x13 && !crate::weapon_evo::extra_flag(8,"moving_attacks_enabled",true) {return false;}
     active(hero) || (hero.combat_release && eligible(hero)
         && matches!(hero.state, 0 | 2 | 3 | 4 | 6 | 7 | 8 | 9 | 0xb | 0xe | 0x13 | 0x23 | 0x2f | 0x73))
 }

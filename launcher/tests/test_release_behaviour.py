@@ -118,7 +118,7 @@ class DefaultWorkflowTests(unittest.TestCase):
         self.assertEqual(c.checked_document(session.read_bytes()).entries['general','damage_mode'],'real_hp')
         self.assertEqual((self.kit/'weapons.ini').read_bytes(),self.raw)
     def test_every_editor_weapon_and_setting_has_english_metadata(self):
-        self.assertEqual(len(EDITOR_WEAPONS),15);self.assertNotIn('wrench',EDITOR_WEAPONS)
+        self.assertEqual(len(EDITOR_WEAPONS),16);self.assertIn('wrench',EDITOR_WEAPONS)
         d=c.profile_document(self.raw)
         from schema import LABELS
         self.assertFalse({key for _,key in d.entries}-{*LABELS})

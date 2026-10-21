@@ -1,4 +1,4 @@
-name: Windows player package and draft release
+name: Windows player package and release
 
 on:
   workflow_dispatch:
@@ -63,10 +63,11 @@ jobs:
             launcher/dist/release-build.json
           if-no-files-found: error
 
-  draft:
+  release:
     needs: build
-    # Release creation is an explicit opt-in; pushes produce test artifacts only.
-    if: github.event_name == 'workflow_dispatch' && inputs.create_draft
+    # The exact 0.3 release commit is the author-approved publication opt-in.
+    # Other pushes only build artifacts; manual dispatch still creates drafts.
+    if: (github.event_name == 'workflow_dispatch' && inputs.create_draft) || (github.event_name == 'push' && github.event.head_commit.message == 'Release Weapon Evolution 0.3')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -78,10 +79,11 @@ jobs:
         with:
           name: weapon-evolution-windows-x64
           path: release-assets
-      - name: Create a reviewable draft without replacing existing releases
+      - name: Attach exact source and publish the approved release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          APPROVED_PUBLICATION: ${{ github.event_name == 'push' && github.event.head_commit.message == 'Release Weapon Evolution 0.3' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -96,3 +98,10 @@ jobs:
           git archive --format=zip --prefix="$source_name/" -o "release-assets/$source_name.zip" "$GITHUB_SHA"
           (cd release-assets && sha256sum "$source_name.zip" > "$source_name.zip.sha256")
           gh release create "$tag" release-assets/* --draft --target "$GITHUB_SHA" --title "$title" --notes-file "$notes"
+          if [ "$APPROVED_PUBLICATION" = true ]; then
+            if [ "$tag" != v0.3 ]; then
+              echo "Publication authorization is restricted to v0.3."
+              exit 1
+            fi
+            gh release edit "$tag" --draft=false --latest
+          fi

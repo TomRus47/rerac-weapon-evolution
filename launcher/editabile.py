@@ -54,8 +54,8 @@ def editable_version(exe: Path) -> dict:
         raise ValueError('Unrecognized ReRAC executable.')
     if str(version['version']).endswith('-fixed'):
         raise ValueError('This is a fixed-profile build. Rebuild with 01_RICOMPILA_E_PROVA.bat.')
-    if version.get('weapon_evolution_config',0) < 51:
-        raise ValueError('This executable lacks configuration capability 51. Rebuild the current game.')
+    if version.get('weapon_evolution_config',0) < 56:
+        raise ValueError('This executable lacks configuration capability 56. Rebuild the current game.')
     return version
 
 def ensure_closed() -> None:
@@ -103,7 +103,7 @@ def build(root: Path, kit: Path) -> Path:
     validate(kit/'weapons.ini')
     ensure_closed()
     check_source_root(root)
-    print('Building Weapon Evolution v51 from this source checkout.',flush=True)
+    print('Building Weapon Evolution v56 from this source checkout.',flush=True)
     # An explicit target dir also prevents a user-wide CARGO_TARGET_DIR from picking a stale executable.
     common = ['--release','--locked','--no-default-features','--target-dir',str(root/'target')]
     for args in [['cargo','test',*common,'-p','rc-game','--lib'],
@@ -144,7 +144,7 @@ def launch(kit: Path, root_override: Path | None = None) -> int:
         raise ValueError('First run 01_RICOMPILA_E_PROVA.bat once.')
     editable_version(runtime/'rerac.exe')
     info = json.loads((runtime/'build-info.json').read_text(encoding='utf-8'))
-    if info.get('mode') != 'editable' or info.get('mod_version') != '0.1.6.44': raise ValueError('This build does not support editable configurations.')
+    if info.get('mode') != 'editable': raise ValueError('This build does not support editable configurations.')
     root = root_override or Path(info['root'])
     env = runtime_environment(kit,os.environ)
     from migrate_ini import runtime_profile
@@ -175,7 +175,7 @@ def launch(kit: Path, root_override: Path | None = None) -> int:
     return result.returncode
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Weapon Evolution v45 editable')
+    parser = argparse.ArgumentParser(description='Weapon Evolution v56 editable')
     parser.add_argument('action',choices=['build','run','build-and-run'])
     parser.add_argument('root',nargs='?',type=Path)
     args = parser.parse_args()

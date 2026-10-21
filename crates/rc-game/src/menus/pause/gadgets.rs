@@ -375,14 +375,8 @@ pub fn grid_draw(m: &mut PageMenu, w: u32, a: &MenuAssets, gs: &GameState, vsync
                     if m.unusable_back && g.flags & 4 != 0 { v = 2; }
                 }
                 if cell.kind == 0 {
-                    // Level V5 uses the disc's gold icon where available, without
-                    // replacing the selected (variant 1) or unavailable (variant 2) frame.
-                    if v == 0 {
-                        if let Some(level) = crate::weapon_evo::weapon_icon_level(item) {
-                            if level == 5 && a.frame(cell.icon, cell.variant as i32 + 4) != 0 { v = 4; }
-                            else if level < 5 { v = 0; }
-                        }
-                    }
+                    // Preserve equipped/unavailable frames; evolving icons share a neutral source.
+                    if crate::weapon_evo::weapon_icon_level(item).is_some() && matches!(v,0|4) {v=0;}
                 }
                 let frame = a.frame(cell.icon, cell.variant as i32 + v);
                 let (tw, th) = a.frame_size(frame);

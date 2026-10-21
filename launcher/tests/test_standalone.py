@@ -107,7 +107,7 @@ class StandaloneTests(unittest.TestCase):
         self.assertEqual(calls[0][:3],[str(python),'-m','PyInstaller'])
         for flag in ['--onefile','--windowed','--noupx']:self.assertIn(flag,calls[0])
         smoke.assert_called_once()
-        self.assertEqual(json.loads((self.launcher.parent/'launcher-build.json').read_text())['launcher_version'],'0.11.0')
+        self.assertEqual(json.loads((self.launcher.parent/'launcher-build.json').read_text())['launcher_version'],'0.16.0')
     def test_cached_exe_is_reused_only_when_sources_and_binary_match(self):
         self.prepare_sources()
         metadata={'sources_sha256':build.source_digest(self.kit),'exe_sha256':hashlib.sha256(self.launcher.read_bytes()).hexdigest()}

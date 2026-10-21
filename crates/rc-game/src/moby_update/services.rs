@@ -1780,6 +1780,7 @@ impl<'a> World<'a> {
         svc.hits.real_hp.stream_intervals = svc.bomb_evo.stream_intervals();
         svc.hits.real_hp.hero = hero_moby;
         svc.hits.real_hp.melee_serial = hero.walloper.attack_serial;
+        svc.hits.real_hp.wrench_serial=hero.melee.attack_serial;
         svc.hits.real_hp.begin_frame(counter);
         World {
             table,
@@ -1843,7 +1844,7 @@ impl<'a> World<'a> {
     /// The bolt pickup radii `(0x1415d8 xy, 0x1415dc z)`: hero init 0x226b70 writes 2.125 / 1.25; every hero
     /// tick (`HeroTickStateTimer` 0x23c710) rewrites them as 3.0 / 1.75, or 12 / 4.5 with the bolt grabber
     /// (0x13d4e2). The mobys run before the hero, so tick 0 sees the init values.
-    pub fn bolt_radii(&self) -> (Pf, Pf) {
+    pub fn pickup_radii(&self) -> (Pf, Pf) {
         if self.counter == 0 { return (Pf::b(0x4008_0000), Pf::b(0x3fa0_0000)); }
         // The other bodies (`HeroTickStateTimer`, crate::hero::bodies): Clank 2.125 / 1.25, Giant Clank 15 / 3.
         match self.body() {
@@ -1851,11 +1852,17 @@ impl<'a> World<'a> {
             2 => return (Pf::b(0x4170_0000), Pf::b(0x4040_0000)),
             _ => {}
         }
-        if self.svc.bolt_grabber { (Pf::b(0x4140_0000), Pf::b(0x4090_0000)) } else { (Pf::b(0x4040_0000), Pf::b(0x3fe0_0000)) }
+        if self.svc.bolt_grabber {(Pf::f(12.),Pf::f(4.5))} else {(Pf::f(3.),Pf::f(1.75))}
     }
 
     /// `0x13f390`: the transpose of the hero rows 0x13f350 (`HeroMotionUpdate` 0x231d18: identity, then
     /// `fun_001fa2d8(0x13f390, 0x13f350)`).
+    pub fn bolt_radii(&self)->(Pf,Pf) {
+        let (xy,z)=self.pickup_radii();
+        let bonus=if self.body()==0 && self.counter>0 {crate::weapon_evo::extra(8,"bolt_attraction_bonus",0.)} else {0.};
+        crate::weapon_evo::wrench::with_bolt_bonus((xy,z),bonus)
+    }
+
     pub fn hero_inverse(&self) -> [V4; 4] {
         let r = self.hero.rows;
         transpose(&[r[0], r[1], r[2]])

@@ -16,7 +16,7 @@ from icon_assets import preserve_icon
 
 PYINSTALLER_VERSION = '6.22.3'
 EXE_NAME = 'ReRAC_Weapon_Evolution.exe'
-SOURCES = ('windows_entry.py','launcher.py','launcher_core.py','schema.py','migrate_ini.py','frozen_support.py','icon_assets.py')
+SOURCES = ('windows_entry.py','launcher.py','launcher_core.py','schema.py','migrate_ini.py','frozen_support.py','icon_assets.py','i18n.py')
 
 def source_digest(kit):
     h=hashlib.sha256()

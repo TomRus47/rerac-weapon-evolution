@@ -24,7 +24,7 @@ class ReleaseToolTests(unittest.TestCase):
         self.release = json.loads((ROOT / "mod/release.json").read_text())
         (self.root / "mod/release.json").write_text(json.dumps(self.release))
         self.identity = dict(version="0.3.4", weapon_evolution_patch=self.release["patch"],
-                             weapon_evolution_config=51, weapon_evolution_audio_diagnostics=False)
+                             weapon_evolution_config=56, weapon_evolution_audio_diagnostics=False)
 
     def test_stale_or_audio_probe_runtime_stops_before_packaging(self):
         for changes in [dict(weapon_evolution_patch="0.1.6.48"),
@@ -59,4 +59,5 @@ class ReleaseToolTests(unittest.TestCase):
         self.assertEqual(report["archive"], self.release["asset"] + ".zip")
         self.assertEqual(report["runtime"], self.identity)
         self.assertEqual(len(report["sha256"]), 64)
-        self.assertIn("Pending", report["gameplay_validation"])
+        self.assertIn("Author approved" if self.release["tag"] == "v0.3" else "Pending",
+                      report["gameplay_validation"])

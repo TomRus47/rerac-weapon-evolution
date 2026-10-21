@@ -6,11 +6,8 @@ on:
       tag:
         description: Existing Weapon Evolution release tag
         type: string
-        default: v0.3.2
+        default: v0.3
         required: true
-  push:
-    branches: [main]
-    paths: [.github/workflows/source-release.yml]
 
 permissions:
   contents: write
@@ -50,7 +47,7 @@ jobs:
           root = Path.cwd()
           output = root / "source-assets"
           tag = os.environ["REQUESTED_TAG"] or json.loads(Path("mod/release.json").read_text())["tag"]
-          if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+          if not re.fullmatch(r"v\d+\.\d+(?:\.\d+)?", tag):
               raise ValueError("Expected a Weapon Evolution version tag.")
           releases = json.loads((output / "releases.json").read_text())
           release, = [item for item in releases if item["tag_name"] == tag]

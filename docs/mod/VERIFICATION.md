@@ -1,3 +1,40 @@
+# Local v54 verification (not published)
+
+- Gameplay 0.1.6.54, capability 54, editor 0.14.0, ReRAC 0.3.4-alpha.
+- Rust 1.99.1 Linux x64 release: **1,007 rc-game library tests passed**, no failures.
+- Python: **106 launcher/updater tests passed**, no failures.
+- Added fixtures cover independent wrench grade HP/range/speed/toggles/bolt values, accepted-health XP and v3 round trips, v1/v2 migration, cross-frame swing deduplication and immediate next-swing damage, throw range independent of speed, crate-only shockwave selection including carried-crate exclusion, additive native/Bolt Grabber radii, pool-pressure core reclamation, actual lower-ground markers, water detonation, quiet death-plane removal and no native-fuse air detonation.
+- All **1,259 other v53 values** and exact supplied launcher icon bytes are unchanged. The old global wrench Gold value moves to its grades; 50 new wrench entries bring the total to **1,309**.
+- Source/export checks and ZIP manifest hashes are verified. No GitHub update, remote build or release was performed.
+- This source revision has not been compiled as a Windows engine or tested with disc data here. The delivered local BAT tests/builds the runtime on Windows using the existing source target cache. Model appearance, sound playback and actual level collision/death-volume variants require the [in-game checklist](WRENCH_AND_PROJECTILES_V54.md).
+
+Historical verification below applies only to its named earlier revisions.
+
+# Local v53 verification (not published)
+
+- Gameplay patch 0.1.6.53; capability 53; editor 0.13.0; ReRAC 0.3.4-alpha.
+- Rust 1.99.1, Linux x64 release: **998 rc-game library tests passed**, no failures.
+- Python launcher/updater suite: **103 tests passed**, no failures.
+- Fixtures cover independent per-grade settings, invalid values, exact experimental footer ordering, lossless migration, ballistic/range boundaries, captured size/HP/colors, native spin, explosion-only Visibomb ownership/deduplication, retained player movement/no missile camera, successful throw audio, missing-model no-charge behavior and mine scaled clearance/body-flame rotation.
+- All **1,205 prior v52 INI values** and exact supplied launcher icon bytes are preserved; **55 fields added**, **1,260 total**. Grenade mode defaults off.
+- Source overlay integrity and archive manifests are checked. No GitHub update, remote build, release or frozen launcher EXE rebuild is performed.
+- No Windows runtime or in-game verification was performed here. The delivered local BAT tests/builds the engine on the user's existing Windows toolchain/cache before replacing runtime/rerac.exe. See [in-game checklist](VISIBOMB_GRENADES_V53.md).
+
+The historical v52 checks below apply to that earlier revision only.
+
+# Local v52 verification (not published)
+
+- Gameplay patch 0.1.6.52; configuration capability 52; Python test launcher 0.12.0.
+- Rust 1.99.1, Linux x64 release: **988 rc-game library tests passed**, no failures.
+- Python: **100 launcher/updater tests passed**, no failures.
+- The new fixtures exercise configurable milestones without spending bolts, normalized chances and zero exclusions, the real native planet-entry ammo grant, exactly two Global Settings cards, migration, preserved presets/icon/settings/build cache, corrupt manifests and rollback on a failed write.
+- All **1,190 v51 INI values** and the supplied custom icon bytes remain unchanged; 15 controls were added (1,205 total). Mode remains off by default.
+- Complete local source-overlay kit: no remote update/build/release and no launcher EXE rebuild. It uses the existing local Cargo target and opens the updated Python editor.
+- Windows compilation and gameplay are intentionally delegated to the delivered local BAT. No Windows binary is claimed to have been built for this v52 source revision here.
+- The prior v51 Windows build passed 984 game, 154 formats and 92 Python tests; that evidence applies to v51 only.
+
+The historical v51 verification below is retained for provenance.
+
 # Verification: gameplay 0.1.6.51 / public 0.3.3
 
 ## Current v51 checks

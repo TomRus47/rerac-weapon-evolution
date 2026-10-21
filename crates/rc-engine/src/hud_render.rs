@@ -1001,18 +1001,19 @@ fn tick_and_build(
         if let Some(p) = play.as_deref() {
             let evo = &p.svc.bomb_evo;
             let ui = evo.hud;
-            let item = rt.state.weapon_evo_display_item(ui.show_for_weapons_without_ammo).unwrap_or(0);
+            let item = rt.state.weapon_evo_display_item(true).unwrap_or(0);
+            let without_ammo=ui.show_for_weapons_without_ammo || (item==8 && evo.weapon_hud_enabled(8));
             let gold = p.game.hero.weapons.gold.get(item as usize).is_some_and(|&g| g != 0);
-            let label = evolution_native_name(rt, item, gold).and_then(|name| evo.equipped_title(item, name));
+            let label = if evo.weapon_hud_enabled(item) {evolution_native_name(rt,item,gold).and_then(|name|evo.equipped_title(item,name))}else{None};
             if let (Some((name_x, y, _)), Some(label)) =
-                (rt.state.weapon_evo_anchor(item, ui.show_for_weapons_without_ammo), label) {
+                (rt.state.weapon_evo_anchor(item, without_ammo), label) {
                 let height = ui.xp_bar_height_px;
                 let bottom_y = y + 34;
-                let fade = rt.state.weapon_evo_fade(item, ui.show_for_weapons_without_ammo);
+                let fade = rt.state.weapon_evo_fade(item, without_ammo);
                 let alpha_bar = (128.0 * fade) as u32;
                 if alpha_bar > 0 {
                     if let Some((left, _, outer_width)) = rt.state.weapon_evo_xp_anchor(
-                        item, ui.show_for_weapons_without_ammo, rt.evo_bar_cap_inset,
+                        item, without_ammo, rt.evo_bar_cap_inset,
                     ) {
                         // The border is inside the panel span; legacy INI inset only
                         // keeps its old name position, it cannot misalign the XP bar.

@@ -441,7 +441,6 @@ pub fn slots_draw(m: &mut PageMenu, w: u32, a: &MenuAssets, gs: &GameState, vsyn
             // Colour the Quick Select pause-page *slots*, not just its grid.
             // Preview modes affect the icon only; they cannot alter weapon XP.
             let variant = match crate::weapon_evo::weapon_icon_level(item) {
-                Some(5) if a.frame(icon, 4) != 0 => 4,
                 Some(_) => 0,
                 None if gold => 4,
                 _ => 0,
@@ -627,8 +626,7 @@ pub fn icons_draw(m: &mut PageMenu, w: u32, a: &MenuAssets, vsync: u32, out: &mu
             rect16(out, x - 0x10, y - 0x10, x + 0x210, y + 0x210, navy);
         }
         let stage = crate::weapon_evo::weapon_icon_level(c.item as i32);
-        let v = if stage == Some(5) && a.frame(c.icon, 4) != 0 { 4 }
-            else if stage.is_some() { 0 } else { c.variant as i32 };
+        let v = if stage.is_some() { 0 } else { c.variant as i32 };
         let f = a.frame(c.icon, v);
         let (tw, th) = a.frame_size(f);
         if crate::weapon_evo::weapon_icon_tint(c.item as i32).is_some() {

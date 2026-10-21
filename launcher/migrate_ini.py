@@ -29,7 +29,7 @@ def ensure_experimental_fields(raw):
     """
     import math
     from launcher_core import IniDocument
-    from schema import EXPERIMENTAL_DEFAULTS, STANDARD_DEFAULTS
+    from schema import EXPERIMENTAL_DEFAULTS, STANDARD_DEFAULTS, field_groups
     doc = IniDocument(raw)
     newline = '\r\n' if b'\r\n' in raw else '\n'
     blocks = []; current = []
@@ -50,6 +50,8 @@ def ensure_experimental_fields(raw):
         defaults = EXPERIMENTAL_DEFAULTS.get(weapon, {})
         values = {key: doc.entries[section,key] for sec,key in doc.entries if sec == section}
         original = dict(values)
+        if 'experimental_max_ammo' in defaults:
+            values.setdefault('experimental_max_ammo', values.get('capacity' if weapon == 'suck_cannon' else 'max_ammo', defaults['experimental_max_ammo']))
         legacy = set()
         if weapon == 'bomb_glove' and 'cluster_jump_height' in values:
             legacy.add('cluster_jump_height')
@@ -95,28 +97,48 @@ def ensure_experimental_fields(raw):
 
 
 def ensure_global_fields(raw):
-    """Append the opt-in mode after general fields without changing their values."""
+    """Preserve user values/comments; keep all mode controls after base options."""
     from launcher_core import IniDocument
     from schema import GLOBAL_EXPERIMENTAL_DEFAULTS, GLOBAL_STANDARD_DEFAULTS
     doc = IniDocument(raw)
     newline = '\r\n' if b'\r\n' in raw else '\n'
-    additions = [f'{key} = {value}'+newline for key, value in {**GLOBAL_STANDARD_DEFAULTS, **GLOBAL_EXPERIMENTAL_DEFAULTS}.items()
-                 if ('general', key) not in doc.entries]
-    if not additions: return raw
-    lines = list(doc.lines)
-    if 'general' not in doc.sections:
-        lines = ['[general]'+newline, *additions, newline, *lines]
-    else:
-        at = next(i for i, line in enumerate(lines) if line.strip().lower() == '[general]') + 1
-        while at < len(lines) and not lines[at].lstrip().startswith('['): at += 1
-        if at and not lines[at-1].endswith(('\n','\r')): lines[at-1] += newline
-        # Existing experimental fields stay after newly added standard fields.
-        experimental_at = next((i for i in range(at) if lines[i].lstrip().startswith(('experimental_ammo_unlock_mode', '; Experimental game mode'))), at)
-        standard = [line for line in additions if line.split('=',1)[0].strip() in GLOBAL_STANDARD_DEFAULTS]
-        extra = [line for line in additions if line not in standard]
-        lines[at:at] = [*extra, newline] if extra else []
-        lines[experimental_at:experimental_at] = standard
-    return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
+    defaults = {**GLOBAL_STANDARD_DEFAULTS, **GLOBAL_EXPERIMENTAL_DEFAULTS}
+    if all(('general', key) in doc.entries for key in defaults):
+        # A normalized document is already stable, including custom formatting.
+        keys = doc.keys('general')
+        expected = [k for k in GLOBAL_EXPERIMENTAL_DEFAULTS if k in keys]
+        actual = [k for k in keys if k in GLOBAL_EXPERIMENTAL_DEFAULTS]
+        if actual == expected and all(keys.index(k) < keys.index(expected[0])
+                for k in keys if k not in GLOBAL_EXPERIMENTAL_DEFAULTS): return raw
+    blocks = []; current = []
+    for line in doc.lines:
+        if re.fullmatch(r'\s*\[[^\]]+\]\s*', line.split(';',1)[0].strip()):
+            if current: blocks.append(current)
+            current = []
+        current.append(line)
+    if current: blocks.append(current)
+    result = []; found = False
+    for block in blocks:
+        if block[0].split(';',1)[0].strip().lower() != '[general]':
+            result.extend(block); continue
+        found = True; mode_lines = {}; kept = []
+        for line in block:
+            match = re.match(r'\s*([a-zA-Z0-9_]+)\s*=', line)
+            key = match[1].lower() if match else None
+            if key in GLOBAL_EXPERIMENTAL_DEFAULTS: mode_lines[key] = line; continue
+            if line.strip() == '; Experimental game mode': continue
+            kept.append(line)
+        while kept and not kept[-1].strip(): kept.pop()
+        if kept and not kept[-1].endswith(('\r','\n')): kept[-1] += newline
+        for key, value in GLOBAL_STANDARD_DEFAULTS.items():
+            if ('general', key) not in doc.entries: kept.append(f'{key} = {value}'+newline)
+        kept.extend([newline, '; Experimental game mode'+newline])
+        for key, default in GLOBAL_EXPERIMENTAL_DEFAULTS.items():
+            kept.append(mode_lines.get(key, f'{key} = {default}'+newline).rstrip('\r\n')+newline)
+        result.extend([*kept, newline])
+    if not found:
+        result = ['[general]'+newline, *(f'{key} = {value}'+newline for key,value in defaults.items()), newline, *result]
+    return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(result).encode('utf-8')
 
 
 def convert(raw):
@@ -125,17 +147,16 @@ def convert(raw):
     doc=IniDocument(raw)
     if doc.entries.get(('general','damage_mode'),'real_hp')!='real_hp':
         raise ValueError('This release only supports real-HP profiles. Import an absolute-HP configuration instead of legacy damage multipliers.')
-    obsolete={'name','name_en','name_it','name_fr','name_de','name_es','xp_bar_opacity_percent'}
+    obsolete={'wrench_gold_texture','name','name_en','name_it','name_fr','name_de','name_es','xp_bar_opacity_percent'}
     remove={index for (section,key),index in doc.addresses.items()
             if key in obsolete or (section,key)==('general','damage_mode')}
     lines=[];section=''
     for i,line in enumerate(doc.lines):
         header=re.fullmatch(r'\s*\[([^\]]+)\]\s*',line.split(';',1)[0].strip())
         if header:section=header[1].strip().lower()
-        if section=='weapon.wrench' or section.startswith('weapon.wrench.level'):continue
         if i not in remove:lines.append(line)
     output=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
-    return ensure_global_fields(ensure_experimental_fields(ensure_stream_fields(output))),[]
+    return order_profile(ensure_wrench_fields(ensure_global_fields(ensure_experimental_fields(ensure_stream_fields(output))),doc.entries.get(("general","wrench_gold_texture"),"false"))),[]
 
 def runtime_profile(raw):
     """Add the engine's real-HP flag only to the private session copy."""
@@ -155,6 +176,80 @@ def runtime_profile(raw):
 def import_previous_presets(kit):
     # Existing local presets remain untouched; legacy profiles are never rescaled.
     return []
+
+
+
+def ensure_wrench_fields(raw,legacy_gold='false'):
+    """Add missing track/settings without overwriting personal grade values."""
+    from launcher_core import IniDocument
+    doc=IniDocument(raw);nl='\r\n' if b'\r\n' in raw else '\n'
+    section='weapon.wrench';blocks=[]
+    defaults={'id':'8','xp_v1_to_v2':'1000','xp_v2_to_v3':'2000','xp_v3_to_v4':'3500','xp_v4_to_v5':'5500'}
+    def add(section,fields):
+        nonlocal raw,doc
+        missing={k:v for k,v in fields.items() if (section,k) not in doc.entries}
+        if not missing:return
+        lines=doc.lines[:]
+        if section in doc.sections:
+            start=next(i for i,l in enumerate(lines) if l.split(';',1)[0].strip()=='['+section+']')
+            end=next((i for i in range(start+1,len(lines)) if lines[i].lstrip().startswith('[')),len(lines))
+            lines[end:end]=[k+' = '+v+nl for k,v in missing.items()]+[nl]
+        else:lines += [nl+'['+section+']'+nl]+[k+' = '+v+nl for k,v in missing.items()]+[nl]
+        raw=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode();doc=IniDocument(raw)
+    add(section,defaults)
+    for n in range(1,6):
+        add(section+f'.level{n}',{'damage_hp':str([100,125,150,175,200][n-1]),'throw_range':'10','throw_speed':'23',
+            'gold_texture':legacy_gold,'show_hud':'true','crate_breaker_enabled':'false','crate_breaker_radius':'5',
+            'moving_attacks_enabled':'true','bolt_attraction_bonus':'0','hit_radius_multiplier':'1','knockback_multiplier':'1'})
+    return raw
+
+
+def order_profile(raw):
+    """Reorder sections and settings without changing values or dropping comments."""
+    from launcher_core import IniDocument
+    from schema import WEAPON_ORDER, WEAPONS, field_groups
+    doc=IniDocument(raw); nl='\r\n' if b'\r\n' in raw else '\n'
+    blocks={}; preamble=[]; current=None
+    for line in doc.lines:
+        if line.strip().startswith('; ') and line.strip().endswith(' - XP progression') and line.strip() in {'; '+v[1]+' - XP progression' for v in WEAPONS.values()}:continue
+        h=re.fullmatch(r'\s*\[([^\]]+)\]\s*',line.split(';',1)[0].strip())
+        if h: current=h[1].strip().lower();blocks[current]=[line]
+        elif current is None:preamble.append(line)
+        else:blocks[current].append(line)
+    output=list(preamble)
+    def emit(section):
+        block=blocks.pop(section,None)
+        if block is None:return
+        match=re.fullmatch(r'weapon\.([a-z_]+)\.level[1-5]',section)
+        if not match:
+            while block and not block[-1].strip():block.pop()
+            block.append(nl)
+            if section.startswith('weapon.') and section[7:] in WEAPONS:output.extend([nl,'; '+WEAPONS[section[7:]][1]+' - XP progression'+nl])
+            output.extend(block);return
+        records={}; pending=[]
+        for line in block[1:]:
+            if not line.strip():continue
+            if line.strip()=='; Experimental settings (on/off and options)':continue
+            key=re.match(r'\s*([a-zA-Z0-9_]+)\s*=',line)
+            if key:
+                records[key[1].lower()]=pending+[line if line.endswith(('\n','\r')) else line+nl];pending=[]
+            else:pending.append(line)
+        standard,experimental=field_groups(match[1],records)
+        output.append(block[0] if block[0].endswith(('\n','\r')) else block[0]+nl)
+        for key in standard:output.extend(records[key])
+        if experimental:
+            output.extend([nl,'; Experimental settings (on/off and options)'+nl])
+            for key in experimental:output.extend(records[key])
+        output.extend(pending)
+        if output and not output[-1].endswith(('\n','\r')):output[-1]+=nl
+        if output and output[-1].strip():output.append(nl)
+    emit('general');emit('hud')
+    for weapon in WEAPON_ORDER:
+        emit('weapon.'+weapon)
+        for grade in range(1,6):emit(f'weapon.{weapon}.level{grade}')
+    for section in list(blocks):emit(section)
+    return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(output).encode('utf-8')
+
 
 if __name__=='__main__':
     if len(sys.argv)!=3:raise SystemExit('Usage: py -3 migrate_ini.py source.ini destination.ini')

@@ -482,22 +482,30 @@ pub fn create_one(sys: &mut Particles, s: &PartSpawn, gold: u8) {
         PartSpawn::Drop35 { pos, vel, kind, life, mut rng } => { type35::spawn(sys, &mut rng, pos, vel, kind, life); }
         PartSpawn::Spark27 { size, pos, vel, rgba, life, rot } => { crate::particles::type27::spawn(sys, size, pos, vel, rgba, life, rot); }
         PartSpawn::Glow26 { size, moby, rgba, life, at, mut rng, pellet } => {
-            if crate::particles::type26::spawn(sys, &mut rng, size, moby, rgba, life, -1, at).is_some() && pellet {
+            if pellet {if let Some(old)=sys.ryno_heads.remove(&moby) {
+                if sys.pool.recs.get(old).is_some_and(|r|crate::particles::type26::anchor_of(r)==Some((moby,-1))) {sys.kill_part(old);}
+            }}
+            if pellet && sys.pool.count as usize >= crate::particles::POOL_RECORDS {
+                if let Some(i)=sys.ryno_trails.iter().copied().next() {sys.kill_part(i);}
+            }
+            if let Some(index)=crate::particles::type26::spawn(sys,&mut rng,size,moby,rgba,life,-1,at) { if pellet {
+                sys.ryno_heads.insert(moby,index);
                 // The hero fires after the moby pass. This newborn head has
                 // no anchor in that pass's snapshot yet; keep it alive until
                 // the next moby pass takes ownership of its moving anchor.
                 sys.joint_anchors.insert((moby, -1), at);
-            }
+            }}
         }
         PartSpawn::Trail72 { moby, slot, pos, draws, size, rgba, pellet } => {
             // Preserve native Blaster effects. Optional shotgun tails may use
             // spare capacity only, leaving room for heads and world effects.
-            if pellet && sys.pool.count as usize >= crate::particles::POOL_RECORDS / 2 { return; }
+            if pellet && (!sys.ryno_heads.contains_key(&moby) || sys.pool.count as usize >= crate::particles::POOL_RECORDS / 2) { return; }
             if let Some(i) = crate::particles::type72::spawn(sys, pos, &draws) {
                 let r = &mut sys.pool.recs[i];
                 crate::particles::rec::set_ff(r, 0xc, size);
                 crate::particles::rec::set_u32(r, 4, rgba);
                 sys.links.insert((moby, slot), i);
+                if pellet {sys.ryno_trails.insert(i);}
             }
         }
         PartSpawn::Smoke44 { spawn, rot } => { crate::particles::type44::spawn(sys, &spawn, rot); }
@@ -846,3 +854,22 @@ mod tests {
     }
 }
 
+
+#[cfg(test)]
+mod shotgun_core_tests {
+    use super::*;
+    #[test]
+    fn new_core_reclaims_own_trail_without_removing_an_older_core() {
+        let mut sys=Particles::new(None,Vec::new());
+        let head=|moby|PartSpawn::Glow26{size:200000.,moby,rgba:0x7f7f7f7f,life:200,at:[20.,20.,20.],rng:Rng::new(),pellet:true};
+        create_one(&mut sys,&head(1),0);let first=sys.ryno_heads[&1];
+        create_one(&mut sys,&PartSpawn::Trail72{moby:1,slot:0,pos:[20.,20.,20.,1.],draws:crate::particles::type72::Draws::draw(&mut Rng::new()),size:30000.,rgba:0x7fffffff,pellet:true},0);
+        assert_eq!(sys.ryno_trails.len(),1);
+        while (sys.pool.count as usize)<crate::particles::POOL_RECORDS {sys.create_part(1).unwrap();}
+        create_one(&mut sys,&head(2),0);
+        assert_eq!(sys.ryno_heads[&1],first);assert!(sys.ryno_heads.contains_key(&2));assert!(sys.ryno_trails.is_empty());
+        assert_eq!(sys.pool.count as usize,crate::particles::POOL_RECORDS);
+        sys.update_parts(&mut Rng::new());
+        assert!(sys.ryno_heads.contains_key(&1));assert!(sys.ryno_heads.contains_key(&2));
+    }
+}

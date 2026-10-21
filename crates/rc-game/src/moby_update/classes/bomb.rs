@@ -35,6 +35,8 @@
 //! Native `f32`. **Not ported** (counted in `Services::fx.unported`): the aim-preview `0x2c2be0`, the pass-through
 //! classes of the hit test (update `0x160770`). The gold glove (0x13e52a) is the blast's k = 2 (the hit sphere 1, the growing one to 5.5), its colour shift (the rings, flashes, fireballs and their smoke), class sound 1.
 
+pub mod visibomb_grenade;
+
 use crate::moby_runtime::MobyId;
 use crate::moby_update::services::{self as sv, pvar as p, HitTemplate, World};
 use crate::ps2v::Pf;
@@ -157,6 +159,7 @@ pub fn update(w: &mut World, id: MobyId) {
         return;
     }
     let hand_glove = w.hero.items.slot.item.as_ref().is_some_and(|m| m.o_class == GLOVE_CLASS);
+    if visibomb_grenade::is_grenade(w.m(id)) {visibomb_grenade::update(w,id);return;}
     let st = w.m(id).state;
     if (!hand_glove && st == HELD) || (w.body() != 0 && st == HELD) {
         w.delete_moby(id);
@@ -308,7 +311,7 @@ fn fly(w: &mut World, id: MobyId) {
     }
     if water != 0 { super::bomb_water::sink_bubble(w, id, vel); }
     let mut tmpl = template(id, vel, life);
-    if w.svc.bomb_evo.enabled { tmpl.damage = Pf::f(2.0 * w.svc.bomb_evo.current().damage_multiplier); }
+    tmpl.damage=Pf::f(bomb_damage(w,id));
     let pos = w.m(id).position;
     let hit = sv::line_hit_in(w.table, w.svc, w.classes, w.coll, pv4(old), pv4(pos), 0x10, Some(id), &tmpl);
     let mut drift = [0.0f32; 4];
@@ -325,7 +328,7 @@ fn fly(w: &mut World, id: MobyId) {
         }
         Some(h) => {
             let water_face = h.moby.is_none() && h.surface_id() == 0;
-            let cluster_contact = w.svc.bomb_evo.enabled && w.svc.bomb_evo.current().cluster.enabled;
+            let cluster_contact = visibomb_grenade::is_grenade(w.m(id)) || (w.svc.bomb_evo.enabled && w.svc.bomb_evo.current().cluster.enabled);
             if water == 0 && water_face && vel[2] < 0.0 && !cluster_contact {
                 // Into water: sink slowly; the ripple, splash and drops (`bomb_water::entry`).
                 let m = w.mm(id);
@@ -370,12 +373,14 @@ fn mini_explosion_scale(w: &World, id: MobyId) -> f32 {
     if is_mini(w, id) { p::ff(&w.m(id).pvars, mini::EXPLOSION_SCALE) } else { 1.0 }
 }
 fn bomb_radius(w: &World, id: MobyId) -> f32 {
-    if is_mini(w, id) { p::ff(&w.m(id).pvars, mini::RADIUS) }
+    if visibomb_grenade::is_grenade(w.m(id)) {visibomb_grenade::radius(w.m(id))}
+    else if is_mini(w, id) { p::ff(&w.m(id).pvars, mini::RADIUS) }
     else if w.svc.bomb_evo.enabled { w.svc.bomb_evo.current().explosion_radius }
     else { gold_glove(w) as f32 + 1.0 }
 }
 fn bomb_damage(w: &World, id: MobyId) -> f32 {
-    if is_mini(w, id) { p::ff(&w.m(id).pvars, mini::DAMAGE) }
+    if visibomb_grenade::is_grenade(w.m(id)) {visibomb_grenade::damage(w.m(id))}
+    else if is_mini(w, id) { p::ff(&w.m(id).pvars, mini::DAMAGE) }
     else if w.svc.bomb_evo.enabled { 2.0 * w.svc.bomb_evo.current().damage_multiplier }
     else { 2.0 }
 }
@@ -386,7 +391,7 @@ fn cluster_velocity(index: u8, count: u8, yaw: f32, speed: f32, height: f32) -> 
 /// Spawn children before the parent blast commits damage/XP and possibly levels up.
 /// Children snapshot their grade's damage, appearance and radius and never recurse.
 fn spawn_cluster(w: &mut World, parent: MobyId) {
-    if is_mini(w, parent) { return; }
+    if is_mini(w, parent) || visibomb_grenade::is_grenade(w.m(parent)) { return; }
     if !w.svc.bomb_evo.enabled { return; }
     let stats = w.svc.bomb_evo.current();
     let cluster = stats.cluster;
@@ -509,7 +514,7 @@ pub(crate) const RING_C2: [u32; 6] = crate::moby_update::creature::fx::SPARK_B;
 fn explode(w: &mut World, id: MobyId, drift: [f32; 4], normal: [f32; 4]) {
     // The gold glove (0x13e52a, the gold table's entry 10): the blast twice the size, gold colours, class sound 1.
     if !is_mini(w, id) && p::i32(&w.m(id).pvars, 0x78) != 0 { spawn_cluster(w, id); }
-    let gold = if is_mini(w, id) { p::u8(&w.m(id).pvars, mini::GOLD) } else { gold_glove(w) };
+    let gold = if visibomb_grenade::is_grenade(w.m(id)) {0} else if is_mini(w, id) { p::u8(&w.m(id).pvars, mini::GOLD) } else { gold_glove(w) };
     let k = bomb_radius(w, id) * mini_explosion_scale(w, id);
     let drift = drift.map(|x| x * k);
     let pos = w.m(id).position;
@@ -662,7 +667,7 @@ pub fn blast(w: &mut World, row: &BlastRow, id: MobyId, pos: [f32; 4], base: [f3
     let cam = w.camera.map(|x| x.to_f32());
     // Only the Bomb Glove's own blast is recolored; the common blast routine
     // also serves Suck Cannon and environment explosions.
-    let recolor = if is_mini(w, id) {
+    let recolor = if visibomb_grenade::is_grenade(w.m(id)) {visibomb_grenade::blast_color(w.m(id))} else if is_mini(w, id) {
         let color = p::u32(&w.m(id).pvars, mini::COLOR);
         (color != u32::MAX).then_some(color)
     } else if w.m(id).o_class == BOMB_CLASS && w.svc.bomb_evo.enabled {

@@ -1,6 +1,8 @@
-# Current implementation map: gameplay v51 / launcher 0.11.0
+# Current implementation map: local gameplay v52 / launcher 0.12.0
 
-See [ammo-unlock mode](AMMO_UNLOCK_MODE.md) for the v51 inventory, drop, shop and companion-save integration. All evolving weapons expose per-grade Gold appearance; the OmniWrench uses a global visual setting.
+See [ammo-unlock mode](AMMO_UNLOCK_MODE.md) for the v51/v52 inventory, drop, shop and companion-save integration. All evolving weapons expose per-grade Gold appearance; the OmniWrench uses a global visual setting.
+
+Local v52 adds editable bolt milestones and normalized ammo chances, a new-game-only zero-bomb policy and the two-card Global Settings page. See [LOCAL_TEST_KIT.md](LOCAL_TEST_KIT.md) for the local source-overlay builder.
 
 Paths below are relative to `crates/rc-game/src` unless qualified. Native ports
 intentionally preserve PS2 operation order; read module comments and tests
@@ -62,3 +64,11 @@ The public default reflects the latest attached v48 profile; installed profiles
 are preserved by the incremental updater.
 
 - [Loading and shotgun lifecycle](LOADING_AND_SHOTGUN.md) documents atomic volley admission, bounded pellet lifetime and loader-owned shared recognition caches.
+
+## Local v53
+
+[Visibomb grenades, icon colors and mine geometry](VISIBOMB_GRENADES_V53.md) describes the current replacement branch, captured settings, HP/XP attribution, movement/audio behavior and in-game checks.
+
+## Local v54
+
+[OmniWrench and projectile corrections](WRENCH_AND_PROJECTILES_V54.md) supersedes v53 grenade range/fuse behavior. Inventory 8 now evolves and has a launcher page. `weapon_evo_wrench.rs`, melee/comet snapshots, real-HP swing identity and WEVO-v3 own its progression; top-left visibility is independent of menu/notice progress.

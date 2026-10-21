@@ -82,6 +82,23 @@ pub mod pv {
     pub const SIZE: usize = 0xd0;
 }
 
+const EVO_TAG:usize=0xd0;
+const EVO_RADIUS:usize=0xd4;
+const EVO_DAMAGE:usize=0xd8;
+const EVO_LEN:usize=0xdc;
+const EVO_MAGIC:u32=0x56423533;
+fn snapshot_blast(m:&mut crate::moby_runtime::Moby,radius:f32,damage:f32) {
+    m.pvars.resize(EVO_LEN.max(m.pvars.len()),0);
+    p::set_u32(&mut m.pvars,EVO_TAG,EVO_MAGIC);
+    p::set_ff(&mut m.pvars,EVO_RADIUS,radius);p::set_ff(&mut m.pvars,EVO_DAMAGE,damage);
+}
+fn blast_radius(m:&crate::moby_runtime::Moby)->f32 {
+    if m.pvars.len()>=EVO_LEN && p::u32(&m.pvars,EVO_TAG)==EVO_MAGIC {p::ff(&m.pvars,EVO_RADIUS)} else {crate::weapon_evo::extra(13,"explosion_damage_radius",4.)}
+}
+fn blast_damage(m:&crate::moby_runtime::Moby)->f32 {
+    if m.pvars.len()>=EVO_LEN && p::u32(&m.pvars,EVO_TAG)==EVO_MAGIC {p::ff(&m.pvars,EVO_DAMAGE)} else {6.*crate::weapon_evo::extra(13,"damage_multiplier",1.)}
+}
+
 /// gp−0x573c / gp−0x5738: the cruise and the ✕ speeds (u/s); gp−0x5734 / gp−0x5730 their easing; gp−0x5740 the pitch
 /// bend's scale.
 pub const CRUISE: f32 = 24.0;
@@ -270,6 +287,9 @@ pub fn launch(w: &mut World, yaw: f32, pitch: f32, gun: [f32; 3], point: [f32; 3
     }
     w.svc.occlusion_fallback = Some((w.counter, 1));
     w.svc.interact.force_prompt(6, 0);
+    let damage=6.*crate::weapon_evo::extra(13,"damage_multiplier",1.);
+    snapshot_blast(w.mm(id),crate::weapon_evo::extra(13,"explosion_damage_radius",4.),damage);
+    w.svc.hits.real_hp.set_source_damage_hp(id,13,damage*100.);
     Some(id)
 }
 
@@ -484,7 +504,7 @@ pub fn update(w: &mut World, id: MobyId) {
     fins(w, id);
     // The path.
     let n = crate::hero::guns::with_len(vel, 1.0);
-    let tmpl = HitTemplate { dir: [Pf::f(n[0]), Pf::f(n[1]), Pf::ONE, Pf::b(0x45af_df66)], attacker: Some(id), flags: 0x83_0000, b18: 3, b19: 2, h1a: CLASS as u16, damage: Pf::f(6.0 * crate::weapon_evo::extra(13, "damage_multiplier", 1.0)), w20: 1 };
+    let tmpl = HitTemplate { dir: [Pf::f(n[0]), Pf::f(n[1]), Pf::ONE, Pf::b(0x45af_df66)], attacker: Some(id), flags: 0x83_0000, b18: 3, b19: 2, h1a: CLASS as u16, damage: Pf::f(blast_damage(w.m(id))), w20: 1 };
     let ignore = if t3000 - 40 < timer { w.hero_moby } else { Some(id) };
     let mut on_hero = false;
     match sv::line_hit_in(w.table, w.svc, w.classes, w.coll, f4(prev), f4(pos), 0, ignore, &tmpl) {
@@ -525,7 +545,7 @@ fn explode(w: &mut World, id: MobyId, on_hero: bool, timer: i32) {
     if !on_hero {
         let b = fx::Beam { damage_r: 0.0, damage: 0.0, flash: 4.0, flash2: 2.0, flash_dist: 0.0, scale: 1.0, light: 20.0, streaks: 10, sparks: 3, puffs: 16, debris: 1, sound: 1, shake: true };
         fx::beam_explosion(w, &b, Some(id), pos);
-        crate::moby_update::creature::attack::area_hit(w, 4.0, pos, id, 6.0 * crate::weapon_evo::extra(13, "damage_multiplier", 1.0), 1.0, 1.0, None, 0x83_0000, 3, 2);
+        crate::moby_update::creature::attack::area_hit(w, blast_radius(w.m(id)), pos, id, blast_damage(w.m(id)), 1.0, 1.0, None, 0x83_0000, 3, 2);
     }
     let t3000 = w.ticks(FLIGHT);
     let short = t3000 - w.ticks(30) < timer;
@@ -593,6 +613,11 @@ pub fn explosion(w: &mut World, id: MobyId) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn blast_snapshot_does_not_overwrite_native_fin_records() {
+        let mut m=crate::moby_runtime::Moby::default();m.pvars=(0..pv::SIZE).map(|i|i as u8).collect();let native=m.pvars.clone();
+        snapshot_blast(&mut m,7.5,12.);assert_eq!(&m.pvars[..pv::SIZE],native.as_slice());assert_eq!(blast_radius(&m),7.5);assert_eq!(blast_damage(&m),12.);
+    }
     #[test]
     fn pitch_bend_is_the_games_expression() {
         // (24dt − 2.4)·100 at cruise (−199.99…, truncated), (34dt − 2.4)·100 flat out.
