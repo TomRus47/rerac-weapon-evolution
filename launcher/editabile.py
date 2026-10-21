@@ -54,8 +54,8 @@ def editable_version(exe: Path) -> dict:
         raise ValueError('Unrecognized ReRAC executable.')
     if str(version['version']).endswith('-fixed'):
         raise ValueError('This is a fixed-profile build. Rebuild with 01_RICOMPILA_E_PROVA.bat.')
-    if version.get('weapon_evolution_config',0) < 56:
-        raise ValueError('This executable lacks configuration capability 56. Rebuild the current game.')
+    if version.get('weapon_evolution_config',0) < 58:
+        raise ValueError('This executable lacks configuration capability 58. Rebuild the current game.')
     return version
 
 def ensure_closed() -> None:
@@ -103,7 +103,7 @@ def build(root: Path, kit: Path) -> Path:
     validate(kit/'weapons.ini')
     ensure_closed()
     check_source_root(root)
-    print('Building Weapon Evolution v56 from this source checkout.',flush=True)
+    print('Building Weapon Evolution v59 from this source checkout.',flush=True)
     # An explicit target dir also prevents a user-wide CARGO_TARGET_DIR from picking a stale executable.
     common = ['--release','--locked','--no-default-features','--target-dir',str(root/'target')]
     for args in [['cargo','test',*common,'-p','rc-game','--lib'],
@@ -175,7 +175,7 @@ def launch(kit: Path, root_override: Path | None = None) -> int:
     return result.returncode
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Weapon Evolution v56 editable')
+    parser = argparse.ArgumentParser(description='Weapon Evolution v59 editable')
     parser.add_argument('action',choices=['build','run','build-and-run'])
     parser.add_argument('root',nargs='?',type=Path)
     args = parser.parse_args()

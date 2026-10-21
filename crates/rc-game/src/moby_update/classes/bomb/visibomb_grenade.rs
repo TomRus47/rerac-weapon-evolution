@@ -11,26 +11,32 @@ const MODEL_COLOR:usize=0x90;
 const ORIGIN:usize=0xa0;
 const RANGE:usize=0xb0;
 const AGE:usize=0xb4;
-const LEN:usize=0xb8;
+const MODEL:usize=0xb8;
+const LEN:usize=0xbc;
 /// Quiet cleanup only; grenades never explode merely because this expires.
 pub const FUSE:i32=1200;
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub struct Settings {
+    pub model:u8,
     pub size_percent:f32,pub arc_height:f32,pub max_range:f32,pub fire_interval:i32,
     pub damage_hp:f32,pub explosion_radius:f32,pub explosion_color:Option<u32>,pub color:Option<u32>,
 }
 impl Default for Settings {
-    fn default()->Self {Self {size_percent:250.,arc_height:3.,max_range:12.,fire_interval:30,
+    fn default()->Self {Self {model:0,size_percent:250.,arc_height:3.,max_range:12.,fire_interval:30,
         damage_hp:600.,explosion_radius:1.,explosion_color:None,color:None}}
 }
 impl Settings {
     pub fn current()->Self {
-        let get=|key,native|crate::weapon_evo::extra(13,key,native);
-        Self {size_percent:get("grenade_size_percent",250.),arc_height:get("grenade_arc_height",3.),
+        Self::configured(|key,native|crate::weapon_evo::extra(13,key,native),|key|crate::weapon_evo::extra_color(13,key))
+    }
+    fn configured(get:impl Fn(&str,f32)->f32,color:impl Fn(&str)->Option<u32>)->Self {
+        let model=get("grenade_model",0.) as u8;
+        let (body, blast)=match model {1=>("grenade_mine_color","grenade_mine_explosion_color"),2=>("grenade_missile_color","grenade_missile_explosion_color"),_=>("grenade_color","grenade_explosion_color")};
+        Self {model,size_percent:get("grenade_size_percent",250.),arc_height:get("grenade_arc_height",3.),
             max_range:get("grenade_max_range",12.),fire_interval:get("grenade_fire_interval_ticks",30.) as i32,
             damage_hp:get("grenade_damage_hp",600.),explosion_radius:get("grenade_explosion_radius",1.),
-            explosion_color:crate::weapon_evo::extra_color(13,"grenade_explosion_color"),
-            color:crate::weapon_evo::extra_color(13,"grenade_color")}
+            explosion_color:color(blast),
+            color:color(body)}
     }
 }
 #[derive(Clone,Copy,Debug)]
@@ -66,6 +72,7 @@ pub fn launch(w:&mut World,shot:Shot,settings:Settings)->Option<MobyId> {
     p::set_ff(&mut m.pvars,DAMAGE,settings.damage_hp);
     p::set_u32(&mut m.pvars,BLAST_COLOR,settings.explosion_color.unwrap_or(u32::MAX));
     p::set_u32(&mut m.pvars,MODEL_COLOR,settings.color.unwrap_or(u32::MAX));
+    p::set_u32(&mut m.pvars,MODEL,settings.model as u32);
     p::set_v4f(&mut m.pvars,ORIGIN,[shot.from[0],shot.from[1],shot.from[2],1.]);p::set_ff(&mut m.pvars,RANGE,shot.range);
     p::set_v4f(&mut m.pvars,pv::VEL,[shot.velocity[0],shot.velocity[1],shot.velocity[2],0.]);
     m.scale*=settings.size_percent/100.;release(m,shot.from,None);
@@ -79,7 +86,24 @@ pub fn launch(w:&mut World,shot:Shot,settings:Settings)->Option<MobyId> {
     }
     Some(id)
 }
+/// Rendering must not inherit the physical bomb's animated glow for another model.
+pub fn body_color(m:&Moby)->Option<u32> {
+    if !is_grenade(m) {return None;}
+    let value=p::u32(&m.pvars,MODEL_COLOR);(value!=u32::MAX).then_some(value)
+}
+pub fn visual_class(m:&Moby)->Option<i16> {
+    if !is_grenade(m) {return None;}
+    Some(match p::u32(&m.pvars,MODEL) {1=>super::super::mine::CLASS,2=>super::super::visibomb::CLASS,_=>BOMB_CLASS})
+}
 fn apply_color(w:&mut World,id:MobyId) {
+    if p::u32(&w.m(id).pvars,MODEL)==2 {
+        let v=p::v4f(&w.m(id).pvars,pv::VEL);
+        if v[0]*v[0]+v[1]*v[1]+v[2]*v[2]>0.000000001 {
+            let yaw=if v[0].hypot(v[1])>0.000001 {v[1].atan2(v[0])} else {w.m(id).rotation[2]};
+            w.mm(id).rotation=[0.,-v[2].atan2(v[0].hypot(v[1])),yaw,0.];
+            w.build_matrix(id);
+        }
+    }
     let color=p::u32(&w.m(id).pvars,MODEL_COLOR);if color==u32::MAX {return;}
     let rgb=crate::weapon_evo::rgb_float(color).map(|c|(c*127.).round() as u8);
     let m=w.mm(id);m.ambient=[rgb[0],rgb[1],rgb[2],0];m.glow=0xff000000|color;
@@ -152,6 +176,35 @@ pub fn preview(w:&mut World,shot:Shot) {
 mod tests {
     use super::*;
     use crate::moby_update::classes::bomb_water::tests::{Bench,pool};
+    #[test]
+    fn model_palettes_are_independent_and_native_bomb_physics_keep_visibomb_ownership() {
+        let colors=|key:&str|match key {"grenade_color"=>Some(0xff0000),"grenade_mine_color"=>Some(0x00ff00),"grenade_missile_color"=>Some(0x0000ff),"grenade_mine_explosion_color"=>Some(0xffff00),_=>None};
+        for model in 0..=2 {
+            let settings=Settings::configured(|key,native|if key=="grenade_model" {model as f32}else{native},colors);
+            assert_eq!(settings.color,Some([0xff0000,0x00ff00,0x0000ff][model]));
+            assert_eq!(settings.explosion_color,if model==1 {Some(0xffff00)}else{None});
+            let mut b=Bench::new(pool(8.,-100.),&[],[40.,40.,30.]);
+            let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,1);
+            let id=launch(&mut w,Shot{from:[20.,20.,30.],velocity:[0.1,0.,0.2],range:100.},settings).unwrap();
+            let m=w.m(id);assert_eq!(m.o_class,BOMB_CLASS);assert!(is_grenade(m));
+            assert_eq!(visual_class(m),Some([BOMB_CLASS,crate::moby_update::classes::mine::CLASS,crate::moby_update::classes::visibomb::CLASS][model]));
+            assert_eq!(body_color(m),settings.color);
+            assert_eq!(damage(m),6.);assert!(w.svc.visibomb.missile.is_none());
+        }
+    }
+    #[test]
+    fn missile_model_follows_ascending_and_descending_velocity_without_spin_even_with_default_color() {
+        let mut b=Bench::new(pool(8.,-100.),&[],[40.,40.,30.]);
+        let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,1);
+        let id=launch(&mut w,Shot{from:[20.,20.,30.],velocity:[0.08,0.04,0.25],range:100.},Settings{model:2,..Default::default()}).unwrap();
+        assert!(w.m(id).rotation[1]<0.);drop(w);
+        for _ in 0..100 {b.tick(None);}
+        let m=&b.table.mobys[id];assert_eq!(m.state,FLYING);
+        let v=p::v4f(&m.pvars,pv::VEL);assert!(v[2]<0.);assert!(m.rotation[1]>0.);
+        assert_eq!(m.rotation[0],0.);
+        assert!((m.rotation[1]+v[2].atan2(v[0].hypot(v[1]))).abs()<0.00001);
+        assert!((m.rotation[2]-v[1].atan2(v[0])).abs()<0.00001);
+    }
     #[test]
     fn marker_uses_ground_below_hero_and_range_does_not_make_a_fake_surface() {
         let mut b=Bench::new(pool(8.,-100.),&[],[40.,40.,30.]);

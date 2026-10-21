@@ -58,10 +58,10 @@ fn supported_extra_stat(item: i32, key: &str) -> bool {
         8 => &["hit_radius_multiplier", "knockback_multiplier", "throw_range", "throw_speed", "show_hud", "crate_breaker_enabled", "crate_breaker_radius", "moving_attacks_enabled", "bolt_attraction_bonus"],
         9 => &["capacity", "suck_range_multiplier", "shot_damage_multiplier", "crate_suction_enabled", "suck_wooden_crates", "suck_explosive_crates", "suck_steel_crates", "suck_ammo_crates", "suck_nanotech_crates"],
         11 => &["fire_interval_ticks", "homing_strength_multiplier", "missile_speed_multiplier", "missile_range_multiplier", "explosion_radius_multiplier", "explosion_visual_size_multiplier", "explosion_color", "trail_color"],
-        13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding", "explosion_damage_radius", "grenade_launcher_enabled", "grenade_size_percent", "grenade_arc_height", "grenade_max_range", "grenade_fire_interval_ticks", "grenade_damage_hp", "grenade_explosion_radius", "grenade_explosion_color", "grenade_color"],
+        13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding", "explosion_damage_radius", "grenade_launcher_enabled", "grenade_size_percent", "grenade_arc_height", "grenade_max_range", "grenade_fire_interval_ticks", "grenade_damage_hp", "grenade_explosion_radius", "grenade_explosion_color", "grenade_color", "grenade_model", "grenade_mine_color", "grenade_mine_explosion_color", "grenade_missile_color", "grenade_missile_explosion_color"],
         14 => &["lure_range", "lure_cone_degrees", "xp_attract_fraction", "stun_range", "stun_duration_ticks", "stun_efficiency_percent", "damage_range", "damage_per_second", "wave_speed_multiplier", "wave_size_multiplier", "wave_range_multiplier", "wave_interval_ticks", "wave_alpha", "wave_color", "stun_launch_distance"],
         15 => &["fire_interval_ticks", "projectile_speed_multiplier", "projectile_range_multiplier", "projectile_color", "trail_color", "impact_color"],
-        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier", "max_active_mines", "mine_lifetime_seconds", "flame_core_color", "flame_outer_color", "burn_flame_color", "explosion_color", "light_color", "flame_mine_enabled", "mine_flame_range", "mine_flame_rotation_degrees_per_second", "mine_flame_damage_per_second", "flame_mine_size_percent"],
+        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier", "max_active_mines", "mine_lifetime_seconds", "flame_core_color", "flame_outer_color", "burn_flame_color", "explosion_color", "light_color", "flame_mine_enabled", "mine_flame_range", "mine_flame_rotation_degrees_per_second", "mine_flame_damage_per_second", "flame_mine_size_percent", "flame_mine_model", "mine_model_color", "mine_bomb_color", "mine_bomb_core_color", "mine_bomb_outer_color", "mine_bomb_burn_color", "mine_sphere_color", "mine_sphere_core_color", "mine_sphere_outer_color", "mine_sphere_burn_color"],
         18 => &["held_lunge_duration_percent", "knockback_multiplier", "hit_radius_multiplier", "electric_fx_size_multiplier", "gold_electric_fx", "air_dash_enabled", "electric_core_color", "electric_glow_color", "fist_glow_color", "impact_color"],
         19 => &["beam_size_percent", "beam_range_multiplier", "dual_beam_enabled", "target_range_multiplier", "ammo_interval_ticks", "damage_interval_ticks", "lock_cone_multiplier", "beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color", "arc_core_color", "arc_glow_color", "claw_core_color", "claw_glow_color", "spark_color", "spark_core_color", "impact_color", "light_color", "weapon_glow_color", "secondary_beam_damage_percent"],
         20 => &["robot_count", "robot_max_alive", "robot_detection_range", "explosion_radius_multiplier"],
@@ -355,6 +355,17 @@ pub struct ExtraTrack {
     pub params: [BTreeMap<String, f32>; 5],
 }
 impl ExtraTrack {
+    /// The same active capacity feeds the published HUD/pickup registry and
+    /// the actual inventory. Suck Cannon uses stored objects rather than ammo.
+    fn ammo_capacity(&self) -> Option<i32> {
+        if !self.enabled { return None; }
+        let params = &self.params[self.level.saturating_sub(1).min(4)];
+        let standard = if self.id == 9 { "capacity" } else { "max_ammo" };
+        let value = if experimental_ammo_enabled(self.id, params) {
+            params.get("experimental_max_ammo").or_else(|| params.get(standard))
+        } else { params.get(standard) };
+        value.map(|cap| cap.round().clamp(0.0, 9999.0) as i32)
+    }
     fn new(section: &'static str, id: i32) -> Self {
         Self { section, id, enabled: false, level: 1,
             xp: 0.0, xp_required: [10.0, 20.0, 35.0, 55.0], last_hit_xp: 0.0, params: std::array::from_fn(|_| BTreeMap::new()) }
@@ -504,6 +515,17 @@ impl Default for Evolution {
     }
 }
 impl Evolution {
+    /// Restrict current ammunition to the active grade/mode without refilling.
+    /// Call after restoring inventory and before weapon updates each tick.
+    pub fn apply_ammo_limits(&self, weapons: &mut crate::hero::weapons::Weapons) {
+        if self.enabled { weapons.ammo[BOMB] = weapons.ammo[BOMB].clamp(0, self.current().ammo_capacity()); }
+        if self.pyro.enabled { weapons.ammo[PYRO] = weapons.ammo[PYRO].clamp(0, self.pyro.current().ammo_capacity()); }
+        for track in self.extras.iter().filter(|track| track.id != 9 && track.id != 8) {
+            if let Some(cap) = track.ammo_capacity() {
+                if let Some(ammo) = weapons.ammo.get_mut(track.id as usize) { *ammo = (*ammo).clamp(0, cap); }
+            }
+        }
+    }
     pub fn real_hp_enabled(&self) -> bool { self.enabled && self.real_hp }
     fn hp_units(&self, n: f32) -> f32 { n * if self.real_hp_enabled() { 100.0 } else { 1.0 } }
     pub fn stream_intervals(&self) -> [u32; 2] {
@@ -557,10 +579,8 @@ impl Evolution {
                     if !track.enabled { continue; }
                     let params=&track.params[track.level.saturating_sub(1).min(4)];
                     for (name, &value) in params { registry.insert((track.id, name.clone()), value); }
-                    if experimental_ammo_enabled(track.id, params) {
-                        if let Some(&cap)=params.get("experimental_max_ammo") {
-                            registry.insert((track.id, if track.id==9 {"capacity"} else {"max_ammo"}.into()), cap);
-                        }
+                    if let Some(cap) = track.ammo_capacity() {
+                        registry.insert((track.id, if track.id==9 {"capacity"} else {"max_ammo"}.into()), cap as f32);
                     }
                 }
             }
@@ -1551,6 +1571,7 @@ mod v43_tests {
 }
 
 fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
+    if matches!(key, "grenade_model"|"flame_mine_model") && (v.fract()!=0.0 || !(0.0..=2.0).contains(&v)) {return Err("projectile model must be 0, 1 or 2".into());}
     if item==8 && matches!(key,"hit_radius_multiplier"|"knockback_multiplier") {
         let low=if key=="hit_radius_multiplier" {0.1} else {0.0};
         if !(low..=10.0).contains(&v) {return Err(format!("{key} must be {low}..10"));}
@@ -1831,5 +1852,77 @@ mod v56_ammo_tests {
         assert!(Evolution::parse(&complete_profile("[weapon.suck_cannon.level1]\nexperimental_max_ammo=11")).is_err());
         assert!(Evolution::parse(&complete_profile("[weapon.pyrocitor.level1]\nexperimental_max_ammo=1000")).is_err());
         assert!(Evolution::parse(&complete_profile("[weapon.bomb_glove.level1]\nexperimental_max_ammo=1000")).is_err());
+    }
+}
+
+#[cfg(test)]
+mod v57_inventory_tests {
+    use super::*;
+    #[test]
+    fn all_experimental_ammo_counters_match_the_active_capacity_and_keep_consuming() {
+        let mut e=Evolution::parse(include_str!("weapon_evo_release.ini")).unwrap();
+        let counters=[10,16,13,17,19,23,24];
+        let mut w=crate::hero::weapons::Weapons::default();
+        for id in counters {w.uses_ammo[id]=true;}
+        for grade in 1..=5 {
+            e.level=grade;e.pyro.level=grade;
+            e.stats[grade-1].max_ammo=40;e.stats[grade-1].experimental_max_ammo=Some(5);
+            e.stats[grade-1].cluster.enabled=true;
+            e.pyro.stats[grade-1].max_ammo=40;e.pyro.stats[grade-1].experimental_max_ammo=Some(5);
+            e.pyro.stats[grade-1].triple_flame_enabled=true;
+            for track in &mut e.extras {
+                track.level=grade;
+                if !matches!(track.id,13|17|19|23|24) {continue;}
+                let p=&mut track.params[grade-1];
+                p.insert("max_ammo".into(),40.);p.insert("experimental_max_ammo".into(),5.);
+                let key=match track.id {13=>"grenade_launcher_enabled",17=>"flame_mine_enabled",19=>"dual_beam_enabled",23=>"shotgun_enabled",_=>"sand_mouse_enabled"};
+                p.insert(key.into(),1.);
+                assert_eq!(track.ammo_capacity(),Some(5));
+            }
+            w.ammo[9]=7; // Suck Cannon's stored-object queue has its own capacity path.
+            for id in counters {w.ammo[id]=40;}
+            e.apply_ammo_limits(&mut w);
+            for remaining in (0..5).rev() {
+                for id in counters {assert!(w.use_ammo(id as i32,1));}
+                e.apply_ammo_limits(&mut w);
+                for id in counters {assert_eq!(w.ammo[id],remaining,"grade {grade}, weapon {id}");}
+            }
+            for id in counters {assert!(!w.use_ammo(id as i32,1));}
+            assert_eq!(w.ammo[9],7);
+            e.stats[grade-1].cluster.enabled=false;e.pyro.stats[grade-1].triple_flame_enabled=false;
+            for track in &mut e.extras {for key in ["grenade_launcher_enabled","flame_mine_enabled","dual_beam_enabled","shotgun_enabled","continuous_missiles_enabled","sand_mouse_enabled"] {track.params[grade-1].insert(key.into(),0.);}}
+            e.apply_ammo_limits(&mut w);
+            for id in counters {assert_eq!(w.ammo[id],0,"changing mode must not refill");w.ammo[id]=60;}
+            e.apply_ammo_limits(&mut w);
+            for id in counters {assert_eq!(w.ammo[id],40,"standard cap restored for weapon {id}");}
+        }
+    }
+}
+
+#[cfg(test)]
+mod v58_model_tests {
+    use super::*;
+    #[test]
+    fn every_grade_keeps_model_and_palettes_separate_and_rejects_invalid_codes() {
+        let mut ini=String::new();
+        for grade in 1..=5 {
+            ini+=&format!("[weapon.bomb_glove.level{grade}]\n[weapon.visibomb.level{grade}]\ngrenade_model={}\ngrenade_color=FF0000\ngrenade_mine_color=00FF00\ngrenade_missile_color=0000FF\n[weapon.mine_glove.level{grade}]\nflame_mine_model={}\nmine_model_color=FFFFFF\nmine_bomb_color=112233\nmine_sphere_color=AABBCC\nmine_bomb_core_color=FF8800\nmine_sphere_core_color=44CCFF\n",grade%3,(grade+1)%3);
+        }
+        let e=Evolution::parse(&ini).unwrap();
+        let v=e.extras.iter().find(|t|t.id==13).unwrap();let m=e.extras.iter().find(|t|t.id==17).unwrap();
+        for grade in 0..5 {
+            assert_eq!(v.params[grade]["grenade_model"],((grade+1)%3) as f32);
+            assert_eq!(m.params[grade]["flame_mine_model"],((grade+2)%3) as f32);
+            assert_eq!(v.params[grade]["grenade_mine_color"],65280.);
+            assert_eq!(v.params[grade]["grenade_missile_color"],parse_rgb("0000FF").unwrap().unwrap() as f32);
+            assert_eq!(m.params[grade]["mine_sphere_color"],parse_rgb("AABBCC").unwrap().unwrap() as f32);
+        }
+        for bad in ["-1","3","1.5","NaN","inf"] {
+            let invalid=ini.replace("grenade_model=1",&format!("grenade_model={bad}"));
+            assert!(Evolution::parse(&invalid).is_err(),"{bad}");
+            let invalid=ini.replace("flame_mine_model=2",&format!("flame_mine_model={bad}"));
+            assert!(Evolution::parse(&invalid).is_err(),"{bad}");
+        }
+        Evolution::parse(include_str!("weapon_evo_release.ini")).unwrap();
     }
 }

@@ -11,7 +11,7 @@ from pathlib import Path
 import launcher_core as core
 import i18n
 from i18n import tr
-from schema import WEAPONS, EDITOR_WEAPONS, XP, NAMES, BOOLEANS, COLORS, title, help_text, field_groups, global_field_groups, AMMO_DROP_DEFAULTS, normalized_ammo_chances
+from schema import WEAPONS, EDITOR_WEAPONS, XP, NAMES, BOOLEANS, COLORS, title, help_text, field_groups, global_field_groups, AMMO_DROP_DEFAULTS, normalized_ammo_chances, MODEL_OPTIONS, visible_model_field
 
 BASE_LABEL = 'Default configuration (weapons.ini)'
 GRADE_COLORS = ('#8997aa', '#e1ba49', '#e88042', '#bd7be4', '#9cc956')
@@ -168,7 +168,7 @@ class Launcher:
         self.form = ttk.Frame(self.canvas); self.form_window = self.canvas.create_window(0, 0, window=self.form, anchor='nw')
         self.form.bind('<Configure>', lambda _: self.canvas.configure(scrollregion=self.canvas.bbox('all')))
         self.canvas.bind('<Configure>', self.resize_content)
-        self.root.bind_all('<MouseWheel>', self.mousewheel)
+        self.bind_mousewheel()
         footer = ttk.Frame(self.root, padding=(14, 8)); footer.pack(fill='x')
         help_frame = ttk.Frame(footer); help_frame.pack(side='left', fill='both', expand=True)
         ttk.Label(help_frame, textvariable=self.context, style='Small.TLabel', wraplength=790, justify='left').pack(anchor='w')
@@ -192,15 +192,38 @@ class Launcher:
         for i in range(columns): self.card_area.columnconfigure(i, weight=1, uniform='grades')
         for i, card in enumerate(self.cards): card.grid(row=i//columns, column=i%columns, sticky='new', padx=5, pady=5)
 
+    def bind_mousewheel(self):
+        # Override the class wheel binding before Tk changes the selection.
+        # Returning break also prevents the all-tag handler scrolling twice.
+        for sequence in ('<MouseWheel>', '<Button-4>', '<Button-5>'):
+            self.root.bind_all(sequence, self.mousewheel)
+            for class_name in ('TCombobox', 'ComboboxListbox'):
+                self.root.bind_class(class_name, sequence, self.dropdown_mousewheel)
+
     def mousewheel(self, event):
         # Only scroll when the pointer is over one of the two scrolling panes.
         widget = self.root.winfo_containing(event.x_root, event.y_root)
         if widget is None: return
         while widget is not None:
             if widget == self.form or widget == self.canvas:
-                self.canvas.yview_scroll(-int(event.delta/120) if abs(event.delta)>=120 else (-1 if event.delta>0 else 1), 'units')
-                return
+                return self.scroll_page(event)
             widget = getattr(widget, 'master', None)
+
+    def scroll_page(self, event):
+        number = getattr(event, 'num', None)
+        delta = getattr(event, 'delta', 0)
+        if number in (4, 5):
+            units = -1 if number == 4 else 1
+        elif delta:
+            units = -int(delta/120) if abs(delta) >= 120 else (-1 if delta > 0 else 1)
+        else:
+            return 'break'
+        self.canvas.yview_scroll(units, 'units')
+        return 'break'
+
+    def dropdown_mousewheel(self, event):
+        # Include language/preset dropdowns above the form and open popdowns.
+        return self.scroll_page(event)
 
     def load_document(self, doc, name):
         from migrate_ini import convert
@@ -332,14 +355,20 @@ class Launcher:
     def fields(self, card, section, keys):
         for key in keys:
             if key in NAMES or key in {'xp_bar_opacity_percent','damage_mode'} or not self.matches(section, key): continue
+            weapon = section.split('.')[1] if section.startswith('weapon.') else ''
+            selector = 'grenade_model' if weapon == 'visibomb' else 'flame_mine_model'
+            selected = self.variables.get((section, selector))
+            if not visible_model_field(weapon, key, selected.get() if selected else '0'): continue
             pair = section, key
             row = self.ttk.Frame(card, style='Card.TFrame'); row.pack(fill='x', pady=5)
             label = self.ttk.Label(row, text=i18n.label(key), style='Card.TLabel', wraplength=185)
             label.grid(row=0, column=0, sticky='w', padx=(0, 8)); row.columnconfigure(0, weight=1)
             cell = self.ttk.Frame(row, style='Card.TFrame'); cell.grid(row=0, column=1, sticky='e')
             variable = self.variables[pair]
-            if key in BOOLEANS or key in ('level_up_sound','sand_mouse_mode'):
-                if key in BOOLEANS:
+            if key in BOOLEANS or key in ('level_up_sound','sand_mouse_mode') or key in MODEL_OPTIONS:
+                if key in MODEL_OPTIONS:
+                    codes=('0','1','2'); options=tuple(i18n.model_name(name) for name in MODEL_OPTIONS[key]); selected=options[int(float(variable.get()))]
+                elif key in BOOLEANS:
                     codes=('false','true'); options=('Off','On'); selected=i18n.boolean_display(variable.get())
                 elif key=='level_up_sound':
                     codes=('off','help_notice');options=('Off',tr('Notification sound'))
@@ -349,7 +378,7 @@ class Launcher:
                     selected=options[int(variable.get())-1]
                 display=self.tk.StringVar(value=selected)
                 widget=self.ttk.Combobox(cell,textvariable=display,values=options,state='readonly',width=10 if key in BOOLEANS else 20)
-                widget.bind('<<ComboboxSelected>>',lambda _,v=variable,d=display,o=options,c=codes:v.set(c[o.index(d.get())]))
+                widget.bind('<<ComboboxSelected>>',lambda _,v=variable,d=display,o=options,c=codes,k=key:self.select_option(v,c[o.index(d.get())],k))
             else:
                 widget = self.ttk.Entry(cell, textvariable=variable, width=12, state='readonly' if key == 'id' else 'normal')
             widget.pack(side='left')
@@ -368,6 +397,11 @@ class Launcher:
                 target.bind('<FocusIn>', lambda _, s=section, k=key: self.show_help(s, k))
                 target.bind('<Enter>', lambda _, s=section, k=key: self.show_help(s, k))
             widget.bind('<Button-3>', lambda e, p=pair: self.field_menu(e, p))
+
+    def select_option(self, variable, value, key):
+        variable.set(value)
+        if key in MODEL_OPTIONS:
+            self.render_page()
 
     def show_help(self, section, key):
         text = i18n.help_text(section, key)

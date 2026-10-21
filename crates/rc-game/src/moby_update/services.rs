@@ -1158,6 +1158,10 @@ impl Services {
         self.mouse = Default::default();
         self.evo_stuns = Default::default();
         self.units.oltanis_arcs.reset_for_reload(&mut self.point_lights);
+        // Every owner belongs to the discarded table, including flame mines.
+        // Retain allocation generations so renderer attachment lists notice
+        // a free/reallocation even when both happen before the next frame.
+        self.point_lights.slots.fill(None);
     }
 
     pub fn new() -> Services {

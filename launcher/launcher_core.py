@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.16.0'
+VERSION = '0.17.2'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -328,7 +328,7 @@ def probe_exe(exe, required_config=0):
     if str(version['version']).endswith('-fixed'):
         raise ValueError('This fixed-profile build ignores external configurations. Build the editable v45 game and select its runtime/rerac.exe.')
     if required_config and version.get('weapon_evolution_config', 0) < required_config:
-        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v56 runtime/rerac.exe included with this mod.')
+        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v58 runtime/rerac.exe included with this mod.')
     if not (exe.parent/'assets/shaders').is_dir():
         raise ValueError('Missing assets/shaders beside rerac.exe. Select the complete mod runtime.')
     return version
@@ -361,6 +361,8 @@ class LaunchSession:
     preset: str
 
 def required_config(doc):
+    from schema import MODEL_NEW_KEYS
+    if any(key in MODEL_NEW_KEYS for _, key in doc.entries): return 58
     if any(sec.startswith("weapon.wrench.level") and key in {"hit_radius_multiplier","knockback_multiplier"} for sec,key in doc.entries): return 56
     if any(key == "experimental_max_ammo" for _,key in doc.entries): return 55
     if any(sec.startswith("weapon.wrench") for sec,_ in doc.entries): return 54
@@ -405,6 +407,7 @@ def log_confirmation(text, ini):
     return False
 
 PLAYER_README = 'ReRAC Weapon Evolution - Windows x64\n\n1. Extract the entire ZIP into a folder.\n2. Open ReRAC_Weapon_Evolution.exe.\n3. On first launch, choose your extracted Ratchet & Clank game data folder.\n   It must contain toc.bin and extract-info.json.\n4. Press Save and launch. No preset is required.\n\nWith no named preset selected, the launcher opens weapons.ini. Edit it manually\nwhile the launcher is closed, then open the launcher and start immediately.\nChanges made in the default editor are saved to weapons.ini with a backup.\nSave as creates an optional named preset; select one explicitly to use it.\nThe next startup restores the last selected preset. Select Default configuration to return to weapons.ini.\n\nOnly the real-HP damage system is supported. There is no damage model switch.\nWeapon name opacity affects the HUD name, grade and their background only.\n100 = normal; 50 = semi-transparent; 0 = hidden. The 3D weapon is unaffected.\n\nPython and Tcl/Tk are included. Players do not need to install them.\nRust, compilation and earlier patches are not required.\nThe modded game is included in runtime; copyrighted game data is not included.\nKeep the EXE, INI files and runtime folder together when moving the mod.\nExisting game saves use the default save location unless you choose another.\nOpen the included EXE directly; do not import this ZIP into the official launcher.\n'
+PLAYER_README += '\nAuthorship and rights\n'+'Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only and does not develop the original Ratchet & Clank games or the ReRAC project. TomRus47 does not own the original games, characters, trademarks or game assets and is not affiliated with Sony Interactive Entertainment or Insomniac Games. Original-game rights remain with their respective rights holders. ReRAC retains its existing license and contributor credits.\n'
 
 DISTRIBUTED_FILES = ('i18n.py', 'icon_assets.py', 'final_release.py', 'weapons.default.ini', 'frozen_support.py', 'build_launcher_exe.py', 'windows_entry.py', 'CREA_LAUNCHER_EXE.bat', 'launcher.py', 'launcher_core.py', 'schema.py', 'Editor.bat', 'LEGGIMI.txt',
                      'CREA_PACCHETTO.bat', 'package_launcher.py', 'migrate_ini.py', 'LICENSE')

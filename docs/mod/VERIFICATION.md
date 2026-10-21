@@ -1,3 +1,16 @@
+# Current release verification: 0.3 updated build
+
+- Runtime 0.1.6.59, capability 58, launcher 0.17.2; ReRAC 0.3.4-alpha compatibility.
+- Linux x64 Rust release: **1,023 rc-game library tests passed**, no failures.
+- Python launcher/updater/publication suite: **135 tests passed**, no failures. The Windows workflow runs the complete current suite again before packaging.
+- All 1,359 v57 INI values were retained; 75 model/palette entries bring the public profile to 1,434 values. The supplied icon bytes are preserved.
+- Checks cover real experimental stock/consumption, mine lifecycle/landing, original page rebuilding and wheel routing, model palette isolation/migration, guided missile steering with longer lifetime, and ascending/descending missile orientation.
+- The discarded cache/offscreen/composited-painting UI is absent. Launcher rendering follows the original v57 lifecycle while retaining model controls.
+- The Windows workflow tests and links the actual engine, builds/smoke-tests the frozen launcher, packages the modified runtime and validates release asset hashes. Its final status and release-build.json establish the Windows build outcome; local library tests alone do not.
+- The mod author approved replacement of the current 0.3 release. Exact disc-specific visuals, model resources and collision cases remain bounded by the manual checklists in the implementation notes.
+
+Historical results below apply only to the named revisions.
+
 # Local v54 verification (not published)
 
 - Gameplay 0.1.6.54, capability 54, editor 0.14.0, ReRAC 0.3.4-alpha.

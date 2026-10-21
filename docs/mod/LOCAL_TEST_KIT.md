@@ -1,79 +1,60 @@
-Weapon Evolution v56 - LOCAL TEST KIT
-===================================
+Weapon Evolution v59 - LAUNCHER RESTORE
+=======================================
 
-Unofficial mod for ReRAC 0.3.4-alpha. Gameplay patch 0.1.6.56,
-configuration capability 56, launcher 0.16.0. This is not a public release.
+Unofficial mod for ReRAC 0.3.4-alpha.
+Runtime is 0.1.6.59 / configuration capability 58.
+Corrected Python launcher: 0.17.2. Local test only; no GitHub update.
 
-QUICK START
+QUICK RESTORE - NO GAME RECOMPILATION
 
-1. Extract this entire ZIP into a NEW folder, for example:
-   C:\ReRAC-Mod\WeaponEvolution_v56_Test
+1. Extract the entire ZIP into a new folder.
+2. Close the game and the old launcher.
+3. Run 00_RESTORE_LAUNCHER.bat.
+4. Paste your existing launcher folder containing launcher.py.
+   An installed mod folder OR an older source/launcher folder is supported.
+   No runtime directory or compiled game is needed to restore/open the editor.
+   A source root is also accepted when it contains launcher/launcher.py.
+   Select the older folder being corrected, not this new update bundle.
+5. The tool backs up changed launcher Python files and opens the corrected editor.
+   Use Save and launch as usual. No preset creation is required.
+6. Next time use 02_OPEN_TEST_LAUNCHER.bat here, or
+   OPEN_TEST_LAUNCHER_v58_2.bat in your existing mod folder.
 
-2. Close ReRAC. Run 01_UPDATE_BUILD_AND_OPEN.bat.
-   Use your existing ReRAC SOURCE folder, normally C:\ReRAC-Mod\rerac.
-   It must contain Cargo.toml, Cargo.lock and crates, not just rerac.exe.
-   For the mod folder, paste the folder containing your current weapons.ini
-   and runtime folder. Leave its suggested test-launcher path unchanged if
-   you prefer a separate test installation with the supplied defaults.
-   The source folder and mod folder must be separate, without nesting.
+Use these BAT files for this test. Your existing standalone launcher EXE is
+not rebuilt. Python 3.10+ with Tcl/Tk is required, as in the previous local test.
+Cargo and Visual Studio are NOT needed for this launcher-only restoration.
 
-3. The tool verifies the complete delivered source snapshot, backs up changed
-   files, migrates your INI and presets, then tests and builds the editable
-   runtime. It reuses the selected source folder's target directory.
-   The old runtime is replaced only after a successful build.
+WHAT IS RESTORED
 
-4. The UPDATED test editor opens automatically. Use Save and launch.
-   For the new mode: Global Settings -> Ammo-Survival Mode -> On.
-   No named preset is required. Your previous selected preset is preserved.
+- Original immediate page construction in the existing Canvas form.
+- Original navigation, language changes and direct page scrolling.
+- No page cache, hidden replacement frames, background preloading or Windows
+  composited-painting flag. Sections open as they did in v57.
 
-5. Next time use 02_OPEN_TEST_LAUNCHER.bat in this kit, or
-   OPEN_TEST_LAUNCHER_v56.bat in the selected mod folder. This opens the updated
-   Python editor without rebuilding the game. The pre-existing launcher EXE
-   is not rebuilt by this test kit; use these BAT files for the new controls.
+WHAT IS PRESERVED
 
-AUTHORING REQUIREMENTS
+- Flame mine size applies to native and alternative mine models.
+- All v58 model choices and independent model palettes for Visibomb grenades
+  and flame mines, including velocity-aligned missile appearance.
+- The v58 native Visibomb duration/steering correction and all previous fixes.
+- Your existing weapons.ini, presets, settings, icon, game runtime and saves.
+- Mouse-wheel input over dropdowns still scrolls only the page.
 
-Windows x64, Rust/Cargo, Visual Studio C++ build tools with a Windows SDK,
-and Python 3.10+ with Tcl/Tk. These are the same local authoring tools used
-for earlier patches. MSVC setup is detected automatically when possible.
-Extracted game data is needed to PLAY, not to compile. The editor can detect
-%LOCALAPPDATA%\rerac\games\rac1\data or accept your selected data folder.
+The fast restore writes only Python launcher files and a test-launcher BAT.
+Backups are stored in the existing mod folder under:
+  backup\launcher_v58_2\<timestamp>
+RESTORE.json identifies new files and the previous launcher bytes are included.
+Failed writes roll back any launcher files already changed.
 
-WHAT CHANGED
+OPTIONAL FULL SOURCE UPDATE / BUILD
 
-- OmniWrench is directly below Global Settings, before Bomb Glove.
-- All four upgrade XP requirements are in its XP progression strip, just like
-  the other weapons. They no longer appear separately in each grade card.
-- Each wrench grade adds hit_radius_multiplier and knockback_multiplier.
-  Both start at 1, preserving current combat. The hit radius affects all combo
-  swings, airborne contact, the throw in both directions and the slam impact.
-- Knockback scales horizontal enemy push; vertical response and damage/XP remain
-  unchanged. Throw travel range/speed and Crate Breaker radius stay independent.
-- Existing INI values, XP requirements, presets, language selection and custom
-  icon are preserved. Includes all previous v55 features and fixes.
-- Full implementation notes and test checklist:
-  source/docs/mod/WRENCH_TUNING_V56.md.
+The complete corrected source snapshot remains in source/.
+01_UPDATE_BUILD_AND_OPEN.bat is optional and runs the usual source overlay,
+Rust tests and Windows game compilation. Only use it if you also want to update
+your separate ReRAC source checkout or do not yet have the v58 runtime.
+This full-build path requires Rust/Cargo, Visual Studio C++ build tools and a
+Windows SDK. It reuses Cargo's target cache and preserves personal profiles.
 
-BACKUPS AND LIMITS
-
-Changed source and mod files are backed up under the selected source folder:
-  .weapon_evo_backup_v56_<timestamp>
-RESTORE.json records the two original locations. source/ and mod/ contain
-the previous file bytes; files listed as new had no previous version.
-Unrelated files, Cargo's target cache, game data and saves are not copied
-or deleted. A complete reviewed source overlay avoids version-specific text
-patch failures. Local source edits replaced by the overlay are backed up.
-
-No commit, push, GitHub workflow, release, ZIP player build or PyInstaller
-launcher build is performed. Cargo may use the network for missing pinned
-dependencies, as in a normal local Rust build. Console windows pause at the
-end so success/failure remains visible. Paths containing spaces are supported.
-
-The new runtime reads old WEVO-v1/v2 progression and writes WEVO-v3 to include
-the wrench. Older runtimes cannot read newly written v3 companions: keep a
-copy of your old save folder if you intend to downgrade after testing. Windows compilation and in-game behavior are
-to be tested on your PC; the delivered source was checked with the available
-Rust library and Python tests before packaging.
-
-TomRus47 authored Weapon Evolution, not ReRAC or the original game.
-No copyrighted disc data or personal saves are distributed.
+Developer notes: source/docs/mod/LAUNCHER_RESTORE_V58_1.md.
+The old v58 static-page design is historical and has been withdrawn.
+No GitHub push, release or remote build is performed.

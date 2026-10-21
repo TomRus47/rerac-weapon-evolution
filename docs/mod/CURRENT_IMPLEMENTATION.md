@@ -1,8 +1,12 @@
-# Current implementation map: local gameplay v52 / launcher 0.12.0
+# Current implementation map: gameplay v59 / launcher 0.17.2
 
-See [ammo-unlock mode](AMMO_UNLOCK_MODE.md) for the v51/v52 inventory, drop, shop and companion-save integration. All evolving weapons expose per-grade Gold appearance; the OmniWrench uses a global visual setting.
+See [ammo-unlock mode](AMMO_UNLOCK_MODE.md) for the v51/v52 inventory, drop, shop and companion-save integration. All evolving weapons expose per-grade Gold appearance; the OmniWrench has independent saved grades and per-grade appearance.
 
 Local v52 adds editable bolt milestones and normalized ammo chances, a new-game-only zero-bomb policy and the two-card Global Settings page. See [LOCAL_TEST_KIT.md](LOCAL_TEST_KIT.md) for the local source-overlay builder.
+
+v58 adds [independent experimental model palettes and steering fixes](MODELS_AND_STATIC_PAGES_V58.md), including the guided Visibomb lifetime/steering fix. The page-cache implementation was withdrawn; [v58.1](LAUNCHER_RESTORE_V58_1.md) restores original page construction. It includes all v57 ammo, light cleanup and enlarged-mine fixes.
+
+v59 applies [flame-mine model size](FLAME_MINE_MODEL_SCALE.md) to native mines, Bomb Glove bombs and Glove of Doom spheres using each selected model’s native scale.
 
 Paths below are relative to `crates/rc-game/src` unless qualified. Native ports
 intentionally preserve PS2 operation order; read module comments and tests
@@ -10,6 +14,8 @@ before changing their timing. Avoid broad reformatting of those routines.
 
 | Weapon | Runtime modules | Contract |
 |---|---|---|
+| OmniWrench | `hero/wrench.rs`, `weapon_evo.rs` | Five saved grades, proportional slam damage, throw geometry, hit-radius and horizontal-push multipliers, additive bolt attraction and crate-only ground-slam wave |
+| Visibomb | `hero/visibomb.rs`, `classes/visibomb.rs`, `classes/bomb/visibomb_grenade.rs`, engine `gameplay.rs` | Captured guided lifetime/turn strength; mobile grenade replacement with ground preview, contact/water explosion, death-pit cleanup and independent model palettes |
 | Bomb Glove | `moby_update/classes/bomb.rs` | Visible scaled child models, swept flight, snapshotted size/damage/color/radius; no recursion; explosion owns damage |
 | Pyrocitor | `hero/pyrocitor.rs` | Three lane-local retained-flame banks, editable side angles, shared ammo clock and accepted-hit deduplication |
 | Suck Cannon | `hero/suck_cannon.rs`, `moby_update/classes/cannon_crate.rs` | Store actual crate type/contents; interrupted suction restores it; normal attack delivery and native drops once |

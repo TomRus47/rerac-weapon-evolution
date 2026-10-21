@@ -2,3 +2,6 @@ ReRAC Weapon Evolution source launcher
 
 See ../README.md for the Windows build and release workflow.
 Run Editor.bat to open the editor after building the game.
+
+Authorship and rights
+Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only and does not develop the original Ratchet & Clank games or the ReRAC project. TomRus47 does not own the original games, characters, trademarks or game assets and is not affiliated with Sony Interactive Entertainment or Insomniac Games. Original-game rights remain with their respective rights holders. ReRAC retains its existing license and contributor credits.

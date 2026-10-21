@@ -245,7 +245,7 @@ HELP.update({'grenade_launcher_enabled':'Replace guided missiles with spinning B
 'grenade_explosion_radius':'Native Bomb Glove blast multiplier, affecting effects and growing damage sphere. 1 reaches a final radius of 2.5 units; independent of model size.',
 'grenade_explosion_color':'RGB tint for this grenade explosion; default keeps native colors.',
 'grenade_color':'RGB tint of the native textured bomb ambient light and glow; default preserves native appearance.',
-'flame_mine_size_percent':'Only deployed experimental flame mines. 100 = native; default 150%. Ground clearance scales with the model. Body and flames share their rotation; zero stops both.'})
+'flame_mine_size_percent':'Size of every selected experimental mine model: native mine, Bomb Glove bomb or Glove of Doom sphere. 100 = native size of the selected model; default 150%. Ground clearance scales with the percentage. Body and flames share rotation; zero rotation speed stops both.'})
 
 EXPERIMENTAL_RANGES.update({'throw_speed':(1,200),'crate_breaker_radius':(0,100),'bolt_attraction_bonus':(0,100)})
 LABELS.update({'throw_speed':'Comet Strike speed (units/s)','show_hud':'Show this weapon name and XP in top-left HUD','crate_breaker_enabled':'Crate Breaker enabled','crate_breaker_radius':'Crate Breaker radius (units)','moving_attacks_enabled':'Allow moving attacks in locked camera','bolt_attraction_bonus':'Additional bolt attraction range (units)'})
@@ -293,6 +293,7 @@ for key in BOOLEANS:
 
 def field_order(key):
     """Ammo, damage, area, reach, other controls, Gold, then all colors."""
+    if key in ('grenade_model','flame_mine_model'): return (85, key)
     if key.endswith('_color'): return (90, key)
     if key in ('max_ammo','experimental_max_ammo','capacity'): return (0, key)
     if 'damage' in key: return (15 if key=='damage_interval_ticks' else 10, key)
@@ -316,3 +317,50 @@ WRENCH_HELP = {
     'hit_radius_multiplier': 'Wrench hit-volume multiplier for all three combo swings, airborne contact, Comet Strike outbound/return and ground-slam impact. 1 preserves native collisions; 2 doubles reach/thickness. Does not scale throw travel distance, the visible model or the separate Crate Breaker radius. Captured at attack/throw start.',
     'knockback_multiplier': 'Horizontal enemy push multiplier for all wrench attacks. 1 preserves native push; 0 removes horizontal push; 2 doubles its strength. Vertical launch, damage, XP, animations and native enemy resistance remain unchanged. Captured at attack/throw start.',
 }
+
+
+# Model codes are stable INI values; labels are localized by the editor.
+MODEL_OPTIONS = {
+    'grenade_model': ('Bomb Glove bomb', 'Mine Glove mine', 'Visibomb missile'),
+    'flame_mine_model': ('Mine Glove mine', 'Bomb Glove bomb', 'Glove of Doom sphere'),
+}
+MODEL_COLOR_GROUPS = {
+    'visibomb': (('grenade_color','grenade_explosion_color'),
+                ('grenade_mine_color','grenade_mine_explosion_color'),
+                ('grenade_missile_color','grenade_missile_explosion_color')),
+    'mine_glove': (('mine_model_color','flame_core_color','flame_outer_color','burn_flame_color'),
+                  ('mine_bomb_color','mine_bomb_core_color','mine_bomb_outer_color','mine_bomb_burn_color'),
+                  ('mine_sphere_color','mine_sphere_core_color','mine_sphere_outer_color','mine_sphere_burn_color')),
+}
+for weapon, selector in [('visibomb','grenade_model'),('mine_glove','flame_mine_model')]:
+    fields = EXPERIMENTAL_DEFAULTS[weapon]
+    fields[selector] = '0'
+    INTEGER.add(selector)
+    EXPERIMENTAL_RANGES[selector] = (0,2)
+    LABELS[selector] = 'Projectile model'
+    HELP[selector] = 'Select the experimental visual model. Each model keeps its own colors. Damage, ammunition and weapon behavior stay independent of appearance.'
+    EXTRA[WEAPONS[weapon][0]] += ' ' + selector
+    for group in MODEL_COLOR_GROUPS[weapon]:
+        for key in group:
+            if key not in fields: fields[key] = 'default'
+            COLORS.add(key)
+            if key not in EXTRA[WEAPONS[weapon][0]].split(): EXTRA[WEAPONS[weapon][0]] += ' ' + key
+            LABELS.setdefault(key, key.replace('_',' ').capitalize())
+            HELP.setdefault(key, 'Independent RGB tint for the selected experimental model; default preserves its native colors. Other model palettes are retained separately.')
+
+def visible_model_field(weapon, key, selected):
+    groups = MODEL_COLOR_GROUPS.get(weapon, ())
+    return not any(key in group for group in groups) or key in groups[int(float(selected))]
+
+# Fields introduced with model selection; existing palettes keep their old keys.
+MODEL_NEW_KEYS = set(MODEL_OPTIONS) | {
+    'grenade_mine_color','grenade_mine_explosion_color',
+    'grenade_missile_color','grenade_missile_explosion_color',
+    'mine_model_color','mine_bomb_color','mine_bomb_core_color',
+    'mine_bomb_outer_color','mine_bomb_burn_color','mine_sphere_color',
+    'mine_sphere_core_color','mine_sphere_outer_color','mine_sphere_burn_color',
+}
+for _key in MODEL_NEW_KEYS & COLORS:
+    _kind = next((k for k in ('explosion','core','outer','burn') if k in _key), 'body')
+    LABELS[_key] = {'body':'Model color','explosion':'Explosion color','core':'Inner flame color',
+                    'outer':'Outer flame color','burn':'Persistent flame color'}[_kind]

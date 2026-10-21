@@ -17,7 +17,7 @@ permissions:
 concurrency:
   group: weapon-evolution-windows-release
   # Newer source supersedes an unfinished build; published releases are preserved.
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -67,7 +67,7 @@ jobs:
     needs: build
     # The exact 0.3 release commit is the author-approved publication opt-in.
     # Other pushes only build artifacts; manual dispatch still creates drafts.
-    if: (github.event_name == 'workflow_dispatch' && inputs.create_draft) || (github.event_name == 'push' && github.event.head_commit.message == 'Release Weapon Evolution 0.3')
+    if: (github.event_name == 'workflow_dispatch' && inputs.create_draft) || (github.event_name == 'push' && (github.event.head_commit.message == 'Release Weapon Evolution 0.3' || github.event.head_commit.message == 'Update Weapon Evolution 0.3'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -83,25 +83,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          APPROVED_PUBLICATION: ${{ github.event_name == 'push' && github.event.head_commit.message == 'Release Weapon Evolution 0.3' }}
+          APPROVED_PUBLICATION: ${{ github.event_name == 'push' && (github.event.head_commit.message == 'Release Weapon Evolution 0.3' || github.event.head_commit.message == 'Update Weapon Evolution 0.3') }}
+          APPROVED_REPLACEMENT: ${{ github.event_name == 'push' && github.event.head_commit.message == 'Update Weapon Evolution 0.3' }}
         shell: bash
         run: |
           set -euo pipefail
-          tag=$(python3 -c 'import json; print(json.load(open("mod/release.json"))["tag"])')
-          title=$(python3 -c 'import json; print(json.load(open("mod/release.json"))["title"])')
-          notes=$(python3 -c 'import json; print(json.load(open("mod/release.json"))["notes"])')
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release already exists; it was preserved. Download this run's artifact to review the new build."
-            exit 0
-          fi
-          source_name="ReRAC_Weapon_Evolution_${tag#v}_source"
-          git archive --format=zip --prefix="$source_name/" -o "release-assets/$source_name.zip" "$GITHUB_SHA"
-          (cd release-assets && sha256sum "$source_name.zip" > "$source_name.zip.sha256")
-          gh release create "$tag" release-assets/* --draft --target "$GITHUB_SHA" --title "$title" --notes-file "$notes"
+          args=(--assets release-assets)
           if [ "$APPROVED_PUBLICATION" = true ]; then
-            if [ "$tag" != v0.3 ]; then
-              echo "Publication authorization is restricted to v0.3."
-              exit 1
-            fi
-            gh release edit "$tag" --draft=false --latest
+            args+=(--publish)
           fi
+          if [ "$APPROVED_REPLACEMENT" = true ]; then
+            args+=(--replace-existing)
+          fi
+          python3 tools/mod/publish_release.py "${args[@]}"

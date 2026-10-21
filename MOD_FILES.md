@@ -1,12 +1,15 @@
 # Weapon Evolution source map
 
-Local gameplay 0.1.6.54; launcher 0.14.0. This repository contains the complete modified ReRAC 0.3.4-alpha workspace. The following 249 indexed files are mod implementations, integration points or developer tools; the rest is the supplied port source.
+Gameplay 0.1.6.59; launcher 0.17.2; updated public release 0.3. The complete modified ReRAC 0.3.4-alpha workspace is included. The following 266 indexed files are mod implementations, integration points or development tools; the rest is the supplied port source.
 
-Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md) and [respawn lifecycle](docs/mod/RESPAWN_LIFECYCLE.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). Historical changes-since-supplied-snapshot.patch describes the original export boundary, not the full current update.
+Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md), [build layout](docs/mod/BUILD_LAYOUT.md) and [credits](docs/mod/CREDITS.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). The historical changes-since-supplied-snapshot.patch describes the original export boundary, not the full current update.
 
 | Path | Role |
 |---|---|
 | `.github/workflows/windows-release.yml` | Weapon Evolution implementation or integration |
+| `CHANGELOG.md` | Weapon Evolution implementation or integration |
+| `MOD_FILES.md` | Weapon Evolution implementation or integration |
+| `README.md` | Weapon Evolution implementation or integration |
 | `crates/rc-engine/Cargo.toml` | changed since supplied snapshot |
 | `crates/rc-engine/src/companion_assets.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-engine/src/disc_source.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
@@ -39,8 +42,10 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-game/src/hero/blaster.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/combat_legs.rs` | added since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/combat_strafe.rs` | added since supplied snapshot; Weapon Evolution implementation or integration |
+| `crates/rc-game/src/hero/comet.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/damage.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/devastator.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
+| `crates/rc-game/src/hero/fx.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/gloves.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration; original mod integration backup exists in supplied snapshot |
 | `crates/rc-game/src/hero/glow.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/guns.rs` | changed since supplied snapshot |
@@ -48,12 +53,14 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-game/src/hero/jump.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/melee.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/morph_ray.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
+| `crates/rc-game/src/hero/pda.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/physics.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/pyrocitor.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/ryno.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/suck_cannon.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/taunter.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/tesla.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
+| `crates/rc-game/src/hero/visibomb.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/walk.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/walloper.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/hero/weapons.rs` | Weapon Evolution implementation or integration; original mod integration backup exists in supplied snapshot |
@@ -73,7 +80,9 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-game/src/moby_update.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/amoeboid.rs` | changed since supplied snapshot |
 | `crates/rc-game/src/moby_update/classes/blaster_shot.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
+| `crates/rc-game/src/moby_update/classes/bolt.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/bomb.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration; original mod integration backup exists in supplied snapshot |
+| `crates/rc-game/src/moby_update/classes/bomb/visibomb_grenade.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/cannon_crate.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/chicken.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/crate_.rs` | Weapon Evolution implementation or integration |
@@ -85,6 +94,7 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-game/src/moby_update/classes/drone.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/flyer.rs` | changed since supplied snapshot |
 | `crates/rc-game/src/moby_update/classes/gunship.rs` | changed since supplied snapshot |
+| `crates/rc-game/src/moby_update/classes/item_offer.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/mine.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/mine/experimental.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/mod.rs` | Weapon Evolution implementation or integration |
@@ -165,6 +175,7 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-game/src/moby_update/classes/units/qwark_ship_parts.rs` | changed since supplied snapshot |
 | `crates/rc-game/src/moby_update/classes/units/rilgar_biter.rs` | changed since supplied snapshot |
 | `crates/rc-game/src/moby_update/classes/units/rilgar_flame_tank.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
+| `crates/rc-game/src/moby_update/classes/units/rilgar_story.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/units/rilgar_trail_rider.rs` | changed since supplied snapshot |
 | `crates/rc-game/src/moby_update/classes/units/rolling_mine.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/units/ship_fighter.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
@@ -176,6 +187,7 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-game/src/moby_update/classes/units/veldin_boss.rs` | changed since supplied snapshot |
 | `crates/rc-game/src/moby_update/classes/units/veldin_hopper.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/units/veldin_tank.rs` | Weapon Evolution implementation or integration |
+| `crates/rc-game/src/moby_update/classes/vendor.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/classes/visibomb.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/creature.rs` | changed since supplied snapshot |
 | `crates/rc-game/src/moby_update/creature/attack.rs` | changed since supplied snapshot |
@@ -190,15 +202,37 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `crates/rc-game/src/moby_update/scheduler.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/moby_update/services.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration; original mod integration backup exists in supplied snapshot |
 | `crates/rc-game/src/moby_update/services_reload_tests.rs` | Weapon Evolution implementation or integration |
+| `crates/rc-game/src/particles.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/particles/type12.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/targeting.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration |
 | `crates/rc-game/src/weapon_evo.rs` | changed since supplied snapshot; Weapon Evolution implementation or integration; Weapon Evolution configuration or module |
+| `crates/rc-game/src/weapon_evo_ammo.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/weapon_evo_notice.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/weapon_evo_release.ini` | added since supplied snapshot; Weapon Evolution configuration or module |
 | `crates/rc-game/src/weapon_evo_save.rs` | added since supplied snapshot; Weapon Evolution implementation or integration; Weapon Evolution configuration or module |
+| `crates/rc-game/src/weapon_evo_wrench.rs` | Weapon Evolution implementation or integration |
 | `crates/rc-game/src/weapon_reach.rs` | added since supplied snapshot; Weapon Evolution implementation or integration |
+| `docs/mod/AMMO_UNLOCK_MODE.md` | Weapon Evolution implementation or integration |
+| `docs/mod/BUILD_LAYOUT.md` | Weapon Evolution implementation or integration |
+| `docs/mod/CONFIG_REFERENCE.md` | Weapon Evolution implementation or integration |
+| `docs/mod/CREDITS.md` | Weapon Evolution implementation or integration |
+| `docs/mod/CURRENT_IMPLEMENTATION.md` | Weapon Evolution implementation or integration |
+| `docs/mod/DEVELOPER_GUIDE.md` | Weapon Evolution implementation or integration |
+| `docs/mod/LAUNCHER_RESTORE_V58_1.md` | Weapon Evolution implementation or integration |
+| `docs/mod/LAUNCHER_V55.md` | Weapon Evolution implementation or integration |
+| `docs/mod/LOCAL_TEST_KIT.md` | Weapon Evolution implementation or integration |
+| `docs/mod/MINE_AMMO_UI_V57.md` | Weapon Evolution implementation or integration |
+| `docs/mod/MODELS_AND_STATIC_PAGES_V58.md` | Weapon Evolution implementation or integration |
+| `docs/mod/PUBLISHING.md` | Weapon Evolution implementation or integration |
+| `docs/mod/VERIFICATION.md` | Weapon Evolution implementation or integration |
+| `docs/mod/VISIBOMB_GRENADES_V53.md` | Weapon Evolution implementation or integration |
+| `docs/mod/WRENCH_AND_PROJECTILES_V54.md` | Weapon Evolution implementation or integration |
+| `docs/mod/WRENCH_TUNING_V56.md` | Weapon Evolution implementation or integration |
+| `docs/releases/v0.3.3.md` | Weapon Evolution implementation or integration |
+| `docs/releases/v0.3.md` | Weapon Evolution implementation or integration |
 | `launcher/build_launcher_exe.py` | Weapon Evolution implementation or integration |
 | `launcher/editabile.py` | Weapon Evolution implementation or integration |
+| `launcher/i18n.py` | Weapon Evolution implementation or integration |
 | `launcher/icon_assets.py` | Weapon Evolution implementation or integration |
 | `launcher/launcher.ico` | Weapon Evolution implementation or integration |
 | `launcher/launcher.py` | Weapon Evolution implementation or integration |
@@ -210,41 +244,32 @@ Start with [the developer guide](docs/mod/DEVELOPER_GUIDE.md), [current implemen
 | `launcher/tests/test_intervals.py` | Weapon Evolution implementation or integration |
 | `launcher/tests/test_launcher.py` | Weapon Evolution implementation or integration |
 | `launcher/tests/test_release_behaviour.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_release_publish.py` | Weapon Evolution implementation or integration |
 | `launcher/tests/test_release_tools.py` | Weapon Evolution implementation or integration |
 | `launcher/tests/test_standalone.py` | Weapon Evolution implementation or integration |
 | `launcher/tests/test_v44.py` | Weapon Evolution implementation or integration |
 | `launcher/tests/test_v45.py` | Weapon Evolution implementation or integration |
 | `launcher/tests/test_v46.py` | Weapon Evolution implementation or integration |
 | `launcher/tests/test_v48.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v51.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v52.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v53.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v54.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v55.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v56.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v57.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v58.py` | Weapon Evolution implementation or integration |
+| `launcher/tests/test_v58_1.py` | Weapon Evolution implementation or integration |
 | `launcher/weapons.default.ini` | Weapon Evolution implementation or integration |
 | `launcher/weapons.example.ini` | Weapon Evolution implementation or integration |
+| `mod/provenance.json` | Weapon Evolution implementation or integration |
+| `mod/release.json` | Weapon Evolution implementation or integration |
 | `tools/mod/check_source.py` | Weapon Evolution implementation or integration |
+| `tools/mod/create_local_test_kit.py` | Weapon Evolution implementation or integration |
+| `tools/mod/local_test_update.py` | Weapon Evolution implementation or integration |
 | `tools/mod/package_release.py` | Weapon Evolution implementation or integration |
+| `tools/mod/publish_release.py` | Weapon Evolution implementation or integration |
 | `tools/mod/refresh_source_map.py` | Weapon Evolution implementation or integration |
 | `tools/mod/setup_msvc.bat` | Weapon Evolution implementation or integration |
-| `CHANGELOG.md` | Weapon Evolution implementation, integration or developer documentation |
-| `README.md` | Weapon Evolution implementation, integration or developer documentation |
-| `crates/rc-game/src/hero/pda.rs` | Weapon Evolution implementation, integration or developer documentation |
-| `crates/rc-game/src/moby_update/classes/bolt.rs` | Weapon Evolution implementation, integration or developer documentation |
-| `crates/rc-game/src/moby_update/classes/item_offer.rs` | Weapon Evolution implementation, integration or developer documentation |
-| `crates/rc-game/src/moby_update/classes/units/rilgar_story.rs` | Weapon Evolution implementation, integration or developer documentation |
-| `crates/rc-game/src/moby_update/classes/vendor.rs` | Weapon Evolution implementation, integration or developer documentation |
-| `crates/rc-game/src/weapon_evo_ammo.rs` | Weapon Evolution implementation, integration or developer documentation |
-| `docs/mod/AMMO_UNLOCK_MODE.md` | Weapon Evolution implementation, integration or developer documentation |
-| `docs/mod/CONFIG_REFERENCE.md` | Weapon Evolution implementation, integration or developer documentation |
-| `docs/mod/CURRENT_IMPLEMENTATION.md` | Weapon Evolution implementation, integration or developer documentation |
-| `docs/mod/DEVELOPER_GUIDE.md` | Weapon Evolution implementation, integration or developer documentation |
-| `docs/mod/PUBLISHING.md` | Weapon Evolution implementation, integration or developer documentation |
-| `docs/mod/VERIFICATION.md` | Weapon Evolution implementation, integration or developer documentation |
-| `docs/releases/v0.3.3.md` | Weapon Evolution implementation, integration or developer documentation |
-| `launcher/tests/test_v51.py` | Weapon Evolution implementation, integration or developer documentation |
 
-Local v54 authoring tools: `tools/mod/local_test_update.py`, `tools/mod/create_local_test_kit.py`; see `docs/mod/LOCAL_TEST_KIT.md`. Config/UI and updater regression coverage: `launcher/tests/test_v54.py`.
-
-Local v54 additions: `bomb/visibomb_grenade.rs`, `launcher/tests/test_v54.py` and [grenade/mine implementation notes](docs/mod/VISIBOMB_GRENADES_V53.md).
-
-Local v54: [OmniWrench and projectile corrections](docs/mod/WRENCH_AND_PROJECTILES_V54.md). New runtime module: `crates/rc-game/src/weapon_evo_wrench.rs`; new editor fixtures: `launcher/tests/test_v54.py`. Native melee/Comet Strike, particle bookkeeping and WEVO saves are integration points.
-
-Local v55: `launcher/i18n.py`, `launcher/tests/test_v55.py` and [launcher/capacity notes](docs/mod/LAUNCHER_V55.md). Shared schema/migration ordering and runtime ammo publication are integration points.
-
-Local v56: [wrench progression and combat tuning](docs/mod/WRENCH_TUNING_V56.md). `weapon_evo_wrench.rs`, native melee/Comet Strike and `launcher/tests/test_v56.py` cover the new controls and XP renderer.
+| `docs/mod/FLAME_MINE_MODEL_SCALE.md` | Mine model scale and regression contracts |

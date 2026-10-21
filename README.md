@@ -1,10 +1,10 @@
 # ReRAC Weapon Evolution
 
-Weapon Evolution **0.3**: gameplay patch **0.1.6.56**, configuration capability **56**, multilingual preset launcher **0.16.0**, built on the supplied ReRAC **0.3.4** source snapshot.
+Weapon Evolution **0.3**, updated build: gameplay patch **0.1.6.59**, configuration capability **58**, multilingual preset launcher **0.17.2**, based on ReRAC **0.3.4-alpha**.
 
 **Runtime compatibility: ReRAC 0.3.4-alpha**, using the modified game runtime supplied with Weapon Evolution or built from this repository.
 
-**Authorship:** TomRus47 is the author of the Weapon Evolution mod only and was not involved in developing ReRAC or the original Ratchet & Clank game. All credit for the underlying port and original game belongs to their respective developers.
+**Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only and does not develop the original Ratchet & Clank games or the ReRAC project. TomRus47 does not own the original games, characters, trademarks or game assets and is not affiliated with Sony Interactive Entertainment or Insomniac Games. Original-game rights remain with their respective rights holders. ReRAC retains its existing license and contributor credits. See [credits](docs/mod/CREDITS.md).
 
 This is a source repository. It contains the modified Rust workspace, launcher source, approved default weapon configuration, tests and Windows build tools. The game data, compiled game, compiled launcher, saves and local settings are excluded.
 
@@ -15,6 +15,14 @@ See the [release notes](docs/releases/v0.3.md), [current implementation map](doc
 Local v53 changes: [Visibomb grenades, icon colors and mine geometry](docs/mod/VISIBOMB_GRENADES_V53.md).
 
 Local v54: [OmniWrench grades, additive bolt attraction and projectile fixes](docs/mod/WRENCH_AND_PROJECTILES_V54.md).
+
+## Downloads and current changes
+
+Download the complete [Windows player ZIP from release 0.3](https://github.com/TomRus47/rerac-weapon-evolution/releases/tag/v0.3). It contains both EXEs, `runtime/rerac.exe`, shaders and the editable INI. Extract the complete package before running `ReRAC_Weapon_Evolution.exe`. Players do not compile the game or install Python.
+
+The separately named source ZIP contains the complete project used for that Windows build. It is not a ready-to-play package. See [release notes](docs/releases/v0.3.md) for the current fixes and [build/source/launcher folder layout](docs/mod/BUILD_LAYOUT.md) for local builds.
+
+This update fixes real experimental ammo consumption, enlarged flame-mine landing and post-death light cleanup; restores normal page rendering and dropdown scrolling; adds independent model palettes for experimental Visibomb grenades and flame mines; and fixes native Visibomb steering with longer flight duration. The withdrawn page-cache implementation is not part of the released launcher.
 
 ## Features
 

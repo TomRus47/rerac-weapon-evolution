@@ -1,79 +1,56 @@
 # Windows packages and GitHub releases
 
-This is the full source repository for an independent mod of ReRAC 0.3.4-alpha.
-Keep the mod author, ReRAC developers and original game's developers distinct.
-Preserve the ISC license and existing copyright notices. Do not upload disc data,
-saves, personal settings or build folders as source commits.
+Weapon Evolution is an independent mod for ReRAC 0.3.4-alpha. TomRus47 develops
+this mod only, does not develop the original games or ReRAC, and owns no rights
+to the original games or assets. Keep the [credits](CREDITS.md), ISC license and
+existing contributor notices intact. No disc data, saves or author settings ship.
 
-## Build and review locally
+## Local build
 
-Use Rust 1.99.1 (MSVC), Visual Studio C++/Windows SDK and x64 Python with Tk.
-Run `01_BUILD_GAME.bat` in an x64 developer prompt. The game is built from this
-checkout and staged with shaders in `launcher/runtime/`.
-Verify `launcher/runtime/rerac.exe --version-json`: patch 0.1.6.56, capability 56,
-audio diagnostics false, and an editable version without the `-fixed` suffix.
+Use Rust 1.99.1 MSVC, Visual Studio C++/Windows SDK and x64 Python with Tk.
+`01_BUILD_GAME.bat` tests/builds this checkout and stages launcher/runtime/.
+Check --version-json: patch 0.1.6.59, capability 58, editable mode and audio
+diagnostics false. [BUILD_LAYOUT.md](BUILD_LAYOUT.md) distinguishes source,
+local overlay and ready-to-play packages.
 
-Run the gameplay cases in [VERIFICATION.md](VERIFICATION.md), especially repeated
-death reloads on Oltanis. Then package either the tracked release default with
-`python tools/mod/package_release.py`, or an edited local profile explicitly:
+`python tools/mod/package_release.py` packages the tracked English default and
+custom icon, builds/smoke-tests the frozen launcher, and records exact commit,
+runtime, INI, icon and ZIP identities in release-build.json. Personal presets and
+settings are excluded. To package a custom profile instead, explicitly pass it
+to launcher/package_launcher.py. Share the complete player ZIP, not one EXE.
 
-```bat
-py -3 launcher\package_launcher.py --exe launcher\runtime\rerac.exe --ini launcher\weapons.ini --no-presets
-```
+## Windows workflow
 
-The launcher builder verifies its x64 EXE, bundled Tcl/Tk, startup/self-test and
-custom icon cache. The ZIP includes the launcher, modified game, shaders, INI,
-icon and licenses. Share the complete generated ZIP and SHA256 sidecar. A
-launcher-only EXE update cannot incorporate a gameplay correction into an old
-runtime. No official ReRAC-launcher build import is needed for this standalone
-player package.
+.github/workflows/windows-release.yml builds on changed mod/release.json on main,
+or on manual dispatch. Pinned actions run Python, format and game-library tests,
+link the Windows engine, build/smoke-test the launcher, and upload player assets.
+The build job has contents-read permission; only the release job can write assets.
+A failed build cannot replace the existing release.
 
-## Automated Windows build and release
+Ordinary pushes produce artifacts only. The explicit commit message
+`Release Weapon Evolution 0.3` permits creation/publication of v0.3 after a passed
+build. `Update Weapon Evolution 0.3` permits the author-requested replacement of
+that existing release, also only after a passed build. Manual create_draft stays
+off by default and never authorizes replacement. These opt-ins do not authorize
+publishing another public version.
 
-`.github/workflows/windows-release.yml` runs when `mod/release.json` changes on
-main, or from Actions > Windows player package and release > Run workflow.
-It uses a Windows x64 runner, pinned action revisions, Rust 1.99.1 and Python 3.12.
-Sources, launcher tests, formats tests and game tests must pass before packaging.
-The build job has read-only repository permission. The final draft job alone has
-contents-write permission and uses GitHub's short-lived workflow token.
+`tools/mod/publish_release.py` validates the player ZIP, sidecar and identity
+against the current source. It archives that exact commit as the named source ZIP
+and verifies every tracked member. For replacement, it checks the old tag SHA
+recorded in mod/release.json before uploading; uploads with --clobber only the
+named matching player/source files and identity report; verifies GitHub's asset
+digests; rechecks the tag; then moves v0.3 to the new source commit and updates
+the existing release title/notes. The release URL and version stay the same.
+Do not rewrite existing commits. Future replacement needs a freshly reviewed tag
+SHA and explicit author authorization, rather than reusing an old tag lease.
 
-On success it uploads an Actions artifact containing the player ZIP, checksum
-and `release-build.json`. Ordinary pushes create **test artifacts only**. The exact commit message
-`Release Weapon Evolution 0.3` is the author-approved opt-in for this release:
-after the Windows build passes, it creates a draft with all assets and publishes
-it as the latest release. The publication step rejects every tag except `v0.3`.
-This authorization does not apply to future versions. To create a draft later, explicitly run the workflow
-manually and enable `create_draft` (off by default). That opt-in creates a
-**draft** with the committed English notes plus an exact-commit source ZIP
-and SHA256. An existing release/tag is preserved, never overwritten or
-published by an ordinary build. If creation is unavailable because of repository
-policy, download the artifact and attach it manually to a new release.
+GitHub's automatic Source code ZIP/tar links follow the updated tag. The named
+source ZIP is also attached with its own SHA256 and always corresponds to the
+compiled Windows package. Source code is the full modified project, not only a
+patch. .github/workflows/source-release.yml can attach matching source for an
+existing build that lacks it; it preserves existing assets rather than clobbering.
 
-Review the runtime identity, checksum, release notes and in-game results before
-publishing. Tests/build smoke checks cannot establish visual behavior or confirm
-an unsymbolized crash report's exact save path. Only the exact author-approved 0.3 release commit publishes automatically.
-
-## Versioning and source downloads
-
-Public tag `v0.3` follows the published `v0.2` release. It identifies the mod,
-not a new ReRAC version: compatibility remains ReRAC 0.3.4-alpha. Gameplay patch
-0.1.6.56, launcher 0.16.0 and profile capability 56 have separate purposes.
-Update `mod/release.json`, runtime identity and documented checks deliberately.
-For a future profile feature also update capability negotiation and all grades.
-
-Use [docs/releases/v0.3.md](../releases/v0.3.md) as the release body. Attach
-the player ZIP, its SHA256 and identity report as assets. To attach an explicit
-developer download, run Actions > Attach matching release source with the
-existing release tag. It reads the Windows package's `release-build.json`,
-checks its ZIP digest, validates that exact source commit, and attaches
-`ReRAC_Weapon_Evolution_<version>_source.zip` and its SHA256. The ZIP contains
-the complete tracked project, launcher, configuration examples and developer
-documentation, without disc data or compiled EXEs. Existing assets and the
-release's draft/published state are preserved; uploads never replace assets.
-
-GitHub also adds its usual Source code ZIP/tar downloads when a tag exists.
-The explicitly named source asset remains tied to the compiled Windows
-package even if the default branch later receives more changes.
-
-Local INIs/presets/settings are ignored. The supplied launcher icon is tracked.
-The original export tags remain historical; do not rewrite published commits.
+Read release-build.json and the successful Actions run for actual Windows build
+evidence. Smoke checks and unit tests cannot establish every disc-specific
+visual, collision or saved-game scenario. Preserve the manual checklists in the
+implementation notes and the author-approved scope in the release description.

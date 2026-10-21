@@ -4,7 +4,7 @@ import sys, unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import launcher_core as core
 from migrate_ini import convert
-from schema import field_groups,EXPERIMENTAL_DEFAULTS
+from schema import field_groups,EXPERIMENTAL_DEFAULTS,MODEL_NEW_KEYS
 class GrenadeMineTests(unittest.TestCase):
     def setUp(self):
         self.raw=(Path(__file__).resolve().parents[1]/'weapons.default.ini').read_bytes()
@@ -22,9 +22,9 @@ class GrenadeMineTests(unittest.TestCase):
             self.assertEqual(self.doc.entries[section,'grenade_launcher_enabled'],'false')
         doc=core.checked_document(self.doc.render(changes))
         for p,v in changes.items():self.assertEqual(doc.entries[p],v)
-        self.assertEqual(core.required_config(doc),56)
+        self.assertEqual(core.required_config(doc),58)
     def test_migration_adds_55_fields_without_changing_old_values(self):
-        new={p for p in self.doc.entries if p[1].startswith('grenade_') or p[1]=='flame_mine_size_percent' or (p[0].startswith('weapon.visibomb.level') and p[1]=='explosion_damage_radius')}
+        new={p for p in self.doc.entries if p[1] not in MODEL_NEW_KEYS and (p[1].startswith('grenade_') or p[1]=='flame_mine_size_percent' or (p[0].startswith('weapon.visibomb.level') and p[1]=='explosion_damage_radius'))}
         self.assertEqual(len(new),55);indexes={self.doc.addresses[p] for p in new}
         old=''.join(line for i,line in enumerate(self.doc.lines) if i not in indexes).encode()
         original=core.IniDocument(old);migrated=convert(old)[0];loaded=core.checked_document(migrated)

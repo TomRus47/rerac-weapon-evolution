@@ -26,8 +26,8 @@ from migrate_ini import convert
 def source_files(payload: Path, manifest: Path) -> list[Path]:
     """Verify every delivered file before changing either destination folder."""
     records = json.loads(manifest.read_text(encoding='utf-8'))
-    if records.get('patch') != '0.1.6.56':
-        raise ValueError('The source manifest is not Weapon Evolution v56.')
+    if records.get('patch') != '0.1.6.59':
+        raise ValueError('The source manifest is not Weapon Evolution v59.')
     paths = []
     for name, expected in records['files'].items():
         relative = PurePosixPath(name)
@@ -86,9 +86,9 @@ def install(payload: Path, source: Path, kit: Path, manifest: Path) -> Path:
               'where py >nul 2>&1\r\nif not errorlevel 1 (\r\n'
               '  py -3 "%~dp0launcher.py" --folder "%~dp0."\r\n) else (\r\n'
               '  python "%~dp0launcher.py" --folder "%~dp0."\r\n)\r\npause\r\n')
-    updates[kit / 'OPEN_TEST_LAUNCHER_v56.bat'] = opener.encode('utf-8')
+    updates[kit / 'OPEN_TEST_LAUNCHER_v59.bat'] = opener.encode('utf-8')
     changed = {p: data for p, data in updates.items() if not p.is_file() or p.read_bytes() != data}
-    backup = source / ('.weapon_evo_backup_v56_' + core.stamp())
+    backup = source / ('.weapon_evo_backup_v59_' + core.stamp())
     originals: dict[Path, bytes | None] = {}
     for path in changed:
         old = path.read_bytes() if path.is_file() else None
@@ -114,20 +114,68 @@ def install(payload: Path, source: Path, kit: Path, manifest: Path) -> Path:
     return backup
 
 
+def launcher_folder(candidate: Path) -> Path:
+    """Accept an installed editor or a source editor without requiring a game."""
+    for folder in (candidate, candidate / 'launcher', candidate / 'source' / 'launcher'):
+        if ((folder / 'launcher.py').is_file() and (folder / 'launcher_core.py').is_file()
+                and any((folder / name).is_file() for name in ('weapons.ini', 'weapons.default.ini', 'weapons.example.ini'))):
+            return folder.resolve()
+    raise ValueError('Select the folder containing launcher.py and weapons.ini or weapons.default.ini. A source/launcher folder is supported; no runtime is required.')
+
+
+def install_launcher(payload: Path, kit: Path, manifest: Path) -> Path:
+    """Restore only Python launcher code; keep profiles, icon, runtime and saves."""
+    if kit == payload or payload in kit.parents or kit in payload.parents:
+        raise ValueError('Select the existing mod folder outside this update bundle.')
+    kit = launcher_folder(kit)
+    files = source_files(payload, manifest)
+    updates = {kit / relative.name: (payload / relative).read_bytes() for relative in files
+               if relative.parts[0] == 'launcher' and len(relative.parts) == 2 and relative.suffix == '.py'}
+    opener = ('@echo off\r\nsetlocal DisableDelayedExpansion\r\ncd /d "%~dp0"\r\n'
+              'where py >nul 2>&1\r\nif not errorlevel 1 (\r\n'
+              '  py -3 "%~dp0launcher.py" --folder "%~dp0."\r\n) else (\r\n'
+              '  python "%~dp0launcher.py" --folder "%~dp0."\r\n)\r\npause\r\n')
+    updates[kit / 'OPEN_TEST_LAUNCHER_v58_2.bat'] = opener.encode('utf-8')
+    changed = {path: data for path, data in updates.items() if not path.is_file() or path.read_bytes() != data}
+    backup = kit / 'backup' / 'launcher_v58_2' / core.stamp()
+    originals = {path: path.read_bytes() if path.is_file() else None for path in changed}
+    for path, data in originals.items():
+        if data is not None: core.atomic_write(backup / path.name, data)
+    core.atomic_write(backup / 'RESTORE.json', (json.dumps({
+        'mod': str(kit), 'new_files': [path.name for path,data in originals.items() if data is None],
+        'note': 'Restore backed-up Python files to the mod folder; remove new files only if reverting this update.'
+    }, indent=2) + '\n').encode('utf-8'))
+    applied = []
+    try:
+        for path,data in changed.items():
+            core.atomic_write(path,data); applied.append(path)
+    except OSError:
+        for path in reversed(applied):
+            if originals[path] is None: path.unlink(missing_ok=True)
+            else: core.atomic_write(path,originals[path])
+        raise
+    print(f'Restored launcher 0.17.2: {len(changed)} files. Backup: {backup}', flush=True)
+    print('No game compilation. Runtime, INI values, presets and custom icon are preserved.', flush=True)
+    return backup
+
+
 def select_path(prompt: str, default: Path) -> Path:
     entered = input(f'{prompt} [{default}]: ').strip().strip('"')
     return Path(entered).expanduser().resolve() if entered else default.resolve()
 
 
-def open_editor(kit: Path) -> int:
-    core.probe_exe(kit / 'runtime/rerac.exe', 56)
-    print('Opening the v56 Python test launcher. Use Save and launch to start the game.', flush=True)
+def open_editor(kit: Path, verify_runtime: bool = True) -> int:
+    if verify_runtime:
+        identity = core.probe_exe(kit / 'runtime/rerac.exe', 58)
+        if identity.get('weapon_evolution_patch') != '0.1.6.59':
+            raise ValueError('This test needs the v59 runtime. Run 01_UPDATE_BUILD_AND_OPEN.bat first.')
+    print('Opening the v59 Python test launcher. Use Save and launch to start the game.', flush=True)
     return subprocess.run([sys.executable, str(kit / 'launcher.py'), '--folder', str(kit)], cwd=kit).returncode
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['build', 'open'])
+    parser.add_argument('action', choices=['build', 'open', 'launcher'])
     parser.add_argument('--source', type=Path)
     parser.add_argument('--mod', type=Path)
     args = parser.parse_args()
@@ -139,7 +187,16 @@ def main() -> int:
         if args.action == 'open':
             kit = args.mod or (Path(previous['mod']) if 'mod' in previous else None)
             if kit is None: raise ValueError('Run 01_UPDATE_BUILD_AND_OPEN.bat once first.')
-            return open_editor(kit.resolve())
+            return open_editor(kit.resolve(), verify_runtime=not previous.get('editor_only', False))
+        if args.action == 'launcher':
+            editabile.ensure_closed()
+            kit = args.mod or select_path('Existing launcher folder (launcher.py; source/launcher is supported)', Path(previous.get('mod', r'C:\ReRAC-Mod')))
+            kit = launcher_folder(kit.resolve())
+            install_launcher(PAYLOAD, kit, BUNDLE / 'source-files.json')
+            previous['mod'] = str(kit)
+            previous['editor_only'] = True
+            core.atomic_write(state_file, (json.dumps(previous, indent=2)+'\n').encode('utf-8'))
+            return open_editor(kit, verify_runtime=False)
         if shutil.which('cargo') is None: raise ValueError('Rust/Cargo was not found. Use the x64 Visual Studio developer prompt with Rust installed.')
         editabile.ensure_closed()
         source = args.source or select_path('Existing ReRAC source folder', Path(previous.get('source', r'C:\ReRAC-Mod\rerac')))

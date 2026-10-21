@@ -1,7 +1,7 @@
 {
   "base_workspace_version": "0.3.4",
-  "gameplay_version": "0.1.6.56",
-  "launcher_version": "0.16.0",
+  "gameplay_version": "0.1.6.59",
+  "launcher_version": "0.17.2",
   "supplied_source_archive_sha256": "691ec727930a62463c6bdb9e3161e77f4ce906ec9209a5274cf31bddd4400592",
   "upstream_git_revision": null,
   "baseline": "User-supplied source archive; already contains an earlier Weapon Evolution version.",
@@ -133,11 +133,12 @@
   ],
   "embedded_profile": "Regenerated from the English public default; only used by the optional weapon-evo-release feature.",
   "public_release": "0.3",
-  "configuration_capability": 56,
+  "configuration_capability": 58,
   "attached_update_baseline": {
     "patch": "0.1.6.48",
     "archive_sha256": "62e9389d7a4998d54d62abb0ba0d8e32a0324ce08e007926d13945db66e917c5"
   },
-  "public_update_parent": "2e61e933b36c11a908c095fdf6169df36279bec3",
-  "default_profile": "Latest weapons.ini supplied with the attached v48 kit; copied to default/example and synchronized with the optional embedded profile. Historical delta_paths below describe the original supplied-source export, not the cumulative v49 changes."
+  "public_update_parent": "96cb175b79b85150e2ff0dcdae447ba8797289f5",
+  "default_profile": "Latest weapons.ini supplied with the attached v48 kit; copied to default/example and synchronized with the optional embedded profile. Historical delta_paths below describe the original supplied-source export, not the cumulative v49 changes.",
+  "public_release_build_revision": 2
 }

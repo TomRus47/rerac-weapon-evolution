@@ -34,7 +34,7 @@ class ModeSettingsTests(unittest.TestCase):
         self.assertTrue(all(key not in GLOBAL_EXPERIMENTAL_DEFAULTS for _,key in base))
         self.assertIn(('hud','xp_bar_height_px'), base)
         self.assertNotIn(('general','wrench_gold_texture'), base)
-        self.assertEqual(core.required_config(doc),56)
+        self.assertEqual(core.required_config(doc),58)
 
     def test_probabilities_normalize_without_implicitly_reenabling_zero_types(self):
         values = dict.fromkeys(AMMO_DROP_DEFAULTS, '0')
@@ -97,7 +97,7 @@ class LocalUpdaterTests(unittest.TestCase):
             (self.payload/'launcher'/name).write_bytes((ROOT/'launcher'/name).read_bytes())
         self.manifest=root/'bundle/source-files.json'
         files={p.relative_to(self.payload).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in self.payload.rglob('*') if p.is_file()}
-        self.manifest.write_text(json.dumps({'patch':'0.1.6.56','files':files}))
+        self.manifest.write_text(json.dumps({'patch':'0.1.6.59','files':files}))
         self.ini=(ROOT/'launcher/weapons.default.ini').read_bytes().replace(b'max_ammo = 40',b'max_ammo = 47',1)
         (self.kit/'weapons.ini').write_bytes(self.ini)
         (self.kit/'presets').mkdir();(self.kit/'presets/My build.ini').write_bytes(self.ini)
@@ -121,7 +121,7 @@ class LocalUpdaterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Damaged source'):
             updater.install(self.payload,self.source,self.kit,self.manifest)
         self.assertEqual((self.source/'Cargo.toml').read_bytes(),b'old source')
-        self.manifest.write_text(json.dumps({'patch':'0.1.6.56','files':{'../outside':'bad'}}))
+        self.manifest.write_text(json.dumps({'patch':'0.1.6.59','files':{'../outside':'bad'}}))
         with self.assertRaisesRegex(ValueError,'Unsafe source'):
             updater.source_files(self.payload,self.manifest)
 
@@ -135,7 +135,7 @@ class LocalUpdaterTests(unittest.TestCase):
         write=core.atomic_write
         before=(self.kit/'launcher-settings.json').read_bytes()
         def fail_at_opener(path,data):
-            if path==self.kit/'OPEN_TEST_LAUNCHER_v56.bat': raise OSError('simulated disk failure')
+            if path==self.kit/'OPEN_TEST_LAUNCHER_v59.bat': raise OSError('simulated disk failure')
             return write(path,data)
         with patch.object(core,'atomic_write',side_effect=fail_at_opener):
             with self.assertRaisesRegex(OSError,'simulated'):

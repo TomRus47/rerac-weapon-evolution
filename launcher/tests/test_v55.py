@@ -8,7 +8,7 @@ sys.path.insert(0,str(ROOT/'launcher'))
 import launcher as gui
 import launcher_core as core
 import i18n
-from schema import WEAPON_ORDER,EXPERIMENTAL_ENABLERS,EXPERIMENTAL_DEFAULTS,COLORS,BOOLEANS,field_groups
+from schema import WEAPON_ORDER,EXPERIMENTAL_ENABLERS,EXPERIMENTAL_DEFAULTS,COLORS,BOOLEANS,field_groups,MODEL_NEW_KEYS
 from migrate_ini import convert
 
 class Var:
@@ -69,9 +69,9 @@ class V55Tests(unittest.TestCase):
                 with self.assertRaises(ValueError):core.validate_value(f'weapon.{weapon}.level1','experimental_max_ammo',value)
         with self.assertRaises(ValueError):core.validate_value('weapon.suck_cannon.level1','experimental_max_ammo','11')
         with self.assertRaises(ValueError):core.validate_value('weapon.wrench.level1','experimental_max_ammo','4')
-        self.assertEqual(core.required_config(core.checked_document(self.raw)),56)
+        self.assertEqual(core.required_config(core.checked_document(self.raw)),58)
         doc=core.IniDocument(self.raw)
-        removed={index for (section,key),index in doc.addresses.items() if key=='experimental_max_ammo' or (section.startswith('weapon.wrench.level') and key in {'hit_radius_multiplier','knockback_multiplier'})}
+        removed={index for (section,key),index in doc.addresses.items() if key in MODEL_NEW_KEYS or key=='experimental_max_ammo' or (section.startswith('weapon.wrench.level') and key in {'hit_radius_multiplier','knockback_multiplier'})}
         old=core.checked_document(''.join(line for index,line in enumerate(doc.lines) if index not in removed).encode())
         self.assertEqual(core.required_config(old),54)
     def test_catalogs_cover_all_public_fields_and_weapon_names_in_all_five_languages(self):
@@ -99,6 +99,7 @@ class V55Tests(unittest.TestCase):
         for section in ('weapon.wrench.level1','weapon.bomb_glove.level3','general'):
             for key in ('gold_texture','show_hud','experimental_ammo_unlock_mode'):
                 pair=(section,key);var=Var('false');app.variables[pair]=var;widgets.clear()
+                app.form=Mock();app.form._refresh=[]
                 app.fields(None,section,[key])
                 box=next(w for w in widgets if w.kind=='Combobox')
                 self.assertEqual(box.options['values'],('Off','On'))

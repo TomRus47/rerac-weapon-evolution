@@ -28,3 +28,5 @@ the mod author, the ReRAC developers and the original game's developers clear.
 - Share field/section ordering between INI and editor. Colors always finish their
   own frame; Gold controls immediately precede standard colors. Register experiment
   enablers explicitly and keep runtime alternate-capacity selection in sync.
+
+- Published README, release notes, configuration headers and player instructions must retain the mod-only authorship and original-game rights notice; see docs/mod/CREDITS.md.

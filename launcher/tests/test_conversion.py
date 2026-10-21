@@ -14,7 +14,7 @@ class ProfileTests(unittest.TestCase):
         # The supplied v48 INI is the approved v49 publication baseline.
         canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items() if (s,k) not in new_keys and not s.startswith('weapon.wrench')),ensure_ascii=True).encode()
         self.assertEqual(hashlib.sha256(canonical).hexdigest(),'caf361ea2ac07ceed29750385154ddef52a42275a74343cf29948c7786e4afc0')
-        self.assertEqual(len(d.entries),1359);self.assertEqual(len(d.sections),98)
+        self.assertEqual(len(d.entries),1434);self.assertEqual(len(d.sections),98)
         self.assertEqual(d.entries['general','xp_per_damage'],'0.12')
     def test_public_profile_has_no_damage_model_or_wrench_and_keeps_functioning_opacity(self):
         d=c.profile_document(self.raw)

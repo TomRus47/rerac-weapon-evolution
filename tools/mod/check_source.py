@@ -44,9 +44,9 @@ def check():
     for name in ['rc-game','rc-engine','rc-formats','rc-data','rc-video','rc-extract']:
         if not (ROOT/'crates'/name/'Cargo.toml').is_file():raise ValueError('Missing workspace crate: '+name)
     cap=(ROOT/'crates/rc-engine/src/disc_source.rs').read_text()
-    if '"weapon_evolution_config":56' not in cap:raise ValueError('Missing configuration capability 56.')
+    if '"weapon_evolution_config":58' not in cap:raise ValueError('Missing configuration capability 58.')
     if not (ROOT/'launcher/launcher.ico').is_file():raise ValueError('Missing supplied launcher icon.')
-    if '"weapon_evolution_patch":"0.1.6.56"' not in cap:raise ValueError('Missing v56 runtime identity.')
+    if '"weapon_evolution_patch":"0.1.6.59"' not in cap:raise ValueError('Missing v59 runtime identity.')
     local=['target/release/rerac.exe','extracted/toc.bin','launcher/runtime/rerac.exe',
         'launcher/launcher-settings.json','launcher/weapons.ini','launcher/presets/Personal.ini',
         'launcher/runs/session/weapons.ini','launcher/.launcher-tools/venv/python.exe',

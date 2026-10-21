@@ -23,7 +23,7 @@ def batch(action: str) -> bytes:
                  '  echo ERROR: Visual Studio x64 C++ build tools were not found.\n'
                  '  pause\n  exit /b 2\n)\n')
     text = ('@echo off\nsetlocal DisableDelayedExpansion\ncd /d "%~dp0"\n'
-            'echo Weapon Evolution v56 local test kit\necho No GitHub operations are performed.\n'
+            'echo Weapon Evolution v59 mine model size / local test kit\necho No GitHub operations are performed.\n'
             + setup + 'where py >nul 2>&1\nif not errorlevel 1 (\n'
             '  py -3 "%~dp0source\\tools\\mod\\local_test_update.py" ' + action + ' %*\n'
             ') else (\n  python "%~dp0source\\tools\\mod\\local_test_update.py" ' + action + ' %*\n)\n'
@@ -46,13 +46,14 @@ def main() -> None:
         if path.suffix.lower() in {'.exe','.dll','.pdb','.zip','.iso','.pyc'}:
             raise ValueError('Generated output in source manifest: '+name)
         contents[name]=path.read_bytes()
-    manifest={'patch':'0.1.6.56','files':{name:hashlib.sha256(data).hexdigest() for name,data in contents.items()}}
+    manifest={'patch':'0.1.6.59','files':{name:hashlib.sha256(data).hexdigest() for name,data in contents.items()}}
     args.output.parent.mkdir(parents=True,exist_ok=True)
-    prefix='ReRAC_Weapon_Evolution_v56_Local_Test/'
+    prefix='ReRAC_Weapon_Evolution_v59_Mine_Model_Size/'
     buffer=io.BytesIO()
     with zipfile.ZipFile(buffer,'w',zipfile.ZIP_DEFLATED) as z:
         for name,data in contents.items(): z.writestr(prefix+'source/'+name,data)
         z.writestr(prefix+'source-files.json',json.dumps(manifest,indent=2)+'\n')
+        z.writestr(prefix+'00_RESTORE_LAUNCHER.bat',batch('launcher'))
         z.writestr(prefix+'01_UPDATE_BUILD_AND_OPEN.bat',batch('build'))
         z.writestr(prefix+'02_OPEN_TEST_LAUNCHER.bat',batch('open'))
         z.writestr(prefix+'README_FIRST.txt',(ROOT/'docs/mod/LOCAL_TEST_KIT.md').read_bytes())

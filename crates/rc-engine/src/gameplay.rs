@@ -2406,10 +2406,6 @@ fn tick(
                 *slot = gold;
             }
             p.game.hero.weapons.bomb_evo = Some(stats);
-            let ammo = &mut p.game.hero.weapons.ammo[10];
-            // Only constrain the test inventory, never subtract purchases after they are made.
-            // The vendor and pickup now read the same cap *before* completing a transaction.
-            *ammo = (*ammo).clamp(0, stats.max_ammo);
             svc.bomb_evo.applied_level = level;
         }
         // Weapon Evolution v0.1.3: Pyrocitor's independent level, gold effect and ammo cap.
@@ -2420,17 +2416,14 @@ fn tick(
             p.game.hero.weapons.gold[16] = gold;
             if let Some(slot) = svc.counters.gold_weapons.get_mut(16) { *slot = gold; }
             p.game.hero.weapons.pyro_evo = Some(stats);
-            let ammo = &mut p.game.hero.weapons.ammo[16];
-            *ammo = (*ammo).clamp(0, stats.max_ammo);
         }
         // All other weapons use one active per-level registry, including
         // the quick-select and vendor maximums. Existing game saves untouched.
         let active_extras: Vec<_> = svc.bomb_evo.extras.iter()
             .filter(|t| t.enabled && t.id != 8)
             .map(|t| (t.id as usize,
-                t.params[t.level-1].get("gold_effects").or_else(|| t.params[t.level-1].get("gold")).copied(),
-                t.params[t.level-1].get("max_ammo").copied())).collect();
-        for (id, gold, max) in active_extras {
+                t.params[t.level-1].get("gold_effects").or_else(|| t.params[t.level-1].get("gold")).copied())).collect();
+        for (id, gold) in active_extras {
             if let Some(gold) = gold {
                 let g = u8::from(gold >= 0.5);
                 p.game.hero.weapons.gold[id] = g;
@@ -2438,11 +2431,8 @@ fn tick(
                 // The morph spawn and the chicken AI read this separate mirror.
                 if id == 21 { svc.creatures.react.gold_morph = g; }
             }
-            if let Some(max) = max {
-                let ammo = &mut p.game.hero.weapons.ammo[id];
-                *ammo = (*ammo).clamp(0, max.round() as i32);
-            }
         }
+        svc.bomb_evo.apply_ammo_limits(&mut p.game.hero.weapons);
     }
     // Max health 0x15eda0 (the nanotech orbs heal up to it) and the bolt grabber 0x13d4e2 (item 34: the pickup
         // volume 12 / 4.5).
@@ -2805,7 +2795,25 @@ fn upload_dynamic(
         let id = first + slot;
         let Some(mo) = table.mobys.get(id) else { break };
         if Some(id) == ship { continue; }
-        let ci = (mo.state < 0x80).then(|| d.class_ix.get(&mo.o_class).copied()).flatten();
+        let visual_class=rc_game::moby_update::classes::bomb::visibomb_grenade::visual_class(mo)
+            .or_else(||rc_game::moby_update::classes::mine::experimental::visual_class(mo)).unwrap_or(mo.o_class);
+        let body_color=rc_game::moby_update::classes::bomb::visibomb_grenade::body_color(mo)
+            .or_else(||rc_game::moby_update::classes::mine::experimental::body_color(mo));
+        // Default means this model's packet colors, not the physical bomb's
+        // animated glow. An explicit tint also covers emissive model packets.
+        let render_mode=if body_color.is_some() {mo.mode|0x10} else if visual_class!=mo.o_class {mo.mode&!0x10} else {mo.mode};
+        let render_glow=body_color.unwrap_or(mo.glow);
+        let ci = (mo.state < 0x80).then(|| d.class_ix.get(&visual_class).copied()).flatten();
+        let render_scale=ci.and_then(|ci| {
+            let selected=m.classes[ci].class.header.scale;
+            rc_game::moby_update::classes::mine::experimental::visual_scale(mo,selected)
+                .or_else(||d.class_ix.get(&mo.o_class).map(|&base| {
+                    let native=m.classes[base].class.header.scale;
+                    if native>0. {mo.scale*selected/native} else {mo.scale}
+                }))
+        }).unwrap_or(mo.scale);
+        let mut render_anim=mo.anim.clone();
+        if visual_class!=mo.o_class {render_anim.seq_a=0;render_anim.seq_b=0;render_anim.frame_a=0;render_anim.frame_b=0;render_anim.t=0.;}
         if ci.is_some() { live += 1; }
         // MobyProc: the culls, then the vertex alpha (fade × +0x23), the blend (moby_render::MobyBlend) and the shine
         // gate (+0x73) with its sphere-map basis.
@@ -2816,13 +2824,13 @@ fn upload_dynamic(
             let inp = crate::moby_lod::ProcInput {
                 position: pos3(mo),
                 rows: rows3(&mo.rows),
-                scale: mo.scale,
+                scale: render_scale,
                 draw_distance: mo.draw_dist as i32,
                 lod_trans: c.lod_trans,
                 shine_distance: mo.b73,
                 alpha: mo.alpha,
             };
-            let sphere = crate::moby_lod::world_sphere(&inp, crate::moby_lod::seq_sphere(&m.anim[ci], &mo.anim, c.bsphere));
+            let sphere = crate::moby_lod::world_sphere(&inp, crate::moby_lod::seq_sphere(&m.anim[ci], &render_anim, c.bsphere));
             let v = crate::moby_lod::view_centre(sphere, eye, &rows);
             crate::moby_lod::moby_proc_view(v, sphere[3], &inp, tans).ok().map(|p| {
                 let e = if p.shine > 0 { crate::moby_lod::shine_basis(sphere, eye, &rows, &inp.rows) } else { [[0.0; 3]; 3] };
@@ -2832,8 +2840,8 @@ fn upload_dynamic(
         let ci = pick.map(|p| p.0);
         d.visible[slot] = ci.is_some() as u8;
         d.shown[slot] = ci;
-        let model = moby_render::extra_model(rows3(&mo.rows), mo.scale, pos3(mo));
-        let look = pick.map(|(ci, alpha, fading, shine, e)| (&m.classes[ci], moby_render::SlotLook { model, alpha, fading, mode: mo.mode, glow: mo.glow, shine, e, late: deferred.contains(&id) || mo.mode & 0x800 != 0 }));
+        let model = moby_render::extra_model(rows3(&mo.rows), render_scale, pos3(mo));
+        let look = pick.map(|(ci, alpha, fading, shine, e)| (&m.classes[ci], moby_render::SlotLook { model, alpha, fading, mode: render_mode, glow: render_glow, shine, e, late: deferred.contains(&id) || mo.mode & 0x800 != 0 }));
         d.extra.show_slot(commands, lv, slot as u32, look, meshes, images, materials, buffers);
         let Some(ci) = ci else { continue };
         if mo.o_class == rc_game::moby_update::classes::devastator_missile::CLASS {
@@ -2855,8 +2863,8 @@ fn upload_dynamic(
             d.records[at..at + rec.len()].copy_from_slice(&rec);
             rec_changed = true;
         }
-        let snap = p.svc.snapshots.get(id).and_then(|s| s.as_ref());
-        let f = moby_anim::evaluate_posed(&m.anim[ci], &mo.anim, snap, &[], &mo.joint_mods);
+        let snap = if visual_class==mo.o_class {p.svc.snapshots.get(id).and_then(|s| s.as_ref())} else {None};
+        let f = moby_anim::evaluate_posed(&m.anim[ci], &render_anim, snap, &[], &mo.joint_mods);
         let bytes: Vec<u8> = f.iter().take(d.pal_slots as usize).flat_map(|r| r.iter().flatten().flat_map(|v| v.to_le_bytes())).collect();
         let at = slot * pal_bytes;
         if d.palette[at..at + bytes.len()] != bytes[..] {

@@ -216,14 +216,19 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
         let state = st == super::weapons::THROW && hero.timer == ticks(0x10);
         if arm || look || state {
             // Weapon Evolution v0.1.2: schedule only on successful ammo use.
-            if hero.weapons.use_ammo(id, 1) {
+            // A mine can temporarily have no held object under slot pressure.
+            // Queue its release, then charge only when a real object is ready.
+            // Other gloves retain their native ammo timing.
+            let mine = id == mine::MINE_GLOVE;
+            let can_fire = if mine { hero.weapons.has_ammo(id) != 0 } else { hero.weapons.use_ammo(id, 1) };
+            if can_fire {
                 if id == super::items::item::BOMB_GLOVE {
                     if let Some(stats) = hero.weapons.bomb_evo {
                         let delay = ((stats.cooldown_seconds * 60.0).round() as u64).max(1);
                         hero.weapons.bomb_next_fire = (hero.idle.counter.max(0) as u64).saturating_add(delay);
                     }
                 }
-                hero.fx.item_voices.push(SoundCmd::Voice { index: super::weapons::THROW_VOICE, flags: 0 });
+                if !mine { hero.fx.item_voices.push(SoundCmd::Voice { index: super::weapons::THROW_VOICE, flags: 0 }); }
                 if let Some(it) = hero.items.slot.item.as_mut() { it.mstate = 3; }
             }
         }
@@ -247,6 +252,15 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
                 Empty::Create => {
                     hero.weapons.glove.held = (row.create)(hero, table, env, hits, rng);
                 }
+                Empty::Nothing if id == mine::MINE_GLOVE => {
+                    // State 3 retains this request across failed allocations.
+                    // Aim the new object on the next tick before releasing it.
+                    if hero.weapons.has_ammo(id) == 0 {
+                        set(hero, 4);
+                    } else if hero.weapons.glove.respawn == 0 {
+                        hero.weapons.glove.held = (row.create)(hero, table, env, hits, rng);
+                    }
+                }
                 Empty::Click | Empty::Nothing => {
                     if row.empty == Empty::Click { hero.fx.item_sounds.push(0); }
                     set(hero, 4);
@@ -254,6 +268,10 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
                 }
             },
             Some(b) => {
+                if id == mine::MINE_GLOVE {
+                    if !hero.weapons.use_ammo(id, 1) { set(hero, 4); return; }
+                    hero.fx.item_voices.push(SoundCmd::Voice { index: super::weapons::THROW_VOICE, flags: 0 });
+                }
                 (row.release)(hero, table, env, hits, rng, b, throw);
                 hero.weapons.throws += 1;
                 hero.weapons.glove.held = None;
@@ -287,7 +305,9 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
                 Refill::Ammo => ammo,
                 Refill::AmmoAfterDelay => hero.weapons.glove.respawn == 0 && ammo,
             };
-            if make { hero.weapons.glove.held = (row.create)(hero, table, env, hits, rng); }
+            let pending_mine = id == mine::MINE_GLOVE
+                && hero.items.slot.item.as_ref().is_some_and(|m| m.mstate == 3);
+            if make && !pending_mine { hero.weapons.glove.held = (row.create)(hero, table, env, hits, rng); }
         }
         Some(b) => {
             let h = hero.weapons.glove.hand;
@@ -542,4 +562,51 @@ fn release_canister(_hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits
     let from = [r[0], r[1], t.hand[2]];
     let hit = wall_probe(table, env, hits, from, t.hand);
     doom_canister::release(&mut table.mobys[c], t.hand, hit);
+}
+
+#[cfg(test)]
+mod allocation_tests {
+    use super::*;
+    use super::super::items::{HandItem, HandSlot, ItemClass, ItemData};
+    use crate::moby_runtime::{ClassInfo, Moby};
+    use crate::pad::PadState;
+    use crate::ps2v::Pf;
+    use rc_formats::moby_anim::{AnimState, MobyAnimClass};
+
+    struct Slots;
+    impl HitSink for Slots {
+        fn line(&mut self, _: &mut MobyTable, _: [Pf;4], _: [Pf;4], _: u32, _: Option<MobyId>, _: &crate::moby_update::services::HitTemplate) -> Option<Option<MobyId>> { None }
+        fn sphere(&mut self, _: &mut MobyTable, _: Pf, _: [Pf;4], _: u32, _: Option<MobyId>, _: &crate::moby_update::services::HitTemplate) -> Option<MobyId> { None }
+        fn create_moby(&mut self, table: &mut MobyTable, class: i16, tick: u64) -> Option<MobyId> {
+            table.create(class, Some(&ClassInfo { scale: 1., ..Default::default() }), tick)
+        }
+    }
+
+    #[test]
+    fn queued_mine_waits_for_a_real_slot_and_charges_only_the_successful_release() {
+        let mut hero = Hero::new();
+        let anim = AnimState { seq_a:0, frame_a:0, seq_b:0, frame_b:0, t:0., speed:1., rate:1., flags:0, trigger_count:0, skip_advance:false };
+        hero.items.slot = HandSlot { id:mine::MINE_GLOVE, state:2,
+            item:Some(HandItem { o_class:mine::GLOVE_CLASS, mstate:2, anim, snapshot:None, scale:1., position:[0.,0.,1.], rows:[[0;4];3], hit_timer:0, flight:Default::default() }), ..Default::default() };
+        hero.weapons.glove.warmup=3;
+        hero.weapons.uses_ammo[17]=true; hero.weapons.ammo[17]=5;
+        hero.state=super::super::weapons::THROW;hero.timer=ticks(16);
+        let data=ItemData { classes:vec![ItemClass { o_class:mine::GLOVE_CLASS, scale:1., chains:vec![],
+            anim:MobyAnimClass { joint_count:0, skeleton:vec![], rest:vec![], parent_word:vec![], sequences:vec![] } }], ..Default::default() };
+        let pad=PadState::default();let mut rng=Rng::new();let mut sink=Slots;
+        let mut table=MobyTable::new(vec![Moby::default()],1);
+        let blocker=table.create(577,None,0).unwrap();
+        let anim=crate::hero::RecordingAnim::default();
+        for frame in 0..=5 {
+            if frame==2 {table.delete(blocker,frame as u64);}
+            let env=ItemEnv {data:&data,pad:&pad,frame,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+            update(&mut hero,&mut table,&anim,&env,&mut sink,&mut rng);
+            hero.state=0;hero.timer=0;
+            if frame<5 {assert_eq!(hero.weapons.ammo[17],5);assert_eq!(hero.weapons.throws,0);assert!(hero.fx.item_voices.is_empty());}
+        }
+        assert_eq!((hero.weapons.ammo[17],hero.weapons.used[17],hero.weapons.throws),(4,1,1));
+        assert_eq!(table.mobys[blocker].o_class,mine::CLASS);
+        assert_eq!(table.mobys[blocker].state,mine::OUT);
+        assert_eq!(hero.fx.item_voices.len(),1);
+    }
 }

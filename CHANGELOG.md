@@ -1,3 +1,46 @@
+# Weapon Evolution 0.3 — updated build
+
+Gameplay 0.1.6.59; configuration capability 58; launcher 0.17.2.
+
+- Align experimental ammo consumption and inventory with the displayed capacity.
+- Clear flame-mine lights on respawn and fix enlarged-mine landing/pending throws.
+- Restore normal launcher page rendering and scroll dropdowns without changing selections.
+- Fix guided Visibomb control with increased duration; add independent experimental grenade/mine model palettes.
+- Apply flame-mine size to the native mine, alternate bomb and alternate sphere using each selected model’s reference scale.
+- Include a matching Windows runtime, standalone launcher, source archive and current documentation.
+- Clarify independent mod authorship and original-game rights throughout the published material.
+
+Historical local patch notes follow.
+
+# Local v58.2 (unpublished, launcher 0.17.2)
+
+- Allow launcher restoration directly in source/launcher folders without a game runtime or weapons.ini.
+- Open the restored editor without probing a game; actual game launch keeps its normal validation.
+- Accept a source root or bundle root when it contains the launcher subfolder.
+- Preserve the v57 page restoration, all v58 gameplay changes and existing profiles.
+
+# Local v58.1 (unpublished, launcher 0.17.1)
+
+- Restore the original v57 page, navigation and scrolling lifecycle after incomplete rendering on Windows.
+- Remove page caching, offscreen page construction, background warmup and composited painting.
+- Preserve all v58 model selectors, independent palettes and gameplay fixes.
+- Add a launcher-only restore BAT with backups; no game recompilation is required.
+
+# Local v58 (unpublished)
+
+- Keep complete launcher pages cached; prepare layout changes offscreen and buffer eligible Windows painting.
+- Fix native Visibomb steering with increased flight duration and honor captured turn strength.
+- Add per-grade grenade and flame-mine model selectors with isolated palettes and localized controls.
+- Align the experimental missile model with its rising/falling velocity instead of spinning.
+- Preserve v57 settings, saves, presets, icon and all earlier fixes; require configuration capability 58.
+
+# Local v57 (unpublished)
+
+- Align experimental ammo limits with real inventory and consumption.
+- Clear flame-mine point lights on death reload; resolve enlarged hulls out of floors.
+- Retry pending mine allocation and charge only successful releases.
+- Scroll the launcher page over dropdowns without cycling settings.
+
 ## Weapon Evolution 0.1.6.54 (local test only, launcher 0.14.0)
 
 - Evolve the OmniWrench through five saved grades, with actual hit HP, proportional slam damage, throw range/speed and additive passive bolt attraction.

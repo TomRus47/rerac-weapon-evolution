@@ -33,7 +33,7 @@ fn load(root: &Path) -> Result<Arc<Vec<Asset>>> {
     let gs = crate::disc_source::level_file(root, 1, "gs_ram.bin")?;
     let mut core = rc_formats::level::parse_level_core(&index, data.len())?;
     core.moby_classes
-        .retain(|c| matches!(c.o_class, 1818 | 1633 | 121 | 122 | 1192)
+        .retain(|c| matches!(c.o_class, 1818 | 1633 | 121 | 122 | 1192 | 74 | 172 | 230)
             || rc_game::moby_update::classes::pickup::AMMO_CLASSES.contains(&(c.o_class as i16)));
     let mut assets = Vec::new();
     for class in moby::parse_level_mobys(&core, &data)? {
@@ -90,6 +90,7 @@ fn load(root: &Path) -> Result<Arc<Vec<Asset>>> {
 
 static ENABLED: OnceLock<bool> = OnceLock::new();
 static GRENADE: OnceLock<bool> = OnceLock::new();
+static FLAME_MINE: OnceLock<bool> = OnceLock::new();
 static AMMO_MODE: OnceLock<bool> = OnceLock::new();
 
 pub fn install(
@@ -103,7 +104,8 @@ pub fn install(
         rc_game::moby_update::classes::pickup::AMMO_CLASSES.iter().map(|&c| c as i32).collect()
     } else { vec![1438] }; // R.Y.N.O. ammo is now eligible in ordinary play too.
     if companion { requested.extend([1818, 1633]); }
-    if *GRENADE.get_or_init(||rc_game::weapon_evo::profile_uses_extra(13,"grenade_launcher_enabled")) {requested.extend([121,122,1192]);}
+    if *GRENADE.get_or_init(||rc_game::weapon_evo::profile_uses_extra(13,"grenade_launcher_enabled")) {requested.extend([121,122,1192,74,172]);}
+    if *FLAME_MINE.get_or_init(||rc_game::weapon_evo::profile_uses_extra(17,"flame_mine_enabled")) {requested.extend([121,74,230]);}
     if requested.iter().all(|id| mobys.classes.iter().any(|c| c.o_class == *id))
     {
         return Ok(());

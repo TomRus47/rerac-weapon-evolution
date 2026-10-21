@@ -405,7 +405,7 @@ explosion_damage_radius|Raggio danni in unità. Per R.Y.N.O. 0 conserva il solo 
 flame_mine_enabled|Dopo l'atterraggio sostituisce attivazione, inseguimento ed esplosione con quattro bracci di fuoco rotanti. Ogni mina ha suono spaziale e XP indipendenti.|Après l'atterrissage, remplace activation, poursuite et explosion par quatre bras de feu tournants. Chaque mine a un son spatial et de l'XP indépendants.|Nach Landung ersetzen vier rotierende Flammenarme Aktivierung, Verfolgung und Explosion. Jede Mine hat unabhängigen räumlichen Ton und XP.|Tras aterrizar sustituye activación, persecución y explosión por cuatro brazos de fuego giratorios. Cada mina tiene sonido espacial y XP independientes.
 mine_flame_damage_per_second|HP al secondo di contatto. I bracci della stessa mina non moltiplicano il danno sullo stesso nemico; mine diverse sono indipendenti.|PV par seconde de contact. Les bras d'une même mine ne multiplient pas les dégâts sur un ennemi ; les mines distinctes sont indépendantes.|HP pro Kontaktsekunde. Arme derselben Mine vervielfachen den Schaden am selben Gegner nicht; verschiedene Minen sind unabhängig.|PV por segundo de contacto. Los brazos de la misma mina no multiplican el daño al mismo enemigo; minas diferentes son independientes.
 mine_flame_rotation_degrees_per_second|Velocità di rotazione dei quattro bracci e della mina. 0 mantiene fissa la croce.|Vitesse de rotation des quatre bras et de la mine. 0 garde la croix fixe.|Rotationsgeschwindigkeit der vier Arme und Mine. 0 hält das Kreuz fest.|Velocidad de rotación de los cuatro brazos y la mina. 0 mantiene la cruz fija.
-flame_mine_size_percent|Solo mine sperimentali: 100 originale, 150 predefinito. Altezza da terra proporzionale al modello. Corpo e fiamme ruotano insieme.|Mines expérimentales seulement : 100 original, 150 par défaut. Garde au sol proportionnelle au modèle. Corps et flammes tournent ensemble.|Nur experimentelle Minen: 100 ursprünglich, 150 Standard. Bodenabstand skaliert mit Modell. Körper und Flammen rotieren gemeinsam.|Solo minas experimentales: 100 original, 150 predeterminado. Altura sobre suelo proporcional al modelo. Cuerpo y llamas giran juntos.
+flame_mine_size_percent|Dimensione del modello sperimentale selezionato: mina, bomba o sfera del Guanto del fato. 100 è la dimensione originale del modello, 200 la raddoppia. Distanza dal terreno proporzionale; corpo e fiamme ruotano insieme.|Taille du modèle expérimental choisi : mine, bombe ou sphère du Gant Ravageur. 100 conserve sa taille native, 200 la double. Garde au sol proportionnelle ; corps et flammes tournent ensemble.|Größe jedes gewählten experimentellen Modells: Mine, Bombe oder Kugel des Inferno-Handschuhs. 100 ist die ursprüngliche Modellgröße, 200 verdoppelt sie. Bodenabstand skaliert; Körper und Flammen rotieren gemeinsam.|Tamaño del modelo experimental seleccionado: mina, bomba o esfera del Guante de destrucción. 100 conserva su tamaño original, 200 lo duplica. Altura del suelo proporcional; cuerpo y llamas giran juntos.
 max_active_mines|Numero massimo di mine. Lanciarne un'altra elimina la più vecchia senza esplosione dannosa.|Nombre maximal de mines. En lancer une autre retire la plus ancienne sans explosion dommageable.|Maximale Minenanzahl. Eine weitere entfernt die älteste ohne schädigende Explosion.|Máximo de minas. Lanzar otra retira la más antigua sin explosión dañina.
 mine_lifetime_seconds|Tempo dal lancio alla rimozione automatica, incluso il volo. Vale per mine normali e sperimentali.|Temps du lancer au retrait automatique, vol compris. Concerne mines normales et expérimentales.|Zeit ab Wurf bis automatischer Entfernung einschließlich Flug. Für normale und experimentelle Minen.|Tiempo desde el lanzamiento hasta la retirada automática, incluido vuelo. Para minas normales y experimentales.
 sand_mouse_enabled|Evoca il compagno volante usando munizioni dello Scudo Drone; i suoi danni assegnano XP allo Scudo Drone. Uno solo attivo, comprese le tane originali; un altro tentativo non consuma munizioni.|Invoque le compagnon volant avec les munitions du Dronomatic ; ses dégâts donnent de l'XP au Dronomatic. Un seul actif, tanières d'origine comprises ; une nouvelle tentative ne consomme rien.|Ruft den fliegenden Begleiter mit Abwehr-Drohnen-Munition; sein Schaden gibt der Waffe XP. Nur einer aktiv, einschließlich ursprünglicher Baue; weitere Versuche verbrauchen nichts.|Invoca al acompañante volador con munición del Guante defensor; sus daños dan XP a esa arma. Solo uno activo, incluidas madrigueras originales; otro intento no consume munición.
@@ -461,3 +461,37 @@ def help_text(section,key):
     if key.endswith('_ticks'):text+=' '+HELP_TEXT['ticks'][_language]
     elif key.endswith('_multiplier') and info=='per_grade':text+=' '+HELP_TEXT['multiplier'][_language]
     return address+'\n'+label(key)+' — '+text
+
+
+_MODEL_NAMES = {
+    'Bomb Glove bomb': ('bomb_glove', {'en':'bomb','it':'bomba','fr':'bombe','de':'Bombe','es':'bomba'}),
+    'Mine Glove mine': ('mine_glove', {'en':'mine','it':'mina','fr':'mine','de':'Mine','es':'mina'}),
+    'Visibomb missile': ('visibomb', {'en':'missile','it':'missile','fr':'missile','de':'Rakete','es':'misil'}),
+    'Glove of Doom sphere': ('glove_of_doom', {'en':'glowing sphere','it':'sfera luminosa','fr':'sphère lumineuse','de':'Leuchtkugel','es':'esfera luminosa'}),
+}
+def model_name(name):
+    weapon, nouns = _MODEL_NAMES[name]
+    return weapon_name(weapon) + ' — ' + nouns[_language]
+
+FIELD_LABELS.update(rows('''
+grenade_model|Modello proiettile|Modèle du projectile|Projektilmodell|Modelo del proyectil
+flame_mine_model|Modello mina|Modèle de mine|Minenmodell|Modelo de mina
+'''))
+from schema import MODEL_COLOR_GROUPS as _MODEL_COLORS
+_color_labels = {
+    'body': {'en':'Model color','it':'Colore modello','fr':'Couleur du modèle','de':'Modellfarbe','es':'Color del modelo'},
+    'explosion': {'en':'Explosion color','it':"Colore esplosione",'fr':"Couleur de l’explosion",'de':'Explosionsfarbe','es':'Color de explosión'},
+    'core': {'en':'Inner flame color','it':'Colore interno fiamma','fr':'Couleur du cœur de flamme','de':'Farbe des Flammenkerns','es':'Color del núcleo de llama'},
+    'outer': {'en':'Outer flame color','it':'Colore esterno fiamma','fr':'Couleur extérieure de flamme','de':'Äußere Flammenfarbe','es':'Color exterior de llama'},
+    'burn': {'en':'Persistent flame color','it':'Colore fiamma persistente','fr':'Couleur de flamme persistante','de':'Farbe der Brandflamme','es':'Color de llama persistente'},
+}
+for _groups in _MODEL_COLORS.values():
+    for _group in _groups:
+        for _key in _group:
+            _kind = next((k for k in ('explosion','core','outer','burn') if k in _key), 'body')
+            FIELD_LABELS.setdefault(_key, _color_labels[_kind])
+
+HELP_TEXT.update(rows("""
+grenade_model|Seleziona solo l'aspetto del proiettile sperimentale. Ogni modello conserva i propri colori. Il missile segue la traiettoria senza ruotare su se stesso.|Choisit uniquement l'apparence du projectile expérimental. Chaque modèle conserve ses couleurs. Le missile suit sa trajectoire sans tournoyer.|Wählt nur das Aussehen des experimentellen Projektils. Jedes Modell behält seine Farben. Die Rakete folgt ihrer Flugbahn ohne zu wirbeln.|Selecciona solo la apariencia del proyectil experimental. Cada modelo conserva sus colores. El misil sigue la trayectoria sin girar sobre sí mismo.
+flame_mine_model|Seleziona il modello della mina sperimentale. Ogni modello conserva separatamente i colori del corpo e delle fiamme. Danni e comportamento della mina restano gli stessi.|Choisit le modèle de mine expérimentale. Chaque modèle conserve séparément les couleurs du corps et des flammes. Les dégâts et le comportement restent identiques.|Wählt das Modell der experimentellen Mine. Jedes Modell behält eigene Körper- und Flammenfarben. Schaden und Verhalten bleiben gleich.|Selecciona el modelo de mina experimental. Cada modelo conserva por separado los colores del cuerpo y de las llamas. El daño y el comportamiento no cambian.
+"""))

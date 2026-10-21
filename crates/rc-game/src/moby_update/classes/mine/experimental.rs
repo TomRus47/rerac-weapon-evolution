@@ -18,7 +18,9 @@ const LIGHT_SLOT: usize = 0xb4;
 const LIGHT_GENERATION: usize = 0xb8;
 const SIZE_PERCENT: usize = 0xbc;
 const BASE_SCALE: usize = 0xc0;
-const LEN: usize = 0xc4;
+const MODEL: usize = 0xc4;
+const BODY_COLOR: usize = 0xc8;
+const LEN: usize = 0xcc;
 
 pub fn snapshot(m: &mut crate::moby_runtime::Moby) {
     snapshot_configured(m, |key,native|crate::weapon_evo::extra(17,key,native), |key|crate::weapon_evo::extra_color(17,key));
@@ -28,6 +30,10 @@ fn snapshot_configured(m:&mut crate::moby_runtime::Moby,value:impl Fn(&str,f32)-
     m.pvars.resize(LEN.max(m.pvars.len()), 0);
     p::set_ff(&mut m.pvars,BASE_SCALE,base_scale);
     p::set_u32(&mut m.pvars, TAG_AT, TAG);
+    let model=value("flame_mine_model",0.) as u32;
+    p::set_u32(&mut m.pvars,MODEL,model);
+    let body=match model {1=>"mine_bomb_color",2=>"mine_sphere_color",_=>"mine_model_color"};
+    p::set_i32(&mut m.pvars,BODY_COLOR,color(body).map_or(-1,|v|v as i32));
     p::set_i32(&mut m.pvars, LIGHT_SLOT, -1);
     p::set_u32(
         &mut m.pvars,
@@ -69,7 +75,10 @@ fn snapshot_configured(m:&mut crate::moby_runtime::Moby,value:impl Fn(&str,f32)-
         p::set_i32(
             &mut m.pvars,
             off,
-            color(key).map_or(-1, |rgb| rgb as i32),
+            color(match (model,key) {
+                (1,"flame_core_color")=>"mine_bomb_core_color", (1,"flame_outer_color")=>"mine_bomb_outer_color", (1,"burn_flame_color")=>"mine_bomb_burn_color",
+                (2,"flame_core_color")=>"mine_sphere_core_color", (2,"flame_outer_color")=>"mine_sphere_outer_color", (2,"burn_flame_color")=>"mine_sphere_burn_color", _=>key,
+            }).map_or(-1, |rgb| rgb as i32),
         );
     }
 }
@@ -96,6 +105,22 @@ pub(super) fn flame_colors(m: &crate::moby_runtime::Moby) -> [Option<u32>; 2] {
     [color(m, CORE), color(m, OUTER)]
 }
 
+pub fn body_color(m:&crate::moby_runtime::Moby)->Option<u32> {
+    visual_class(m).and_then(|_|color(m,BODY_COLOR))
+}
+pub fn visual_class(m:&crate::moby_runtime::Moby)->Option<i16> {
+    if m.o_class!=CLASS || !valid(m) || p::u32(&m.pvars,FLAGS)==0 {return None;}
+    Some(match p::u32(&m.pvars,MODEL) {1=>super::super::bomb::BOMB_CLASS,2=>super::super::doom_canister::CLASS,_=>CLASS})
+}
+
+/// Apply the captured percentage to the selected model's own native scale.
+/// Alternate meshes must not inherit the physical mine's held/release scaling.
+/// Native mines retain their existing deployed size and collision behavior.
+pub fn visual_scale(m:&crate::moby_runtime::Moby,model_native_scale:f32)->Option<f32> {
+    let selected=visual_class(m)?;
+    Some(if selected==CLASS {m.scale} else {model_native_scale*p::ff(&m.pvars,SIZE_PERCENT)/100.})
+}
+
 pub(super) fn retire(w: &mut World, id: MobyId) {
     release_loop(w, id);
     if let Some(slot) = owned_light(w, id) {
@@ -116,6 +141,10 @@ pub(super) fn update(w: &mut World, id: MobyId) -> bool {
         let hp = c::pf(w, id, HP);
         w.svc.hits.real_hp.set_source_damage_hp(id, 17, hp);
         return false;
+    }
+    if let Some(color)=color(w.m(id),BODY_COLOR) {
+        let rgb=crate::weapon_evo::rgb_float(color).map(|v|(v*127.).round() as u8);
+        let m=w.mm(id);m.ambient=[rgb[0],rgb[1],rgb[2],0];m.glow=0xff000000|color;
     }
     if w.m(id).cmd != 0 || w.get_hit(id, 1, false).is_some() {
         retire(w, id);
@@ -241,8 +270,8 @@ fn flight(w: &mut World, id: MobyId) {
     };
     if let Some(hit) = hit {
         if hit.surface_id()==0 {retire(w,id);return;}
-        let mut normal = c::set_len3([hit.normal[0],hit.normal[1],hit.normal[2],0.0],1.0);
-        if c::dot3(normal,vel)>0.0 {normal=c::scale(normal,-1.0);}
+        let normal = contact_normal(&hit, old);
+        if departing_surface(w, id, &hit, normal, new, vel, body_radius) { return; }
         let point=[hit.point[0],hit.point[1],hit.point[2],1.0];
         if normal[2]>=0.5 && vel[2]<=0.0 {
             c::set_pos(w,id,c::add(point,c::scale(normal,landed_height)));
@@ -262,9 +291,10 @@ fn flight(w: &mut World, id: MobyId) {
         // A sphere at the next centre catches a grazing face missed by the two
         // segment probes. The downward support probe uses the same terrain mask.
         if let Some(hit)=w.coll_sphere(pvq(new),Pf::f(body_radius),flags,Some(id)) {
-            let mut normal=c::set_len3([hit.normal[0],hit.normal[1],hit.normal[2],0.0],1.0);
-            if c::dot3(normal,vel)>0.0 {normal=c::scale(normal,-1.0);}
-            if normal[2]>=0.5 && vel[2]<=0.0 && hit.surface_id()!=0 {
+            let normal = contact_normal(&hit, old);
+            if hit.surface_id() == 0 { retire(w, id); return; }
+            if departing_surface(w, id, &hit, normal, new, vel, body_radius) { return; }
+            if normal[2]>=0.5 && vel[2]<=0.0 {
                 let point=[hit.point[0],hit.point[1],hit.point[2],1.0];
                 c::set_pos(w,id,c::add(point,c::scale(normal,landed_height)));
                 w.mm(id).state=OUT|LANDED;
@@ -273,7 +303,6 @@ fn flight(w: &mut World, id: MobyId) {
                 orient(w,id,normal);
                 return;
             }
-            if hit.surface_id()==0 {retire(w,id);return;}
             let point=[hit.point[0],hit.point[1],hit.point[2],1.0];
             c::set_pos(w,id,c::add(point,c::scale(normal,body_radius+0.02)));
             vel=c::scale(reflect(vel,normal),0.5);vel[2]-=DT2*9.8;
@@ -285,6 +314,29 @@ fn flight(w: &mut World, id: MobyId) {
         c::set_pv4(w,id,pv::VEL,vel);
     }
     if !c::projectile::in_world(c::pos(w,id)) {retire(w,id);}
+}
+
+/// Choose the side occupied by the previous centre, rather than reversing the
+/// face normal to oppose velocity. A large mine can initially overlap a floor
+/// while rising: that is separation, not a downward bounce through the floor.
+fn contact_normal(hit: &crate::collision_query::CollOutput, old: V) -> V {
+    let normal = c::set_len3([hit.normal[0], hit.normal[1], hit.normal[2], 0.0], 1.0);
+    let point = [hit.point[0], hit.point[1], hit.point[2], 1.0];
+    if c::dot3(normal, c::sub(old, point)) < 0.0 { c::scale(normal, -1.0) } else { normal }
+}
+
+/// Resolve residual hull penetration while preserving outward launch velocity.
+/// Incoming contacts continue through the existing landing/bounce path.
+fn departing_surface(w: &mut World, id: MobyId, hit: &crate::collision_query::CollOutput,
+                     normal: V, new: V, mut vel: V, radius: f32) -> bool {
+    if c::dot3(normal, vel) <= 0.0 { return false; }
+    let point = [hit.point[0], hit.point[1], hit.point[2], 1.0];
+    let depth = (radius + 0.02 - c::dot3(c::sub(new, point), normal)).max(0.0);
+    c::set_pos(w, id, c::add(new, c::scale(normal, depth)));
+    vel[2] -= DT2 * 9.8;
+    c::set_pv4(w, id, pv::VEL, vel);
+    if !c::projectile::in_world(c::pos(w, id)) { retire(w, id); }
+    true
 }
 
 fn capsule_contains(a: V, b: V, p: V, r: f32) -> bool {
@@ -309,6 +361,71 @@ fn owned_light(w: &World, id: MobyId) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn every_flame_mine_model_uses_its_own_scale_and_the_captured_percentage_for_all_grades() {
+        for model in 0..=2 {
+            for percent in [50.,100.,150.,200.,500.] {
+                let (mut b,id)=dropped_mine(12.,0.02);
+                let base=b.table.mobys[id].scale;
+                let config=|key:&str,native|match key {"flame_mine_enabled"=>1.,"flame_mine_model"=>model as f32,"flame_mine_size_percent"=>percent,_=>native};
+                snapshot_configured(&mut b.table.mobys[id],config,|_|None);
+                let selected_native_scale=[13.,29.,71.][model];
+                let expected=if model==0 {base*percent/100.} else {selected_native_scale*percent/100.};
+                assert!((visual_scale(&b.table.mobys[id],selected_native_scale).unwrap()-expected).abs()<0.00001,"model {model}, size {percent}");
+                snapshot_configured(&mut b.table.mobys[id],config,|_|None);
+                assert!((visual_scale(&b.table.mobys[id],selected_native_scale).unwrap()-expected).abs()<0.00001,"repeated snapshot compounded size");
+                b.tick(None);
+                assert!((visual_scale(&b.table.mobys[id],selected_native_scale).unwrap()-expected).abs()<0.00001,"flight lost captured size");
+                assert_eq!(b.table.mobys[id].o_class,CLASS);
+                assert_eq!(p::ff(&b.table.mobys[id].pvars,SIZE_PERCENT),percent);
+            }
+        }
+        assert_eq!(visual_scale(&crate::moby_runtime::Moby::default(),29.),None);
+    }
+
+    #[test]
+    fn visual_models_keep_native_mine_identity_and_capture_only_their_own_palette() {
+        for model in 0..=2 {
+            let (mut b,id)=dropped_mine(12.,0.02);
+            let colors=|key:&str|match key {
+                "mine_model_color"|"flame_core_color"|"flame_outer_color"|"burn_flame_color"=>Some(0xff0000),
+                "mine_bomb_color"|"mine_bomb_core_color"|"mine_bomb_outer_color"|"mine_bomb_burn_color"=>Some(0x00ff00),
+                "mine_sphere_color"|"mine_sphere_core_color"|"mine_sphere_outer_color"|"mine_sphere_burn_color"=>Some(0x0000ff),_=>None};
+            snapshot_configured(&mut b.table.mobys[id],|key,native|match key {"flame_mine_enabled"=>1.,"flame_mine_model"=>model as f32,_=>native},colors);
+            let expected=Some([0xff0000,0x00ff00,0x0000ff][model]);
+            let m=&b.table.mobys[id];assert_eq!(m.o_class,CLASS);
+            assert_eq!(body_color(m),expected);assert_eq!(flame_colors(m),[expected;2]);assert_eq!(burn_color(m),expected);
+            assert_eq!(visual_class(m),Some([CLASS,crate::moby_update::classes::bomb::BOMB_CLASS,crate::moby_update::classes::doom_canister::CLASS][model]));
+            b.tick(None);assert_eq!(b.table.mobys[id].glow,0xff000000|expected.unwrap());
+            // A default color in the selected palette never borrows another model's red.
+            snapshot_configured(&mut b.table.mobys[id],|key,native|match key {"flame_mine_enabled"=>1.,"flame_mine_model"=>model as f32,_=>native},|key|if key=="unused_color" {Some(0xff0000)}else{None});
+            assert_eq!(flame_colors(&b.table.mobys[id]),[None;2]);
+        }
+    }
+    #[test]
+    fn double_size_mine_exits_initial_floor_overlap_without_bouncing_underground() {
+        // Slow rise exercises the hull-sphere fallback; faster rise crosses
+        // the floor with the bottom sweep. Both previously flipped downward.
+        for vz in [0.005, 0.08] {
+            let (mut b, id) = dropped_mine(8.45, vz);
+            snapshot_configured(&mut b.table.mobys[id], |key, native| match key {
+                "flame_mine_enabled" => 1.0,
+                "flame_mine_size_percent" => 200.0,
+                _ => native,
+            }, |_| None);
+            b.tick(None);
+            assert!(!b.table.mobys[id].is_deleted());
+            assert!(b.table.mobys[id].position[2] >= 8.49, "mine below floor: {:?}", b.table.mobys[id].position);
+            assert!(p::v4f(&b.table.mobys[id].pvars, pv::VEL)[2] > 0.0, "launch was reversed");
+            for _ in 0..180 {
+                b.tick(None);
+                if b.table.mobys[id].state & LANDED != 0 { break; }
+            }
+            assert!(!b.table.mobys[id].is_deleted());
+            assert_ne!(b.table.mobys[id].state & LANDED, 0);
+            assert!(b.table.mobys[id].position[2] >= 8.79);
+        }
+    }
     #[test]
     fn size_is_idempotent_and_body_tracks_flame_rotation() {
         let (mut b,id)=dropped_mine(12.,-10.);let base=b.table.mobys[id].scale;
@@ -410,5 +527,29 @@ mod tests {
         assert_eq!(a.evolution.unwrap().weapon, 17);
         assert!(events.take(0, u32::MAX).is_none());
         table.mobys[0].state = 0xfd;
+    }
+}
+
+#[cfg(test)]
+mod reload_tests {
+    #[test]
+    fn death_table_reset_detaches_flame_mine_lights_and_allows_safe_slot_reuse() {
+        let mut svc=crate::moby_update::services::Services::new();
+        let light=crate::point_lights::PointLight {color:[1.,0.5,0.1],intensity:0.5,pos:[20.,20.,9.],radius:8.};
+        let mut lists=crate::point_lights::WorldLightLists::new(&crate::point_lights::WorldSpheres {ties:vec![[20.,20.,9.,1.]],..Default::default()});
+        let spheres=crate::point_lights::WorldSpheres {ties:vec![[20.,20.,9.,1.]],..Default::default()};
+        let slot=svc.point_lights.alloc(light,0.).unwrap();
+        let generation=svc.point_lights.generation[slot];
+        assert!(lists.update(&svc.point_lights,&spheres));
+        assert_ne!(lists.ties[0],crate::point_lights::NO_LIGHTS);
+        svc.reset_moby_transients();
+        assert_eq!(svc.point_lights.active().count(),0);
+        assert!(lists.update(&svc.point_lights,&spheres));
+        assert_eq!(lists.ties[0],crate::point_lights::NO_LIGHTS);
+        assert_eq!(svc.point_lights.generation[slot],generation);
+        assert_eq!(svc.point_lights.alloc(light,0.),Some(slot));
+        assert_ne!(svc.point_lights.generation[slot],generation);
+        svc.reset_moby_transients();svc.reset_moby_transients();
+        assert_eq!(svc.point_lights.active().count(),0);
     }
 }

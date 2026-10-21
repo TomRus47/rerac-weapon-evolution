@@ -85,12 +85,21 @@ pub mod pv {
 const EVO_TAG:usize=0xd0;
 const EVO_RADIUS:usize=0xd4;
 const EVO_DAMAGE:usize=0xd8;
-const EVO_LEN:usize=0xdc;
+const EVO_FLIGHT:usize=0xdc;
+const EVO_TURN:usize=0xe0;
+const EVO_LEN:usize=0xe4;
 const EVO_MAGIC:u32=0x56423533;
 fn snapshot_blast(m:&mut crate::moby_runtime::Moby,radius:f32,damage:f32) {
     m.pvars.resize(EVO_LEN.max(m.pvars.len()),0);
     p::set_u32(&mut m.pvars,EVO_TAG,EVO_MAGIC);
     p::set_ff(&mut m.pvars,EVO_RADIUS,radius);p::set_ff(&mut m.pvars,EVO_DAMAGE,damage);
+}
+fn flight_duration(w:&World,id:MobyId)->i32 {
+    let m=w.m(id);
+    if m.pvars.len()>=EVO_LEN && p::i32(&m.pvars,EVO_FLIGHT)>0 {p::i32(&m.pvars,EVO_FLIGHT)} else {w.ticks(FLIGHT)}
+}
+fn turn_strength(m:&crate::moby_runtime::Moby)->f32 {
+    if m.pvars.len()>=EVO_LEN && p::i32(&m.pvars,EVO_FLIGHT)>0 {p::ff(&m.pvars,EVO_TURN)} else {crate::weapon_evo::extra(13,"turn_multiplier",1.)}
 }
 fn blast_radius(m:&crate::moby_runtime::Moby)->f32 {
     if m.pvars.len()>=EVO_LEN && p::u32(&m.pvars,EVO_TAG)==EVO_MAGIC {p::ff(&m.pvars,EVO_RADIUS)} else {crate::weapon_evo::extra(13,"explosion_damage_radius",4.)}
@@ -289,6 +298,8 @@ pub fn launch(w: &mut World, yaw: f32, pitch: f32, gun: [f32; 3], point: [f32; 3
     w.svc.interact.force_prompt(6, 0);
     let damage=6.*crate::weapon_evo::extra(13,"damage_multiplier",1.);
     snapshot_blast(w.mm(id),crate::weapon_evo::extra(13,"explosion_damage_radius",4.),damage);
+    p::set_i32(&mut w.mm(id).pvars,EVO_FLIGHT,t3000);
+    p::set_ff(&mut w.mm(id).pvars,EVO_TURN,crate::weapon_evo::extra(13,"turn_multiplier",1.));
     w.svc.hits.real_hp.set_source_damage_hp(id,13,damage*100.);
     Some(id)
 }
@@ -446,7 +457,7 @@ pub fn update(w: &mut World, id: MobyId) {
     let bend = ((ts - (CRUISE * DT) / (BOOST * DT - CRUISE * DT)) * 100.0) as i32;
     let voice = p::i32(&w.m(id).pvars, pv::VOICE);
     w.set_pitch_bend(voice, bend);
-    let t3000 = w.ticks(FLIGHT);
+    let t3000 = flight_duration(w,id);
     // Steering.
     if timer > 0 && timer < t3000 - w.ticks(5) {
         let st = [w.hero.stick[0].to_f32(), w.hero.stick[1].to_f32()];
@@ -457,14 +468,14 @@ pub fn update(w: &mut World, id: MobyId) {
         p::set_ff(&mut m.pvars, pv::STICK_Y, sy);
         p::set_ff(&mut m.pvars, pv::STICK_X, sx);
         m.rotation[0] += (sx - m.rotation[0]) * (SPEED_K * f32::from_bits(0x3d75_c28f));
-        let mut pitch = wrap(m.rotation[1] - sy * (SPEED_K * TURN * crate::weapon_evo::extra(13, "turn_multiplier", 1.0)));
+        let mut pitch = wrap(m.rotation[1] - sy * (SPEED_K * TURN * turn_strength(m)));
         if FRAC_PI_2 <= pitch {
             pitch = PITCH_LIMIT;
         } else if pitch <= -FRAC_PI_2 {
             pitch = -PITCH_LIMIT;
         }
         m.rotation[1] = pitch;
-        m.rotation[2] = wrap(m.rotation[2] - sx * (SPEED_K * TURN * crate::weapon_evo::extra(13, "turn_multiplier", 1.0)));
+        m.rotation[2] = wrap(m.rotation[2] - sx * (SPEED_K * TURN * turn_strength(m)));
         // 0x26eec8(0.2, m): the blob shadow.
         crate::shadows::blob(w, 0.2, id);
     }
@@ -547,7 +558,7 @@ fn explode(w: &mut World, id: MobyId, on_hero: bool, timer: i32) {
         fx::beam_explosion(w, &b, Some(id), pos);
         crate::moby_update::creature::attack::area_hit(w, blast_radius(w.m(id)), pos, id, blast_damage(w.m(id)), 1.0, 1.0, None, 0x83_0000, 3, 2);
     }
-    let t3000 = w.ticks(FLIGHT);
+    let t3000 = flight_duration(w,id);
     let short = t3000 - w.ticks(30) < timer;
     let t100 = w.ticks(100);
     {
@@ -612,6 +623,27 @@ pub fn explosion(w: &mut World, id: MobyId) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn longer_flight_still_steers_after_warmup_and_honors_turn_strength() {
+        use crate::moby_update::classes::bomb_water::tests::{Bench,pool};
+        fn yaw(duration:i32,turn:f32)->f32 {
+            let mut b=Bench::new(pool(8.,-100.),&[CLASS],[40.,40.,20.]);
+            b.hero.grounded_ticks=10;b.hero.stick[0]=Pf::ONE;
+            let id=b.create(CLASS);let m=&mut b.table.mobys[id];
+            m.state=1;m.update_dist=0xff;m.position=[20.,20.,20.,1.];m.pvars.resize(pv::SIZE,0);
+            snapshot_blast(m,4.,6.);
+            p::set_i32(&mut m.pvars,EVO_FLIGHT,duration);p::set_ff(&mut m.pvars,EVO_TURN,turn);
+            p::set_i32(&mut m.pvars,pv::TIMER,duration);p::set_i32(&mut m.pvars,pv::VOICE,-1);
+            for _ in 0..20 {b.tick(None);}
+            assert!(!b.table.mobys[id].is_deleted());
+            b.table.mobys[id].rotation[2]
+        }
+        let native=yaw(3000,1.);let longer=yaw(6000,1.);let stronger=yaw(6000,3.);
+        assert!(native.abs()>0.001,"no steering");
+        assert!((native-longer).abs()<0.000001,"duration changed steering warmup");
+        assert!((stronger-native*3.).abs()<0.00001,"turn multiplier was ignored");
+    }
 
     #[test]
     fn blast_snapshot_does_not_overwrite_native_fin_records() {

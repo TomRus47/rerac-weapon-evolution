@@ -56,7 +56,7 @@ class V44Tests(unittest.TestCase):
         for pair,value in edits.items():self.assertEqual(after.entries[pair],value)
         self.assertEqual(after.entries['weapon.suck_cannon.level1','suck_steel_crates'],'true')
         self.assertEqual(after.entries['weapon.tesla_claw.level2','dual_beam_enabled'],'false')
-        self.assertEqual(core.required_config(after),56)
+        self.assertEqual(core.required_config(after),58)
     def test_future_experiments_automatically_follow_existing_standard_fields(self):
         fields=EXPERIMENTAL_DEFAULTS.setdefault('blaster',{})
         try:

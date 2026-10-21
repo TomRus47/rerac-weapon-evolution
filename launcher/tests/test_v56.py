@@ -4,7 +4,7 @@ import sys,unittest
 from unittest.mock import Mock
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'launcher'))
 import launcher as gui,launcher_core as core,i18n
-from schema import WEAPON_ORDER,EDITOR_WEAPONS,XP,field_groups
+from schema import WEAPON_ORDER,EDITOR_WEAPONS,XP,field_groups,MODEL_NEW_KEYS
 from migrate_ini import convert
 class V56Tests(unittest.TestCase):
     def setUp(self):
@@ -32,15 +32,15 @@ class V56Tests(unittest.TestCase):
         self.assertEqual(doc.sections[:3],['general','hud','weapon.wrench'])
     def test_old_profiles_gain_ten_identity_values_and_preserve_every_other_setting(self):
         doc=core.checked_document(self.raw)
-        removed={i for (s,k),i in doc.addresses.items() if s.startswith('weapon.wrench.level') and k in {'hit_radius_multiplier','knockback_multiplier'}}
+        removed={i for (s,k),i in doc.addresses.items() if s.startswith('weapon.wrench.level') and k in {'hit_radius_multiplier','knockback_multiplier'} or k in MODEL_NEW_KEYS}
         old=b'\xef\xbb\xbf'+''.join(line for i,line in enumerate(doc.lines) if i not in removed).replace('\n','\r\n').encode()
         before=core.checked_document(old);result=convert(old)[0];after=core.checked_document(result)
-        self.assertEqual(len(after.entries)-len(before.entries),10)
+        self.assertEqual(len(after.entries)-len(before.entries),85)
         for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value)
         for grade in range(1,6):
             for key in ('hit_radius_multiplier','knockback_multiplier'):self.assertEqual(after.entries[f'weapon.wrench.level{grade}',key],'1')
         self.assertEqual(convert(result)[0],result);self.assertIn(b'\r\n',result);self.assertTrue(result.startswith(b'\xef\xbb\xbf'))
-        self.assertEqual(core.required_config(before),55);self.assertEqual(core.required_config(after),56)
+        self.assertEqual(core.required_config(before),55);self.assertEqual(core.required_config(after),58)
     def test_independent_grade_settings_limits_and_translated_help(self):
         doc=core.checked_document(self.raw);edits={}
         for n in range(1,6):
