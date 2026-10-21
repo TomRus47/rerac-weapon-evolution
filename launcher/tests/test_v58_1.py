@@ -58,7 +58,7 @@ class LauncherRestoreTests(unittest.TestCase):
     def test_failed_write_rolls_back_the_python_files_and_leaves_runtime_untouched(self):
         write=u.core.atomic_write
         def fail(path,data):
-            if path==self.kit/'OPEN_TEST_LAUNCHER_v58_2.bat':raise OSError('simulated disk failure')
+            if path.resolve()==(self.kit/'OPEN_TEST_LAUNCHER_v58_2.bat').resolve():raise OSError('simulated disk failure')
             return write(path,data)
         with patch.object(u.core,'atomic_write',side_effect=fail):
             with self.assertRaises(OSError):u.install_launcher(self.payload,self.kit,self.manifest)

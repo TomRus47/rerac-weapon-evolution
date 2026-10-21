@@ -1855,7 +1855,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "020739b752706f9972d53c7430c0ebabdb035ef8d4b698d3f1d2a82ea343a1f3"
+      "sha256": "28e00a7ce906220c1fd50c21d33734d1969eb1aa86900457114d85c3f1e6c636"
     },
     {
       "path": "launcher/weapons.default.ini",
@@ -1883,7 +1883,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "f05baad03d9fee911034ed14d2189578bb0c60684f715838110c7f41b414d330"
+      "sha256": "d63ea2e3ede41be49b503143857a2b8ff40a96c990e12a983374a05bf2324c97"
     },
     {
       "path": "tools/mod/check_source.py",
