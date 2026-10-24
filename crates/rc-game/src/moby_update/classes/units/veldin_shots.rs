@@ -567,7 +567,7 @@ pub fn aura_update(w: &mut World, id: MobyId) {
     let ph = c::pf(w, id, aura_pv::PHASE) + 2.0 * DT;
     c::set_pf(w, id, aura_pv::PHASE, ph);
     if w.counter & 4 == 0 {
-        if let Some(b) = link(w, id, aura_pv::BOSS) { attack::sphere_hit(w, r, 1.0, 1.0, b, p, 0x1_0000, 0, 1, 0); }
+        if let Some(b) = link(w, id, aura_pv::BOSS) { attack::sphere_hit(w, r, 10.0, 1.0, b, p, 0x1_0000, 0, 1, 0); }
     }
     // `RegisterDrawCallback(0x2dc4b8)`: the bands ([`aura_quads`]).
     if let Some(row) = super::row(REFERENCE_LEVEL, AURA_DRAW_FN) { w.svc.draw_callbacks.register(Callback::UnitQuads(row), id); }
