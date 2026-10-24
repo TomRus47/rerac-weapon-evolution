@@ -74,7 +74,7 @@ pub mod st {
 const K_ROLL: f32 = 2.5;
 
 /// The contact blast.
-pub const LARGE: Beam = Beam { damage_r: 1.5, damage: 3.0, flash: 3.0, flash2: 1.5, flash_dist: 9.0, scale: 1.5, light: 0.0, streaks: 20, sparks: 6, puffs: 0x20, debris: 0, sound: 1, shake: true };
+pub const LARGE: Beam = Beam { damage_r: 1.5, damage: crate::hero::damage::boss_damage(1.0, 3.0), flash: 3.0, flash2: 1.5, flash_dist: 9.0, scale: 1.5, light: 0.0, streaks: 20, sparks: 6, puffs: 0x20, debris: 0, sound: 1, shake: true };
 /// The blast of a hit, of the fuse, or of Ratchet near a falling mine.
 pub const SMALL: Beam = Beam { damage_r: 0.0, damage: 0.0, flash: 1.0, flash2: 0.5, flash_dist: 9.0, scale: 0.5, light: 0.0, streaks: 5, sparks: 2, puffs: 8, debris: 0, sound: 1, shake: false };
 
