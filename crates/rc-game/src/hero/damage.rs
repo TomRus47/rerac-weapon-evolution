@@ -166,11 +166,22 @@ fn scale_motion(h: &mut Hero, k: Pf) {
     h.speed = h.speed * k;
 }
 
+/// Enables the modded boss damage values. Disabled by default: vanilla damage is unchanged.
+/// Set RC_BOSS_EXTRA_DAMAGE=1 in the launcher environment to opt in.
+pub fn boss_extra_damage_enabled() -> bool {
+    std::env::var("RC_BOSS_EXTRA_DAMAGE").is_ok_and(|v| matches!(v.trim(), "1" | "true" | "on"))
+}
+
+/// Select a boss attack's vanilla or boosted damage without touching other enemies.
+pub fn boss_damage(vanilla: f32, boosted: f32) -> f32 {
+    if boss_extra_damage_enabled() { boosted } else { vanilla }
+}
+
 /// `HeroTakeDamage(n)` 0x226fa8: `n ≠ 0` takes `min(n, 1)` (a negative n gives health back), health ≥ 0; the
 /// HUD's health show `HudShowHealth` follows the change (the HUD watches the health).
 pub fn take_damage(h: &mut Hero, n: i32) {
     if n == 0 { return; }
-    let d = n;
+    let d = if boss_extra_damage_enabled() { n } else if n < 2 { n } else { 1 };
     h.health = (h.health - d).max(0);
 }
 
