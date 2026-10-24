@@ -166,10 +166,10 @@ fn scale_motion(h: &mut Hero, k: Pf) {
     h.speed = h.speed * k;
 }
 
-/// Boss-specific damage activates with the existing real-HP enemy damage mode.
+/// Boss-specific damage activates with the existing launcher enemy_damage_by_health switch.
 /// No separate boss damage toggle is needed.
 pub fn boss_extra_damage_enabled() -> bool {
-    crate::weapon_evo::real_hp_active()
+    crate::weapon_evo::extra_flag(-1, "enemy_damage_by_health", false)
 }
 
 /// Select a boss attack's vanilla or boosted damage without touching other enemies.
