@@ -201,7 +201,7 @@ fn burst(w: &mut World, id: MobyId) {
     let k = c::pi32(w, id, lob_pv::KIND);
     let big = k & 1 != 0;
     let r = if k & 4 != 0 { 0.0 } else { 1.5 };
-    let b = fx::Beam { damage_r: r, damage: 5.0, flash: if big { 4.0 } else { 2.0 }, flash2: if big { 2.0 } else { 1.0 }, flash_dist: 9.0, scale: if big { 2.0 } else { 0.75 }, light: 5.0, streaks: 0x14, sparks: 6, puffs: 0x20, debris: 0, sound: 1, shake: false };
+    let b = fx::Beam { damage_r: r, damage: crate::hero::damage::boss_damage(1.0, 5.0), flash: if big { 4.0 } else { 2.0 }, flash2: if big { 2.0 } else { 1.0 }, flash_dist: 9.0, scale: if big { 2.0 } else { 0.75 }, light: 5.0, streaks: 0x14, sparks: 6, puffs: 0x20, debris: 0, sound: 1, shake: false };
     let p = c::pos(w, id);
     fx::beam_explosion(w, &b, Some(id), p);
     if r != 0.0 && w.body() == 2 { attack::sphere_hit(w, 2.0, 3.0, 1.0, id, p, 2, 0, 1, 0); }
@@ -561,13 +561,13 @@ pub fn aura_update(w: &mut World, id: MobyId) {
     let p = c::pos(w, id);
     let r = c::pf(w, id, aura_pv::R);
     if c::dist2(p, super::hero_pos(w)) < r + 0.5 {
-        let tmpl = template(id, 10.0, 0x1_0001, push_dir(w, id));
+        let tmpl = template(id, crate::hero::damage::boss_damage(1.0, 10.0), 0x1_0001, push_dir(w, id));
         if let Some(h) = w.hero_moby { w.deliver_hit(h, &tmpl); }
     }
     let ph = c::pf(w, id, aura_pv::PHASE) + 2.0 * DT;
     c::set_pf(w, id, aura_pv::PHASE, ph);
     if w.counter & 4 == 0 {
-        if let Some(b) = link(w, id, aura_pv::BOSS) { attack::sphere_hit(w, r, 10.0, 1.0, b, p, 0x1_0000, 0, 1, 0); }
+        if let Some(b) = link(w, id, aura_pv::BOSS) { attack::sphere_hit(w, r, crate::hero::damage::boss_damage(1.0, 10.0), 1.0, b, p, 0x1_0000, 0, 1, 0); }
     }
     // `RegisterDrawCallback(0x2dc4b8)`: the bands ([`aura_quads`]).
     if let Some(row) = super::row(REFERENCE_LEVEL, AURA_DRAW_FN) { w.svc.draw_callbacks.register(Callback::UnitQuads(row), id); }
