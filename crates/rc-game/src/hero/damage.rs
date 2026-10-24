@@ -170,7 +170,7 @@ fn scale_motion(h: &mut Hero, k: Pf) {
 /// HUD's health show `HudShowHealth` follows the change (the HUD watches the health).
 pub fn take_damage(h: &mut Hero, n: i32) {
     if n == 0 { return; }
-    let d = if n < 2 { n } else { 1 };
+    let d = n;
     h.health = (h.health - d).max(0);
 }
 
