@@ -194,7 +194,7 @@ pub fn shockwave(w: &mut World, r0: f32, r1: f32, h: f32, grow: f32, dmg: f32, o
         mo.position = at;
         mo.mode |= 0x200;
     }
-    c::set_pf(w, m, 0x1c, if dmg > 0.0 { 4.0 } else { 0.0 });
+    c::set_pf(w, m, 0x1c, if dmg > 0.0 { crate::hero::damage::boss_damage(dmg, 4.0) } else { 0.0 });
     c::set_pi32(w, m, 0x14, owner as i32 + 1);
     c::set_pf(w, m, 0x04, r1);
     c::set_pf(w, m, 0x10, h);
@@ -322,7 +322,7 @@ pub fn glob(w: &mut World, p: V, v: V, owner: MobyId) -> Option<MobyId> {
 }
 
 /// The glob's explosion (`SpawnBeamExplosion(2, 1, 0, 0, 1000, 1.2, 10, m, v, NULL, 0, 3, 5, sound 0, no shake)`).
-const GLOB_BEAM: fx::Beam = fx::Beam { damage_r: 2.0, damage: 4.0, flash: 0.0, flash2: 0.0, flash_dist: 1000.0, scale: 1.2, light: 10.0, streaks: 0, sparks: 3, puffs: 5, debris: 1, sound: 0, shake: false };
+const GLOB_BEAM: fx::Beam = fx::Beam { damage_r: 2.0, damage: crate::hero::damage::boss_damage(1.0, 4.0), flash: 0.0, flash2: 0.0, flash_dist: 1000.0, scale: 1.2, light: 10.0, streaks: 0, sparks: 3, puffs: 5, debris: 1, sound: 0, shake: false };
 
 /// Level07 `0x30e458` (module doc).
 pub fn glob_update(w: &mut World, id: MobyId) {
