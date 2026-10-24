@@ -322,7 +322,7 @@ pub fn glob(w: &mut World, p: V, v: V, owner: MobyId) -> Option<MobyId> {
 }
 
 /// The glob's explosion (`SpawnBeamExplosion(2, 1, 0, 0, 1000, 1.2, 10, m, v, NULL, 0, 3, 5, sound 0, no shake)`).
-const GLOB_BEAM: fx::Beam = fx::Beam { damage_r: 2.0, damage: crate::hero::damage::boss_damage(1.0, 4.0), flash: 0.0, flash2: 0.0, flash_dist: 1000.0, scale: 1.2, light: 10.0, streaks: 0, sparks: 3, puffs: 5, debris: 1, sound: 0, shake: false };
+const GLOB_BEAM: fx::Beam = fx::Beam { damage_r: 2.0, damage: 1.0, flash: 0.0, flash2: 0.0, flash_dist: 1000.0, scale: 1.2, light: 10.0, streaks: 0, sparks: 3, puffs: 5, debris: 1, sound: 0, shake: false };
 
 /// Level07 `0x30e458` (module doc).
 pub fn glob_update(w: &mut World, id: MobyId) {
@@ -345,7 +345,8 @@ pub fn glob_update(w: &mut World, id: MobyId) {
         if !ignored {
             if w.m(id).visible != 0 {
                 let p = c::pos(w, id);
-                fx::beam_explosion(w, &GLOB_BEAM, Some(id), p);
+                let beam = fx::Beam { damage: crate::hero::damage::boss_damage(1.0, 4.0), ..GLOB_BEAM };
+                fx::beam_explosion(w, &beam, Some(id), p);
             } else {
                 w.play_sound(0, 0, id);
             }
