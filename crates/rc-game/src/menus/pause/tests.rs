@@ -44,6 +44,7 @@ fn menu() -> PageMenu {
         arg: 0,
         return_page: 0,
         return_kind: 0,
+        replay_hook: 0,
         dest: 0,
         mobys: [(0, false); 14],
         stub_calls: BTreeMap::new(),
@@ -163,6 +164,22 @@ fn list_of(m: &PageMenu, w: u32) -> &List {
     }
 }
 
+/// `SceneController`'s head sets 0x15f5ac on the root page (kind 2), so the save's elapsed time does not count those
+/// frames; the opening transition (kind 1) and the Options page (kind 8) count.
+#[test]
+fn the_root_page_holds_the_elapsed_time() {
+    let (mut m, mut g) = (menu(), gs());
+    let o = open(&mut m, &mut g, 0);
+    assert!(o.iter().all(|o| !o.elapsed_hold), "the opening transition counts");
+    assert_eq!(m.kind, 2);
+    assert!(m.tick(&NONE, &mut g, &MenuEnv::default()).elapsed_hold);
+    m.pages.get_mut(&page::ROOT).unwrap().focus = ROOT_W[5];
+    m.tick(&press(button::CROSS), &mut g, &MenuEnv::default());
+    for _ in 0..13 { m.tick(&NONE, &mut g, &MenuEnv::default()); }
+    assert_eq!(m.kind, 8);
+    assert!(!m.tick(&NONE, &mut g, &MenuEnv::default()).elapsed_hold);
+}
+
 #[test]
 fn open_transition_is_12_raw_ticks_with_the_seqs_reversed() {
     let (mut m, mut g) = (menu(), gs());
@@ -221,6 +238,29 @@ fn highlight_timer_and_focus_moves() {
     assert_eq!(m.pages[&page::ROOT].focus, ROOT_W[0]);
     m.tick(&press(button::UP), &mut g, &MenuEnv::default());
     assert_eq!(m.pages[&page::ROOT].focus, ROOT_W[5]);
+}
+
+/// `MenuSetPostAction` case 6 (an In-Level Movies scene): the scene from the item's +4, the hook slot from its +6 (the level
+/// moby 0x1ba25c the replay hides: Kerwan's Big Al items carry 20 / 21 / 24); a slot of 0 keeps the last one.
+#[test]
+fn in_level_scene_item_names_the_moby_its_replay_hides() {
+    let (mut m, mut g) = (menu(), gs());
+    if let Some(Data::List(l)) = m.widgets.get_mut(&ROOT_W[3]).map(|w| &mut w.data) {
+        l.items = vec![item(20527, 6, 20 << 16 | 3), item(20531, 6, 4)];
+    }
+    open(&mut m, &mut g, 0);
+    m.pages.get_mut(&page::ROOT).unwrap().focus = ROOT_W[3];
+    m.tick(&NONE, &mut g, &MenuEnv::default());
+    m.tick(&press(button::CROSS), &mut g, &MenuEnv::default());
+    assert_eq!((m.post, m.arg, m.replay_hook), (5, 3, 20));
+    let (mut m, mut g) = (menu(), gs());
+    if let Some(Data::List(l)) = m.widgets.get_mut(&ROOT_W[3]).map(|w| &mut w.data) { l.items = vec![item(20531, 6, 4)]; }
+    open(&mut m, &mut g, 0);
+    m.pages.get_mut(&page::ROOT).unwrap().focus = ROOT_W[3];
+    m.tick(&NONE, &mut g, &MenuEnv::default());
+    m.replay_hook = 7;
+    m.tick(&press(button::CROSS), &mut g, &MenuEnv::default());
+    assert_eq!((m.post, m.arg, m.replay_hook), (5, 4, 7), "a zero slot leaves 0x1ba25c as it was");
 }
 
 #[test]
@@ -371,6 +411,35 @@ fn overlay_page_tree() {
     assert_eq!((m.level_names[1], m.planet_points[0], m.name_dy), ((20154, 20173), [80, 95, 20, -20], 17));
 }
 
+/// The overwrite confirmation highlights the slot being overwritten, not the top row: the SAVE_CONFIRM page
+/// has its own slot list (0x1b6b80), so opening it writes the slot into that widget's cursor (0x1b6bc0).
+#[test]
+fn save_confirm_highlights_the_overwritten_slot() {
+    let p = rc_formats::test_data::root().join("levels/01/overlay.bin");
+    let Ok(bytes) = std::fs::read(&p) else { eprintln!("skipped: no {}", p.display()); return };
+    let mut m = PageMenu::load(&Overlay::parse(&bytes).unwrap()).unwrap();
+    let mut g = gs();
+    // A ready PS2 card whose bottom slot (3) holds a save.
+    m.saves.card = crate::memcard::MemCard::new(crate::memcard::CardFs::new(None), "/BASCUS-97199RATCHET".into(), None);
+    m.saves.card.card.ty = crate::memcard::TYPE_PS2;
+    m.saves.card.status = 1;
+    m.saves.card.card.previews[3].level = 1;
+    let save = m.addrs_saves(saves::page::SAVE);
+    let confirm = m.addrs_saves(saves::page::SAVE_CONFIRM);
+    let slot_w = m.pages[&save].widgets[1];
+    m.current = save;
+    m.pages.get_mut(&save).unwrap().focus = slot_w;
+    m.saves.last_slot = 3;
+    let cross = MenuInput { pressed: button::CROSS, pressed_u: button::CROSS, raw_pressed: button::CROSS, connected: true, ..Default::default() };
+    saves::save_update(&mut m, slot_w, &cross, &mut g, &mut MenuOut::default());
+    assert_eq!((m.target, m.saves.confirm_slot), (confirm, 3));
+    // The confirm page's slot widget is its own (not the save page's) and now carries the slot, so the draw
+    // frames row 3 rather than row 0.
+    let cw = m.pages[&confirm].widgets[1];
+    assert_ne!(cw, slot_w);
+    assert_eq!(m.widgets[&cw].raw[4], 3);
+}
+
 #[test]
 fn port_page_from_the_disc() {
     use super::port::{self, Setting};
@@ -397,6 +466,15 @@ fn port_page_from_the_disc() {
     assert_eq!((pg.seqs, pg.parent, pg.focus), (sub.seqs, port::OPTIONS, port::LIST_W));
     assert_eq!((pg.widgets[1], pg.widgets[2], pg.widgets[4]), (sub.widgets[1], sub.widgets[2], sub.widgets[4]));
     assert!(matches!(&m.widgets[&port::TITLE_W].data, Data::Label(t) if t.flags == 0xf && t.id == port::text::TITLE as u32));
+    // The main menu's copy: the front end's Sound page's frames (its title label at slot 2), parent the front end's
+    // Options, the same title and list; "Port Options" last in both front-end Options lists (NTSC, PAL).
+    let (front, sound) = (&m.pages[&port::PAGE_FRONT], m.pages[&0x1b8e38].clone());
+    assert_eq!((front.seqs, front.parent, front.focus), (sound.seqs, port::FRONT_OPTIONS, port::LIST_W));
+    assert_eq!((front.widgets[2], front.widgets[3], front.widgets[4]), (port::TITLE_W, port::LIST_W, sound.widgets[4]));
+    for list in &m.saves.front_options {
+        assert_eq!(list.last().map(|i| (i.label, i.action, i.arg)), Some((port::text::ENTRY as i16, 3, port::PAGE_FRONT)));
+    }
+    assert_eq!(m.saves.front_options[0].len(), 3);
 
     // Pause → Options → Up twice (wrap to Quit Game, then Port Options) → ✕ → the page; ✕ cycles; △ back.
     let mut g = gs();
@@ -448,4 +526,5 @@ fn port_page_from_the_disc() {
     m.tick(&press(button::TRIANGLE), &mut g, &env);
     assert_eq!(m.target, port::OPTIONS);
 }
+
 
