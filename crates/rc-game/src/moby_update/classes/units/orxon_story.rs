@@ -102,9 +102,12 @@ fn offer(w: &mut World, id: MobyId, o: (usize, i32, i32, usize, i32, i32)) {
     }
     let held = w.svc.interact.try_prompt(owner::VENDOR, msg);
     if !w.svc.interact.triangle() || held == 0 { return; }
+    // Premium and Ultra add independent permanent slots; XP-earned slots stay intact.
+    let bonus = if flag == story::FLAG_PREMIUM_NANOTECH { 1 } else { 3 };
+    let new_max = w.svc.counters.max_hp.saturating_add(bonus);
     story::set_flag(w, flag, 1);
-    story::set_max_hp(w, hp);
-    story::set_health(w, hp);
+    story::set_max_hp(w, new_max);
+    story::set_health(w, new_max);
     story::add_bolts(w, -price);
     crate::cinematic::start_scene(w, scene, false);
     w.mm(id).state = 1;
