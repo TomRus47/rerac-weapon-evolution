@@ -166,10 +166,10 @@ fn scale_motion(h: &mut Hero, k: Pf) {
     h.speed = h.speed * k;
 }
 
-/// Enables the modded boss damage values. Disabled by default: vanilla damage is unchanged.
-/// Set RC_BOSS_EXTRA_DAMAGE=1 in the launcher environment to opt in.
+/// Boss-specific damage activates with the existing real-HP enemy damage mode.
+/// No separate boss damage toggle is needed.
 pub fn boss_extra_damage_enabled() -> bool {
-    std::env::var("RC_BOSS_EXTRA_DAMAGE").is_ok_and(|v| matches!(v.trim(), "1" | "true" | "on"))
+    crate::weapon_evo::real_hp_active()
 }
 
 /// Select a boss attack's vanilla or boosted damage without touching other enemies.
