@@ -557,7 +557,7 @@ pub fn update(w: &mut World, id: MobyId) {
             let key = c::ground::key_time(w, id);
             if 1.0 < key && key < 8.0 {
                 let y = c::yaw(w, id);
-                let t = HitTemplate { dir: [pf(y.cos()), pf(y.sin()), Pf::ZERO, Pf::ZERO], attacker: Some(id), flags: 1, b18: 0, b19: 0, h1a: 0, damage: Pf::ONE, w20: 1 };
+                let t = HitTemplate { dir: [pf(y.cos()), pf(y.sin()), Pf::ZERO, Pf::ZERO], attacker: Some(id), flags: 1, b18: 0, b19: 0, h1a: 0, damage: Pf::f(3.0), w20: 1 };
                 for j in 0..7 {
                     let at = w.joint_point(id, j);
                     let r = if j < 5 { 0.5 } else { f32::from_bits(0x3f8c_cccd) };
