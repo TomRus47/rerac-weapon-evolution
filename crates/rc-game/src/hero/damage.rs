@@ -174,7 +174,9 @@ pub fn boss_extra_damage_enabled() -> bool {
 
 /// Select a boss attack's vanilla or boosted damage without touching other enemies.
 pub fn boss_damage(vanilla: f32, boosted: f32) -> f32 {
-    if boss_extra_damage_enabled() { boosted } else { vanilla }
+    if boss_extra_damage_enabled() {
+        boosted * crate::weapon_evo::extra(-1, "enemy_damage_multiplier", 1.0)
+    } else { vanilla }
 }
 
 /// `HeroTakeDamage(n)` 0x226fa8: `n ≠ 0` takes `min(n, 1)` (a negative n gives health back), health ≥ 0; the
