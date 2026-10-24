@@ -490,6 +490,8 @@ pub struct Evolution {
     pub xp_per_damage: f32,
     /// v37: public HP units; native AI keeps its original normalized health.
     pub real_hp: bool,
+    /// Scales the boosted boss attacks; 1.0 preserves their configured values.
+    pub enemy_damage_multiplier: f32,
     pub(crate) combat_epoch: u64,
     pub damage_hp: [[Option<f32>; 5]; 37],
     pub stats: [Stats; 5],
@@ -510,7 +512,7 @@ pub struct Evolution {
 impl Default for Evolution {
     fn default() -> Self {
         Self { ammo_unlock_mode: false, ammo_mode_settings: Default::default(), wrench_gold_texture: false, enabled: false, level: 1, applied_level: 0,
-            xp: 0.0, xp_per_damage: 1.0, real_hp: false, combat_epoch: 0, damage_hp: [[None; 5]; 37], stats: [Stats::default(); 5],
+            xp: 0.0, xp_per_damage: 1.0, real_hp: false, enemy_damage_multiplier: 1.0, combat_epoch: 0, damage_hp: [[None; 5]; 37], stats: [Stats::default(); 5],
             xp_required: [6.0; 4], last_hit_xp: 0.0, pyro: PyroEvolution::default(), extras: extra_tracks(), hud: HudOptions::default(), award_once: HashSet::new(), pending_special: Default::default(), terminal_targets: HashSet::new(), state_progress: Default::default() }
     }
 }
@@ -571,6 +573,7 @@ impl Evolution {
                 registry.insert((-1, ammo_mode::KEY.to_string()), f32::from(u8::from(self.ammo_unlock_mode)));
                 if self.real_hp {
                     registry.insert((-1, "real_hp".to_string()), 1.0);
+                    registry.insert((-1, "enemy_damage_multiplier".to_string()), self.enemy_damage_multiplier);
                     for (item, hp) in self.absolute_values() {
                         registry.insert((item, if item == 16 || item == 19 {"damage_per_second"} else {"damage_hp"}.to_string()), hp);
                     }
@@ -858,6 +861,11 @@ impl Evolution {
                 else if evo.ammo_mode_settings.parse_field(&key, val)? { /* validated global mode parameter */ }
                 else if key == "wrench_gold_texture" { evo.wrench_gold_texture = parse_bool(val)?; }
                 else if key == "xp_per_damage" { evo.xp_per_damage = parse_number(val, &key)?; }
+                else if key == "enemy_damage_multiplier" {
+                    let value = parse_number(val, &key)?;
+                    if !(0.0..=100.0).contains(&value) { return Err("enemy_damage_multiplier must be 0..100".into()); }
+                    evo.enemy_damage_multiplier = value;
+                }
                 else if key == "damage_mode" { evo.real_hp = match val {
                     "real_hp" => true, "legacy" => false,
                     _ => return Err("damage_mode must be real_hp or legacy".into()),
