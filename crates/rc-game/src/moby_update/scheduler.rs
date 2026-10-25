@@ -240,6 +240,12 @@ pub struct Scheduler {
 
 /// `fun_0020d868` 0x265548: `(run list, target list)` for the camera at `cam` (0x167240).
 pub fn build_active_list(table: &MobyTable, cam: V4, groups: &Groups) -> (Vec<MobyId>, Vec<MobyId>) {
+    build_active_list_scaled(table,cam,groups,|_|1.)
+}
+
+/// Enemy pursuit can exceed the native update byte's radius. Scale the test,
+/// not that byte (which would truncate above 255), preserving group ordering.
+pub fn build_active_list_scaled(table: &MobyTable, cam: V4, groups: &Groups, scale: impl Fn(&Moby)->f32) -> (Vec<MobyId>, Vec<MobyId>) {
     let mut slots: Vec<Vec<MobyId>> = vec![Vec::new(); CLASS_SLOTS];
     let mut group_flag = [false; GROUPS];
     let mut targets = Vec::new();
@@ -250,7 +256,7 @@ pub fn build_active_list(table: &MobyTable, cam: V4, groups: &Groups) -> (Vec<Mo
     for (id, m) in table.mobys.iter().enumerate() {
         if m.state == state::END { break; }
         if m.state >= 0x80 || m.mode & mode::NO_UPDATE != 0 { continue; }
-        if !is_active(m, cam) { continue; }
+        if !is_active_scaled(m, cam, scale(m)) { continue; }
         if m.group >= 0 {
             group_flag[m.group as usize % GROUPS] = true;
             continue;
@@ -272,11 +278,14 @@ pub fn build_active_list(table: &MobyTable, cam: V4, groups: &Groups) -> (Vec<Mo
 
 /// The per-moby activity test of `fun_0020d868` (without the group step).
 pub fn is_active(m: &Moby, cam: V4) -> bool {
+    is_active_scaled(m,cam,1.)
+}
+fn is_active_scaled(m: &Moby, cam: V4, scale:f32) -> bool {
     if m.visible != 0 || m.update_dist == 0xff { return true; }
     let p = pv(m.position);
     let d = [p[0] - cam[0], p[1] - cam[1], p[2] - cam[2]];
     let sq = d.map(|x| x * x);
-    let r = Pf::from_i32(m.update_dist as i32); // vitof0.x
+    let r = Pf::from_i32(m.update_dist as i32) * Pf::f(scale.max(1.)); // vitof0.x
     let acc = r * r; // vmula.x ACC, vf3, vf3
     let acc = acc - Pf::ONE * sq[0]; // vmsubax.x ACC, vf4, vf2
     let acc = acc - Pf::ONE * sq[1]; // vmsubay.x
@@ -340,11 +349,19 @@ pub fn rebuild_matrix(m: &mut Moby, class: Option<&MobyAnimClass>) {
 /// One moby's step of the loop: advance (unless mode 0x40), update (if it has a function), matrix (unless
 /// mode 4). Skipped when the state byte is ≥ 0x80 (deleted earlier in the loop).
 pub fn run_moby(w: &mut World, id: MobyId) {
+    crate::weapon_evo::world::motion::run(w,id,run_native_moby);
+}
+
+fn run_native_moby(w: &mut World, id: MobyId) {
     w.evolution_hit = None;
     if w.m(id).state >= 0x80 {
         w.svc.evo_stuns.forget(id);
         return;
     }
+    crate::weapon_evo::world::population::capture(w,id);
+    let previous_owner=w.svc.enemies.updating;
+    w.svc.enemies.updating=Some(id);
+    w.svc.enemies.observe(id,&w.table.mobys[id]);
     let o_class = w.m(id).o_class;
     // MobyAnimAdvance with its sound triggers and loop sound (crate::moby_update::anim_sound).
     if w.m(id).mode & mode::NO_ANIM == 0 { crate::moby_update::anim_sound::advance(w, id); }
@@ -367,6 +384,8 @@ pub fn run_moby(w: &mut World, id: MobyId) {
         }
     }
     }
+    w.svc.enemies.observe(id,&w.table.mobys[id]);
+    w.svc.enemies.updating=previous_owner;
     // No accepted-but-ignored hit may leak into another class update.
     w.evolution_hit = None;
     if w.m(id).mode & mode::KEEP_MATRIX == 0 {
@@ -383,6 +402,9 @@ impl Scheduler {
     /// `FUN_002792d0`: the load pass. Returns the number of mobys run.
     pub fn load_pass(&mut self, w: &mut World) -> usize {
         self.targets.clear();
+        let templates=if w.svc.bomb_evo.world_settings.extra_enemies_per_level>0 {
+            crate::weapon_evo::world::templates(w.table)
+        } else {Default::default()};
         // `0x15ffbc` as the loader leaves it (the count of 0x263300 over the fresh dynamic slots).
         w.table.free_slot_pass(w.counter);
         let mut list = Vec::new();
@@ -392,6 +414,7 @@ impl Scheduler {
         }
         if w.svc.snapshots.len() < w.table.mobys.len() { w.svc.snapshots.resize(w.table.mobys.len(), None); }
         for &id in &list { run_moby(w, id); }
+        crate::weapon_evo::world::population::begin(w,templates);
         // The points the moby-riding particles (types 26 / 55) follow in the UpdateParts that comes next.
         w.refresh_particle_anchors();
         let n = list.len();
@@ -415,11 +438,18 @@ impl Scheduler {
         part_hits(w);
         // The Hoverboard hero code's stores of the last hero update (classes::units::hoverboard).
         classes::units::hoverboard::apply(w);
-        let (list, targets) = build_active_list(w.table, w.camera, &w.svc.groups);
+        let settings=w.svc.bomb_evo.world_settings;
+        let pursuit=settings.enemy_perception_multiplier*settings.enemy_chase_range_multiplier;
+        let (list, targets) = build_active_list_scaled(w.table, w.camera, &w.svc.groups, |m| {
+            if crate::weapon_evo::world::motion::enemy(m) && w.classes.info(m.o_class).is_some_and(|c|c.ty==5) {pursuit} else {1.}
+        });
         w.svc.targets.clone_from(&targets);
         self.targets = targets;
         if w.svc.snapshots.len() < w.table.mobys.len() { w.svc.snapshots.resize(w.table.mobys.len(), None); }
         for &id in &list { run_moby(w, id); }
+        crate::weapon_evo::world::population::tick(w);
+        crate::weapon_evo::discovery::tick(w);
+        crate::weapon_evo::golden::tick(w);
         // The points the moby-riding particles (types 26 / 55) follow in the UpdateParts that comes next.
         w.refresh_particle_anchors();
         // `HudBoltAlertShow` 0x227d90 (the hero's frame, after the moby pass): classes::buried_bolts.

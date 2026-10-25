@@ -41,12 +41,13 @@ def check():
         if Path(item['path']).suffix == '.bat':data=data.replace(b'\r\n',b'\n')
         actual=hashlib.sha256(data).hexdigest()
         if actual!=item['sha256']:raise ValueError('Export source hash differs: '+item['path'])
-    for name in ['rc-game','rc-engine','rc-formats','rc-data','rc-video','rc-extract']:
+    for name in ['rc-game','rc-engine','rc-formats','rc-data','rc-video','rc-extract','rc-game2']:
         if not (ROOT/'crates'/name/'Cargo.toml').is_file():raise ValueError('Missing workspace crate: '+name)
+    development=json.loads((ROOT/'mod/development.json').read_text())
     cap=(ROOT/'crates/rc-engine/src/disc_source.rs').read_text()
-    if '"weapon_evolution_config":58' not in cap:raise ValueError('Missing configuration capability 58.')
+    if f'"weapon_evolution_config":{development["config_capability"]}' not in cap:raise ValueError('Missing current configuration capability.')
     if not (ROOT/'launcher/launcher.ico').is_file():raise ValueError('Missing supplied launcher icon.')
-    if '"weapon_evolution_patch":"0.1.6.59"' not in cap:raise ValueError('Missing v59 runtime identity.')
+    if f'"weapon_evolution_patch":"{development["patch"]}"' not in cap:raise ValueError('Missing current runtime identity.')
     local=['target/release/rerac.exe','extracted/toc.bin','launcher/runtime/rerac.exe',
         'launcher/launcher-settings.json','launcher/weapons.ini','launcher/presets/Personal.ini',
         'launcher/runs/session/weapons.ini','launcher/.launcher-tools/venv/python.exe',

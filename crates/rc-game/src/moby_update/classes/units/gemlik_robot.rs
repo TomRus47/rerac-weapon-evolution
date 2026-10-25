@@ -137,7 +137,7 @@ fn ring_sparks(w: &mut World, id: MobyId) {
         let q = ring_pt(w, id, j);
         let k = w.rng.randf(0.0, 1.0);
         let at = c::add(q, c::scale(c::sub(q, q), k));
-        fx::part02(w, &crate::particles::type02::Spawn { pos: at, v1, v2, c1: 0x8000_40ff, c2: 0x4000_cc80, t: [t1, t2, t3], def: -1 });
+        fx::part02(w, &crate::particles::type02::Spawn { pos: at, v1, v2, c1: 0x8000_40ff, c2: 0x4000_cc80, t: [t1, t2, t3], def: 0x18 }); // gp−0x4d14: def[0x18]
     }
 }
 
@@ -304,7 +304,7 @@ fn tick(w: &mut World, id: MobyId) -> bool {
     c::set_pi32(w, id, o::T_KIND, t.kind as i32);
     if t.kind != 2 {
         let home = c::pv4(w, id, o::HOME);
-        if range < c::dist2(home, t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs() {
+        if crate::weapon_evo::world::chase_range(w,id,range) < c::dist2(home, t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs() {
             c::set_pi32(w, id, o::T_KIND, 2);
         } else {
             let cub = c::pi32(w, id, o::TRIGGER);

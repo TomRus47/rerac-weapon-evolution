@@ -23,7 +23,7 @@ pub fn hit_moby(w: &mut World, target: MobyId, attacker: MobyId, damage: f32, fl
     }
     let next = w.svc.hits.next;
     let p = |v: V| v.map(Pf::f);
-    w.svc.hits.records[next as usize] = HitRecord {
+    w.svc.hits.records[next as usize] = HitRecord { wrench: false,
         pos: p(pos),
         dir: p(dir),
         attacker: Some(attacker),

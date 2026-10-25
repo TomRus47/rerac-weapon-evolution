@@ -248,7 +248,7 @@ pub fn bouncer_update(w: &mut World, id: MobyId) {
 
 /// Level05 `0x3180a0` (925; module doc).
 pub fn salesman_update(w: &mut World, id: MobyId) {
-    if crate::weapon_evo::ammo_mode::enabled() { w.delete_moby(id); return; }
+    if w.svc.bomb_evo.hide_ryno || w.svc.bomb_evo.golden_settings.enabled || crate::weapon_evo::ammo_mode::enabled() { w.delete_moby(id); return; }
     story::pvars(w, id, 0x160);
     interact::poll_scene_end(w, id);
     // 0x317fb8: the actors' big-head cheat on the scene actors of [925] (list 0, 2.75).

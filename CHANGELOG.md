@@ -1,3 +1,18 @@
+# Unreleased — Weapon Evolution 0.3 development snapshot
+
+Gameplay 0.1.6.83; configuration capability 84; launcher 0.27.1; ReRAC 0.3.6-alpha. Main/source update only; previous release tag and assets unchanged.
+
+- Synchronize the complete supplied 0.3.6-alpha workspace and the accumulated local mod changes: encounter tuning/population, Nanotech XP/health, seeded weapon discoveries, lava streams, NG+ Gold progression and eight weapon grades.
+- Add always-available R2/Circle firing and optional saved D-pad bindings for weapons and all equippable gadgets, with colored borders and a Weapons-only assignment caption.
+- Add contextual saved radial R1 modes for Pyrocitor, Mine Glove, Visibomb and RYNO; leave optional enhancements and Suck Cannon crate suction in the launcher.
+- Correct Gadgets page scope and use normal menu confirmation for assignments/mode changes.
+- Repeating a boots/helmet shortcut removes the equipped item; repeating a Clank-pack shortcut cycles owned Heli/Thruster/Hydro packs after its first selection. Respect pending inventory requests, ownership and native gameplay restrictions.
+- Support both L1 and R1 crouching in direct gameplay while retaining contextual radial R1 mode selection.
+- Update English implementation/build/save documentation, five-language launcher help, configuration reference, source provenance/index and legacy regression fixtures for eight grades. Keep default balances, presets, custom icon and save compatibility.
+- Separate development identity from the existing published descriptor and require explicit manual draft authorization in release automation.
+
+Historical published/local notes follow.
+
 # Weapon Evolution 0.3 — updated build
 
 Gameplay 0.1.6.59; configuration capability 58; launcher 0.17.2.

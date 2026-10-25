@@ -213,8 +213,16 @@ fn puff(w: &mut World, p: c::V, v1: c::V, v2: c::V, colours: (u32, u32)) -> Opti
     let t1 = gscale(w, r1) as i32;
     let r2 = w.rng.randf(40.0, 40.0 * 1.2);
     let t2 = gscale(w, r2) as i32;
-    let s = type02::Spawn { pos: p, v1, v2, c1: colours.0, c2: colours.1, t: [t0, t1, t2], def: -1 };
-    fx::part02_rec(w, &s)
+    let settings=w.svc.bomb_evo.world_settings;
+    let phases=[t0,t1,t2].map(|n|(n as f32*settings.enemy_projectile_range_multiplier).round().clamp(1.,32767.) as i32);
+    let s = type02::Spawn { pos: p, v1, v2, c1: colours.0, c2: colours.1, t: phases, def: -1 };
+    let result=fx::part02_rec(w, &s);
+    if let (Some(sys),Some(i))=(w.particles.as_deref_mut(),result) {
+        if settings.enemy_projectile_speed_multiplier!=1. {
+            sys.hostile_clocks.insert(i,(settings.enemy_projectile_speed_multiplier,0.));
+        }
+    }
+    result
 }
 
 /// State 2's flames (module doc).

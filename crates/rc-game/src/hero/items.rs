@@ -194,6 +194,9 @@ pub struct HeroItems {
 /// Hit delivery for the hero's attacks: the moby part of `CollLine_Fix` with a hit template and
 /// `coll_sphere_mobys` 0x214468 (both on the port's stand-ins for moby collision).
 pub trait HitSink {
+    /// Scoped launch-time settings for ballistic continuous fire. Clear after
+    /// the sweep so unrelated weapons always use their own damage clocks.
+    fn stream_snapshot(&mut self, _snapshot: Option<crate::moby_update::real_hp::StreamSnapshot>) {}
     /// `coll_sphere_mobys(r, centre, flags, ignore, tmpl)`: records for the listed mobys; returns the first
     /// listed moby, if any.
     fn sphere(&mut self, table: &mut MobyTable, r: Pf, centre: V4, flags: u32, ignore: Option<MobyId>, tmpl: &HitTemplate) -> Option<MobyId>;
@@ -260,7 +263,10 @@ pub struct ItemEnv<'a> {
     pub hero_moby: MobyId,
     /// The level collision (world mesh) for the items' own lines (the thrown wrench's ground height and bounce;
     /// None: they hit nothing).
-    pub coll: Option<&'a rc_formats::collision::Collision>,    /// The camera as the previous tick's update left it: position 0x167240 and forward 0x167450 (the Bomb Glove's
+    pub coll: Option<&'a rc_formats::collision::Collision>,
+    /// The mobys' collision for those lines (`CollLine` tests the moby grid after the world mesh: the doors stop the thrown
+    /// wrench). None: the world mesh only (the tick builds it while the wrench is thrown).
+    pub mobys: Option<&'a crate::collision_query::MobyScene<'a>>,    /// The camera as the previous tick's update left it: position 0x167240 and forward 0x167450 (the Bomb Glove's
     /// first-person aim). None: no camera.
     pub camera: Option<([f32; 3], [f32; 3])>,
     /// The camera's up row 0x167470 (the Pyrocitor's first-person flame starts one unit below the eye).
@@ -283,8 +289,11 @@ impl HeroItems {
 /// slot loop 0x231088), after the transitions and the write-back.
 #[allow(clippy::too_many_arguments)]
 pub fn items_update(hero: &mut Hero, g: &mut ItemGlobals, table: &mut MobyTable, anim: &dyn AnimCtl, rng: &mut Rng, env: &ItemEnv, hits: &mut dyn HitSink) {
-    let gameplay_pad = super::combat_strafe::gameplay_pad_for_weapon(env.pad, super::combat_strafe::active(hero), hero.items.slot.id);
-    let env = &ItemEnv { pad: &gameplay_pad, ..*env };
+    let gameplay_pad = if crate::weapon_evo::controls::active() && crate::weapon_evo::controls::input_layout_allowed(hero) {
+        crate::weapon_evo::controls::gameplay_pad(env.pad,if hero.items.slot.id>0{hero.items.slot.id}else{hero.items.target},true,
+            crate::weapon_evo::controls::settings().dpad,super::combat_strafe::active(hero))
+    } else { super::combat_strafe::gameplay_pad_for_weapon(env.pad, super::combat_strafe::active(hero), hero.items.slot.id) };
+    let env = &ItemEnv { mobys: None, pad: &gameplay_pad, ..*env };
     items_flags(hero);
     super::melee::jump_attack_shockwave(hero, table, env, hits);
     super::walloper::deliver_hits(hero, table, env, hits, rng);

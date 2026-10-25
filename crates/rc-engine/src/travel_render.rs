@@ -76,6 +76,7 @@ enum Request {
     /// A weapon demo scene `unknown_1530[scene]` in the frame of moby `frame` (the vendor; with `gold`, the gold-weapon
     /// offer's frame: `FUN_002aea70`).
     Demo { scene: i32, frame: usize, gold: bool },
+    PickupDemo { scene:i32 },
 }
 
 static QUEUE: Mutex<VecDeque<Request>> = Mutex::new(VecDeque::new());
@@ -106,6 +107,15 @@ pub fn request_weapon_demo(scene: i32, vendor: usize) {
 pub fn request_gold_demo(scene: i32, offer: usize) {
     println!("travel: the gold upgrade's demo scene unknown_1530[{scene}] in moby {offer}'s frame");
     queue().push_back(Request::Demo { scene, frame: offer, gold: true });
+}
+
+/// Independent of vendor state: play a discovered weapon's native scene at
+/// Ratchet's current ground point. No shop, mission or ship state is changed.
+pub fn request_pickup_demo(scene:i32) {
+    let mut q=queue();
+    if !q.iter().any(|r|matches!(r,Request::PickupDemo{..}|Request::Demo{..})) {
+        q.push_back(Request::PickupDemo{scene});
+    }
 }
 
 static DEMO_DONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
@@ -174,6 +184,8 @@ struct GfxActor {
 #[derive(Resource, Default)]
 pub struct Travel {
     pub mode: space::ShipMode,
+    pickup_demo:bool,
+    pickup_camera:Option<rc_game::follow_camera::Camera>,
     tr: Option<Transition>,
     /// After a level change: `entry`'s landing once the set-up has built the play state.
     entry_pending: bool,
@@ -238,12 +250,15 @@ impl Travel {
 
 /// A level change drops the actors (their entities are gone) and arms the new level's `entry`.
 fn level_unload(mut t: ResMut<Travel>, mut active: ResMut<ActiveScene>) {
+    if t.pickup_demo { scene_audio::end_weapon_pickup(); }
     active.space_actors.clear();
     active.space_hero_hidden = false;
     t.gfx = ActorGfx::default();
     t.poses.clear();
     t.lump = None;
     t.hero_hidden = false;
+    t.pickup_demo = false;
+    t.pickup_camera = None;
     t.entry_pending = true;
 }
 
@@ -289,13 +304,14 @@ fn load_spaceship_class(level: &mut crate::level_load::LoadedLevel, o_class: i32
     let class = rc_formats::moby::parse_moby_class(blob).context("parsing the ship class")?;
     let seqs = moby_anim::parse_sequences(blob, &class).context("parsing the ship sequences")?;
     let tex = level.textures.iter().filter(|t| t.table == TextureTable::Moby).map(|t| t.index + 1).max().unwrap_or(0);
-    let slot = u8::try_from(tex).ok().filter(|&t| t != 0xff).context("moby texture table full")?;
-    let mut textures = [0xff; 16];
-    textures[0] = slot;
+    // Keep ship textures valid after other runtime model imports.
+    let mut imported_textures = [None; 16];
+    imported_textures[0] = Some(tex);
+    let textures = [0xff; 16];
     let desc = TextureEntry { data_offset: 0, width: size, height: size, ty: 4, palette: 0, mipmap: 0, pad: 0 };
     level.textures.push(LevelTexture { table: TextureTable::Moby, index: tex, source: TextureSource::Entry(desc), texture });
     let anim = MobyAnimClass::new(&class, seqs);
-    Ok((LevelMobyClass { imported_textures: None, o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class }, anim))
+    Ok((LevelMobyClass { imported_textures: Some(imported_textures), o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class }, anim))
 }
 
 /// The World of the play state (the mode-6 code runs on the level's moby table, outside the tick).
@@ -357,6 +373,30 @@ fn pre_tick(
                     }
                 }
                 Request::ShipTravel(dest) => ship_travel(t, p, &mut mm, gs.as_deref_mut(), &level.0, dest),
+                Request::PickupDemo{scene} => {
+                    // The ordinary world is frozen throughout the demo. The
+                    // scene player poses its own streamed actors and camera;
+                    // Ratchet keeps his position, inventory and health.
+                    if mm.state.mode==Mode::Gameplay && p.game.hero.health>0
+                        && !rc_game::weapon_evo::golden::is_swimming(&p.game.hero) {
+                        if let Some(l)=usize::try_from(scene).ok().and_then(demo_lump) {
+                            scene_audio::begin_weapon_pickup();
+                            t.pickup_camera=Some(p.game.camera.clone());
+                            with_world(p,level.0.collision.as_ref(),|w| {
+                                let mut frame=space::DemoFrame::of_moby(w,w.hero_moby.unwrap_or(0),[0.;3],0.);
+                                let z=w.hero.pos[2].to_f32();
+                                if !frame.origin[2].is_finite() || (frame.origin[2]-z).abs()>5. {frame.origin[2]=z;}
+                                t.mode.demo_start(w,l.clone(),frame,space::DEMO_STREAM);
+                            });
+                            t.pickup_demo=true;t.hero_hidden=true;t.hud_off=true;
+                            mm.state.set(Mode::Ship);mm.world_tick=false;
+                            p.game.camera_paused=true;p.svc.game_mode=6;
+                            start_actors(t,l);
+                        } else {
+                            crate::gameplay::request_pickup_jingle(&crate::level_load::extracted_root());
+                        }
+                    }
+                },
                 Request::Demo { scene, frame, gold } => match usize::try_from(scene).ok().and_then(demo_lump) {
                     Some(l) => {
                         let (off, yaw) = if gold { (space::GOLD_DEMO_OFFSET, space::GOLD_DEMO_YAW) } else { (space::VENDOR_DEMO_OFFSET, space::VENDOR_DEMO_YAW) };
@@ -380,6 +420,7 @@ fn pre_tick(
     let runs = t.tr.is_none() && t.mode.phase == space::Phase::Run && matches!(t.mode.sub, space::SUB_TAKEOFF | space::SUB_LANDING | space::SUB_FLYAWAY);
     // The weapon demo (the vendor's substate 3): its world part every frame it runs.
     let demo = t.tr.is_none() && t.mode.phase == space::Phase::Run && t.mode.sub == space::SUB_DEMO && mm.state.mode == Mode::Vendor;
+    if t.pickup_demo {mm.world_tick=false;p.game.camera_paused=true;}
     if demo {
         mm.world_tick = true;
         p.game.camera_paused = true;
@@ -555,7 +596,7 @@ fn post_tick(
         }
         return;
     }
-    let demo = t.mode.sub == space::SUB_DEMO && mm.state.mode == Mode::Vendor;
+    let demo = t.mode.sub == space::SUB_DEMO && (mm.state.mode == Mode::Vendor || t.pickup_demo);
     if (mm.state.mode != Mode::Ship && !demo) || !t.mode.active() { return; }
     let pressed = p.game.pad.pressed;
     // The vendor's frame reads the flag after the demo's (its `sound_update` on the frames without a world tick).
@@ -563,6 +604,7 @@ fn post_tick(
     let fly = t.mode.sub == space::SUB_FLYAWAY;
     // The view of the last drawn frame (0x16d140): the main camera with its projection's tangents.
     let view = cams.iter().next().map(|(tr, proj)| crate::particle_render::bsphere_view(tr, crate::particle_render::view_tans(Some(proj))));
+    let pickup_frame = t.pickup_demo;
     let out = with_world_view(p, lv.collision.as_ref(), view.as_ref(), |w| t.mode.frame(w, pressed, world_ran));
     // GameStateUpdate sub 3: `CameraUpdate` after the body (the tick ran without its camera update).
     if fly && world_ran {
@@ -603,10 +645,28 @@ fn post_tick(
             t.hud_off = false;
             t.lump = None;
             t.poses.clear();
-            DEMO_DONE.store(true, std::sync::atomic::Ordering::Relaxed);
+            if std::mem::take(&mut t.pickup_demo) {
+                t.hero_hidden=false;active.space_hero_hidden=false;
+                if let Some(camera)=t.pickup_camera.take() {p.game.camera=camera;}
+                scene_audio::end_weapon_pickup();
+                p.game.camera_paused=false;p.svc.game_mode=0;
+                p.svc.cinematic.fade=0.;active.white=0.;
+                mm.state.set(Mode::Gameplay);mm.world_tick=true;
+            } else {DEMO_DONE.store(true, std::sync::atomic::Ordering::Relaxed);}
             println!("travel: tick {}: the weapon demo ended", p.game.counter);
         }
         Some(SpaceEvent::FlightDone) | None => {}
+    }
+    // The ordinary tick is suspended for pickups, so it cannot drain the
+    // scene audio inbox. This frame owns exactly one 800-sample audio block,
+    // including the closing frame, before run_audio fills any remaining ticks.
+    if pickup_frame {
+        if let Some(a) = audio.as_deref_mut() {
+            let (system, buffer) = a.parts();
+            buffer.clear();
+            system.weapon_pickup_frame(buffer);
+            a.push_frame();
+        }
     }
 }
 
@@ -867,9 +927,11 @@ fn hud_layer(
                 if let Some(s) = img.resolve(&rc_game::menus::ImageSrc::Pixels { key: 0x7a00_0000 | key, tex: Arc::new(band) }, &mut assets) {
                     h.prims.push(crate::hud_images::prim(s, 0, line.y, 0x200, 0x40, 0, 0, 0x200, 0x40, rgba));
                 }
+                // The card is a black stencil with the letters cut out (the band shows through them): it stays opaque
+                // while the band fades, else the band shows through the whole strip at partial alpha.
                 if let Some(tex) = pl.cards.get(line.card) {
                     if let Some(s) = img.resolve(&rc_game::menus::ImageSrc::Pixels { key: 0x7b00_0000 | line.card as u64, tex: Arc::new(tex.clone()) }, &mut assets) {
-                        h.prims.push(crate::hud_images::prim(s, 0, line.y, 0x200, 0x40, 0, 0, 0x200, 0x40, rgba));
+                        h.prims.push(crate::hud_images::prim(s, 0, line.y, 0x200, 0x40, 0, 0, 0x200, 0x40, 0x8080_8080));
                     }
                 }
             }
@@ -1145,14 +1207,18 @@ fn force_hidden(
     mut commands: Commands,
     t: Res<Travel>,
     hero: Query<(Entity, &Name), (With<MeshMaterial3d<MobyMaterial>>, Without<AttachedTo>, Without<TravelHidden>)>,
-    items: Query<Entity, (With<AttachedTo>, Without<TravelHidden>)>,
+    items: Query<(Entity, &AttachedTo), Without<TravelHidden>>,
     mut hidden: Query<(Entity, &mut Visibility, Has<crate::gameplay::RatchetMesh>), With<TravelHidden>>,
 ) {
     if t.hero_hidden {
         for (e, name) in &hero {
             if name.as_str().starts_with("Ratchet (play)") { commands.entity(e).insert((TravelHidden, Visibility::Hidden)); }
         }
-        for e in &items { commands.entity(e).insert((TravelHidden, Visibility::Hidden)); }
+        // The always-on extras stay drawn on the mode-6 Ratchet actor (`FUN_0024a0e8` → `HeroItemsAttach` attaches only
+        // item slots 4 / 5 in mode 6): crate::moby_attach places them on the actor.
+        for (e, at) in &items {
+            if at.slot != crate::moby_attach::Slot::Extra { commands.entity(e).insert((TravelHidden, Visibility::Hidden)); }
+        }
         for (_, mut v, _) in &mut hidden { if *v != Visibility::Hidden { *v = Visibility::Hidden; } }
     } else {
         // Ratchet's own meshes go back to crate::gameplay's visibility sync; his items are shown again.

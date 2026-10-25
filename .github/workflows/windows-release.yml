@@ -65,9 +65,8 @@ jobs:
 
   release:
     needs: build
-    # The exact 0.3 release commit is the author-approved publication opt-in.
-    # Other pushes only build artifacts; manual dispatch still creates drafts.
-    if: (github.event_name == 'workflow_dispatch' && inputs.create_draft) || (github.event_name == 'push' && (github.event.head_commit.message == 'Release Weapon Evolution 0.3' || github.event.head_commit.message == 'Update Weapon Evolution 0.3'))
+    # Releases require an explicit manual dispatch; source pushes never publish.
+    if: github.event_name == 'workflow_dispatch' && inputs.create_draft
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -83,8 +82,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          APPROVED_PUBLICATION: ${{ github.event_name == 'push' && (github.event.head_commit.message == 'Release Weapon Evolution 0.3' || github.event.head_commit.message == 'Update Weapon Evolution 0.3') }}
-          APPROVED_REPLACEMENT: ${{ github.event_name == 'push' && github.event.head_commit.message == 'Update Weapon Evolution 0.3' }}
+          APPROVED_PUBLICATION: 'false'
+          APPROVED_REPLACEMENT: 'false'
         shell: bash
         run: |
           set -euo pipefail

@@ -222,11 +222,35 @@ pub fn grid_enter(m: &mut PageMenu, w: u32, refocus: bool) {
 }
 
 /// `FUN_0028f260`: the focused grid's keys (module docs).
+/// Both equipment pages accept bindings. Page kind 3 is Weapons, 4 is
+/// Gadgets; the Weapons-only help caption must not gate gadget functionality.
+pub(super) fn shortcut_page(kind: i32) -> bool { matches!(kind, 3 | 4) }
+
 pub fn grid_update(m: &mut PageMenu, w: u32, inp: &MenuInput, gs: &mut GameState, out: &mut MenuOut) -> i32 {
+    grid_update_with_shortcuts(m, w, inp, gs, out, crate::weapon_evo::controls::settings().dpad)
+}
+
+/// Explicit policy input lets regression tests exercise real grid callbacks
+/// without changing the process-wide active-profile flags.
+pub(super) fn grid_update_with_shortcuts(m: &mut PageMenu, w: u32, inp: &MenuInput,
+    gs: &mut GameState, out: &mut MenuOut, shortcuts: bool) -> i32 {
     if !m.is_focus(w) { return 0; }
     if let Some(r) = m.generic_keys(inp, false, gs.global.level) { return r; }
     let Some(Data::Grid(g)) = m.widgets.get(&w).map(|x| &x.data) else { return 0 };
     let g = g.clone();
+    if shortcut_page(m.kind) && shortcuts && inp.held_u&button::L1!=0 {
+        if let Some(dir)=crate::weapon_evo::controls::direction(inp.raw_pressed) {
+            let cell=g.cells.get(g.cursor.max(0) as usize).copied().unwrap_or_default();
+            let id=i32::from(cell.item);
+            let owned=cell.kind==0 && usize::try_from(id).ok().and_then(|i|gs.global.owned.get(i)).is_some_and(|&n|n!=0);
+            let slot=m.items.as_ref().and_then(|items|items.get(id)).map_or(-1,|item|item.slot);
+            if gs.weapon_progress.controls.assign(dir,id,owned,slot) {out.sounds.push(MenuSound::Confirm);}
+            else if !owned || !(0..4).contains(&slot){out.sounds.push(MenuSound::Denied);}
+        }
+        // L1 freezes both digital and analog cursor navigation. The binding
+        // reads physical D-pad edges only, never stick-generated menu arrows.
+        return 0;
+    }
     let keys = inp.pressed_u;
     let (old, cols, rows) = (g.cursor, g.cols.max(1), g.rows);
     let mut cursor = old;
@@ -386,6 +410,15 @@ pub fn grid_draw(m: &mut PageMenu, w: u32, a: &MenuAssets, gs: &GameState, vsync
                         (ix + pw) / 16 - ix / 16, (iy + ph) / 16 - iy / 16, 0x80, (tw, th));
                 } else {
                     out.push(MenuDraw::SpriteUv { frame, x0: ix, y0: iy, x1: ix + pw, y1: iy + ph, u0: 0, v0: 0, u1: tw * 16, v1: th * 16, alpha: 0x80, repeat_u: false });
+                }
+            }
+            if shown && cell.kind==0 && shortcut_page(m.kind) && crate::weapon_evo::controls::settings().dpad {
+                if let Some(dir)=gs.weapon_progress.controls.dpad.iter().position(|&id|id!=0 && i32::from(id)==item) {
+                    let color=crate::weapon_evo::controls::COLORS[dir];
+                    rect(out,ix-0x50,iy-0x50,ix+pw+0x50,iy-0x40,color);
+                    rect(out,ix-0x50,iy+ph+0x40,ix+pw+0x50,iy+ph+0x50,color);
+                    rect(out,ix-0x50,iy-0x40,ix-0x40,iy+ph+0x40,color);
+                    rect(out,ix+pw+0x40,iy-0x40,ix+pw+0x50,iy+ph+0x40,color);
                 }
             }
             x += xstep;

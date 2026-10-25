@@ -114,6 +114,7 @@ pub trait MobySystem {
     fn water(&self) -> Option<&dyn crate::hero::swim::WaterQuery> { None }
     /// The hit message of moby `target` (`MobyGetHitMessage`'s lookup: the record of slot `+0xa4` when it is
     /// for `target`; None: no record). The hero's hit intake reads Ratchet's (docs/plan/hero_states.md P2).
+    fn hero_damage_points(&self,_table:&MobyTable,_hit:&HitRecord)->Option<i32>{None}
     fn hit_message(&self, _table: &MobyTable, _target: MobyId) -> Option<HitRecord> { None }
     /// The hero-block fields the moby loop's class updates wrote this tick (`moby_update::services::HeroFields`;
     /// None: none), applied to the hero right after the moby loop.
@@ -281,6 +282,7 @@ impl Game {
         let cine = hooks.world.as_deref_mut().map(|w| w.take_cinematic()).unwrap_or_default();
         crate::cinematic::apply_camera_calls(&mut self.camera, &cine, &CamInput { hero: &self.hero, pad: &self.pad, coll, mobys: None, hero_moby });
         // Ratchet's hit message as the moby loop left it (the hit intake 0x231580 and the hurt entries read it).
+        self.hero.damage.enemy_hit_points = hooks.world.as_deref().and_then(|w| w.hit_message(&self.mobys, self.hero.hero_moby(self.hero_moby))).and_then(|r| hooks.world.as_deref().and_then(|w|w.hero_damage_points(&self.mobys,&r)));
         self.hero.damage.hit = hooks.world.as_deref().and_then(|w| w.hit_message(&self.mobys, self.hero.hero_moby(self.hero_moby))).map(|r| hero_hit(&self.mobys, &r));
         // The hero's queries see the table as the moby loop left it (a snapshot: the hero holds its own moby).
         let scene = hooks.world.as_deref_mut().and_then(|w| w.scene(&self.mobys));
@@ -327,7 +329,7 @@ impl Game {
                 let (globals, mobys) = (&mut self.item_globals, &mut self.mobys);
                 let mut pass = |h: &mut crate::hero::Hero, a: &mut dyn AnimCtl, r: &mut crate::rng::Rng| {
                     let Some(data) = data else { return };
-                    let ienv = ItemEnv { data, pad, frame: counter as i32, hero_moby: ratchet, coll: Some(coll), camera: Some((cam.0, cam.1[0])), camera_up: Some(cam.1[2]), targets: &targets };
+                    let ienv = ItemEnv { data, pad, frame: counter as i32, hero_moby: ratchet, coll: Some(coll), mobys: None, camera: Some((cam.0, cam.1[0])), camera_up: Some(cam.1[2]), targets: &targets };
                     crate::hero::items::slot_pass(h, globals, mobys, &*a, r, &ienv, &mut *hits);
                 };
                 // The death reload's switch back into the checkpoint's body (`0x29adc8`, crate::hero::bodies).
@@ -343,6 +345,7 @@ impl Game {
                 crate::hero::bodies::apply_cmds(&mut self.hero, &mut self.mobys, self.hero_moby, hits, self.counter);
                 let now = self.hero.hero_moby(self.hero_moby);
                 if Some(now) != hero_moby {
+        self.hero.damage.enemy_hit_points = hooks.world.as_deref().and_then(|w| w.hit_message(&self.mobys, now)).and_then(|r| hooks.world.as_deref().and_then(|w|w.hero_damage_points(&self.mobys,&r)));
                     self.hero.damage.hit = hooks.world.as_deref().and_then(|w| w.hit_message(&self.mobys, now)).map(|r| hero_hit(&self.mobys, &r));
                 }
             }
@@ -354,7 +357,8 @@ impl Game {
         };
         let hm = self.hero.hero_moby(self.hero_moby);
         let hero_moby = Some(hm);
-        drop(scene);
+        // The walk's footprints query the scene as the moby loop left it (the hero update does not move other mobys).
+        let scene_view = scene.as_ref().map(OwnedScene::scene);
         // The hand request as the hero update left it (the disguise's update clears 0x141408: crate::hero::hologuise).
         if self.hero.gadgets.hand_request != self.item_globals.request { self.item_globals.request = self.hero.gadgets.hand_request; }
         // The mobys the hero update created (CreateMoby inside it: the water splash 775), before anything else can take a
@@ -384,6 +388,7 @@ impl Game {
         // this update).
         if hero_tick != HeroTick::OutOfBounds { self.mobys.mobys[hm].hit_slot = 0xff; }
         self.hero.damage.hit = None;
+        self.hero.damage.enemy_hit_points=None;
         if hero_tick == HeroTick::Ran {
             // The write-back's MobyBuildMatrix(hero moby) (HeroSyncMoby 0x229f20 / 0x22a110): bounding sphere from its
             // animation fields (+0x50..0x54, the moby's own in the game), matrix, grid re-registration.
@@ -404,7 +409,7 @@ impl Game {
         // environment, right after the body's update.
         if std::mem::take(&mut self.hero.gadgets.wrench_select) {
             if let Some(data) = self.item_data.as_ref() {
-                let ienv = ItemEnv { data, pad: &self.pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &[] };
+                let ienv = ItemEnv { data, pad: &self.pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), mobys: None, camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &[] };
                 crate::hero::items::update_hand_selected(&mut self.hero, &mut self.item_globals, &mut self.rng, &ienv);
             }
         }
@@ -412,7 +417,7 @@ impl Game {
         // 0x1413fc = 1, then the request 0x24 again (the pickup's last store).
         if std::mem::take(&mut self.hero.gadgets.board_select) {
             if let Some(data) = self.item_data.as_ref() {
-                let ienv = ItemEnv { data, pad: &self.pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &[] };
+                let ienv = ItemEnv { data, pad: &self.pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), mobys: None, camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &[] };
                 self.hero.items.f13fc = 0;
                 crate::hero::items::update_hand_selected(&mut self.hero, &mut self.item_globals, &mut self.rng, &ienv);
                 self.hero.items.f13fc = 1;
@@ -431,7 +436,10 @@ impl Game {
             if let Some(data) = self.item_data.as_ref() {
                 // 0x1abe80, the targetable mobys of the moby loop's run list (crate::targeting), for the items' aim searches.
                 let targets = if self.hero.items.slot.item.is_some() { self.target_list(hooks.world.as_deref()) } else { Vec::new() };
-                let ienv = ItemEnv { data, pad: &self.pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &targets };
+                // The thrown wrench's lines test the mobys' collision too (the doors: crate::hero::comet).
+                let scene = if self.hero.items.slot.detached != 0 { hooks.world.as_deref_mut().and_then(|w| w.scene(&self.mobys)) } else { None };
+                let scene = scene.as_ref().map(OwnedScene::scene);
+                let ienv = ItemEnv { data, pad: &self.pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), mobys: scene.as_ref(), camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &targets };
                 items_update(&mut self.hero, &mut self.item_globals, &mut self.mobys, &*anim, &mut self.rng, &ienv, hits);
                 // The item updates' writes into the pad's released mask 0x13cae8 (the Suck Cannon's put-away with L1 / L2
                 // held: hero::gadgets::Gadgets::released_or).
@@ -472,8 +480,8 @@ impl Game {
             // `0x229158` (after HeroItemsUpdate): the Hologuise's squash on Ratchet's moby and the hand item.
             crate::hero::hologuise::squash(&mut self.hero, &mut self.mobys.mobys[self.hero_moby]);
             crate::hero::hologuise::squash_hand(&mut self.hero);
-            // FUN_00227e90: the walk / run footsteps (after HeroItemsUpdate in 0x228870).
-            crate::hero::fx::walk_footsteps(&mut self.hero, &self.mobys.mobys[self.hero_moby], &anim.view(), hero_sounds, &mut self.rng);
+            // FUN_00227e90: the walk / run footsteps (after HeroItemsUpdate in 0x228870), and Hoven's footprints.
+            crate::hero::fx::walk_footsteps(&mut self.hero, &self.mobys.mobys[self.hero_moby], &*anim, coll, scene_view.as_ref(), hero_sounds, &mut self.rng);
             // FUN_002285a0: the cheat entry (the last moves against the patterns; crate::cheats).
             let h = &self.hero;
             let inp = crate::cheats::MoveInput { state_ticks: h.timer, group: h.group, state: h.state, flip_sector: h.jump.kind7a0, combo: h.melee.combo, mirror: self.options.cheats.on(crate::cheats::slot::MIRROR) };

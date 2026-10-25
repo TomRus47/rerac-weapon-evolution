@@ -310,7 +310,7 @@ fn pre(w: &mut World, id: MobyId) -> bool {
     if t.kind != 2 {
         let from = if state(w, id) == st::HOP_WAIT { path(w, id, pv::PATH).map(|p| path_point(w, p, 1)).unwrap_or([0.0; 4]) } else { c::pos(w, id) };
         let tp = c::pv4(w, id, pv::TGT);
-        if !(c::dist2(from, tp) <= range && from[2] - tp[2] <= 3.0) { c::set_pi32(w, id, pv::TGT_KIND, 2); }
+        if !(c::dist2(from, tp) <= crate::weapon_evo::world::perception_range(w,id,range) && from[2] - tp[2] <= 3.0) { c::set_pi32(w, id, pv::TGT_KIND, 2); }
     }
     if c::pi32(w, id, pv::TGT_MOBY) == 0 {
         let hm = w.hero_moby;
@@ -519,7 +519,7 @@ fn knocked(w: &mut World, id: MobyId, back: u8) -> bool {
     let r = knock::update(w, id, pv::K);
     if r & 0x40 != 0 {
         let p = c::pos(w, id);
-        if k::SEA <= p[2] && path(w, id, pv::AREA).is_some_and(|a| region::point_in_polygon(w, a, p)) {
+        if (if w.svc.level==11 {k::SEA} else {w.svc.death_z}) <= p[2] && path(w, id, pv::AREA).is_some_and(|a| region::point_in_polygon(w, a, p)) {
             set_state(w, id, back);
             blend(w, id, 0, 10);
             return false;

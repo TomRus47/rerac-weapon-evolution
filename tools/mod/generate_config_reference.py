@@ -47,17 +47,19 @@ def generate():
             lines.append('| `'+key+'` | '+cell(field_type(section,key,value))+' | `'+value+'` | '+cell(explanation(section,key))+' |\n')
     for name,(item,title) in schema.EDITOR_WEAPONS.items():
         section='weapon.'+name
-        lines += [f'## {title} — ID {item}\n',f'INI prefix: `[{section}]`; grade sections: `[{section}.level1]` through `.level5`.\n',
+        lines += [f'## {title} — ID {item}\n',f'INI prefix: `[{section}]`; grade sections: `[{section}.level1]` through `.level8`.\n',
                   '| Transition | Required XP |\n|---|---|\n']
-        for i,key in enumerate(schema.XP,1):lines.append(f'| V{i} → V{i+1} | {doc.entries[section,key]} |\n')
-        keys=list(dict.fromkeys(key for n in range(1,6) for key in doc.keys(section+f'.level{n}')))
-        lines+=['\n| Grade field | V1 | V2 | V3 | V4 | V5 |\n|---|---|---|---|---|---|\n']
+        for i,key in enumerate(schema.XP,1):
+            value='Gold purchase in NG+' if key=='xp_v5_to_v6' and name!='wrench' else doc.entries[section,key]
+            lines.append(f'| V{i} → V{i+1} | {value} |\n')
+        keys=list(dict.fromkeys(key for n in range(1,9) for key in doc.keys(section+f'.level{n}')))
+        lines+=['\n| Grade field | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8 |\n|---|---|---|---|---|---|---|---|---|\n']
         for key in keys:
-            values=[doc.entries.get((section+f'.level{n}',key),'—') for n in range(1,6)]
+            values=[doc.entries.get((section+f'.level{n}',key),'—') for n in range(1,9)]
             lines.append('| `'+key+'` | '+' | '.join('`'+cell(v)+'`' for v in values)+' |\n')
         lines+=['\n| Grade field | Type / bounds | Meaning |\n|---|---|---|\n']
         for key in keys:
-            actual=next(section+f'.level{n}' for n in range(1,6) if (section+f'.level{n}',key) in doc.entries)
+            actual=next(section+f'.level{n}' for n in range(1,9) if (section+f'.level{n}',key) in doc.entries)
             value=doc.entries[actual,key]
             lines.append('| `'+key+'` | '+cell(field_type(actual,key,value))+' | '+cell(explanation(actual,key))+' |\n')
         lines.append('\n')

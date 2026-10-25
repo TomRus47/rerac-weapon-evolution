@@ -1,5 +1,7 @@
 # Source, runtime and player package layout
 
+Main currently targets ReRAC 0.3.6-alpha and is unreleased. The previous downloadable 0.3 package is unchanged. Compile this checkout for current development tests; do not mix its source with the old released runtime.
+
 ## Ready-to-play Windows download
 
 `ReRAC_Weapon_Evolution_0.3_windows_x64.zip` contains:

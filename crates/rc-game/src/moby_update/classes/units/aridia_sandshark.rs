@@ -551,7 +551,7 @@ fn pre(w: &mut World, id: MobyId) -> bool {
     store_target(w, id, &t);
     if t.kind != 2 {
         let tp = c::pv4(w, id, pv::TGT);
-        if range < c::dist2(c::pv4(w, id, pv::HOME), tp) || 3.0 < (c::pos(w, id)[2] - tp[2]).abs() { c::set_pi32(w, id, pv::TGT_KIND, 2); }
+        if crate::weapon_evo::world::chase_range(w,id,range) < c::dist2(c::pv4(w, id, pv::HOME), tp) || 3.0 < (c::pos(w, id)[2] - tp[2]).abs() { c::set_pi32(w, id, pv::TGT_KIND, 2); }
     }
     if c::pi32(w, id, pv::TGT_MOBY) == 0 {
         let hm = w.hero_moby;

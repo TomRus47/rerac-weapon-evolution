@@ -1516,8 +1516,8 @@ mod hit_origin_tests {
         svc.bomb_evo.enabled = true;
         svc.bomb_evo.real_hp = true;
         svc.bomb_evo.xp_per_damage = 0.1;
-        svc.bomb_evo.xp_required = [10000.0; 4];
-        for track in &mut svc.bomb_evo.extras { track.enabled = true; track.xp_required = [10000.0; 4]; }
+        svc.bomb_evo.xp_required = [10000.0; 7];
+        for track in &mut svc.bomb_evo.extras { track.enabled = true; track.xp_required = [10000.0; 7]; }
         for weapon in [9, 10, 11, 13, 15, 20, 23, 24] { svc.bomb_evo.damage_hp[weapon][0] = Some(75.0); }
         let mut w = World::new(&mut table, &hero, &mut rng, &classes, &mut svc, 1);
         c::set_pf(&mut w, 1, pv::D, 60.0);

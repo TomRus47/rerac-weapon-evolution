@@ -1,134 +1,71 @@
 # ReRAC Weapon Evolution
 
-Weapon Evolution **0.3**, updated build: gameplay patch **0.1.6.59**, configuration capability **58**, multilingual preset launcher **0.17.2**, based on ReRAC **0.3.4-alpha**.
+Weapon Evolution **0.3**, current **development snapshot**: gameplay **0.1.6.83**, configuration capability **84**, launcher **0.27.1**, based on **ReRAC 0.3.6-alpha**. This main-branch update is not a new release. The previously published Windows/source assets and their release tag remain unchanged.
 
-**Runtime compatibility: ReRAC 0.3.4-alpha**, using the modified game runtime supplied with Weapon Evolution or built from this repository.
+**Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to their games, characters, trademarks or game assets, and is not affiliated with their rights holders. Upstream licenses and contributor credits remain applicable. See [credits](docs/mod/CREDITS.md) and [LICENSE](LICENSE).
 
-**Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only and does not develop the original Ratchet & Clank games or the ReRAC project. TomRus47 does not own the original games, characters, trademarks or game assets and is not affiliated with Sony Interactive Entertainment or Insomniac Games. Original-game rights remain with their respective rights holders. ReRAC retains its existing license and contributor credits. See [credits](docs/mod/CREDITS.md).
+This repository includes the complete supplied Rust workspace, mod integrations, launcher source, approved default profile, tests and build tools. It does not include compiled executables, game data, saves or personal settings. It can be built directly without installing previous mod patches. Upstream source is included to make the modified runtime reproducible, not to claim authorship of the port.
 
-This is a source repository. It contains the modified Rust workspace, launcher source, approved default weapon configuration, tests and Windows build tools. The game data, compiled game, compiled launcher, saves and local settings are excluded.
+## Current development features
 
-The full ReRAC source base is included because the mod integrates with many gameplay and rendering systems. No earlier patch installation is required. [MOD_FILES.md](MOD_FILES.md) identifies the mod modules and integration points; [mod/source-map.json](mod/source-map.json) provides their hashes.
+- Independent weapon XP, eight configurable grades, localized game names and bright grade icons. Weapons reach V5 through XP, require their NG+ Gold purchase for V6, then progress to V8. The wrench uses XP for its upper grades in NG+.
+- Real HP, per-attack projectile/explosion identity, actual accepted health-loss XP, independent damage/ammo clocks and separate enemy reaction cooldowns.
+- Per-grade ammo, damage, targeting, ranges, colors, Gold appearance and optional weapon replacements/enhancements, including lava streams, flame mines, grenade Visibomb and RYNO shotgun.
+- Enemy health, population, movement, perception, pursuit and projectile tuning, with optional health-class damage to Ratchet and XP-driven Nanotech progression.
+- Seeded weapon discoveries at registered collectible locations, isolated randomizer save state, access constraints and underwater collection; optional Ammo-Survival Mode.
+- NG+ Gold shop progression, shared bolt/weapon-XP/Nanotech-XP reward chain and separate NG+ encounter scaling.
+- Locked-camera movement and directional legs; R2/Circle firing during ordinary or locked movement; **L1 and R1 both crouch** in direct Ratchet gameplay.
+- Optional **D-pad Quick Select** for weapons and all equippable gadgets. Hold L1+direction in paused Weapons/Gadgets to bind the highlighted owned item. Colored borders identify assignments; the help caption appears only in Weapons. Repeating a boots/helmet shortcut removes that equipped item. Repeating a Clank-pack shortcut cycles owned Heli-Pack → Thruster-Pack → Hydro-Pack after its first selection.
+- Optional **R1_Experimental**: hold Triangle and cycle Pyrocitor normal/lava, Mine Glove normal/fire, Visibomb guided/grenade, or RYNO native/continuous/shotgun. Other enhancements remain launcher-only. Modes and bindings are saved per slot; confirmations use normal weapon-menu audio.
+- Synchronized weapon HUD, pause-menu weapon XP and a separate Nanotech XP HUD bar. Multilingual launcher (English, Italian, French, German, Spanish), Off/On selectors, optional named presets and a standalone Windows EXE builder.
 
-See the [release notes](docs/releases/v0.3.md), [current implementation map](docs/mod/CURRENT_IMPLEMENTATION.md), and [respawn investigation](docs/mod/RESPAWN_LIFECYCLE.md) for current behavior. See the [loading and shotgun investigation](docs/mod/LOADING_AND_SHOTGUN.md) for the v50 fixes and measurement limits. The v40 audio investigation is historical; temporary probes have been removed.
+The arena experiment was removed; it is not part of this snapshot. Temporary audio diagnostics are not enabled.
 
-Local v53 changes: [Visibomb grenades, icon colors and mine geometry](docs/mod/VISIBOMB_GRENADES_V53.md).
+See [current implementation](docs/mod/CURRENT_IMPLEMENTATION.md), [saved controls](docs/mod/SAVED_CONTROLS.md), [configuration reference](docs/mod/CONFIG_REFERENCE.md) and [source map](MOD_FILES.md). Earlier versioned notes remain historical; current source/configuration documentation takes precedence.
 
-Local v54: [OmniWrench grades, additive bolt attraction and projectile fixes](docs/mod/WRENCH_AND_PROJECTILES_V54.md).
+## Build and test on Windows x64
 
-## Downloads and current changes
+Authoring requires the Rust MSVC toolchain, Visual Studio C++ x64 tools and a Windows SDK, plus 64-bit Python 3.10+ with Tcl/Tk. Dependencies are pinned in `Cargo.lock`; Rust 1.99.1 is the validation toolchain. Build from an x64 Native Tools command prompt:
 
-Download the complete [Windows player ZIP from release 0.3](https://github.com/TomRus47/rerac-weapon-evolution/releases/tag/v0.3). It contains both EXEs, `runtime/rerac.exe`, shaders and the editable INI. Extract the complete package before running `ReRAC_Weapon_Evolution.exe`. Players do not compile the game or install Python.
+```bat
+01_BUILD_GAME.bat
+02_OPEN_LAUNCHER.bat
+```
 
-The separately named source ZIP contains the complete project used for that Windows build. It is not a ready-to-play package. See [release notes](docs/releases/v0.3.md) for the current fixes and [build/source/launcher folder layout](docs/mod/BUILD_LAYOUT.md) for local builds.
+The first command tests rc-game, builds this checkout's editable ReRAC 0.3.6-alpha runtime and stages it in `launcher/runtime/`. The editor bootstraps a missing personal `launcher/weapons.ini` from the tracked example; existing personal values and presets remain local. Select extracted game data containing `toc.bin` and `extract-info.json`. Existing ReRAC data under `%LOCALAPPDATA%\rerac\games\rac1\data` can be detected automatically.
 
-This update fixes real experimental ammo consumption, enlarged flame-mine landing and post-death light cleanup; restores normal page rendering and dropdown scrolling; adds independent model palettes for experimental Visibomb grenades and flame mines; and fixes native Visibomb steering with longer flight duration. The withdrawn page-cache implementation is not part of the released launcher.
+To build a local standalone player ZIP after compiling the game:
 
-## Features
+```bat
+BUILD_FINAL_WINDOWS_EXE.bat
+```
 
-- Optional [Ammo-Survival Mode](docs/mod/AMMO_UNLOCK_MODE.md): independent ammo packs, collectible-bolt unlocks and per-slot persistence; Gold appearance for every weapon and a silent second Tesla beam.
+This creates a local package only; it does not publish a GitHub release. It includes the patched runtime, launcher, shaders, configuration and licenses. Players extract the entire package and open `ReRAC_Weapon_Evolution.exe` directly; they do not need Python, Rust or earlier patches. Do not import a standalone player ZIP into the official ReRAC launcher. Game data is supplied separately by the player.
 
-- Independent weapon XP and five configurable grades; localized in-game weapon names and colored grade icons.
-- Real HP damage, actual-health-loss XP attribution and independent projectile/explosion hit tracking.
-- Per-grade ammunition, damage, firing intervals, stream intervals, targeting ranges, gold behavior and weapon effects.
-- Camera-locked movement and combat, directional leg animation and R2 firing while locked.
-- Weapon HUD name, grade, XP bar and synchronized fades.
-- Launcher in English, Italian, French, German and Spanish with optional saved presets, editable defaults, portable runtime selection and a standalone Windows EXE build.
-- Preserve encounter phase protection while fixing independent weapon hit handling.
-- Experimental cluster bombs, triple flames, crate ammunition, a second Tesla chain, continuous-missile or 35-pellet R.Y.N.O., flame mines and a Drone Device Sand Mouse companion.
-- XP below the pause-menu weapon-name panel, up to ten ordered drones, directional boot poses and expanded/stabilized locked-camera aim.
-- Death-reload cleanup for stale effects, companion IDs and reaction state; uninterrupted accepted stream damage with separate reaction cooldowns.
+The tracked custom `launcher/launcher.ico` is included in the EXE build fingerprint. See [build layout](docs/mod/BUILD_LAYOUT.md) for source/launcher/player folder distinctions.
 
-## For developers modifying the mod
+## Configuration and saves
 
-Start with the [Developer guide](docs/mod/DEVELOPER_GUIDE.md). It maps concrete tasks to files and symbols, follows the damage/XP and save lifecycles, and gives implementation recipes for new INI controls and enemy support. It also explains camera/animation integration, runtime compatibility, debugging and release checks. The [Configuration reference](docs/mod/CONFIG_REFERENCE.md) documents the public fields by weapon with launcher types, bounds and help text.
+`launcher/weapons.default.ini` and `launcher/weapons.example.ini` are identical public defaults. Personal `weapons.ini`, presets, runtime, logs and launcher settings are ignored by Git. With no preset selected the launcher uses the current `weapons.ini`; named presets are optional and an explicitly selected preset is remembered. The internal real-HP marker is injected only into private runtime profiles.
 
-For the source-overlay test workflow, read [LOCAL_TEST_KIT.md](docs/mod/LOCAL_TEST_KIT.md). It reuses your local build cache and does not update GitHub.
+The optional embedded-profile feature uses the same reviewed default, with its internal session marker. Normal builds remain editable with `--no-default-features`.
 
-## Build on Windows x64
+Weapon/health/randomizer progression and shortcut bindings/modes are stored in the existing content-addressed `.wev` save companions. Format v8 reads previous formats 1–7 without replacing their progression. Normal equipped items remain in native saves. See [saved controls](docs/mod/SAVED_CONTROLS.md) for slot isolation, repeat actions and input restrictions.
 
-Build the modded **ReRAC 0.3.4-alpha** runtime from this checkout before packaging the launcher.
-
-Authoring requires Rust 1.99.1 with the MSVC toolchain, Visual Studio C++ build tools and a Windows SDK, plus 64-bit Python 3.10 or later with Tcl/Tk. The game uses the dependencies pinned in `Cargo.lock`. The launcher build installs its pinned PyInstaller version in a local tools environment.
-
-1. Extract or clone this repository into any writable folder.
-2. Open **x64 Native Tools Command Prompt for VS**, change to that folder and run:
-
-   ```bat
-   01_BUILD_GAME.bat
-   ```
-
-   This runs the `rc-game` library tests, builds the editable game and stages the runtime in `launcher/runtime/`. It builds directly from this checkout; it does not patch a separate ReRAC installation or require game data to compile.
-
-3. Open the editor:
-
-   ```bat
-   02_OPEN_LAUNCHER.bat
-   ```
-
-   The launcher creates `launcher/weapons.ini` from the tracked example on first use. Select your extracted game data if automatic discovery does not find it. The directory must contain `toc.bin` and `extract-info.json`. Existing ReRAC data under `%LOCALAPPDATA%\rerac\games\rac1\data` can be detected automatically.
-
-4. To generate the standalone player package after building the game:
-
-   ```bat
-   BUILD_FINAL_WINDOWS_EXE.bat
-   ```
-
-   Output is written under `launcher/dist/`. Share the complete generated player ZIP. It includes the launcher EXE, patched game runtime, shaders, configuration and collected launcher licenses. Players do not need Python, Rust or earlier patches.
-
-The tracked `launcher/launcher.ico` is the supplied custom icon. The build cache tracks changes to this file.
-
-## Configuration
-
-The tracked starting profile is `launcher/weapons.default.ini`; `launcher/weapons.example.ini` contains the same settings. Personal `launcher/weapons.ini`, presets, runtime, build output and launcher settings are ignored by Git.
-
-With no preset selected, the launcher reads the current `weapons.ini`; creating a named preset is optional. It remembers an explicitly selected preset across sessions. Each launch creates a private session profile and injects the real-HP marker needed by the runtime. Use the launcher or the supplied helper to activate the complete mod environment.
-
-The normal build uses `--no-default-features`, with editable external configuration. The optional `weapon-evo-release` feature embeds a profile; its checked-in profile is synchronized with the approved English defaults. Changing the external default does not automatically regenerate the optional embedded copy.
-
-## Tests
-
-Run from the repository root:
+## Verification and maintenance
 
 ```sh
 python tools/mod/check_source.py
 python -m unittest discover -s launcher/tests -v
 cargo test --release --locked --no-default-features -p rc-game --lib
+cargo test --release --locked --no-default-features -p rc-game --test controls_api --test golden_render_api --test encounter_effects_api
 cargo build --release --locked --no-default-features -p rc-engine --bin rerac
 ```
 
-The Windows build helper runs the last two commands with an explicit checkout-local target directory. Repository export checks and launcher tests can run without game data. Some upstream integration tests require an extracted game; the focused commands above do not run those integration suites.
+See [verification](docs/mod/VERIFICATION.md) for completed checks and remaining Windows/gameplay validation. Start extensions with the [developer guide](docs/mod/DEVELOPER_GUIDE.md), [configuration reference](docs/mod/CONFIG_REFERENCE.md) and [module index](MOD_FILES.md). Preserve damage/XP attribution, native phase shields, loader ownership and per-save boundaries when rebasing onto newer runtimes.
 
-See [docs/mod/VERIFICATION.md](docs/mod/VERIFICATION.md) for the checks actually performed on this export. A successful source export does not substitute for a Windows build and gameplay test.
+`mod/development.json` describes this main-branch snapshot. `mod/release.json` still describes the previous published release; it has deliberately not been advanced. Release packaging/publication scripts reject a runtime that does not match an explicitly prepared release descriptor. Source pushes never publish releases; manual release preparation and authorization are separate.
 
-## Source layout
+## Source provenance
 
-| Path | Contents |
-|---|---|
-| `crates/rc-game/` | Weapon evolution, save state, combat, enemy hit handling and gameplay integration |
-| `crates/rc-engine/` | Runtime, HUD, camera/input integration and shaders |
-| `launcher/` | Python launcher, default INI, tests and Windows EXE/package builder |
-| `mod/` | Source map, provenance and delta from the supplied starting snapshot |
-| `tools/mod/` | Source export verification |
-| `docs/mod/` | Mod architecture, build/export notes and GitHub publishing instructions |
-| Other `crates/`, `tools/`, `docs/` | ReRAC base source and developer documentation |
-
-## Provenance and license
-
-ReRAC and its contributors retain their existing [ISC license](LICENSE) and copyright notice. The historical ReRAC README is preserved as [README.ReRAC.md](README.ReRAC.md). This mod is an unofficial derivative and is not affiliated with Sony Interactive Entertainment or Insomniac Games.
-
-The supplied base archive already contained an earlier Weapon Evolution version. Its original upstream Git commit was not supplied, so this repository does not claim to reproduce official upstream Git history. The included patch compares against that exact supplied snapshot. See [mod/provenance.json](mod/provenance.json).
-
-For player ZIPs, draft releases and the Windows build workflow, read [docs/mod/PUBLISHING.md](docs/mod/PUBLISHING.md).
-
-To package an already edited local INI without installing the tracked defaults, use:
-
-```bat
-py -3 launcher\package_launcher.py --exe launcher\runtime\rerac.exe --ini launcher\weapons.ini --no-presets
-```
-
-The Windows release workflow tests and builds both executables, packages the tracked default, and attaches matching source and checksums. Ordinary pushes produce test artifacts. Release 0.3 is explicitly approved for publication; see [Publishing](docs/mod/PUBLISHING.md) for the guarded release trigger.
-
-Local v55: [localized launcher, consistent field organization and experimental ammo](docs/mod/LAUNCHER_V55.md).
-
-Local v56: [wrench XP layout, hit radius and horizontal enemy push](docs/mod/WRENCH_TUNING_V56.md).
+The supplied source archives already contain earlier mod work. No exact official upstream commit was supplied, so this repository does not claim to reproduce upstream Git history. [Provenance](mod/provenance.json) records the supplied baseline and preserves historical export information. The historical port README is retained as [README.ReRAC.md](README.ReRAC.md); the current complete workspace uses ReRAC 0.3.6-alpha, including its separate rc-game2 module.

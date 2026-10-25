@@ -5,7 +5,7 @@
 //! the chicken are the moby side: `crate::moby_update::classes::chicken` (docs/plan/hero_gameplay.md §12).
 //!
 //! **No ammo, no weapon-check case, holding class 1** (def +0x18 = 1: the hand-item arm's holding layer). ○ held while
-//! Ratchet stands, walks or runs (hero states 0, 1, 4, 5, 0xc), the item's draw sequence past key time 6, not being put
+//! Ratchet stands, walks or runs (movement groups 0, 1, 4, 5, 0xc), the item's draw sequence past key time 6, not being put
 //! away: **firing**. The arm comes up (`0x22ee08` when 0x1413f8 is clear); from the look stance 1 Ratchet goes into the
 //! first-person stance (`SetState(0x1e, 1)`). The aim is the camera's forward in first person, the item's −row 1 with
 //! the weapon raised at a wall (0x141618 = 1, `super::idle`), else Ratchet's facing: `(yaw, pitch)` =
@@ -837,6 +837,14 @@ pub fn item_gone(hero: &mut Hero, hits: &mut dyn HitSink) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `0x2d2450` tests the movement group 0x1413dc: walking and running (group 1, states 2 / 3) fire, a jump does
+    /// not. (The port tested the state, so the ray only fired standing: Spoobert's "can't use it while moving".)
+    #[test]
+    fn fires_while_walking_and_running() {
+        for g in [0, 1, 4, 5, 0xc] { assert!(can_fire(g, true), "group {g}"); }
+        for g in [3, 6, 0xf] { assert!(!can_fire(g, true), "group {g}"); }
+    }
 
     #[test]
     fn near_target_shortcut_cannot_exceed_a_short_configured_beam() {

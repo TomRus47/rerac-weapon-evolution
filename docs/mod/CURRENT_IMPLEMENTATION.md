@@ -1,80 +1,24 @@
-# Current implementation map: gameplay v59 / launcher 0.17.2
+# Current implementation map
 
-See [ammo-unlock mode](AMMO_UNLOCK_MODE.md) for the v51/v52 inventory, drop, shop and companion-save integration. All evolving weapons expose per-grade Gold appearance; the OmniWrench has independent saved grades and per-grade appearance.
+Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.83 and launcher 0.27.1. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
 
-Local v52 adds editable bolt milestones and normalized ammo chances, a new-game-only zero-bomb policy and the two-card Global Settings page. See [LOCAL_TEST_KIT.md](LOCAL_TEST_KIT.md) for the local source-overlay builder.
+| Area | Primary source | Responsibilities |
+| --- | --- | --- |
+| Profile/grades | `crates/rc-game/src/weapon_evo.rs` | Eight-grade parameters, effective ammo, XP, NG+ upgrade gates and registry publication |
+| Save lifecycle | `weapon_evo_save.rs`, `game_state.rs`, engine saves | Content-addressed v8 companions, legacy decoding, slot isolation and native equipment |
+| Difficulty/population/health | `weapon_evo_world.rs`, `weapon_evo_world/`, `weapon_evo_motion.rs` | Original-health tiers, enemy tuning, safe duplicates, perception/pursuit, class damage and XP Nanotech |
+| Damage identity | `moby_update/real_hp.rs`, creature/hit services | Per-instance acceptance, actual HP loss, stream clocks, XP routing and reaction separation |
+| Discovery mode | `weapon_evo_golden.rs`, `weapon_evo_golden/` | Seeded locations, access constraints, underwater pickup and native acquisition flow |
+| NG+ shops/rewards | `weapon_evo_gold_shop.rs`, `weapon_evo_bolt_chain.rs` | V6 purchase, Gold displays, collectible spending and shared reward multiplier |
+| HUD | `hud.rs`, engine `hud_render.rs`, `menus/pause/weapon_xp.rs` | Weapon/health XP bars, grade icons, notices, Nanotech and fades |
+| Saved controls | `weapon_evo_controls.rs`, `pad.rs`, menu callbacks | D-pad equipment, repeat actions, contextual R1 modes and gameplay fire/crouch |
+| Combat movement | `hero/combat_strafe.rs`, `combat_legs.rs`, worn/physics, follow camera | Camera lock, directional legs, boots, momentum and aim |
+| Weapon experiments | hero and moby weapon modules, `hero/pyro_lava.rs` | Snapshot-owned grenades, mines, projectiles, lava, streams, companions and effects |
+| Configuration editor | `launcher/schema.py`, `migrate_ini.py`, `launcher.py`, `i18n.py` | Lossless defaults, five languages, per-grade organization and presets |
+| Build/maintenance | `tools/mod/`, launcher build/package tools | Source hashes, references, Windows build/smoke checks and separate release tooling |
 
-v58 adds [independent experimental model palettes and steering fixes](MODELS_AND_STATIC_PAGES_V58.md), including the guided Visibomb lifetime/steering fix. The page-cache implementation was withdrawn; [v58.1](LAUNCHER_RESTORE_V58_1.md) restores original page construction. It includes all v57 ammo, light cleanup and enlarged-mine fixes.
+Read [saved controls](SAVED_CONTROLS.md), [configuration reference](CONFIG_REFERENCE.md), [developer guide](DEVELOPER_GUIDE.md), [verification](VERIFICATION.md) and [source index](../../MOD_FILES.md) before changing behavior. Versioned v43–v82 notes explain earlier changes; current source and this map supersede obsolete limits and mode catalogs.
 
-v59 applies [flame-mine model size](FLAME_MINE_MODEL_SCALE.md) to native mines, Bomb Glove bombs and Glove of Doom spheres using each selected model’s native scale.
+Damage acceptance must remain independent of reaction cooldowns and respect native phase shields. XP follows actual accepted HP loss and explicit non-damage weapon policies. Never make clones inherit dead/terminal events from a reused dynamic slot. Keep immutable level-table recognition in the loader, and discard/remap table-owned IDs during reload. Do not reintroduce the removed arena experiment or temporary audio probes.
 
-Paths below are relative to `crates/rc-game/src` unless qualified. Native ports
-intentionally preserve PS2 operation order; read module comments and tests
-before changing their timing. Avoid broad reformatting of those routines.
-
-| Weapon | Runtime modules | Contract |
-|---|---|---|
-| OmniWrench | `hero/wrench.rs`, `weapon_evo.rs` | Five saved grades, proportional slam damage, throw geometry, hit-radius and horizontal-push multipliers, additive bolt attraction and crate-only ground-slam wave |
-| Visibomb | `hero/visibomb.rs`, `classes/visibomb.rs`, `classes/bomb/visibomb_grenade.rs`, engine `gameplay.rs` | Captured guided lifetime/turn strength; mobile grenade replacement with ground preview, contact/water explosion, death-pit cleanup and independent model palettes |
-| Bomb Glove | `moby_update/classes/bomb.rs` | Visible scaled child models, swept flight, snapshotted size/damage/color/radius; no recursion; explosion owns damage |
-| Pyrocitor | `hero/pyrocitor.rs` | Three lane-local retained-flame banks, editable side angles, shared ammo clock and accepted-hit deduplication |
-| Suck Cannon | `hero/suck_cannon.rs`, `moby_update/classes/cannon_crate.rs` | Store actual crate type/contents; interrupted suction restores it; normal attack delivery and native drops once |
-| Walloper | `hero/walloper.rs` | Held lunge extends propulsion and hit window together; one attack serial; 100% native timing |
-| Tesla Claw | `hero/tesla.rs`, engine `tesla_render.rs` | Two native chains including free firing; secondary same-target damage configurable, 25% fallback; independent other target possible |
-| R.Y.N.O. | `hero/ryno.rs`, `moby_update/classes/ryno_missile.rs` | Mutually exclusive continuous/shotgun replacements; distinct 7x5 pellet origins and two spread axes; center unaffected; whole-volley admission before ammo, bounded pellet lifetime, trigger release clears stance without resetting cooldown |
-| Mine Glove | `moby_update/classes/mine.rs`, `mine/experimental.rs` | Native collision/landing; four flame arms with independent color, DPS/XP, local sound, lifetime and population limit; replaces proximity mode |
-| Drone Device | `moby_update/classes/drone.rs`, `mouse/companion.rs` | Up to ten ordered drones; shared native/experimental companion singleton; lifetime/shot/damage/range settings; active companion blocks another summon without spending ammo |
-| Taunter | `hero/taunter.rs`, `moby_update/services.rs` | Attraction, damage and stun remain distinct; optional launch on successful stun |
-
-The [configuration reference](CONFIG_REFERENCE.md) is generated from current
-keys, bounds and defaults. Earlier [v43](EXPERIMENTAL_WEAPONS_V43.md) and
-[v44](EXPERIMENTAL_WEAPONS_V44.md) notes are historical, particularly the old
-Tesla target-exclusion design. Current code/reference take precedence.
-
-## Shared boundaries
-
-- `weapon_evo.rs` parses and snapshots grade parameters; `weapon_evo_save.rs`
-  exchanges progression with saves. Do not retain XP target caches across slots.
-- `moby_update/real_hp.rs` owns attack identity, accepted health settlement and
-  stream clocks. One native HP is 100 public HP. XP follows actual health loss;
-  overkill must not skip amoeboid generations or inflate XP.
-- Creature damage/reaction code, `classes/path_enemy.rs` and enemy handlers
-  preserve phase shields. Blaster/Pyrocitor/Tesla reaction limits are three
-  seconds; quiet accepted hits still damage and award XP. Eudora blade flyers
-  do not receive repeated weapon push impulses.
-- `hero/combat_strafe.rs`, `combat_legs.rs`, `worn.rs` and engine attachment
-  evaluation keep lower-body travel separate from the aimed upper body/boots.
-- `follow_camera.rs` separates requested yaw/pitch from resolved collision
-  position; ignores its class-1007 helper, retains scenery collision, and uses
-  ten-tick ramps with menu-selected speed.
-- `menus/pause/weapon_xp.rs` and engine `menu_render.rs` use live progress;
-  menu bars draw outside clipping immediately below the name panel.
-- Engine HUD/upgrade-notice code synchronizes fades and clears notices on death.
-- [Respawn lifecycle](RESPAWN_LIFECYCLE.md) documents table-bound ownership.
-  Reset or remap raw object IDs at every table replacement.
-
-## Adding a field
-
-1. Add a typed runtime value, bounds and a real consumer.
-2. Add matching launcher vocabulary/types/bounds and English help. Register
-   experiments in `EXPERIMENTAL_DEFAULTS`, after all standard fields per grade.
-3. Extend lossless migration; preserve explicit values, comments, BOM/CRLF,
-   presets and unknown nonconflicting fields.
-4. Test all five grades, invalid values, consumer behavior and capability
-   negotiation. Bump capability only when the profile contract changes.
-5. Intentionally update default/example/embedded copies, regenerate the
-   reference, refresh source hashes and run checks.
-
-Patch 49 introduces no field: capability remains 48 and launcher remains 0.10.0.
-The public default reflects the latest attached v48 profile; installed profiles
-are preserved by the incremental updater.
-
-- [Loading and shotgun lifecycle](LOADING_AND_SHOTGUN.md) documents atomic volley admission, bounded pellet lifetime and loader-owned shared recognition caches.
-
-## Local v53
-
-[Visibomb grenades, icon colors and mine geometry](VISIBOMB_GRENADES_V53.md) describes the current replacement branch, captured settings, HP/XP attribution, movement/audio behavior and in-game checks.
-
-## Local v54
-
-[OmniWrench and projectile corrections](WRENCH_AND_PROJECTILES_V54.md) supersedes v53 grenade range/fuse behavior. Inventory 8 now evolves and has a launcher page. `weapon_evo_wrench.rs`, melee/comet snapshots, real-HP swing identity and WEVO-v3 own its progression; top-left visibility is independent of menu/notice progress.
+The complete supplied workspace includes rc-game2 because ReRAC 0.3.6-alpha includes that separate module. Weapon Evolution remains a Ratchet & Clank 1 mod; including the upstream module does not claim a second-game mod or new ownership of port code.

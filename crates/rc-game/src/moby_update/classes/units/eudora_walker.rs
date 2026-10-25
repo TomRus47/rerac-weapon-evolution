@@ -106,12 +106,12 @@ fn gscale(w: &World, x: f32) -> f32 { sv::fl(w.svc.timing.scale(Pf::f(x))) }
 fn heading_to(a: c::V, b: c::V) -> f32 { c::atan(b[0] - a[0], b[1] - a[1]) }
 fn alerted(w: &World, id: MobyId) -> bool { c::pi32(w, id, p::LURE) != 0 || c::pi16(w, id, p::ALERT) != 0 }
 fn range(w: &World, id: MobyId) -> f32 {
-    let r = c::pf(w, id, p::RANGE);
+    let r = crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, p::RANGE));
     if alerted(w, id) { r + r } else { r }
 }
 fn area(w: &World, id: MobyId) -> Option<usize> { usize::try_from(c::pi32(w, id, p::AREA)).ok().filter(|&a| a < w.svc.splines.len()) }
 /// `PointInPathPolygon(q, area)`; without an area, inside.
-fn in_area(w: &World, id: MobyId, q: c::V) -> bool { area(w, id).is_none_or(|a| c::region::point_in_polygon(w, a, q)) }
+fn in_area(w: &World, id: MobyId, q: c::V) -> bool { area(w, id).is_none_or(|a| crate::weapon_evo::world::chase_in_area(w,id,a,q)) }
 fn has_area(w: &World, id: MobyId) -> bool { c::pi32(w, id, p::AREA) != -1 }
 
 struct Tick {
@@ -322,7 +322,7 @@ fn idle(w: &mut World, id: MobyId, k: &Tick) {
         set_st(w, id, 8);
     }
     if alerted(w, id) || c::dist2(c::pos(w, id), c::pv4(w, id, p::HOME)) <= 2.0 { return; }
-    if k.d <= c::pf(w, id, p::RANGE) && in_area(w, id, k.t.pos) { return; }
+    if k.d <= crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, p::RANGE)) && in_area(w, id, k.t.pos) { return; }
     to_walk(w, id, 6);
 }
 

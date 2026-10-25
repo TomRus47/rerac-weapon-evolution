@@ -227,12 +227,25 @@ impl LegPose {
         self.yaw = if settling { self.turn_from_yaw } else { target_yaw } * (1.0 - self.idle_weight);
         let visual_back = if settling { self.turn_from_backward } else { back };
         self.clock_speed = if visual_back { -pace } else { pace };
-        self.native_keys = !back && base.seq_a == seq && base.seq_b == seq
+        self.native_keys = !visual_back && base.seq_a == seq && base.seq_b == seq
             && self.idle_weight == 0.0;
         self.phase = self.phase.rem_euclid(count as f32);
         if visual_back {
-            if entering || stage == Some(TURN_IN_TICKS + 1) { self.phase = native_phase; }
-            advance_phase(class, seq, &mut self.phase, self.clock_speed);
+            if base.seq_a == seq && base.seq_b == seq {
+                // Reverse the native cycle itself, not a second free-running
+                // clock seeded from whichever pose preceded the last turn.
+                // Otherwise each forward/backward crossover changes the phase
+                // relationship with the pelvis, which still uses native keys.
+                // A fixed mirrored phase keeps straight reverse motion identical
+                // after any direction history, including wraparound and boots.
+                let phase = (-native_phase).rem_euclid(count as f32);
+                self.phase = if phase == 0.0 { 0.0 } else { phase };
+            } else {
+                // A snapshot has no meaningful cyclic phase. Keep an independent
+                // fallback only until the native walk/run keys are available.
+                if entering || stage == Some(TURN_IN_TICKS + 1) { self.phase = native_phase; }
+                advance_phase(class, seq, &mut self.phase, self.clock_speed);
+            }
         } else {
             self.phase = native_phase;
         }
@@ -434,7 +447,7 @@ mod tests {
     #[test]
     fn backward_lower_body_clock_does_not_change_movement_and_fades_for_jump() {
         let c = class();
-        let s = base(&c);
+        let mut s = base(&c);
         let mut h = Hero::spawn([40.0, 40.0, 0.0], 0.0);
         h.set_joint_chains(chains());
         h.items.slot.id = 15; h.state = 2; h.group = 1; h.combat_strafe = true;
@@ -448,6 +461,7 @@ mod tests {
         assert!(pose.yaw > 0.0 && pose.yaw < std::f32::consts::FRAC_PI_2);
         assert_eq!(h.eff, velocity); assert_eq!(h.pos, position);
         let phase = pose.phase;
+        s.t = 0.25;
         pose.update(&h, &c, &s);
         assert_ne!(pose.phase, phase);
         h.state = 7; h.group = 4; h.air_ticks = 1;
@@ -508,10 +522,12 @@ mod tests {
     }
     #[test]
     fn reverse_running_clock_has_a_bounded_visual_idle_crossover() {
-        let c = class(); let s = base(&c); let mut h = runner(); let mut pose = LegPose::default();
+        let c = class(); let mut s = base(&c); let mut h = runner(); let mut pose = LegPose::default();
         pose.update(&h, &c, &s);
         h.eff[0] = crate::ps2v::Pf::f(-0.08);
         for tick in 1..=TURN_TICKS {
+            let phase = (tick as f32 * 0.25).rem_euclid(4.0);
+            s.frame_a = phase.floor() as u8; s.frame_b = (s.frame_a + 1) % 4; s.t = phase.fract();
             pose.update(&h, &c, &s);
             if tick <= TURN_IN_TICKS {
                 assert!(pose.clock_speed > 0.0, "the old gait keeps playing while settling");
@@ -525,6 +541,8 @@ mod tests {
         h.eff[0] = crate::ps2v::Pf::f(0.08);
         for tick in 1..=TURN_TICKS {
             let previous_phase = pose.phase;
+            let phase = (tick as f32 * 0.25).rem_euclid(4.0);
+            s.frame_a = phase.floor() as u8; s.frame_b = (s.frame_a + 1) % 4; s.t = phase.fract();
             pose.update(&h, &c, &s);
             if tick <= TURN_IN_TICKS {
                 assert!(pose.clock_speed < 0.0);
@@ -534,7 +552,59 @@ mod tests {
             }
         }
         assert!(pose.clock_speed > 0.0 && pose.layer().is_none() && pose.idle_layer().is_none());
-        assert_eq!(pose.phase, 0.0);
+        assert_eq!(pose.phase, 3.75);
+    }
+
+    #[test]
+    fn straight_reverse_pose_has_no_direction_history_or_independent_phase_drift() {
+        let c = class(); let mut s = base(&c); let mut h = runner();
+        let mut direct = LegPose::default(); let mut changed = LegPose::default();
+        // The reported path: keep L2 held, run backwards, forwards, backwards.
+        // Include changes before the previous idle crossover has finished.
+        for ticks in [2usize, 6, 8, 14, 30] {
+            changed.clear_pose();
+            for degrees in [270.0, 90.0, 270.0, 225.0, 270.0, 90.0, 270.0] {
+                point_stick(&mut h, degrees);
+                for tick in 0..ticks {
+                    s.frame_a = (tick % 4) as u8; s.frame_b = (s.frame_a + 1) % 4; s.t = 0.37;
+                    changed.update(&h, &c, &s);
+                }
+            }
+            point_stick(&mut h, 270.0);
+            for tick in 0..48 {
+                s.frame_a = ((tick / 4) % 4) as u8; s.frame_b = (s.frame_a + 1) % 4;
+                s.t = (tick % 4) as f32 * 0.25;
+                changed.update(&h, &c, &s);
+                direct.clear_pose(); direct.update(&h, &c, &s);
+                if tick >= TURN_TICKS as usize {
+                    assert_eq!(changed.phase, direct.phase, "history length {ticks}, tick {tick}");
+                    assert_eq!(changed.yaw, 0.0);
+                    assert!(changed.yaws.is_empty() && changed.idle_layer().is_none());
+                    let pose = |p: &LegPose| {
+                        let layers: Vec<_> = p.layer().into_iter().collect();
+                        moby_anim::evaluate_posed_yaw(&c, &s, None, &layers, &[], &p.yaws)
+                    };
+                    assert_eq!(pose(&changed), pose(&direct), "reverse pose depends on earlier turns");
+                }
+                assert!(changed.clock_speed < 0.0 || tick < TURN_TICKS as usize);
+            }
+        }
+    }
+
+    #[test]
+    fn reverse_running_tracks_native_phase_and_restores_forward_without_old_leg_keys() {
+        let c = class(); let mut s = base(&c); let mut h = runner(); let mut pose = LegPose::default();
+        point_stick(&mut h, 270.0);
+        for phase in [0.0f32, 0.125, 0.7, 1.2, 2.8, 3.99, 0.01] {
+            s.frame_a = phase.floor() as u8; s.frame_b = (s.frame_a + 1) % 4; s.t = phase.fract();
+            pose.update(&h, &c, &s);
+            let sum = (pose.phase + phase).rem_euclid(4.0);
+            assert!(sum.min(4.0-sum) < 0.00001);
+            assert!(!pose.native_keys);
+        }
+        point_stick(&mut h, 90.0);
+        for _ in 0..TURN_TICKS { pose.update(&h, &c, &s); }
+        assert!(pose.native_keys && pose.layer().is_none() && pose.idle_layer().is_none());
     }
     #[test]
     fn a_jump_or_stop_does_not_receive_the_previous_running_layer() {

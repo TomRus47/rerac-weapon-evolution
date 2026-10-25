@@ -361,7 +361,7 @@ pub fn targeting(w: &mut World, id: MobyId, x_out: f32) {
             if out { c::set_pi32(w, id, pv::TGT_KIND, 2); }
         }
         let home = c::pv4(w, id, pv::HOME);
-        if c::pf(w, id, pv::RANGE_NOW) < c::dist2(home, t.pos) || w.m(id).visible == 0 { c::set_pi32(w, id, pv::TGT_KIND, 2); }
+        if crate::weapon_evo::world::chase_range(w,id,c::pf(w, id, pv::RANGE_NOW)) < c::dist2(home, t.pos) || w.m(id).visible == 0 { c::set_pi32(w, id, pv::TGT_KIND, 2); }
     }
     if c::pi32(w, id, pv::TGT_MOBY) == 0 {
         let h = w.hero_moby.map_or(0, |m| m as i32 + 1);

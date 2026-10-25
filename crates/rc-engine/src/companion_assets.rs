@@ -18,23 +18,23 @@ struct Asset {
     joints: JointData,
     textures: Vec<(usize, LevelTexture)>,
 }
-static CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<Vec<Asset>>>>> = OnceLock::new();
+static CACHE: OnceLock<Mutex<HashMap<(PathBuf,u32,Vec<i32>), Arc<Vec<Asset>>>>> = OnceLock::new();
 
-fn load(root: &Path) -> Result<Arc<Vec<Asset>>> {
+fn load(root: &Path, level:u32, requested:&[i32]) -> Result<Arc<Vec<Asset>>> {
     let mut cache = CACHE
         .get_or_init(Default::default)
         .lock()
         .unwrap_or_else(|p| p.into_inner());
-    if let Some(cached) = cache.get(root) {
+    let mut ids=requested.to_vec();ids.sort_unstable();ids.dedup();
+    let key=(root.to_path_buf(),level,ids);
+    if let Some(cached) = cache.get(&key) {
         return Ok(cached.clone());
     }
-    let data = rc_data::level_core_data(root, 1).context("reading companion reference core")?;
-    let index = crate::disc_source::level_file(root, 1, "core_index.bin")?;
-    let gs = crate::disc_source::level_file(root, 1, "gs_ram.bin")?;
+    let data = rc_data::level_core_data(root, level).context("reading companion reference core")?;
+    let index = crate::disc_source::level_file(root, level, "core_index.bin")?;
+    let gs = crate::disc_source::level_file(root, level, "gs_ram.bin")?;
     let mut core = rc_formats::level::parse_level_core(&index, data.len())?;
-    core.moby_classes
-        .retain(|c| matches!(c.o_class, 1818 | 1633 | 121 | 122 | 1192 | 74 | 172 | 230)
-            || rc_game::moby_update::classes::pickup::AMMO_CLASSES.contains(&(c.o_class as i16)));
+    core.moby_classes.retain(|c| c.offset_in_asset_wad>0 && requested.contains(&c.o_class));
     let mut assets = Vec::new();
     for class in moby::parse_level_mobys(&core, &data)? {
         let block = core
@@ -80,11 +80,11 @@ fn load(root: &Path) -> Result<Arc<Vec<Asset>>> {
         });
     }
     anyhow::ensure!(
-        [1818, 1633].iter().all(|id| assets.iter().any(|a| a.class.o_class == *id)),
+        requested.iter().all(|id| assets.iter().any(|a| a.class.o_class == *id)),
         "both companion classes must be available in level 01"
     );
     let assets = Arc::new(assets);
-    cache.insert(root.to_path_buf(), assets.clone());
+    cache.insert(key, assets.clone());
     Ok(assets)
 }
 
@@ -110,7 +110,12 @@ pub fn install(
     {
         return Ok(());
     }
-    let assets = load(root)?;
+    import_models(root,1,&requested,mobys,textures)
+}
+
+/// Import only requested classes, retaining their animations and joint tables.
+pub(crate) fn import_models(root:&Path,level:u32,requested:&[i32],mobys:&mut crate::moby_render::LevelMobys,textures:&mut Vec<LevelTexture>)->Result<()> {
+    let assets = load(root,level,requested)?;
     for a in assets
         .iter()
         .filter(|a| requested.contains(&a.class.o_class) && !mobys.classes.iter().any(|c| c.o_class == a.class.o_class))
@@ -147,5 +152,24 @@ pub fn install(
     }
     anyhow::ensure!(requested.iter().all(|id| mobys.classes.iter().any(|c| c.o_class == *id)),
         "missing ammo/companion reference class after import");
+    Ok(())
+}
+
+/// Cache source audio on the loader worker. Never probe/record audio during play.
+pub(crate) fn reference_audio(root:&Path,level:u32)->Result<Arc<rc_game::audio::LevelAudio>> {
+    static AUDIO:OnceLock<Mutex<HashMap<(PathBuf,u32),Arc<rc_game::audio::LevelAudio>>>>=OnceLock::new();
+    let mut cache=AUDIO.get_or_init(Default::default).lock().unwrap_or_else(|p|p.into_inner());
+    let key=(root.to_path_buf(),level);if let Some(a)=cache.get(&key){return Ok(a.clone());}
+    let read=|name|crate::disc_source::level_file(root,level,name);
+    let data=rc_data::level_core_data(root,level)?;let index=read("core_index.bin")?;
+    let core=rc_formats::level::parse_level_core(&index,data.len())?;
+    let a=rc_game::audio::LevelAudio::from_parts(&read("sound_bank.bin")?,&index,&core,&data,
+        &rc_data::level_gameplay(root,level)?,&read("level_header.bin")?,&std::array::from_fn(|_|None),None)?;
+    let a=Arc::new(a);cache.insert(key,a.clone());Ok(a)
+}
+pub(crate) fn install_companion_audio(root:&Path,a:&mut rc_game::audio::LevelAudio)->Result<()> {
+    if !rc_game::weapon_evo::profile_uses_extra(24,"sand_mouse_enabled"){return Ok(());}
+    let source=reference_audio(root,1)?;
+    rc_game::audio::import::class_sounds(a,&source,&[1818,1633]).map_err(anyhow::Error::msg)?;
     Ok(())
 }

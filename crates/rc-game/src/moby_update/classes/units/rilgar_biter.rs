@@ -537,7 +537,7 @@ fn hits(w: &mut World, id: MobyId) {
     let mut kind = t.kind as i32;
     if kind != 2 {
         let home = c::pv4(w, id, pv::HOME);
-        if sight < c::dist2(home, t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs() { kind = 2; }
+        if crate::weapon_evo::world::chase_range(w,id,sight) < c::dist2(home, t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs() { kind = 2; }
     }
     c::set_pi32(w, id, pv::KIND, kind);
     let g = c::pi32(w, id, pv::HUNT);

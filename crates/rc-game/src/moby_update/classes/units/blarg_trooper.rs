@@ -173,7 +173,7 @@ fn close_in(w: &mut World, id: MobyId, alert: bool) {
     walls(w, id);
     let me = c::pos(w, id);
     if !alert {
-        if LEASH < c::dist3(me, c::pv4(w, id, pv::HOME)) || no_target(w, id) {
+        if crate::weapon_evo::world::chase_range(w,id,LEASH) < c::dist3(me, c::pv4(w, id, pv::HOME)) || no_target(w, id) {
             set(w, id, 0xc);
             return;
         }
@@ -334,7 +334,7 @@ fn hits(w: &mut World, id: MobyId) {
     c::set_pv4(w, id, pv::TGT_REC, t.pos);
     c::set_pi32(w, id, pv::TGT, t.moby.map_or(0, |m| m as i32 + 1));
     let mut kind = t.kind as i32;
-    if kind != 2 && (sight < c::dist2(c::pv4(w, id, pv::HOME), t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs()) { kind = 2; }
+    if kind != 2 && (crate::weapon_evo::world::chase_range(w,id,sight) < c::dist2(c::pv4(w, id, pv::HOME), t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs()) { kind = 2; }
     c::set_pi32(w, id, pv::KIND, kind);
     if c::pi32(w, id, pv::TGT) == 0 {
         let h = w.hero_moby.map_or(0, |m| m as i32 + 1);
@@ -378,7 +378,7 @@ pub fn update(w: &mut World, id: MobyId) {
                 return;
             }
             if !done(w, id) { return; }
-            if SIGHT <= c::dist2(c::pos(w, id), super::hero_pos(w)) {
+            if crate::weapon_evo::world::perception_range(w,id,SIGHT) <= c::dist2(c::pos(w, id), super::hero_pos(w)) {
                 set(w, id, 6);
                 if seq(w, id) == 2 { return; }
                 let o = w.m(id).o_class;

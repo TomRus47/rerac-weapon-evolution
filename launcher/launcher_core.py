@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.17.2'
+VERSION = '0.27.1'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -30,7 +30,7 @@ SECTION = re.compile(r'^\s*\[([^\]]+)\]\s*$')
 ASSIGN = re.compile(r'^(\s*[^=]+?\s*=\s*)(.*?)(\s*)$')
 COLOR = re.compile(r'#?[0-9a-fA-F]{6}\Z')
 NUMBER = re.compile(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\Z')
-LEVEL = re.compile(r'weapon\.([a-z_]+)\.level([1-5])\Z')
+LEVEL = re.compile(r'weapon\.([a-z_]+)\.level([1-8])\Z')
 
 def atomic_write(path: Path, data: bytes):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -112,6 +112,8 @@ def allowed_keys(section):
     return set(EXTRA.get(WEAPONS[name][0], '').split()) | extra | {'max_ammo', 'damage_multiplier', 'gold', 'gold_effects', 'gold_texture'}
 
 def numeric_range(section, key):
+    from schema import WORLD_RANGES
+    if section=="general" and key in WORLD_RANGES:return WORLD_RANGES[key]
     if section.startswith("weapon.wrench.level") and key in {"hit_radius_multiplier","knockback_multiplier"}: return (0.1,10) if key=="hit_radius_multiplier" else (0,10)
     from schema import EXPERIMENTAL_RANGES
     if section.startswith("weapon.wrench.level") and key == "throw_range": return 0.5,100
@@ -125,7 +127,7 @@ def numeric_range(section, key):
         from schema import AMMO_UNLOCK_DEFAULTS
         return (0, 1_000_000_000) if key in AMMO_UNLOCK_DEFAULTS else (0, 100)
     if section == 'hud':
-        return {'name_opacity_percent': (0, 100), 'xp_bar_height_px': (2, 16),
+        return {'nanotech_xp_bar_opacity_percent': (0, 100), 'name_opacity_percent': (0, 100), 'xp_bar_height_px': (2, 16),
                 'xp_bar_horizontal_inset_px': (0, 24), 'level_up_popup_duration_seconds': (.5, 15),
                 'xp_bar_opacity_percent': (0, 100)}.get(key, (0, 9999))
     if section.startswith('weapon.bomb_glove.level'):
@@ -182,11 +184,12 @@ def validate_document(doc: IniDocument):
         section = f'weapon.{name}'
         if doc.entries.get((section, 'id')) != str(item): raise ValueError(f'Missing [{section}] id = {item}.')
         for key in XP:
+            if key=='xp_v5_to_v6' and name!='wrench':continue
             if (section, key) not in doc.entries: raise ValueError(f'Missing [{section}] {key}.')
-        for level in range(1, 6):
+        for level in range(1, 9):
             if f'{section}.level{level}' not in doc.sections:
                 raise ValueError(f'Missing [{section}.level{level}].')
-    for grade in range(1,6):
+    for grade in range(1,9):
         section=f'weapon.ryno.level{grade}'
         if all(doc.entries.get((section,k),'false').lower() in {'true','1','yes','on'} for k in ('continuous_missiles_enabled','shotgun_enabled')):
             raise ValueError(f'[{section}] Select either continuous missiles or shotgun mode, not both.')
@@ -199,7 +202,7 @@ def validate_document(doc: IniDocument):
         for weapon in WEAPONS:
             if weapon == 'taunter': continue
             field = 'damage_per_second' if weapon in {'pyrocitor','tesla_claw'} else 'chicken_damage_hp' if weapon == 'morph_ray' else 'damage_hp'
-            for level in range(1,6):
+            for level in range(1,9):
                 section=f'weapon.{weapon}.level{level}'
                 if (section,field) not in doc.entries: raise ValueError(f'Missing [{section}] {field} for the real-HP damage system.')
                 if any((section,k) in doc.entries for k in ('damage_multiplier','shot_damage_multiplier','chicken_damage_multiplier','explosion_damage_multiplier')):
@@ -243,9 +246,9 @@ class PresetStore:
         if path.resolve().parent != self.folder.resolve(): raise ValueError('Preset path is outside the presets folder.')
         return path
     def read(self, name):
-        return checked_document(self.path(name).read_bytes())
+        return profile_document(self.path(name).read_bytes())
     def save(self, name, raw):
-        checked_document(raw)
+        raw=profile_document(raw).raw
         path = self.path(name)
         if path.exists() and path.read_bytes() != raw:
             atomic_write(self.kit/'backup/presets'/stamp()/path.name, path.read_bytes())
@@ -328,7 +331,7 @@ def probe_exe(exe, required_config=0):
     if str(version['version']).endswith('-fixed'):
         raise ValueError('This fixed-profile build ignores external configurations. Build the editable v45 game and select its runtime/rerac.exe.')
     if required_config and version.get('weapon_evolution_config', 0) < required_config:
-        raise ValueError('This executable does not support the required HP and stream interval settings. Use the v58 runtime/rerac.exe included with this mod.')
+        raise ValueError('This executable does not support the required HP and stream interval settings. Use the newly compiled runtime/rerac.exe in your playable mod folder.')
     if not (exe.parent/'assets/shaders').is_dir():
         raise ValueError('Missing assets/shaders beside rerac.exe. Select the complete mod runtime.')
     return version
@@ -350,6 +353,8 @@ def game_environment(ini, data, save=None, env=None):
     # No global environment edits; every launch receives its own full INI path.
     result.update(RC_WEAPON_EVOLUTION_INI=str(ini.resolve()), RC_COMBAT_STRAFE='1',
                   RC_BLASTER_SHOT_GATE_TICKS='2', RC_FRONTEND='1', RC_DATA_DIR=str(data.resolve()))
+    if result.get('RC_WEAPON_LOCATION_TEST','').strip().lower() in {'1','true','on'}:
+        result.update(RC_LEVEL='18',RC_FRONTEND='0',RC_SHIP='2')
     return native_environment(result)
 
 @dataclass
@@ -361,6 +366,12 @@ class LaunchSession:
     preset: str
 
 def required_config(doc):
+    if any(sec.startswith('weapon.wrench.level') and key=='trail_color' for sec,key in doc.entries):return 78
+    if ('general','ngplus_multiplier') in doc.entries:return 77
+    if any(sec.endswith(('.level6','.level7','.level8')) or key=='hide_ryno' for sec,key in doc.entries):return 76
+    if ('general','nanotech_max_health') in doc.entries: return 75
+    from schema import WORLD_DEFAULTS
+    if any(("general",key) in doc.entries for key in WORLD_DEFAULTS):return 60
     from schema import MODEL_NEW_KEYS
     if any(key in MODEL_NEW_KEYS for _, key in doc.entries): return 58
     if any(sec.startswith("weapon.wrench.level") and key in {"hit_radius_multiplier","knockback_multiplier"} for sec,key in doc.entries): return 56
@@ -380,7 +391,9 @@ def launch_game(kit, raw, preset, exe, data, save=None, env=None):
     doc = profile_document(raw)
     from migrate_ini import runtime_profile
     runtime_raw = runtime_profile(doc.raw)
-    probe_exe(exe, required_config(doc))
+    launch_env=os.environ if env is None else env
+    local_test=launch_env.get('RC_WEAPON_LOCATION_TEST','').strip().lower() in {'1','true','on'}
+    probe_exe(exe, max(required_config(doc),78 if local_test else 0))
     if not valid_data(data): raise ValueError('Choose your extracted game data folder. It must contain toc.bin and extract-info.json.')
     ensure_closed()
     directory = kit/'runs'/stamp(); directory.mkdir(parents=True)
@@ -469,3 +482,62 @@ def package_distribution(kit, destination, raw, exe, include_presets=True, launc
         return archive
     finally:
         if stage.exists(): shutil.rmtree(stage)
+
+
+# BEGIN WEAPON EVOLUTION V64 LAVA
+_required_config_before_lava_v64 = required_config
+
+def required_config(doc):
+    # Older runtimes reject these fields even with lava switched off.
+    if any(section.startswith('weapon.pyrocitor.level') and key.startswith('lava_')
+           for section,key in doc.entries):
+        return max(64, _required_config_before_lava_v64(doc))
+    return _required_config_before_lava_v64(doc)
+
+# END WEAPON EVOLUTION V64 LAVA
+
+
+# WEAPON EVOLUTION V65 LAVA ELEVATION
+_required_config_before_v65 = required_config
+
+def required_config(doc):
+    if any(section.startswith('weapon.pyrocitor.level') and key=='lava_launch_angle_degrees'
+           for section,key in doc.entries):
+        return max(65, _required_config_before_v65(doc))
+    return _required_config_before_v65(doc)
+
+# Weapon Evolution v66: upgrade ammunition reward
+_v66_previous_required_config=required_config
+def required_config(doc):
+    required=_v66_previous_required_config(doc)
+    return max(66,required) if ('general','refill_ammo_on_upgrade') in doc.entries else required
+
+
+# Weapon Evolution v67: seeded Gold Bolt rewards.
+_v67_required_config=required_config
+def required_config(doc):
+    previous=_v67_required_config(doc)
+    if ('hud','nanotech_xp_bar_opacity_percent') in doc.entries: return max(70,previous)
+    return max(67,previous) if ('general','golden_bolts_to_weapons') in doc.entries else previous
+_v67_numeric_range=numeric_range
+def numeric_range(section,key):
+    if section=='general' and key=='golden_bolts_early_bias_percent': return 0,100
+    return _v67_numeric_range(section,key)
+
+_previous_required_config_v71=required_config
+def required_config(doc):
+    keys={'enemy_speed_multiplier','enemy_projectile_speed_multiplier',
+        'enemy_projectile_range_multiplier','golden_bolts_one_weapon_per_planet'}
+    previous=_previous_required_config_v71(doc)
+    return max(71,previous) if any(('general',key) in doc.entries for key in keys) else previous
+
+_previous_required_config_v73=required_config
+def required_config(doc):
+    previous=_previous_required_config_v73(doc)
+    return max(73,previous) if ('general','enemy_chase_range_multiplier') in doc.entries else previous
+
+
+_control_required_config=required_config
+def required_config(doc):
+    previous=_control_required_config(doc)
+    return max(82,previous) if any(('general',key) in doc.entries for key in ('dpad_quick_select','r1_experimental')) else previous

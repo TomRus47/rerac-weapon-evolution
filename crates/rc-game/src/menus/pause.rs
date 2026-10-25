@@ -29,6 +29,7 @@
 
 pub mod frame;
 pub mod gadgets;
+mod shortcuts;
 pub mod map_page;
 pub mod media;
 pub mod model_anim;
@@ -89,6 +90,8 @@ pub struct Addrs {
     pub port_options_list: u32,
     pub port_options_label: u32,
     pub port_quit: u32,
+    /// The front end's Options page (`port::FRONT_OPTIONS`).
+    pub port_front_options: u32,
     pub port_model_few: u32,
     pub port_model_many: u32,
     /// The Help / Weapons and Help / Gadgets label tables (`pages::data::WEAPON_TEXTS`, `GADGET_TEXTS_A` / `_B`).
@@ -123,6 +126,7 @@ impl Addrs {
             port_options_list: a(port::OPTIONS_LIST),
             port_options_label: a(port::OPTIONS_LABEL),
             port_quit: a(port::QUIT_PAGE),
+            port_front_options: a(port::FRONT_OPTIONS),
             port_model_few: a(port::MODEL_FEW),
             port_model_many: a(port::MODEL_MANY),
             help_texts: [a(pages::data::WEAPON_TEXTS), a(pages::data::GADGET_TEXTS_A), a(pages::data::GADGET_TEXTS_B)],
@@ -434,6 +438,9 @@ pub struct MenuOut {
     pub drone: bool,
     /// The transition started / finished this frame.
     pub transition: Option<(u32, u32)>,
+    /// `0x15f5ac = 1` (`SceneController` 0x28c990's head, kinds 2 / 0x1a / 0x1e / 0x1f): the elapsed time 0x15ee24 does
+    /// not count this frame (rc-engine `gameplay::elapsed_frame`).
+    pub elapsed_hold: bool,
     pub entered: Option<u32>,
     /// `MenuInput` 0x298f80 recognised a code this frame: its effect (applied to the game state) and what is left for
     /// the engine (the banner, the skill point jingle).
@@ -491,6 +498,9 @@ pub struct PageMenu {
     pub arg: u32,
     pub return_page: u32,
     pub return_kind: i32,
+    /// The hook slot (item +6) whose moby 0x1ba25c (`0x179638[slot]`) an In-Level Movies scene hides while it is replayed
+    /// (the level's own copy of a scene actor: Big Al, Qwark …); 0: none. Taken by the engine with the scene.
+    pub replay_hook: i16,
     /// 0x184894: the destination / selected planet.
     pub dest: i32,
     /// 0x1ba310[14]: each frame moby's (seq, playing backwards) as last set by the menu.
@@ -569,6 +579,7 @@ impl PageMenu {
             arg: 0,
             return_page: 0,
             return_kind: 0,
+            replay_hook: 0,
             dest: 0,
             mobys: [(0, false); 14],
             stub_calls: BTreeMap::new(),
@@ -708,6 +719,7 @@ impl PageMenu {
         let mut out = MenuOut::default();
         self.enter_b13f4 = env.b13f4;
         self.ticks += 1;
+        out.elapsed_hold = matches!(self.kind, 2 | 0x1a | 0x1e | 0x1f);
         if self.kind == 0x14 {
             let before = self.trans;
             self.trans -= 1;
@@ -1030,6 +1042,8 @@ impl PageMenu {
                             10 => 6,
                             _ => 7,
                         };
+                        // A scene (6): the hook slot at +6 names the level moby 0x1ba25c the replay hides (kept when 0).
+                        if it.action == 6 && (it.arg >> 16) as i16 != 0 { self.replay_hook = (it.arg >> 16) as i16; }
                         if it.action != 11 {
                             self.return_kind = if it.action == 6 { 0 } else { 2 };
                             self.arg = if it.action == 6 { it.arg & 0xffff } else { it.arg };
@@ -1153,6 +1167,7 @@ impl PageMenu {
             if let Some(f) = self.frames.as_mut() { f.panel_static(i, env.pal, vignette, rng, &mut fx); }
         }
         out.extend(fx.into_iter().map(MenuDraw::Static));
+        shortcuts::draw(self,a,out);
         // Outside PanelBegin/PanelEnd: the name panel's render target clips at
         // its lower edge. Progress belongs immediately below that edge.
         if let Some(evolution) = evolution {
@@ -1169,7 +1184,7 @@ impl PageMenu {
             func::CAMERA_DRAW => options::camera_draw(self, w, a, gs, out),
             func::SOUND_DRAW => options::sound_draw(self, w, a, gs, out),
             func::QUIT_DRAW => options::quit_draw(self, w, a, out),
-            func::PLANET_LIST_DRAW => planet_select::list_draw(self, w, a, out),
+            func::PLANET_LIST_DRAW => planet_select::list_draw(self, w, a, gs, out),
             func::GALAXY_DRAW => planet_select::galaxy_draw(self, w, a, gs, env, out),
             port::DRAW => port::draw(self, w, a, out),
             gadgets::func::GRID_DRAW => gadgets::grid_draw(self, w, a, gs, env.vsync, out),

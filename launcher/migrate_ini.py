@@ -11,7 +11,7 @@ def ensure_stream_fields(raw):
         header=re.fullmatch(r'\s*\[([^\]]+)\]\s*',line.split(';',1)[0].strip())
         if not header:continue
         section=header[1].strip().lower()
-        if not re.fullmatch(r'weapon\.(?:pyrocitor|tesla_claw)\.level[1-5]',section):continue
+        if not re.fullmatch(r'weapon\.(?:pyrocitor|tesla_claw)\.level[1-8]',section):continue
         additions=[key+' = '+value+newline for key,value in [('ammo_interval_ticks','10'),('damage_interval_ticks','1')] if (section,key) not in doc.entries]
         if additions:
             if not line.endswith(('\n','\r')):lines[-1]+=newline
@@ -41,7 +41,7 @@ def ensure_experimental_fields(raw):
     if current: blocks.append(current)
     result = []
     for block in blocks:
-        header = re.fullmatch(r'\s*\[weapon\.([a-z_]+)\.level([1-5])\]\s*', block[0].split(';',1)[0].strip())
+        header = re.fullmatch(r'\s*\[weapon\.([a-z_]+)\.level([1-8])\]\s*', block[0].split(';',1)[0].strip())
         if not header:
             result.extend(block); continue
         weapon = header[1]; section = f'weapon.{weapon}.level{header[2]}'
@@ -156,7 +156,7 @@ def convert(raw):
         if header:section=header[1].strip().lower()
         if i not in remove:lines.append(line)
     output=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
-    return order_profile(ensure_wrench_fields(ensure_global_fields(ensure_experimental_fields(ensure_stream_fields(output))),doc.entries.get(("general","wrench_gold_texture"),"false"))),[]
+    return order_profile(ensure_hud_fields(ensure_wrench_fields(ensure_global_fields(ensure_experimental_fields(ensure_stream_fields(output))),doc.entries.get(("general","wrench_gold_texture"),"false")))),[]
 
 def runtime_profile(raw):
     """Add the engine's real-HP flag only to the private session copy."""
@@ -220,7 +220,7 @@ def order_profile(raw):
     def emit(section):
         block=blocks.pop(section,None)
         if block is None:return
-        match=re.fullmatch(r'weapon\.([a-z_]+)\.level[1-5]',section)
+        match=re.fullmatch(r'weapon\.([a-z_]+)\.level[1-8]',section)
         if not match:
             while block and not block[-1].strip():block.pop()
             block.append(nl)
@@ -246,7 +246,7 @@ def order_profile(raw):
     emit('general');emit('hud')
     for weapon in WEAPON_ORDER:
         emit('weapon.'+weapon)
-        for grade in range(1,6):emit(f'weapon.{weapon}.level{grade}')
+        for grade in range(1,9):emit(f'weapon.{weapon}.level{grade}')
     for section in list(blocks):emit(section)
     return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(output).encode('utf-8')
 
@@ -258,3 +258,174 @@ if __name__=='__main__':
     from launcher_core import checked_document,atomic_write
     raw,_=convert(source.read_bytes());checked_document(raw);atomic_write(destination,raw)
     print('Configuration normalized:',destination)
+
+
+def ensure_hud_fields(raw):
+    """Add the Nanotech overlay default without rewriting existing profile values."""
+    from launcher_core import IniDocument
+    doc = IniDocument(raw)
+    key = 'nanotech_xp_bar_opacity_percent'
+    if ('hud', key) in doc.entries:
+        return raw
+    newline = '\r\n' if b'\r\n' in raw else '\n'
+    lines = list(doc.lines)
+    for index, line in enumerate(lines):
+        header = re.fullmatch(r'\s*\[hud\]\s*', line.split(';', 1)[0].strip(), re.IGNORECASE)
+        if header:
+            if not line.endswith(('\n', '\r')):
+                lines[index] += newline
+            lines.insert(index + 1, key + ' = 100' + newline)
+            break
+    else:
+        if lines and not lines[-1].endswith(('\n', '\r')):
+            lines[-1] += newline
+        lines.extend([newline, '[hud]' + newline, key + ' = 100' + newline])
+    return (b'\xef\xbb\xbf' if doc.bom else b'') + ''.join(lines).encode('utf-8')
+
+
+def upgrade_global_settings(raw):
+    """Add encounter defaults and group related controls without changing any values.
+
+    Field lines retain inline comments, spelling, BOM and newline style. Only
+    recognized global/HUD rows move; weapon blocks and unrelated rows are kept.
+    """
+    from schema import WORLD_DEFAULTS
+    defaults={'ngplus_multiplier':'1','enemy_chase_range_multiplier':'1','enemy_speed_multiplier':'1','enemy_projectile_range_multiplier':'1',
+        'enemy_projectile_speed_multiplier':'1','golden_bolts_one_weapon_per_planet':'false'}
+    text=raw.decode('utf-8-sig');newline='\r\n' if '\r\n' in text else '\n'
+    blocks=[];section='';lines=[]
+    for line in text.splitlines(keepends=True):
+        match=re.fullmatch(r'\s*\[([^]]+)\]\s*(?:[;#].*)?',line.strip())
+        if match:
+            if lines:blocks.append((section,lines))
+            section=match[1].strip().lower();lines=[]
+        lines.append(line)
+    if lines:blocks.append((section,lines))
+    if not any(section=='general' for section,_ in blocks):blocks.insert(0,('general',['[general]'+newline]))
+    groups={'general':[list(WORLD_DEFAULTS),['golden_bolts_to_weapons','golden_bolts_early_bias_percent','golden_bolts_one_weapon_per_planet']],
+        'hud':[['name_opacity_percent','nanotech_xp_bar_opacity_percent','show_for_weapons_without_ammo','xp_bar_height_px','xp_bar_horizontal_inset_px','level_up_popup','level_up_popup_duration_seconds','level_up_sound']]}
+    result=[]
+    for section,lines in blocks:
+        if section=='general':
+            present={m[1].lower() for line in lines if (m:=re.match(r'\s*([\w]+)\s*=',line))}
+            if lines and not lines[-1].endswith(('\r','\n')):lines[-1]+=newline
+            lines=lines+[key+' = '+value+newline for key,value in defaults.items() if key not in present]
+        for keys in groups.get(section,[]):
+            picked={};retained=[];at=None
+            for line in lines:
+                match=re.match(r'\s*([\w]+)\s*=',line);key=match[1].lower() if match else None
+                if key in keys:
+                    if at is None:at=len(retained)
+                    picked[key]=line.rstrip('\r\n')+newline
+                else:retained.append(line)
+            if at is not None:retained[at:at]=[picked[k] for k in keys if k in picked]
+            lines=retained
+        result.extend(lines)
+    return (b'\xef\xbb\xbf' if raw.startswith(b'\xef\xbb\xbf') else b'')+''.join(result).encode('utf-8')
+
+_previous_convert_v71=convert
+def convert(raw):
+    result,warnings=_previous_convert_v71(raw)
+    return upgrade_global_settings(result),warnings
+
+
+
+def ensure_eight_grades(raw):
+    """Add V6-V8 once; keep every existing field/value, BOM and line ending."""
+    from launcher_core import IniDocument
+    from schema import WEAPONS
+    doc=IniDocument(raw);nl='\r\n' if b'\r\n' in raw else '\n'
+    blocks={};prefix=[];current=None
+    for line in doc.lines:
+        header=re.fullmatch(r'\s*\[([^]]+)\]\s*',line.split(';',1)[0].strip())
+        if header:current=header[1].strip().lower();blocks[current]=[line]
+        elif current is None:prefix.append(line)
+        else:blocks[current].append(line)
+    def add(section,fields):
+        lines=blocks.setdefault(section,['['+section+']'+nl])
+        if lines and not lines[-1].endswith(('\r','\n')):lines[-1]+=nl
+        lines.extend(key+' = '+value+nl for key,value in fields.items() if (section,key) not in doc.entries)
+    if ('general','hide_ryno') not in doc.entries:add('general',{'hide_ryno':'false'})
+    damage={'damage_hp','damage_per_second','chicken_damage_hp','grenade_damage_hp','shotgun_damage_hp','mine_flame_damage_per_second','sand_mouse_shot_damage_hp'}
+    for weapon in WEAPONS:
+        section='weapon.'+weapon
+        last=doc.entries.get((section,'xp_v4_to_v5'),'5500')
+        try:threshold=float(last)
+        except ValueError:threshold=5500
+        add(section,{key:format(min(1_000_000,threshold*factor),'.8g') for key,factor in
+            ([('xp_v5_to_v6',1.25)] if weapon=='wrench' else [])+[('xp_v6_to_v7',1.5),('xp_v7_to_v8',2)]})
+        source=section+'.level5'
+        if source not in blocks:continue
+        for grade,factor in [(6,1.25),(7,1.5),(8,1.75)]:
+            target=section+f'.level{grade}'
+            if target in blocks:continue
+            lines=['['+target+']'+nl]
+            for line in blocks[source][1:]:
+                assignment=re.match(r'(\s*([a-zA-Z0-9_]+)\s*=\s*)([^;\r\n]*)(.*)',line.rstrip('\r\n'))
+                if assignment and assignment[2] in damage:
+                    try:value=format(min(1_000_000,float(assignment[3].strip())*factor),'.8g')
+                    except ValueError:value=assignment[3]
+                    line=assignment[1]+value+assignment[4]+nl
+                elif assignment and assignment[2] in {'gold_texture','gold_effects'}:line=assignment[1]+'true'+assignment[4]+nl
+                lines.append(line if line.endswith(('\r','\n')) else line+nl)
+            if lines[-1].strip():lines.append(nl)
+            blocks[target]=lines
+    text=''.join(prefix)+''.join(''.join(lines) for lines in blocks.values())
+    result=(b'\xef\xbb\xbf' if doc.bom else b'')+text.encode('utf-8')
+    return order_profile(result)
+
+_previous_convert_v76=convert
+def convert(raw):
+    result,warnings=_previous_convert_v76(raw)
+    return ensure_eight_grades(result),warnings
+
+
+def ensure_wrench_trail_color(raw):
+    """Append a missing default to every existing grade; retain custom colors."""
+    from launcher_core import IniDocument
+    doc=IniDocument(raw);nl='\r\n' if b'\r\n' in raw else '\n'
+    result=[];block=[];section=''
+    def flush():
+        if re.fullmatch(r'weapon\.wrench\.level[1-8]',section) and (section,'trail_color') not in doc.entries:
+            if block and not block[-1].endswith(('\r','\n')):block[-1]+=nl
+            block.append('trail_color = default'+nl)
+        result.extend(block)
+    for line in doc.lines:
+        header=re.fullmatch(r'\s*\[([^]]+)\]\s*',line.split(';',1)[0].strip())
+        if header:
+            flush();block=[];section=header[1].strip().lower()
+        block.append(line)
+    flush()
+    return order_profile((b'\xef\xbb\xbf' if doc.bom else b'')+''.join(result).encode())
+
+_previous_convert_v78=convert
+def convert(raw):
+    result,warnings=_previous_convert_v78(raw)
+    return ensure_wrench_trail_color(result),warnings
+
+
+def ensure_control_fields(raw):
+    """Append missing control toggles, preserving current balance and comments."""
+    from launcher_core import IniDocument
+    from schema import CONTROL_DEFAULTS
+    doc=IniDocument(raw);nl='\r\n' if b'\r\n' in raw else '\n'
+    missing={key:value for key,value in CONTROL_DEFAULTS.items() if ('general',key) not in doc.entries}
+    if not missing:return raw
+    lines=[];inside=False;found=False
+    def append_missing():
+        if lines and not lines[-1].endswith(('\n','\r')):lines[-1]+=nl
+        lines.extend(key+' = '+value+nl for key,value in missing.items())
+    for line in doc.lines:
+        header=re.fullmatch(r'\s*\[([^]]+)\]\s*',line.split(';',1)[0].strip())
+        if header:
+            if inside:append_missing()
+            inside=header[1].strip().lower()=='general';found|=inside
+        lines.append(line)
+    if inside:append_missing()
+    if not found:lines=['[general]'+nl,*(key+' = '+value+nl for key,value in missing.items()),nl,*lines]
+    return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
+
+_control_convert=convert
+def convert(raw):
+    result,warnings=_control_convert(raw)
+    return ensure_control_fields(result),warnings

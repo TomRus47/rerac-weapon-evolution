@@ -180,12 +180,12 @@ pub fn update(w: &mut World, id: MobyId) {
     match state(w, id) {
         0 => init(w, id),
         1 => {
-            let near = c::len3(to_t) < r + 4.0 && dz_t < 8.0;
+            let near = c::len3(to_t) < crate::weapon_evo::world::perception_range(w,id,r + 4.0) && dz_t < 8.0;
             if near && w.rng.randi(0x13) == 0 {
                 set_state(w, id, 2);
                 blend_if(w, id, 5, 3);
             } else if w.m(id).cmd != 1 || w.rng.randi(0x13) != 0 {
-                if !(c::len3(to_t) <= r + 6.0 || c::pi16(w, id, KIND) != 0) {
+                if !(c::len3(to_t) <= crate::weapon_evo::world::perception_range(w,id,r + 6.0) || c::pi16(w, id, KIND) != 0) {
                     set_state(w, id, 0x10);
                     blend_if(w, id, 0, 3);
                 }
@@ -220,7 +220,7 @@ pub fn update(w: &mut World, id: MobyId) {
                     c::set_pos(w, id, [old[0], old[1], q[2], q[3]]);
                     set_state(w, id, 0xc);
                     blend_if(w, id, 5, 3);
-                } else if r + 4.0 <= c::len3(aux) || 8.0 <= (p[2] - tg.pos[2]).abs() {
+                } else if crate::weapon_evo::world::perception_range(w,id,r + 4.0) <= c::len3(aux) || 8.0 <= (p[2] - tg.pos[2]).abs() {
                     if w.m(id).cmd != 1 { set_state(w, id, 5); }
                 } else {
                     let g = w.m(id).group;
@@ -338,7 +338,7 @@ pub fn update(w: &mut World, id: MobyId) {
             let p = c::pos(w, id);
             if 1.5 <= c::dist2(p, tg.pos) || 1.0 < dz / d2 {
                 if 1.0 < dz / d2 || res & 2 != 0 {
-                    if r + 6.0 < c::dist2(p, tg.pos) {
+                    if crate::weapon_evo::world::perception_range(w,id,r + 6.0) < c::dist2(p, tg.pos) {
                         set_state(w, id, 0x10);
                         blend_if(w, id, 0, 3);
                     } else if w.m(id).anim.flags & 2 != 0 {
@@ -361,7 +361,7 @@ pub fn update(w: &mut World, id: MobyId) {
             let d = c::len3(to_t);
             let iv = if c::dec_timer_pvar_i32(w, id, HOVER_WAIT) == 0 {
                 c::pi32(w, id, HOVER_WAIT)
-            } else if d < r + 4.0 && dz_t < 8.0 && w.rng.randi(0x13) == 0 {
+            } else if d < crate::weapon_evo::world::perception_range(w,id,r + 4.0) && dz_t < 8.0 && w.rng.randi(0x13) == 0 {
                 set_state(w, id, 0x11);
                 end(w, id);
                 return;
@@ -594,7 +594,7 @@ fn state2(w: &mut World, id: MobyId, tg: target::Target, r: f32) {
         set_state(w, id, 3);
         if seq_b(w, id) != 2 { blend(w, id, 2, 0, 3); }
         w.mm(id).cmd = 0;
-    } else if r + 6.0 < d && c::pi16(w, id, KIND) == 0 {
+    } else if crate::weapon_evo::world::perception_range(w,id,r + 6.0) < d && c::pi16(w, id, KIND) == 0 {
         set_state(w, id, 0x10);
         blend_if(w, id, 0, 3);
     }
@@ -607,7 +607,7 @@ fn state10(w: &mut World, id: MobyId, tg: target::Target, r: f32) {
     let a = c::atan(home[0] - pos[0], home[1] - pos[1]);
     turn::spring_turn2_pvar(w, id, a, 0.05, 0.3, 0.2, TURN_V);
     let d = c::len3(c::sub(tg.pos, home));
-    let go = if d < r && (home[2] - tg.pos[2]).abs() < 8.0 { true } else { w.m(id).cmd == 2 };
+    let go = if d < crate::weapon_evo::world::chase_range(w,id,r) && (home[2] - tg.pos[2]).abs() < 8.0 { true } else { w.m(id).cmd == 2 };
     if !go { return; }
     let g = w.m(id).group;
     attack::group_command(w, g, 2);

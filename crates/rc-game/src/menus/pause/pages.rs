@@ -492,6 +492,10 @@ pub fn ammo_draw(m: &mut PageMenu, w: u32, a: &MenuAssets, gs: &GameState, recor
 /// `count_nonzero_entries_up_to_40` / `_up_to_10` / `compute_clamped_count_difference`.
 pub fn gold_counts(gs: &GameState) -> (i32, i32, i32) {
     let found = (gs.levels.iter().take(20).map(|l| l.gold_bolts.iter().filter(|&&b| b != 0).count()).sum::<usize>() as i32).clamp(0, 0x28);
+    if gs.weapon_progress.gold_shop_active {
+        let used=(gs.weapon_progress.gold_spent as i32).clamp(0,found);
+        return (found,used,found-used);
+    }
     let weapons = (gs.global.gold_weapons.iter().take(0x25).filter(|&&b| b != 0).count() as i32).clamp(0, 10);
     (found, weapons * 4, (found - weapons * 4).clamp(0, 0x28))
 }

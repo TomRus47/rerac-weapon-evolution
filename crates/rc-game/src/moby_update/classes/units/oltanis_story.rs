@@ -204,6 +204,7 @@ const MORPH_BOB: f32 = 0.4;
 
 /// Level14 `0x305758` (1354; module doc).
 pub fn morph_update(w: &mut World, id: MobyId) {
+    if w.svc.bomb_evo.golden_settings.enabled { w.delete_moby(id); return; }
     story::pvars(w, id, 0x60);
     match w.m(id).state {
         0 => {

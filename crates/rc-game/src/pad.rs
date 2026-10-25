@@ -56,6 +56,9 @@ const INV255: Pf = Pf::b(0x3b80_8081);
 /// The `PAD` record fields the game logic reads (offsets from PAD = level01 `0x13c940`).
 #[derive(Clone, Debug)]
 pub struct PadState {
+    /// Unmirrored physical button snapshots, before analog merge and native
+    /// input locks. Menus need these while the radial locks gameplay input.
+    pub physical_buttons: Option<(u32, u32)>,
     /// +0x100 / +0x104: right stick X/Y (after the dead zone; up and left negative).
     pub rx: Pf,
     pub ry: Pf,
@@ -109,6 +112,7 @@ pub struct PadState {
 impl Default for PadState {
     fn default() -> Self {
         PadState {
+            physical_buttons: None,
             rx: Pf::ZERO, ry: Pf::ZERO, lx: Pf::ZERO, ly: Pf::ZERO,
             pressure: [Pf::ZERO; 12], analog_copy: [Pf::ZERO; 16],
             held: 0, pressed: 0, released: 0, prev_held: 0, raw: 0, raw_pressed: 0, raw_released: 0, prev_raw: 0,
@@ -194,6 +198,7 @@ impl PadState {
 
     /// `ClearPadInput__FR3PAD` (0x27bd28).
     pub fn clear(&mut self) {
+        self.physical_buttons = None;
         self.raw = 0;
         self.no_direction = true;
         self.held = 0;
@@ -216,6 +221,8 @@ impl PadState {
     /// the lock modes, the 30-deep histories and the flick bit.
     pub fn process(&mut self, d: &[u8], mirror: bool) {
         let b = (((d[0] as u32) << 8) | d[1] as u32) ^ 0xffff;
+        let previous = self.physical_buttons.map_or(0, |(current, _)| current);
+        self.physical_buttons = Some((b, previous));
         self.raw = b;
         self.held = b;
         let mut an = [Pf::ZERO; 16];

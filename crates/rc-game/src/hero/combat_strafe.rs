@@ -32,13 +32,14 @@ pub fn separate_motion(hero: &Hero) -> bool {
 }
 
 pub fn configure(hero: &mut Hero, pad: &PadState, yaw: Pf, enabled: bool) {
-    let on = enabled && eligible(hero) && pad.held & button::L2 != 0 && pad.held & button::L1 == 0;
+    let look_override=!crate::weapon_evo::controls::active() && pad.held&button::L1!=0;
+    let on = enabled && eligible(hero) && pad.held & button::L2 != 0 && !look_override;
     if on && !hero.combat_strafe {
         hero.combat_move_yaw = if physics::len2(hero.eff) > Pf::f(0.001) {
             crate::pad::fast_arctan(hero.eff[0], hero.eff[1])
         } else { yaw };
     }
-    if hero.combat_strafe && !on && eligible(hero) && pad.held & button::L1 == 0 {
+    if hero.combat_strafe && !on && eligible(hero) && !look_override {
         // Use resolved displacement, not the facing or requested speed: a wall must
         // not inject momentum and backwards movement must remain backwards.
         let speed = physics::len2(hero.eff);
@@ -52,7 +53,7 @@ pub fn configure(hero: &mut Hero, pad: &PadState, yaw: Pf, enabled: bool) {
             hero.yaw_residual = Pf::ZERO;
             hero.sharp_turn = 0;
         }
-    } else if on || !eligible(hero) || pad.held & button::L1 != 0 {
+    } else if on || !eligible(hero) || look_override {
         hero.combat_release = false;
     } else if hero.combat_release {
         let error = physics::fast_subtract_rotations(hero.combat_move_yaw, hero.rot[2]).abs();

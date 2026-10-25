@@ -50,6 +50,17 @@ pub struct Visibomb {
 /// Movement groups the Visibomb fires in (not 2..7, 9..0xb, ≥ 0xd).
 pub fn group_fires(g: i32) -> bool { matches!(g, 0 | 1 | 8 | 0xc) }
 
+/// The alternate launcher has no guided-missile camera or grounding requirement.
+/// Only ordinary jumps/falls are added; hurt, death, rail and scripted states
+/// must retain their native item restrictions.
+fn grenade_can_fire(hero: &Hero) -> bool {
+    hero.health > 0 && hero.items.f13fc == 0
+        && (group_fires(hero.group)
+            || (hero.group == 4 && matches!(hero.state, 7 | 9 | 0xa | 0xb | 0xd | 0xe | 0xf | 0x10 | 0x11 | 0x12))
+            || (hero.group == 2 && hero.state == 6))
+        && !matches!(hero.state, 0x72 | 0x65)
+}
+
 /// `0x2c8cc0`, the Visibomb's update (from the slot loop with the slot ready).
 pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::AnimCtl, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng) {
     let Some(class) = hero.items.slot.item.as_ref().and_then(|m| env.data.class(m.o_class)).cloned() else { return };
@@ -147,7 +158,7 @@ fn grenade_shot(hero:&Hero,env:&ItemEnv,settings:crate::moby_update::classes::bo
 fn grenade_update(hero:&mut Hero,table:&mut MobyTable,env:&ItemEnv,hits:&mut dyn HitSink,rng:&mut Rng,class:&super::items::ItemClass) {
     use crate::moby_update::classes::bomb::visibomb_grenade as grenade;
     let pressed=env.pad.pressed&hero.items.slot.fire_mask!=0;
-    let allowed=hero.items.f13fc==0 && group_fires(hero.group) && !matches!(hero.state,0x72|0x65);
+    let allowed=grenade_can_fire(hero);
     if !allowed {return;}
     if hero.weapons.has_ammo(VISIBOMB)<=0 {if pressed {hero.fx.item_sounds.push(EMPTY_SOUND);}return;}
     let settings=grenade::Settings::current();let shot=grenade_shot(hero,env,settings);
@@ -181,8 +192,9 @@ mod grenade_tests {
             f(&mut World::new(table,hero,rng,&self.classes,&mut self.services,counter));true
         }
     }
-    fn fire_once(with_model:bool)->(Hero,MobyTable,Sink) {
-        let mut hero=Hero::new();hero.state=1;hero.group=1;hero.grounded_ticks=0;
+    fn fire_once(with_model:bool)->(Hero,MobyTable,Sink) { fire_in_state(with_model, 1, 1) }
+    fn fire_in_state(with_model:bool,state:i32,group:i32)->(Hero,MobyTable,Sink) {
+        let mut hero=Hero::new();hero.state=state;hero.group=group;hero.grounded_ticks=0;
         hero.vel=super::super::physics::v4(0.2,-0.3,0.1);hero.disp=super::super::physics::v4(0.01,-0.02,0.03);
         hero.items.slot.id=VISIBOMB;hero.items.slot.fire_mask=crate::pad::button::CIRCLE;
         hero.weapons.ammo[13]=3;hero.weapons.uses_ammo[13]=true;
@@ -192,7 +204,7 @@ mod grenade_tests {
         let class=super::super::items::ItemClass{o_class:CLASS,scale:1.,chains:vec![],
             anim:rc_formats::moby_anim::MobyAnimClass{joint_count:1,skeleton:vec![],rest:vec![[0.;3]],parent_word:vec![0],sequences:vec![]}};
         let data=super::super::items::ItemData::default();let mut pad=crate::pad::PadState::default();pad.pressed=crate::pad::button::CIRCLE;
-        let env=ItemEnv{data:&data,pad:&pad,frame:1,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+        let env=ItemEnv{ mobys: None,data:&data,pad:&pad,frame:1,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
         grenade_update(&mut hero,&mut table,&env,&mut sink,&mut Rng::new(),&class);(hero,table,sink)
     }
     #[test]
@@ -206,6 +218,22 @@ mod grenade_tests {
         assert!(!table.mobys.iter().any(|m|m.o_class==missile::CLASS));assert!(sink.services.visibomb.missile.is_none());
         assert!(hero.fx.item_voices.contains(&super::super::packs::SoundCmd::Voice{index:super::super::weapons::THROW_VOICE,flags:0}));
         assert_eq!(hero.fx.item_voices.iter().filter(|s|matches!(s,super::super::packs::SoundCmd::MobySound{o_class:super::super::devastator::CLASS,index:super::super::devastator::FIRE_SOUND,..})).count(),1);
+    }
+    #[test]
+    fn real_jump_double_jump_and_fall_fire_without_taking_camera_or_momentum() {
+        for (state,group) in [(7,4),(9,4),(0xa,4),(0xb,4),(0xd,4),(0xe,4),(0xf,4),(0x10,4),(0x11,4),(0x12,4),(6,2)] {
+            let (hero,table,_)=fire_in_state(true,state,group);
+            assert_eq!((hero.state,hero.group),(state,group));
+            assert_eq!(hero.weapons.ammo[13],2,"state {state}");
+            assert_eq!(hero.vel,super::super::physics::v4(0.2,-0.3,0.1));
+            assert_eq!(hero.weapons.deferred,None);
+            assert_eq!(hero.weapons.visibomb.missile,None);
+            assert_eq!(table.mobys.iter().filter(|m|crate::moby_update::classes::bomb::visibomb_grenade::is_grenade(m)).count(),1);
+        }
+        for (state,group) in [(0x77,2),(0x72,0x14),(0x1d,0x14),(0x29,4)] {
+            let (hero,_,_)=fire_in_state(true,state,group);assert_eq!(hero.weapons.ammo[13],3);
+        }
+        assert!(!group_fires(4));assert!(!group_fires(2));
     }
     #[test]
     fn missing_model_does_not_charge_ammo_or_throw_feedback() {

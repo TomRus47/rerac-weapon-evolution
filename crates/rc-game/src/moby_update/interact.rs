@@ -872,6 +872,9 @@ pub fn place_after_scene(w: &mut World, npc: MobyId, d: f32) {
 /// the engine applies with the item tables ([`GameWrite::GiveItem`]: owned, ammo, vendor stock, quick select, the hand
 /// request).
 pub fn give_item(w: &mut World, item: usize, equip: bool) {
+    if w.svc.bomb_evo.golden_settings.enabled
+        && crate::weapon_evo::ammo_mode::is_weapon(item)
+        && !w.svc.bomb_evo.golden_progress().collected(item) { return; }
     let owned = w.hero.owned.has(item);
     let k = if owned { item + 0x25 } else { item };
     let msg = w.svc.interact.tables.give_banners.get(k).copied().unwrap_or(-1);

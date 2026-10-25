@@ -81,6 +81,42 @@ pub const UPDATE_FN: u32 = 0x2e_1d38;
 pub const REFERENCE_LEVEL: u32 = 10;
 pub const CLASSES: [i16; 1] = [1202];
 
+#[cfg(test)]
+mod pursuit_tests {
+    use super::*;
+    use crate::{hero::Hero,moby_runtime::{Moby,MobyTable,ClassInfo},rng::Rng};
+    use crate::moby_update::services::{ClassTable,Services};
+    #[test]
+    fn enlarged_sight_and_home_limits_keep_the_target_without_alternating_home() {
+        for (perception,extra,expected) in [(1.,1.,false),(2.,1.,true),(1.,2.,true)] {
+            let mut enemy=Moby::init_instance(0,1202,None);
+            enemy.state=st::CHASE;enemy.has_class=true;enemy.pvars=vec![0;pv::SIZE];
+            enemy.position=[35.,0.,10.,1.];
+            let mut hero_moby=Moby::init_instance(1,0,None);hero_moby.position=[45.,0.,10.,1.];
+            let mut table=MobyTable::new(vec![enemy,hero_moby],4);
+            let mut hero=Hero::new();hero.pos=[Pf::f(45.),Pf::ZERO,Pf::f(10.),Pf::ONE];
+            let mut classes=ClassTable::default();
+            classes.classes.insert(1202,(ClassInfo{ty:5,..Default::default()},None));
+            let mut rng=Rng::new();let mut svc=Services::new();
+            svc.bomb_evo.world_settings.enemy_perception_multiplier=perception;
+            svc.bomb_evo.world_settings.enemy_chase_range_multiplier=extra;
+            svc.bomb_evo.world_settings.enemy_speed_multiplier=2.;
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);w.hero_moby=Some(1);
+            c::set_pf(&mut w,0,pv::D,3.);
+            c::set_pv4(&mut w,0,pv::HOME,[0.,0.,10.,1.]);
+            c::set_pv4(&mut w,0,pv::TGT,[45.,0.,10.,1.]);
+            c::set_pi32(&mut w,0,pv::AREA,-1);
+            for counter in 1..=40 {
+                w.counter=counter;
+                // Both native substeps see the same world tick.
+                tick(&mut w,0);tick(&mut w,0);
+                assert_eq!(!give_up(&w,0),expected,"perception {perception}, extra {extra}");
+            }
+            assert_eq!(kind(&w,0)!=2,expected);
+        }
+    }
+}
+
 pub mod pv {
     pub const D: usize = 0x20;
     pub const COOLDOWN: usize = 0x26;
@@ -347,9 +383,11 @@ fn tick(w: &mut World, id: MobyId) {
         c::set_pf(w, id, pv::RANGE, if touch { 6.0 } else { 0.0 });
         if clank(w) { wake(w, id); }
     }
-    let range = c::pf(w, id, pv::RANGE);
+    let native_range = c::pf(w, id, pv::RANGE);
+    let range = crate::weapon_evo::world::perception_range(w,id,native_range);
+    let home_range = crate::weapon_evo::world::chase_range(w,id,native_range);
     let home = c::pv4(w, id, pv::HOME);
-    let near = |w: &World| c::dist2(home, c::pv4(w, id, pv::TGT)) <= range && (w.m(id).position[2] - c::pf(w, id, pv::TGT + 8)).abs() <= 3.0;
+    let near = |w: &World| c::dist2(home, c::pv4(w, id, pv::TGT)) <= home_range && (w.m(id).position[2] - c::pf(w, id, pv::TGT + 8)).abs() <= 3.0;
     let t = if !alerted {
         if near(w) {
             let area = usize::try_from(c::pi32(w, id, pv::AREA)).ok().filter(|&p| p < w.svc.splines.len());
@@ -509,7 +547,7 @@ fn reach(w: &World, id: MobyId) -> f32 { if tgt_gadgebot(w, id) { 2.0 } else { 3
 fn swing_range(w: &World, id: MobyId) -> f32 { if tgt_gadgebot(w, id) { 2.45 } else { 4.02 } }
 /// Home too far (30; Clank: 1) or no target.
 fn give_up(w: &World, id: MobyId) -> bool {
-    let lim = if clank(w) { 1.0 } else { 30.0 };
+    let lim = if clank(w) { 1.0 } else { crate::weapon_evo::world::chase_range(w,id,30.) };
     lim < c::dist3(c::pos(w, id), c::pv4(w, id, pv::HOME)) || kind(w, id) == 2
 }
 /// Swinging is allowed: Ratchet not hit-invulnerable for `ticks(10)` more.
@@ -552,7 +590,8 @@ fn chase(w: &mut World, id: MobyId, ok: bool) {
         } else {
             let stuck = c::dist2(c::pos(w, id), p0) < j9(w, id) * 0.25;
             c::set_pi32(w, id, pv::STUCK, stuck as i32);
-            if w.counter.is_multiple_of(7) && c::pi32(w, id, pv::TIMER) == 0 {
+            if w.counter.is_multiple_of(7) && c::pi32(w, id, pv::TIMER) == 0
+                && crate::weapon_evo::world::motion::periodic_sample(w,id) {
                 let last = c::pv4(w, id, pv::LAST);
                 if j9(w, id) <= c::dist2(last, c::pos(w, id)) || k::FACE_DEG * DEG < diff {
                     if seq(w, id) == 1 { blend_now(w, id, 3, 7); }
@@ -685,7 +724,7 @@ pub fn update(w: &mut World, id: MobyId) {
                     if c::pi32(w, id, pv::IDLE_KIND) == 0 { blend(w, id, 2, 10) } else { blend(w, id, 1, 10) }
                 }
             } else if wrapped(w, id) {
-                if c::dist2(c::pos(w, id), hero_pos(w)) < k::RANGE {
+                if c::dist2(c::pos(w, id), hero_pos(w)) < crate::weapon_evo::world::perception_range(w,id,k::RANGE) {
                     chase_start(w, id);
                 } else {
                     set_state(w, id, st::WAIT);

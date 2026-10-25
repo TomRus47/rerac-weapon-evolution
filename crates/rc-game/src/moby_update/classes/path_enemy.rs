@@ -132,7 +132,7 @@ fn in_cuboid(w: &World, p: c::V, i: i32) -> bool { w.in_cuboid([p[0], p[1], p[2]
 
 fn alerted(w: &World, id: MobyId) -> bool { c::pi32(w, id, ALERT) != 0 || c::pi16(w, id, ALERT_T) != 0 }
 fn range(w: &World, id: MobyId, alert: bool) -> f32 {
-    let r = c::pf(w, id, RANGE);
+    let r = crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, RANGE));
     if alert { r + r } else { r }
 }
 
@@ -837,7 +837,7 @@ pub fn shot_update(w: &mut World, id: MobyId) {
     let p = c::add(old, v);
     c::set_pos(w, id, p);
     let cam = w.camera.map(|x| f32::from_bits(x.0));
-    if p[0] < 0.0 || p[1] < 0.0 || p[2] < 0.0 || 64.0 < c::dist2(p, cam) {
+    if p[0] < 0.0 || p[1] < 0.0 || p[2] < 0.0 || crate::weapon_evo::world::motion::range(w,id,64.0) < c::dist2(p, cam) {
         w.delete_moby(id);
         return;
     }

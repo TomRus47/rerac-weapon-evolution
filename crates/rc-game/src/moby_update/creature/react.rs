@@ -690,6 +690,16 @@ pub fn take(w: &mut World, id: MobyId, mouth: V) -> i32 {
     r0
 }
 
+/// The Suck Cannon owns the simulation of an approaching, carried, fired or
+/// released creature. Its one-tick pull lease is refreshed by the hero, so it
+/// must use the hero's clock rather than an enemy speed multiplier. Checking
+/// both states avoids treating an old reaction record as an active capture.
+pub fn cannon_controls(w: &World, id: MobyId) -> bool {
+    let Some(x) = wrappers(w, id) else { return false };
+    if w.m(id).state != x.held { return false; }
+    record(w, id).is_some_and(|r| (1..=7).contains(&rs(w, r, id, rec::STATE)))
+}
+
 /// `0x304390(moby, point)`: swallowed at `point` (kept matrix, the cannon's sound 5 when the hand holds the Suck
 /// Cannon, `SetDeathBits`, record state 4, the class's sequence 4, scale 0).
 pub fn swallow(w: &mut World, id: MobyId, point: V) -> i32 {
@@ -970,7 +980,7 @@ fn pulled(w: &mut World, id: MobyId, r: usize) {
     }
     if sp <= d {
         // Drift sideways in Ratchet's aim frame (0x13f990) on the way in.
-        let rows = w.hero.moby_rows.map(|v| [v[0].to_f32(), v[1].to_f32(), v[2].to_f32()]);
+        let rows = w.hero.aim_rows.map(|v| [v[0].to_f32(), v[1].to_f32(), v[2].to_f32()]);
         let dv = super::sub(p, mouth);
         let l = [dv[0] * rows[0][0] + dv[1] * rows[0][1] + dv[2] * rows[0][2], dv[0] * rows[1][0] + dv[1] * rows[1][1] + dv[2] * rows[1][2]];
         let (ox, oy) = if l[0] < 0.0 {

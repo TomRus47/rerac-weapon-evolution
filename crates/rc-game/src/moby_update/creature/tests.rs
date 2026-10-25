@@ -11,6 +11,8 @@ use crate::moby_update::ClassTable;
 use crate::ps2v::Pf;
 use crate::rng::{Rng, LEVEL_SEED};
 use rc_formats::collision::Collision;
+#[path="duplication_tests.rs"]
+mod duplication_tests;
 
 fn seeded() -> Rng { let mut r = Rng::new(); r.srand(LEVEL_SEED); r }
 
@@ -259,7 +261,7 @@ fn evolution_sim(class: i16, hp: f32) -> Sim {
     s.table.mobys[1].pvars[0x20..0x24].copy_from_slice(&hp.to_le_bytes());
     s.svc.bomb_evo = crate::weapon_evo::Evolution::default();
     s.svc.bomb_evo.enabled = true;
-    s.svc.bomb_evo.xp_required = [100.0; 4];
+    s.svc.bomb_evo.xp_required = [100.0; 7];
     // The real loader resolves the planet's reaction table from its overlay.
     // The hand-built world must provide it too; class-number fallback is level01 only.
     let reaction = match class {
@@ -400,7 +402,7 @@ fn healing_initialisation_and_non_creature_records_do_not_award() {
 fn shared_damage_credit_preserves_each_projectiles_weapon_track() {
     for (class, weapon) in [(305,15), (153,11), (172,13), (74,17), (180,18), (177,19), (186,20), (457,23), (479,24), (203,25), (0x351,9)] {
         let mut s = evolution_sim(749, 3.0);
-        for t in &mut s.svc.bomb_evo.extras { t.enabled = true; t.xp_required = [100.0; 4]; }
+        for t in &mut s.svc.bomb_evo.extras { t.enabled = true; t.xp_required = [100.0; 7]; }
         let mut w = World::new(&mut s.table, &s.hero, &mut s.rng, &s.classes, &mut s.svc, 1);
         let hit = HitRecord { h2a: class, b29: if class == 186 { 3 } else { 1 },
             flags: if class == 186 { 0x1_0000 } else { 0x33_0000 },
@@ -413,7 +415,7 @@ fn shared_damage_credit_preserves_each_projectiles_weapon_track() {
 }
 
 fn enable_special_tracks(s: &mut Sim) {
-    for t in &mut s.svc.bomb_evo.extras { t.enabled = true; t.xp_required = [1000.0; 4]; }
+    for t in &mut s.svc.bomb_evo.extras { t.enabled = true; t.xp_required = [1000.0; 7]; }
 }
 fn special_xp(w: &World, weapon: i32) -> f32 {
     w.svc.bomb_evo.extras.iter().find(|t| t.id == weapon).unwrap().xp
@@ -1058,6 +1060,48 @@ fn native_one_hit_enemies_receive_a_real_hp_budget_and_only_actual_hp_xp() {
     assert!(damage::award_terminal(&mut w,1,Some(hit(2,0.7)),1.0));
     assert!((special_xp(&w,15)-10.0).abs()<0.0001);
 }
+
+#[test]
+fn ng_plus_chain_counts_a_logical_enemy_death_once_after_separate_attack_instances() {
+    let mut s = real_hp_sim(1445, 1.0);
+    s.svc.bomb_evo.configure_ng_plus(true);
+    let mut w = World::new(&mut s.table, &s.hero, &mut s.rng, &s.classes, &mut s.svc, 1);
+    let hit = |instance, damage| HitRecord {
+        h2a: 305, damage: crate::ps2v::Pf::f(damage),
+        evolution: Some(crate::moby_update::real_hp::Attack {
+            burn_color: None, instance, weapon: 15, damage, damage_only: false, origin: None,
+        }), ..evolution_record()
+    };
+    assert!(!damage::award_terminal(&mut w, 1, Some(hit(1, 0.4)), 1.0));
+    assert!(!damage::award_terminal(&mut w, 1, Some(hit(1, 0.4)), 1.0));
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills, 0);
+    assert!(damage::award_terminal(&mut w, 1, Some(hit(2, 0.7)), 1.0));
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills, 1);
+    damage::award_terminal(&mut w, 1, Some(hit(3, 0.7)), 1.0);
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills, 1);
+}
+
+#[test]
+fn ng_plus_chain_uses_committed_numeric_hp_loss_and_ignores_duplicate_death_notifications() {
+    for ng_plus in [false, true] {
+        let mut s = real_hp_sim(749, 1.0);
+        s.svc.bomb_evo.configure_ng_plus(ng_plus);
+        let mut w = World::new(&mut s.table, &s.hero, &mut s.rng, &s.classes, &mut s.svc, 1);
+        let hit = HitRecord {
+            h2a: 305, damage: crate::ps2v::Pf::f(1.0),
+            evolution: Some(crate::moby_update::real_hp::Attack {
+                burn_color: None, instance: 1, weapon: 15, damage: 1.0, damage_only: false, origin: None,
+            }), ..evolution_record()
+        };
+        let result = damage::resolve(&mut w, 1, Some(hit), 0x20, 0, 4);
+        assert_eq!(w.svc.bomb_evo.bolt_chain.kills, 0);
+        assert_eq!(result.damage, 1.0);
+        set_pf(&mut w, 1, 0x20, 0.0);
+        assert_eq!(w.svc.bomb_evo.bolt_chain.kills, u8::from(ng_plus));
+        damage::award_terminal(&mut w, 1, Some(hit), 1.0);
+        assert_eq!(w.svc.bomb_evo.bolt_chain.kills, u8::from(ng_plus));
+    }
+}
 #[test]
 fn taunter_freeze_does_not_make_creatures_invulnerable_or_remove_the_stun() {
     let mut s=real_hp_sim(577,10.0);
@@ -1078,7 +1122,7 @@ fn gaspar_enemies_keep_taking_stream_damage_during_hurt_recovery() {
             let mut s = real_hp_sim(class, 10.0);
             s.table.mobys[1].visible = 1; // Exercise combat, not the off-camera sleep gate.
             s.svc.bomb_evo.pyro.enabled = true;
-            s.svc.bomb_evo.pyro.xp_required = [10000.0; 4];
+            s.svc.bomb_evo.pyro.xp_required = [10000.0; 7];
             s.svc.bomb_evo.damage_hp[item][0] = Some(6000.0); // 100 HP per contact tick
             for _ in 0..5 {
                 {
@@ -1104,8 +1148,8 @@ fn gaspar_enemies_keep_taking_stream_damage_during_hurt_recovery() {
 #[test]
 fn v43_blaster_stream_switching_never_restarts_stun_but_keeps_damage_and_xp() {
     let mut s=real_hp_sim(294,20.0);s.svc.bomb_evo.pyro.enabled=true;
-    s.svc.bomb_evo.pyro.xp_required=[100000.0;4];
-    for track in &mut s.svc.bomb_evo.extras { track.xp_required=[100000.0;4]; }
+    s.svc.bomb_evo.pyro.xp_required=[100000.0; 7];
+    for track in &mut s.svc.bomb_evo.extras { track.xp_required=[100000.0; 7]; }
     let mut reactions=Vec::new();
     for frame in 0..=360u64 {
         let item=[15,16,19][frame as usize%3];
@@ -1122,4 +1166,44 @@ fn v43_blaster_stream_switching_never_restarts_stun_but_keeps_damage_and_xp() {
     assert_eq!(reactions,[0,180,360]);
     let xp=s.svc.bomb_evo.pyro.xp+s.svc.bomb_evo.extras.iter().filter(|t|[15,19].contains(&t.id)).map(|t|t.xp).sum::<f32>();
     assert!((xp-36.1).abs()<0.001);
+}
+
+#[test]
+fn v60_effective_health_scaling_preserves_per_hit_xp_and_native_phase_health() {
+    let mut s=real_hp_sim(577,10.);
+    s.svc.bomb_evo.world_settings.enemy_health_multiplier=2.;
+    s.svc.bomb_evo.world_settings.enemy_damage_by_health=true;
+    s.svc.bomb_evo.world_settings.nanotech_xp_per_upgrade=10.;
+    {
+        let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,s.counter);
+        for _ in 0..2 {let a=w.create_moby(305).unwrap();w.deliver_hit(1,&real_bullet(a));}
+    }
+    s.tick();s.tick();assert!((doom_hp(&s)-9.25).abs()<0.0001);
+    assert!((s.svc.bomb_evo.extras.iter().find(|t|t.id==15).unwrap().xp-15.).abs()<0.0001);
+    assert_eq!(s.svc.bomb_evo.nanotech.bonus,1);assert!((s.svc.bomb_evo.nanotech.xp-5.).abs()<0.0001);
+    let w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,s.counter);
+    assert!((damage::special_health(&w,1).unwrap()-18.5).abs()<0.0001);
+}
+#[test]
+fn v60_detection_uses_scaled_range_without_rewriting_native_range() {
+    fn run(multiplier:f32)->u8{
+        let mut p=critter_pvars();p[0x20a..0x20c].copy_from_slice(&1i16.to_le_bytes());
+        let mut s=Sim::new(577,[120.,120.,10.],p,[153.,120.,10.]);s.classes.classes.get_mut(&577).unwrap().0.ty=5;
+        s.load();s.svc.bomb_evo.world_settings.enemy_perception_multiplier=multiplier;
+        s.table.mobys[1].state=1;s.rng.srand(0);
+        let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,s.counter);
+        crate::moby_update::classes::critter::update(&mut w,1);
+        assert!((pf(&w,1,0x1fc)-12.).abs()<0.001);
+        w.m(1).state
+    }
+    assert_eq!(run(1.),1);assert_eq!(run(3.),2);
+}
+#[test]
+fn v60_population_adds_a_total_of_five_separated_enemies() {
+    let mut p=critter_pvars();p[0x20a..0x20c].copy_from_slice(&1i16.to_le_bytes());
+    let mut s=Sim::new(577,[120.,120.,10.],p,[155.,155.,10.]);
+    s.table=MobyTable::new(s.table.mobys[..2].to_vec(),128);s.svc.bomb_evo.world_settings.extra_enemies_per_level=5;
+    s.load();s.tick();let actors:Vec<_>=s.table.mobys.iter().filter(|m|m.o_class==577 && m.state<128).collect();
+    assert_eq!(actors.len(),6);
+    for (i,a) in actors.iter().enumerate(){for b in &actors[i+1..]{assert!((a.position[0]-b.position[0]).hypot(a.position[1]-b.position[1])>=1.34);}}
 }

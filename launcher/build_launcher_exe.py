@@ -58,9 +58,10 @@ def smoke_test(exe):
         report=Path(temporary)/'check.json'
         subprocess.run([str(exe.resolve()),'--self-test',str(report)],check=True,timeout=120)
         value=json.loads(report.read_text(encoding='utf-8'))
-    if (not value.get('frozen') or not value.get('gui_ok') or value.get('launcher_version')!=core.VERSION
+    if (not value.get('saved_controls_ui') or not value.get('wrench_trail_ui') or not value.get('ngplus_difficulty_ui') or not value.get('eight_grade_ui') or not value.get('additive_nanotech_ui') or not value.get('frozen') or not value.get('gui_ok') or value.get('launcher_version')!=core.VERSION
             or Path(value.get('application_folder','')).resolve()!=exe.parent.resolve()
-            or not value.get('tcl_version') or not value.get('tk_version')):
+            or not value.get('tcl_version') or not value.get('tk_version')
+            or not value.get('nanotech_xp_bar_ui') or not value.get('encounter_motion_ui') or not value.get('pursuit_ui') or not value.get('location_test_ui')):
         raise ValueError('Standalone launcher verification failed: invalid Python/Tk resources or application folder.')
     return value
 
@@ -73,7 +74,7 @@ def ensure_tools(kit):
         root=tk.Tk();root.withdraw();root.update_idletasks();root.destroy()
     except Exception as error:
         raise ValueError('Python on the authoring PC must include tcl/tk and IDLE. Players do not need to install them.') from error
-    folder=kit/'.launcher-tools/venv'
+    folder=Path(os.environ.get('WEAPON_EVO_LAUNCHER_TOOLS',str(kit/'.launcher-tools')))/'venv'
     python=folder/'Scripts/python.exe'
     if not python.is_file():
         print('Preparing the private launcher build environment…',flush=True)

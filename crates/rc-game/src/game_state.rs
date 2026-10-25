@@ -149,7 +149,8 @@ chunk_struct! {
         1 bolts: i32,
         /// 0x15ee20: times completed (challenge mode +1).
         2 completes: i32,
-        /// 0x15ee24: elapsed time, 60 Hz ticks (+180 per level load).
+        /// 0x15ee24: elapsed time, 60 Hz ticks: +1 per frame of the main loop in every mode (`FUN_00226e08`;
+        /// rc-engine `gameplay::elapsed_frame`), +180 per level load.
         3 elapsed: i32,
         /// 0x15ee98: last-save `sceCdCLOCK` (BCD).
         4 save_clock: [u8; 8],
@@ -283,6 +284,9 @@ impl RestoreReport {
 /// Not saved: reset at every level start (hero block clear 0x226b70) or fixed per session.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SessionState {
+    /// Ephemeral D-pad backpack sequence: direction, assigned item, last request.
+    /// Native save equipment and the v8 shortcut bindings remain authoritative.
+    pub shortcut_back_cycle: Option<(usize, i32, i32)>,
     /// 0x1415f8: hit points (= max HP at level start).
     pub hp: i32,
     /// 0x141408: hand item to show (GiveItem with equip, slot type 0).
@@ -303,7 +307,7 @@ pub struct SessionState {
 }
 
 impl Default for SessionState {
-    fn default() -> Self { SessionState { hp: 0, temp_hand: 0, temp_feet: 0, temp_head: 0, temp_back: 0, clank_hidden: 0, tick_scale: 1.0, drone: false } }
+    fn default() -> Self { SessionState { shortcut_back_cycle: None, hp: 0, temp_hand: 0, temp_feet: 0, temp_head: 0, temp_back: 0, clank_hidden: 0, tick_scale: 1.0, drone: false } }
 }
 
 impl SessionState {
@@ -506,8 +510,13 @@ impl GameState {
 
     /// `GiveItem` L01 0x275760 (help sound not modelled).
     pub fn give_item(&mut self, id: usize, equip: bool, items: &ItemTables, session: &mut SessionState) {
+        // Only a collected world reward can unlock a randomized weapon.
+        // Gadgets and mission rewards keep the native path unchanged.
+        let golden = self.weapon_progress.golden;
+        if golden.active() && crate::weapon_evo::ammo_mode::is_weapon(id)
+            && !golden.collected(id) { return; }
         self.weapon_progress.ammo_mode.record_native_grant(id);
-        if self.weapon_progress.ammo_mode.active && crate::weapon_evo::ammo_mode::is_weapon(id) {
+        if !golden.active() && self.weapon_progress.ammo_mode.active && crate::weapon_evo::ammo_mode::is_weapon(id) {
             self.global.acquired[id] = 1;
             return;
         }
@@ -553,7 +562,7 @@ impl GameState {
     /// `FUN_00251da0`: bomb-glove grant, vendor prune, this level's vendor item (debug branch for level ≥ 19).
     fn level_items(&mut self, level: i32, items: &ItemTables, session: &mut SessionState) {
         if level < LEVEL_COUNT {
-            if self.global.owned[item::BOMB_GLOVE] == 0 {
+            if !self.weapon_progress.golden.active() && self.global.owned[item::BOMB_GLOVE] == 0 {
                 self.give_item(item::BOMB_GLOVE, true, items, session);
                 self.global.vendor[0] = item::BOMB_GLOVE as u8 | VENDOR_OWNED;
                 if !self.weapon_progress.ammo_mode.active {
@@ -586,7 +595,9 @@ impl GameState {
         if level != 0 { if let Ok(p) = usize::try_from(level) { if p < LEVEL_SLOTS { self.unlock_planet(p); } } }
         self.global.elapsed = self.global.elapsed.wrapping_add(LEVEL_LOAD_ELAPSED);
         session.hero_init(self.global.max_hp);
-        if self.global.equipped[0] == 0 { self.global.equipped[0] = item::BOMB_GLOVE as i32; }
+        if self.global.equipped[0] == 0 {
+            self.global.equipped[0] = if self.weapon_progress.golden.active() { 8 } else { item::BOMB_GLOVE as i32 };
+        }
         // `FUN_00226e90` (every level load): the saved head item 0x141668 = 0.
         self.global.equipped[2] = 0;
         let Some(l) = usize::try_from(level).ok().filter(|&l| l < LEVEL_SLOTS) else { return };

@@ -126,6 +126,7 @@ pub fn throw(w: &mut World, s: f32, boss: MobyId, group: i32, from: [f32; 4], to
     c::set_pi32(w, id, pv::WORD, boss as i32 + 1);
     c::set_pi32(w, id, pv::TOUCHED, 0);
     w.play_sound(0, 0, id);
+    w.svc.motion.forget(id);
     Some(id)
 }
 

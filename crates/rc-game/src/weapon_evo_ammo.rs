@@ -135,6 +135,19 @@ pub fn reconcile_with_guidance(gs: &mut GameState, session: &mut SessionState, o
 }
 
 pub fn reconcile_configured(gs: &mut GameState, session: &mut SessionState, on: bool, collected: u64, guiding: bool, settings: &Settings) {
+    // Physical discoveries are permanent in the randomizer, even at zero ammo.
+    // Neither bolt thresholds nor Survival ammo drops can bypass that ownership.
+    if gs.weapon_progress.golden.active() {
+        let golden = gs.weapon_progress.golden;
+        for id in super::golden::ITEMS {
+            gs.global.owned[id] = u8::from(golden.collected(id));
+        }
+        for id in &mut gs.global.quick_select {
+            if *id > 0 && is_weapon(*id as usize) && !golden.collected(*id as usize) { *id = 0; }
+        }
+        sanitize(gs, session, guiding);
+        return;
+    }
     let mut mode = gs.weapon_progress.ammo_mode;
     if !on {
         if mode.active {
@@ -166,7 +179,8 @@ pub fn reconcile_configured(gs: &mut GameState, session: &mut SessionState, on: 
         if gs.global.ammo[id] > 0 { available |= 1 << id; }
     }
     for (i, (id, _)) in PERMANENT.into_iter().enumerate() {
-        if mode.normal_bolts >= settings.unlock_bolts[i] { available |= 1 << id; }
+        if mode.normal_bolts >= settings.unlock_bolts[i]
+            || gs.weapon_progress.golden.collected(id) { available |= 1 << id; }
     }
     for id in 0..gs.global.owned.len() {
         if is_weapon(id) { gs.global.owned[id] = u8::from(available & (1 << id) != 0); }

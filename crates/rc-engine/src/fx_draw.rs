@@ -271,8 +271,10 @@ type FxSlot = (Entity, Handle<Mesh>, Handle<FxPrimMaterial>, bool);
 
 /// The persistent entities of the callback draws: slot k = the k-th draw of the list this tick (Bevy's mesh
 /// allocator keeps no slab for an empty mesh, so an entity is made when its slot first has primitives).
+pub const SOLID_FX:usize=usize::MAX;
 #[derive(Default)]
 pub struct FxSlots {
+    solid:Option<Handle<Image>>,
     slots: Vec<Option<FxSlot>>,
     fx: Vec<Option<Handle<Image>>>,
     /// The render layer of the slots' entities (None: the default layer; the flight's draws are on the transition's
@@ -292,6 +294,13 @@ pub struct FxAssets<'a> {
 impl FxSlots {
     /// FX image `i`, made on first use.
     fn image(&mut self, a: &mut FxAssets, i: usize) -> Option<Handle<Image>> {
+        if i==SOLID_FX {
+            if self.solid.is_none(){
+                self.solid=Some(a.images.add(Image::new_fill(Extent3d{width:1,height:1,depth_or_array_layers:1},
+                    TextureDimension::D2,&[128,128,128,128],TextureFormat::Rgba8Unorm,RenderAssetUsages::default())));
+            }
+            return self.solid.clone();
+        }
         let t = a.fx?.get(i)?.as_ref()?;
         if self.fx.len() <= i { self.fx.resize(i + 1, None); }
         if self.fx[i].is_none() { self.fx[i] = Some(fx_image(a.images, t)); }
@@ -618,17 +627,18 @@ pub fn nanotech_prims(t: &NanotechTables, g: &rc_game::moby_update::classes::pic
     let r = unit3(cross_ba(f, g.crate_rows[2]));
     let u = cross_ba(r, f);
     let basis = [f, r, u];
+    let tint=|c:u32|g.tint.map_or(c,|rgb| (c&0xff000000)|rgb);
     let mut out = Vec::with_capacity(3);
     // 1. The sphere: three strips over the turned hemisphere.
     let mut sphere = PrimBuf::default();
     for (a, b) in [(0usize, 0x94usize), (146, 146 + 0x6d), (254, 254 + 0x24)] {
-        sphere.strip((a..b.min(t.verts.len())).map(|i| (xform(&basis, p, t.verts[i]), t.st[i], t.rgba[i])));
+        sphere.strip((a..b.min(t.verts.len())).map(|i| (xform(&basis, p, t.verts[i]), t.st[i], tint(t.rgba[i]))));
     }
     out.push(FxGroup { fx: t.sphere_fx as usize, additive: t.sphere_additive, subtract: false, prims: sphere });
     // 2. The halo ring, pulsing with the bob.
     let pulse = g.bob / t.bob_amp;
     let a = ((pulse * 64.0 + 128.0) as i32).wrapping_add(t.halo_alpha_add) as u32;
-    let c = a << 24 | t.halo_rgb;
+    let c = tint(a << 24 | t.halo_rgb);
     let mut halo = PrimBuf::default();
     for q in &t.halo_quads {
         let pts: [[f32; 3]; 4] = std::array::from_fn(|k| {

@@ -54,7 +54,7 @@ class V55Tests(unittest.TestCase):
         doc=core.IniDocument(self.raw)
         old=''.join(line for line in doc.lines if not line.lstrip().startswith('experimental_max_ammo')).encode()
         before=core.checked_document(old);after_raw=convert(old)[0];after=core.checked_document(after_raw)
-        self.assertEqual(len(after.entries)-len(before.entries),40)
+        self.assertEqual(len(after.entries)-len(before.entries),64)
         for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value)
         for weapon in EXPERIMENTAL_ENABLERS:
             for grade in range(1,6):
@@ -69,11 +69,11 @@ class V55Tests(unittest.TestCase):
                 with self.assertRaises(ValueError):core.validate_value(f'weapon.{weapon}.level1','experimental_max_ammo',value)
         with self.assertRaises(ValueError):core.validate_value('weapon.suck_cannon.level1','experimental_max_ammo','11')
         with self.assertRaises(ValueError):core.validate_value('weapon.wrench.level1','experimental_max_ammo','4')
-        self.assertEqual(core.required_config(core.checked_document(self.raw)),58)
+        self.assertEqual(core.required_config(core.checked_document(self.raw)),82)
         doc=core.IniDocument(self.raw)
         removed={index for (section,key),index in doc.addresses.items() if key in MODEL_NEW_KEYS or key=='experimental_max_ammo' or (section.startswith('weapon.wrench.level') and key in {'hit_radius_multiplier','knockback_multiplier'})}
         old=core.checked_document(''.join(line for index,line in enumerate(doc.lines) if index not in removed).encode())
-        self.assertEqual(core.required_config(old),54)
+        self.assertEqual(core.required_config(old),82)
     def test_catalogs_cover_all_public_fields_and_weapon_names_in_all_five_languages(self):
         doc=core.checked_document(self.raw)
         for language in i18n.LANGUAGES:

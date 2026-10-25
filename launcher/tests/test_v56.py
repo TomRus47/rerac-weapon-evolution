@@ -20,11 +20,11 @@ class V56Tests(unittest.TestCase):
             app.card=Mock();app.fields=Mock();app.arrange_cards=Mock();app.matches=lambda *_:True
             app.render_page()
             xp_entries=app.ttk.Entry.call_args_list
-            self.assertEqual(len(xp_entries),4,weapon)
-            self.assertEqual([c.kwargs['textvariable'] for c in xp_entries],[app.variables['weapon.'+weapon,key] for key in XP])
+            self.assertEqual(len(xp_entries),7 if weapon=='wrench' else 6,weapon)
+            self.assertEqual([c.kwargs['textvariable'] for c in xp_entries],[app.variables['weapon.'+weapon,key] for key in XP if key!='xp_v5_to_v6' or weapon=='wrench'])
             self.assertEqual(app.card.call_args_list[0].args[1],'XP progression')
             self.assertFalse(any(c.args[1]=='weapon.'+weapon for c in app.fields.call_args_list),weapon)
-            self.assertEqual(len(app.cards),5)
+            self.assertEqual(len(app.cards),8)
     def test_wrench_is_first_after_globals_and_ini_matches_navigation_order(self):
         self.assertEqual(list(EDITOR_WEAPONS)[:2],['wrench','bomb_glove'])
         self.assertEqual(WEAPON_ORDER[1:],('bomb_glove','pyrocitor','blaster','glove_of_doom','suck_cannon','taunter','mine_glove','devastator','visibomb','walloper','decoy_glove','drone_device','tesla_claw','morph_ray','ryno'))
@@ -35,12 +35,12 @@ class V56Tests(unittest.TestCase):
         removed={i for (s,k),i in doc.addresses.items() if s.startswith('weapon.wrench.level') and k in {'hit_radius_multiplier','knockback_multiplier'} or k in MODEL_NEW_KEYS}
         old=b'\xef\xbb\xbf'+''.join(line for i,line in enumerate(doc.lines) if i not in removed).replace('\n','\r\n').encode()
         before=core.checked_document(old);result=convert(old)[0];after=core.checked_document(result)
-        self.assertEqual(len(after.entries)-len(before.entries),85)
+        self.assertEqual(len(after.entries)-len(before.entries),130)
         for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value)
         for grade in range(1,6):
             for key in ('hit_radius_multiplier','knockback_multiplier'):self.assertEqual(after.entries[f'weapon.wrench.level{grade}',key],'1')
         self.assertEqual(convert(result)[0],result);self.assertIn(b'\r\n',result);self.assertTrue(result.startswith(b'\xef\xbb\xbf'))
-        self.assertEqual(core.required_config(before),55);self.assertEqual(core.required_config(after),58)
+        self.assertEqual(core.required_config(before),82);self.assertEqual(core.required_config(after),82)
     def test_independent_grade_settings_limits_and_translated_help(self):
         doc=core.checked_document(self.raw);edits={}
         for n in range(1,6):

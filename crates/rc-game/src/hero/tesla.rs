@@ -225,7 +225,7 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
                         let off = diff_rots(hero_yaw, atan(mm.position[0] - hero_pos[0], mm.position[1] - hero_pos[1]));
                         let far = !targeting::reach::contains(t.start, targeting::aim_point(mm),
                             targeting::reach::beam_range(TESLA, hero.weapons.gold[TESLA as usize] != 0));
-                        if 2.0943 < off || mm.visible == 0 || far {
+                        if 2.0943 < off || !alive(table,m) || far {
                             t.targets[k] = None;
                             t.none[k] = 0;
                         }
@@ -269,7 +269,7 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
             t.start = muzzle;
             t.end = match raised {
                 Some(r) => add3(muzzle, scale3(r[1], -t.length)),
-                None => add3(muzzle, with_len(to_f32x3(hero.moby_rows[0]), t.length)),
+                None => add3(muzzle, with_len(to_f32x3(hero.aim_rows[0]), t.length)),
             };
         }
         reset(&mut hero.weapons.tesla);
@@ -342,7 +342,7 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
     // The light.
     let t = &mut hero.weapons.tesla;
     if t.light != -1 {
-        let r = hero.moby_rows.map(to_f32x3);
+        let r = hero.aim_rows.map(to_f32x3);
         let p = to_f32x3(hero.pos);
         let pos = add3(p, add3(scale3(r[0], 2.0), scale3(r[2], 2.0)));
         let k = t.level as f32 / ticks(10) as f32;
@@ -467,6 +467,10 @@ pub fn build(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut d
     }
 }
 
+fn lock_score(camera_angle:f32,distance:f32,camera_cone:f32,range:f32)->f32 {
+    ((camera_cone-camera_angle)/camera_cone)*SCORE_CAM+(range-distance)/range
+}
+
 fn build_native(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng, single: bool, avoid: Option<MobyId>) {
     if single { hero.weapons.tesla.targets[1] = None; }
     let gold = hero.weapons.gold[TESLA as usize];
@@ -476,6 +480,9 @@ fn build_native(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mu
     let hero_yaw = hero.rot[2].to_f32();
     let (cam, cam_fwd) = env.camera.unwrap_or((hero_pos, [1.0, 0.0, 0.0]));
     let cam_yaw = atan(cam_fwd[0], cam_fwd[1]);
+    let cone_scale=crate::weapon_evo::extra(TESLA,"lock_cone_multiplier",1.0);
+    let camera_cone=CAM_CONE*cone_scale;
+    let hero_cone=HERO_CONE*cone_scale;
     {
         let p = &mut hero.weapons.tesla.chain.phase;
         p[0] = add_rot(p[0], WAVE_RATE);
@@ -486,7 +493,7 @@ fn build_native(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mu
     let (mut best, mut second): ((Option<MobyId>, f32), (Option<MobyId>, f32)) = ((None, 0.0), (None, 0.0));
     let t = &mut hero.weapons.tesla;
     for k in 0..2 {
-        if t.targets[k].is_some_and(|id| table.mobys.get(id).is_none_or(|m|
+        if t.targets[k].is_some_and(|id| !alive(table,id) || table.mobys.get(id).is_none_or(|m|
             !targeting::reach::contains(t.start, targeting::aim_point(m), range))) {
             t.targets[k] = None;
             t.none[k] = 0;
@@ -516,10 +523,10 @@ fn build_native(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mu
                 let d = len3(rel);
                 if !targeting::reach::contains(t.start, targeting::aim_point(m), range) { continue; }
                 let cd = diff_rots(cam_yaw, atan(m.position[0] - cam[0], m.position[1] - cam[1]));
-                if CAM_CONE * crate::weapon_evo::extra(19, "lock_cone_multiplier", 1.0) < cd { continue; }
+                if camera_cone < cd { continue; }
                 let hd = diff_rots(atan(m.position[0] - hero_pos[0], m.position[1] - hero_pos[1]), hero_yaw);
-                if HERO_CONE * crate::weapon_evo::extra(19, "lock_cone_multiplier", 1.0) < hd { continue; }
-                let score = ((CAM_CONE - cd) / CAM_CONE) * SCORE_CAM + (range - d) / range
+                if hero_cone < hd { continue; }
+                let score = lock_score(cd,d,camera_cone,range)
                     + if avoid.is_some() && Some(id) != avoid { 4.0 } else { 0.0 };
                 if best.1 < score {
                     second = best;
@@ -555,6 +562,11 @@ fn build_native(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mu
     }
     let aim = |table: &MobyTable, m: MobyId| targeting::aim_point(&table.mobys[m]);
     let aims = [t.targets[0].map(|m| aim(table, m)), t.targets[1].map(|m| aim(table, m))];
+    let direct_clear=aims[0].is_some_and(|a| {
+        hits.probe_moby(table,from_f32x3(t.start),from_f32x3(a),0x10,Some(env.hero_moby))
+            .flatten().is_none_or(|hit|hit.moby==t.targets[0])
+        && env.coll.is_none_or(|coll|super::physics::line_world(coll,from_f32x3(t.start),from_f32x3(a),0x10).is_none())
+    });
     let mut d0 = 0.0;
     if let Some(a) = aims[0] {
         d0 = len3(sub3(t.start, a));
@@ -642,7 +654,7 @@ fn build_native(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mu
             let n = len3([d[0], d[1], 0.0]);
             let dir = if n == 0.0 { [0.0, 0.0, 1.0] } else { [d[0] / n, d[1] / n, 0.0] };
             let tm = HitTemplate { dir: [Pf::f(dir[0]), Pf::f(dir[1]), Pf::f(dir[2]), Pf::b(0x45af_df66)], attacker: Some(env.hero_moby), flags: 0x21_0000, b18: 5, b19: 1, h1a: CLASS as u16, damage: Pf::f(gold as f32 + 2.0), w20: 1 };
-            if let Some(h) = hit {
+            if let Some(h) = hit.filter(|h| !direct_clear || h.moby.is_some()) {
                 let mut stop = true;
                 if let Some(m) = h.moby {
                     let mm = &table.mobys[m];
@@ -895,6 +907,13 @@ pub fn step_scroll(c: &mut Chain) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn expanded_lock_cones_have_positive_scores_beyond_the_old_cone_near_maximum_range() {
+        assert!(lock_score(CAM_CONE*1.10,14.3,CAM_CONE*1.15,14.4)>0.);
+        let native=((CAM_CONE-0.3)/CAM_CONE)*SCORE_CAM+(12.-8.)/12.;
+        assert_eq!(lock_score(0.3,8.,CAM_CONE,12.),native);
+    }
+
     fn color_test_tesla() -> Tesla {
         let mut t = Tesla::default(); t.count = 6; t.start = [1.0, 2.0, 3.0];
         for i in 0..POINTS {
@@ -1018,7 +1037,7 @@ mod tests {
         hero.weapons.tesla.start=[100.0,100.0,51.0];hero.weapons.tesla.end=[112.0,100.0,51.0];hero.weapons.tesla.length=12.0;hero.weapons.tesla.targets=[Some(1),Some(1)];
         hero.weapons.ammo[19]=50;
         let data=ItemData::default();let pad=crate::pad::PadState::default();
-        let env=ItemEnv{data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,camera:Some(([100.0,100.0,51.0],[1.0,0.0,0.0])),camera_up:None,targets:&[1,1,2,1]};
+        let env=ItemEnv{ mobys: None,data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,camera:Some(([100.0,100.0,51.0],[1.0,0.0,0.0])),camera_up:None,targets:&[1,1,2,1]};
         let mut hits=DualHits::default();let mut rng=Rng::new();
         hero.fx.item_sounds.push(DUD_SOUND);
         build_dual(&mut hero,&mut table,&env,&mut hits,&mut rng);
@@ -1048,7 +1067,7 @@ mod tests {
         hero.weapons.tesla.end=[112.0,100.0,51.0];hero.weapons.tesla.length=12.0;
         hero.weapons.ammo[19]=50;
         let mut table=MobyTable::default();let data=ItemData::default();let pad=crate::pad::PadState::default();
-        let env=ItemEnv{data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,
+        let env=ItemEnv{ mobys: None,data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,
             camera:Some(([100.0,100.0,51.0],[1.0,0.0,0.0])),camera_up:None,targets:&[]};
         let mut hits=DualHits::default();let mut rng=Rng::new();
         build_dual(&mut hero,&mut table,&env,&mut hits,&mut rng);
@@ -1060,6 +1079,47 @@ mod tests {
         assert_ne!(first.chain.main,second.chain.main);
         assert!(hits.0.is_empty());assert_eq!(hero.weapons.ammo[19],50,"the outer firing update owns ammo");
     }
+
+    struct GroundProbeHits { delivered:Vec<MobyId>, wall:bool }
+    impl HitSink for GroundProbeHits {
+        fn sphere(&mut self,_:&mut MobyTable,_:Pf,_:super::super::physics::V4,_:u32,_:Option<MobyId>,_:&HitTemplate)->Option<MobyId>{None}
+        fn line(&mut self,_:&mut MobyTable,_:super::super::physics::V4,_:super::super::physics::V4,_:u32,_:Option<MobyId>,_:&HitTemplate)->Option<Option<MobyId>>{None}
+        fn class_type(&self,_:i16)->Option<u8>{Some(5)}
+        fn deliver(&mut self,_:&mut MobyTable,id:MobyId,_:&HitTemplate){self.delivered.push(id);}
+        fn probe_moby(&mut self,_:&mut MobyTable,a:super::super::physics::V4,b:super::super::physics::V4,_:u32,_:Option<MobyId>)->Option<Option<super::super::items::Probe>> {
+            let (a,b)=(to_f32x3(a),to_f32x3(b));
+            // The target's direct line is clear; cosmetic short electrical
+            // segments touch an edge. The alternate fixture blocks every line.
+            Some(if !self.wall && len3(sub3(b,a))>4. {None}else{Some(super::super::items::Probe{
+                moby:None,point:scale3(add3(a,b),0.5),normal:[0.,0.,1.],surface:1,
+            })})
+        }
+    }
+    #[test]
+    fn cosmetic_ground_contacts_do_not_break_a_clear_lock_but_real_walls_still_block_it() {
+        use crate::moby_runtime::{Moby,ClassInfo,mode};
+        use super::super::items::ItemData;
+        for wall in [false,true] {
+            let info=ClassInfo{scale:1.,..Default::default()};
+            let mut enemy=Moby::init_instance(1,577,Some(&info));
+            enemy.mode|=mode::TARGETABLE|0x20;enemy.position=[105.,100.,51.,1.];enemy.pvars=vec![0;0x80];
+            enemy.pvars[..4].copy_from_slice(&0x20u32.to_le_bytes());
+            let mut table=MobyTable::new(vec![Moby::zeroed(),enemy],0);
+            let mut hero=Hero::spawn([100.,100.,50.],0.);
+            hero.weapons.tesla.start=[100.,100.,51.];hero.weapons.tesla.end=[112.,100.,51.];hero.weapons.tesla.length=12.;hero.weapons.tesla.targets=[Some(1),None];
+            let data=ItemData::default();let pad=crate::pad::PadState::default();
+            let env=ItemEnv{mobys:None,data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,
+                camera:Some(([100.,100.,51.],[1.,0.,0.])),camera_up:None,targets:&[1]};
+            let mut sink=GroundProbeHits{delivered:Vec::new(),wall};let mut rng=Rng::new();
+            build_native(&mut hero,&mut table,&env,&mut sink,&mut rng,true,None);
+            if wall {
+                assert!(hero.weapons.tesla.count<20);assert_eq!(hero.weapons.tesla.targets[0],None);assert!(sink.delivered.is_empty());
+            } else {
+                assert_eq!(hero.weapons.tesla.count,20);assert_eq!(hero.weapons.tesla.targets[0],Some(1));assert_eq!(sink.delivered,[1]);
+            }
+        }
+    }
+
     #[test]
     fn v44_beam_size_changes_width_without_moving_the_segment_centres() {
         let t=color_test_tesla();let mut q=beam_quads(&t,[0.0,-10.0,1.0],[0.0,0.0,-1.0]);let before=q.clone();

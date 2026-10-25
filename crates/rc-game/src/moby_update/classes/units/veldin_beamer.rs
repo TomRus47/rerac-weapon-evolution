@@ -483,7 +483,7 @@ fn pre(w: &mut World, id: MobyId) {
             let range = if c::pi16(w, id, pv::ALERT) != 0 { 37.0 } else { RANGE };
             let t = target::acquire(w, id, range);
             store_target(w, id, &t);
-            if t.kind != 2 && range < c::dist2(c::pos(w, id), t.pos) { c::set_pi32(w, id, pv::TGT_KIND, 2); }
+            if t.kind != 2 && crate::weapon_evo::world::perception_range(w,id,range) < c::dist2(c::pos(w, id), t.pos) { c::set_pi32(w, id, pv::TGT_KIND, 2); }
         }
     }
     if c::pi32(w, id, pv::TGT_MOBY) == 0 {

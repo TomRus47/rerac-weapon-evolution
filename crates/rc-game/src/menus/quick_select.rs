@@ -623,6 +623,10 @@ impl QuickSelect {
 
     /// `QuickSelectDraw` 0x24d938. `tick` = the game tick 0x15f5cc (cursor pulse).
     pub fn draw(&self, a: &MenuAssets, g: &Global, tick: u64, listeners: i32, out: &mut Vec<MenuDraw>) {
+        self.draw_with_controls(a,g,tick,listeners,None,out);
+    }
+    pub fn draw_with_controls(&self, a: &MenuAssets, g: &Global, tick: u64, listeners: i32,
+        controls:Option<&crate::weapon_evo::controls::State>,out: &mut Vec<MenuDraw>) {
         if !self.open { return; }
         if self.command_page {
             self.draw_commands(a, tick, listeners, out);
@@ -685,10 +689,19 @@ impl QuickSelect {
             centre(out, cx + 1, cy + 13, shadow, &s_txt);
             centre(out, cx, cy + 12, col, &s_txt);
         }
+        if let Some(mode)=controls.and_then(|state|state.mode(slot_item)) {
+            let text=format!("\x15 = {mode}");
+            let font=if a.width(Font::Small,b"\x15")>0{Font::Small}else{Font::Regular};
+            let width=a.width(font,text.as_bytes());
+            let col=tween(sf,c.name_rgba.0,c.name_rgba.1);
+            super::text(out,font,cx-width/2,cy+32,col,text.as_bytes());
+        }
         let col = tween(sf, c.name_rgba.0, c.name_rgba.1);
         let item = e.item;
         let gold = usize::try_from(item).ok().and_then(|k| g.gold_weapons.get(k)).is_some_and(|&b| b != 0);
-        let id = usize::try_from(item).ok().and_then(|k| if gold { self.items.gold_name.get(k) } else { self.items.name.get(k) }).copied().unwrap_or(0);
+        let ordinary=usize::try_from(item).ok().and_then(|k|self.items.name.get(k)).copied().unwrap_or(0);
+        let id = usize::try_from(item).ok().and_then(|k| if gold { self.items.gold_name.get(k) } else { self.items.name.get(k) }).copied()
+            .filter(|&id|id>0 && a.msg(id as i32)!=rc_formats::strings::MISSING_MESSAGE && !a.msg(id as i32).is_empty()).unwrap_or(ordinary);
         // Preserve the localized disc name and its original Regular font.
         // Append only the actual XP level; icon preview modes do not alter the label.
         let mut name = a.msg(id as i32).to_vec();
@@ -1043,4 +1056,26 @@ mod tests {
         // Ammo + shadow, then the name: id 0 resolves to the "Paradox! …" fallback, split at its first space.
         assert_eq!(texts, 6);
     }
+    #[test]
+    fn manual_mode_indicator_is_supported_only_and_uses_the_radial_fade_without_ammo() {
+        let mut glyphs = [[Glyph::default(); GLYPHS]; 3];
+        for table in &mut glyphs { for glyph in table { glyph.advance=5; } }
+        let a=MenuAssets::new(HudAssets{icons:vec![],frame_sizes:vec![(32,32);4],glyphs,messages:vec![]},Overlay::default());
+        let state=crate::weapon_evo::controls::State{modes:[1,1,1,2],..Default::default()};
+        for item in [16,17,13,23,19,10,24,25] {
+            let mut g=global([item;8]);g.ammo[item as usize]=0;
+            let mut q=ring();q.init(&g);q.open=true;q.sel=0;q.fade=8;q.text_fade=8;
+            let mut out=vec![];q.draw_with_controls(&a,&g,0,0,Some(&state),&mut out);
+            let text=out.iter().find_map(|d| match d {
+                MenuDraw::Hud(crate::hud::Draw::Text{text,rgba,..}) if text.starts_with(b"\x15 = ")=>Some((text,*rgba)),_=>None});
+            assert_eq!(text.is_some(),state.mode(item).is_some());
+            if let Some((text,color))=text {
+                assert_eq!(text,&format!("\x15 = {}",state.mode(item).unwrap()).into_bytes());
+                assert_eq!(color>>24,128);
+            }
+            out.clear();q.draw(&a,&g,0,0,&mut out);
+            assert!(!out.iter().any(|d|matches!(d,MenuDraw::Hud(crate::hud::Draw::Text{text,..}) if text.starts_with(b"\x15 = "))));
+        }
+    }
+
 }

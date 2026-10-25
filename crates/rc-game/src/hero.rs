@@ -54,6 +54,7 @@ pub mod comet;
 pub mod weapons;
 pub mod gloves;
 pub mod pyrocitor;
+pub mod pyro_lava;
 pub mod guns;
 pub mod combat_strafe;
 pub mod combat_legs;
@@ -372,6 +373,9 @@ pub struct Hero {
     /// the "moby frame" some hero code reads (SetPlanarVel's zero-stick direction, 0x248da0, pitch/roll).
     pub moby_rows: [V4; 4],
     pub moby_rot: V4,
+    /// 0x13f990: Ratchet's aim frame (rows; its x row is the facing 0x13f9c0 the weapons fire along), written by the
+    /// items' upkeep `0x22f068` ([`weapons::aim_frame`]): his moby rows, or on a rail the rail's yaw plus the aim lean.
+    pub aim_rows: [V4; 3],
     /// 0x140632 / 0x140634 / 0x140637: per-level/surface flags (0 on Novalis ground).
     pub f0632: u8,
     pub f0634: u8,
@@ -557,7 +561,7 @@ impl Hero {
             state: 0, substate: 0, group: 0, prev_state: 0, prev_group: 0, prev_timer: 0, prev_prev_group: 0,
             mode: 0, f13f8: 0, f13f9: 0, f13fa: 0, arm_at_wall: false, gravity_mode: 0,
             stop_decel: z, stick_mag: z, f15f4: z, health: 4, f063a: 0, fidget_timer: 0, jump_lockout: 0, land_run_blend: 0, f15d4: 0, prev_prev_state: 0,
-            moby_rows: physics::euler_rows(v), moby_rot: v, f0632: 0, f0634: 0, f0637: 0, knock: [z; 3],
+            moby_rows: physics::euler_rows(v), moby_rot: v, aim_rows: { let r = physics::euler_rows(v); [r[0], r[1], r[2]] }, f0632: 0, f0634: 0, f0637: 0, knock: [z; 3],
             cap_radius_vel: z, f548: 0, nudge_timer: 0, nudge_speed: z, last_ground_point: v, water_level: z,
             in_water: 0, f65c: 0, surface_id: 0, footstep: 0, f4ec: 0, f4f8: 0, f4fc: 0, f50c: 0,
             body_point: v, shadow_point: v, frozen: 0, fell_out: 0, unimplemented_seen: Vec::new(),
@@ -839,7 +843,10 @@ pub(crate) fn hero_update_with_combat_mode(
     combat_enabled: bool,
 ) -> HeroTick {
     combat_strafe::configure(hero, env.pad, env.cam_yaw, combat_enabled);
-    let gameplay_pad = combat_strafe::gameplay_pad_for_weapon(env.pad, combat_strafe::active(hero), hero.items.slot.id);
+    let gameplay_pad = if crate::weapon_evo::controls::active() && crate::weapon_evo::controls::input_layout_allowed(hero) {
+        crate::weapon_evo::controls::gameplay_pad(env.pad,if hero.items.slot.id>0{hero.items.slot.id}else{hero.items.target},true,
+            crate::weapon_evo::controls::settings().dpad,combat_strafe::active(hero))
+    } else { combat_strafe::gameplay_pad_for_weapon(env.pad, combat_strafe::active(hero), hero.items.slot.id) };
     let env = &Env { pad: &gameplay_pad, ..*env };
     // L2 can take over after releasing L1 without leaving Ratchet hidden.
     if combat_strafe::active(hero) && matches!(hero.state, 1 | 0x1e) {
@@ -883,6 +890,8 @@ pub(crate) fn hero_update_with_combat_mode(
     let before = anim.view();
     anim.advance(hero.anim_speed);
     sounds.anim_advanced(moby, &before, &anim.view(), rng);
+    // The advance's loop-sound tail (0x247d48): Clank's glide hum (hero::anim module doc).
+    anim.refresh_loop_sound(moby, rng, sounds);
     hero.back_follow_speed(anim.view().seq_b, rng);
     hero.input_physics_move(env, anim, rng);
     // The disguise's timer ran out in the move (`HeroTickStateTimer`): the disguise moby asked for (super::hologuise).

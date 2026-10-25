@@ -6,7 +6,7 @@ pub(super) const NAME_PANEL: u32 = 0x20;
 
 pub(super) fn draw(out: &mut Vec<MenuDraw>, [x, y, width, panel_height]: [i32; 4],
     evolution: &Evolution, item: i32) {
-    let (Some(fraction), Some(level)) = (evolution.weapon_fraction(item), evolution.weapon_level(item)) else { return };
+    let (Some(fraction), Some(_level)) = (evolution.weapon_fraction(item), evolution.weapon_level(item)) else { return };
     if width < 3 || panel_height < 1 { return; }
     // MenuDraw::Rect subtracts one pixel from each supplied corner. These
     // coordinates put the outer span exactly at x..x+width and y+height.
@@ -17,7 +17,7 @@ pub(super) fn draw(out: &mut Vec<MenuDraw>, [x, y, width, panel_height]: [i32; 4
     let fill = ((width - 2) as f32 * fraction.clamp(0., 1.)).round() as i32;
     if fill > 0 {
         out.push(MenuDraw::Rect { x0: left + 1, y0: top + 1, x1: left + 1 + fill,
-            y1: top + height + 1, rgba: if level >= 5 { 0x8020_c6f1 } else { 0x80e5_9128 } });
+            y1: top + height + 1, rgba: if evolution.weapon_at_cap(item) { 0x8020_c6f1 } else { 0x80e5_9128 } });
     }
 }
 
@@ -31,7 +31,7 @@ mod tests {
     }
     #[test]
     fn progress_is_below_and_exactly_as_wide_as_the_moving_name_panel() {
-        let mut e = Evolution::default(); e.enabled = true; e.xp = 25.; e.xp_required = [100.; 4];
+        let mut e = Evolution::default(); e.enabled = true; e.xp = 25.; e.xp_required = [100.; 7];
         for panel in [[40, 30, 240, 24], [180, 90, 92, 40]] {
             let mut out = vec![]; draw(&mut out, panel, &e, 10); let r = rects(&out);
             assert_eq!(r.len(), 3);

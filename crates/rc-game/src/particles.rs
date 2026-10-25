@@ -361,6 +361,9 @@ pub type UpdateFn = fn(&mut Particles, usize, &mut Rng);
 
 /// The particle system state the game keeps in globals.
 pub struct Particles {
+    /// Only damaging flames emitted by enemies opt into an independent clock.
+    /// Slot reuse and kill both discard the clock; player/VFX particles stay native.
+    pub hostile_clocks: std::collections::HashMap<usize,(f32,f32)>,
     pub ryno_heads:std::collections::HashMap<usize,usize>,
     pub ryno_trails:std::collections::HashSet<usize>,
     pub pool: PartPool,
@@ -530,16 +533,18 @@ impl Particles {
         table[78] = Some(type78::update as UpdateFn);
         table[79] = Some(type79::update79 as UpdateFn);
         table[80] = Some(type79::update80 as UpdateFn);
-        Particles { ryno_heads:Default::default(),ryno_trails:Default::default(),pool: PartPool::new(), time: TimeBase::NTSC, table, defs, owners, stats: PartStats::default(), frame_load: [0; 2], camera: [0; 3], coll: None, hero: [0.0; 3], hero_body: [0.0; 3], cam_yaw: 0.0, counter: 0, anchors: Default::default(), anchor_scales: Default::default(), joint_anchors: Default::default(), water_z: 0.0, level: 0, gold: 0, links: Default::default(), hero_plat: [0.0; 3], moby_frames: Default::default(), joint_frames: Default::default(), pvar_points: Default::default(), pvar_heads: Default::default(), descs74: Vec::new(), gravity: [0.0, 0.0, -1.0], grid: None, weather: Weather::default(), hits: Vec::new(), lines: Vec::new() }
+        Particles { hostile_clocks:Default::default(),ryno_heads:Default::default(),ryno_trails:Default::default(),pool: PartPool::new(), time: TimeBase::NTSC, table, defs, owners, stats: PartStats::default(), frame_load: [0; 2], camera: [0; 3], coll: None, hero: [0.0; 3], hero_body: [0.0; 3], cam_yaw: 0.0, counter: 0, anchors: Default::default(), anchor_scales: Default::default(), joint_anchors: Default::default(), water_z: 0.0, level: 0, gold: 0, links: Default::default(), hero_plat: [0.0; 3], moby_frames: Default::default(), joint_frames: Default::default(), pvar_points: Default::default(), pvar_heads: Default::default(), descs74: Vec::new(), gravity: [0.0, 0.0, -1.0], grid: None, weather: Weather::default(), hits: Vec::new(), lines: Vec::new() }
     }
 
     pub fn create_part(&mut self, ty: u8) -> Option<usize> {
         let r = self.pool.create_part(ty);
+        if let Some(i)=r {self.hostile_clocks.remove(&i);}
         if r.is_some() { self.stats.created += 1 } else { self.stats.create_failed += 1 }
         r
     }
 
     pub fn kill_part(&mut self, i: usize) {
+        self.hostile_clocks.remove(&i);
         self.ryno_trails.remove(&i);
         if let Some((owner,_))=type26::anchor_of(&self.pool.recs[i]) {
             if self.ryno_heads.get(&owner)==Some(&i) {self.ryno_heads.remove(&owner);}
@@ -561,7 +566,15 @@ impl Particles {
             if self.pool.recs[i][1] & FLAG_DEAD != 0 { continue; }
             let ty = self.pool.recs[i][0] as usize;
             match self.table.get(ty).copied().flatten() {
-                Some(f) => f(self, i, rng),
+                Some(f) => {
+                    let steps=if let Some((speed,remainder))=self.hostile_clocks.get_mut(&i) {
+                        *remainder+=*speed;let n=remainder.floor() as usize;*remainder-=n as f32;n.min(4)
+                    } else {1};
+                    for _ in 0..steps {
+                        if self.pool.recs[i][1]&FLAG_DEAD!=0 {break;}
+                        f(self,i,rng);
+                    }
+                },
                 None => {
                     self.stats.unported_kills[ty.min(PART_TYPES - 1)] += 1;
                     self.kill_part(i);
@@ -764,5 +777,28 @@ mod tests {
         let edge = 63.0 + 20.0 * (1.0f32 + 0.63 * 0.63).sqrt();
         assert!(v.culled(240.0, [100.0, edge + 1.0, 0.0, 20.0]));
         assert!(!v.culled(240.0, [100.0, edge - 1.0, 0.0, 20.0]));
+    }
+}
+
+
+#[cfg(test)] mod hostile_clock_tests {
+    use super::*;
+    #[test]
+    fn hostile_flame_clock_does_not_accelerate_neighboring_player_particles_or_survive_reuse() {
+        let mut sys=Particles::new(None,vec![]);let mut rng=Rng::new();
+        let enemy=type59::spawn(&mut sys,1.,[10.,10.,10.,0.],0x40808080,0,59,false,10,0).unwrap();
+        let player=type59::spawn(&mut sys,1.,[10.,10.,10.,0.],0x40808080,0,59,false,10,0).unwrap();
+        sys.hostile_clocks.insert(enemy,(2.,0.));sys.update_parts(&mut rng);
+        assert_eq!(rec::i16(&sys.pool.recs[enemy],10),8);
+        assert_eq!(rec::i16(&sys.pool.recs[player],10),9);
+        sys.kill_part(enemy);assert!(!sys.hostile_clocks.contains_key(&enemy));
+        // Even callers resetting the pool directly cannot leak a clock into a
+        // different particle when CreatePart reuses its slot.
+        sys.hostile_clocks.insert(player,(4.,0.));sys.pool.level_init();
+        let fresh=type59::spawn(&mut sys,1.,[10.,10.,10.,0.],0x40808080,0,59,false,10,0).unwrap();
+        let reused=type59::spawn(&mut sys,1.,[10.,10.,10.,0.],0x40808080,0,59,false,10,0).unwrap();
+        assert_eq!(reused,player);
+        sys.update_parts(&mut rng);assert_eq!(rec::i16(&sys.pool.recs[fresh],10),9);
+        assert_eq!(rec::i16(&sys.pool.recs[reused],10),9);
     }
 }

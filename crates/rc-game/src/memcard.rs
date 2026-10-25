@@ -446,6 +446,10 @@ pub struct MemCard {
 }
 
 impl MemCard {
+    /// The card is in use (`entry` 0x259c40: 0x13d364 > 2 or a requested state 0x13d36c ≥ 0): the main loop draws the
+    /// card icon ([`crate::menus::freeze::busy_icon`]) — the autosave's and every save's or load's.
+    pub fn in_use(&self) -> bool { 2 < self.state || 0 <= self.req_state }
+
     /// A card in `fs`, directory `dir` (`memcard_Init` + `memcard_GetName`); the state machine at rest (state 0).
     pub fn new(fs: CardFs, dir: String, lump: Option<SaveGameLump>) -> MemCard {
         MemCard {
@@ -909,6 +913,16 @@ impl MemCard {
             0 => {
                 let slot = if preview { self.card.preview_slot } else { self.card.slot };
                 let p = self.slot_file(slot);
+                if !preview {
+                    if let Some(path)=self.fs.host(&p) {
+                        if let Ok(native)=std::fs::read(&path) {
+                            if !crate::weapon_evo::golden::accepts_save(&path,&native,crate::weapon_evo::golden::enabled()) {
+                                eprintln!("saves: mode mismatch or missing/corrupt Golden Bolts_to_Weapons progress; load refused before restoring game state");
+                                self.error_card=self.cur;self.error=0x15;self.cur=0;self.state=0;self.busy=false;return;
+                            }
+                        }
+                    }
+                }
                 let r = self.fs.open(&p, open_mode::READ);
                 self.call(r);
                 self.sub = 1;
@@ -1528,9 +1542,15 @@ fn header(b: &[u8]) -> [u32; 2] {
     [w(0), w(4)]
 }
 
-/// `sceCdCLOCK` (BCD) of a Unix time in seconds (UTC; the game's JST → local fix 0x12d6d8 is not reproduced).
-pub fn bcd_clock(unix: u64) -> [u8; 8] {
+/// `sceCdCLOCK` (BCD) of a civil date and time: [0] stat 0, second, minute, hour, pad 0, day, month, year % 100.
+pub fn bcd_clock_civil(year: u64, month: u64, day: u64, hour: u64, minute: u64, second: u64) -> [u8; 8] {
     let bcd = |v: u64| (((v / 10) % 10) << 4 | (v % 10)) as u8;
+    [0, bcd(second), bcd(minute), bcd(hour), 0, bcd(day), bcd(month), bcd(year % 100)]
+}
+
+/// `sceCdCLOCK` (BCD) of a Unix time in seconds, in UTC (the engine passes the host's local time instead when it
+/// can, as the game's JST → local conversion 0x12d6d8 gives the console's local time: rc-engine `saves::clock_now`).
+pub fn bcd_clock(unix: u64) -> [u8; 8] {
     let days = unix / 86400;
     let secs = unix % 86400;
     // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
@@ -1543,7 +1563,7 @@ pub fn bcd_clock(unix: u64) -> [u8; 8] {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = yoe + era * 400 + (m <= 2) as i64;
-    [0, bcd(secs % 60), bcd(secs / 60 % 60), bcd(secs / 3600), 0, bcd(d as u64), bcd(m as u64), bcd((y % 100) as u64)]
+    bcd_clock_civil(y as u64, m as u64, d as u64, secs / 3600, secs / 60 % 60, secs % 60)
 }
 
 /// The save root of the native card: `RC_SAVE_DIR=<path>` (`0` or empty: no card), else `<config base>/rerac/memcard`
@@ -1660,5 +1680,18 @@ mod evolution_save_tests {
         assert_eq!(gs.to_save_file().to_bytes(), native);
         gs.challenge_reset(&[], |g| *g = state());
         assert_eq!(gs.weapon_progress, a);
+    }
+}
+
+#[cfg(test)]
+mod clock_tests {
+    use super::*;
+
+    /// A real save's stamp (made 2026-10-15 20:09:48 at UTC−4): the UTC form the port wrote, and the local one.
+    #[test]
+    fn bcd_clock_utc_and_civil() {
+        assert_eq!(bcd_clock(1_792_109_388), [0, 0x48, 0x09, 0x00, 0, 0x16, 0x10, 0x26]);
+        assert_eq!(bcd_clock_civil(2026, 10, 15, 20, 9, 48), [0, 0x48, 0x09, 0x20, 0, 0x15, 0x10, 0x26]);
+        assert_eq!(bcd_clock(0), [0, 0, 0, 0, 0, 0x01, 0x01, 0x70]);
     }
 }

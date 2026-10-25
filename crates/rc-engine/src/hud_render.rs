@@ -453,6 +453,40 @@ impl UiMaterial for HudComposite {
         if let Some(f) = descriptor.fragment.as_mut() {
             f.entry_point = Some("composite".into());
             f.shader_defs.push(ShaderDefVal::Bool("HUD_COMPOSITE".into(), true));
+            // Premultiplied: the additive draws (coverage 0) add (hud.wgsl `composite`).
+            for t in f.targets.iter_mut().flatten() { t.blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING); }
+        }
+        descriptor.vertex.shader_defs.push(ShaderDefVal::Bool("HUD_COMPOSITE".into(), true));
+    }
+}
+
+/// The GS blend `(Cs − Cd)·As + Cd` with As above 1 (a fragment alpha over 0x80: the look stance's marker
+/// `0xff917267`, `0x20fb60`): `Cs·As − Cd·(As − 1)`, the frame under it subtracted. The layer keeps such alphas (a float
+/// target); the frame's blend clamps its factors to [0, 1], so [`HudComposite`] takes the layer's pixels up to 1 and
+/// this second node, over the same image, the ones above: colour `Cs·As`, alpha `As − 1`, blended `src − dst·srcA`.
+/// [`HudComposite`] drew them opaque (`Cs`): the wrench's glassy blue reticle came out as a flat grey one.
+const OVER_ONE_BLEND: BlendState = BlendState {
+    color: BlendComponent { src_factor: BlendFactor::One, dst_factor: BlendFactor::SrcAlpha, operation: BlendOperation::Subtract },
+    alpha: BlendComponent { src_factor: BlendFactor::Zero, dst_factor: BlendFactor::One, operation: BlendOperation::Add },
+};
+
+/// The HUD layer's pixels whose alpha is above 1 ([`OVER_ONE_BLEND`]); a child of each [`HudComposite`] node, same image.
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+pub struct HudCompositeOver {
+    #[texture(0)]
+    pub image: Handle<Image>,
+    #[uniform(1)]
+    pub scaling: Vec4,
+}
+
+impl UiMaterial for HudCompositeOver {
+    fn fragment_shader() -> ShaderRef { SHADER_PATH.into() }
+
+    fn specialize(descriptor: &mut RenderPipelineDescriptor, _key: UiMaterialKey<Self>) {
+        if let Some(f) = descriptor.fragment.as_mut() {
+            f.entry_point = Some("composite_over".into());
+            f.shader_defs.push(ShaderDefVal::Bool("HUD_COMPOSITE".into(), true));
+            for t in f.targets.iter_mut().flatten() { t.blend = Some(OVER_ONE_BLEND); }
         }
         descriptor.vertex.shader_defs.push(ShaderDefVal::Bool("HUD_COMPOSITE".into(), true));
     }
@@ -475,10 +509,11 @@ pub struct HudStaticComposite {
 pub fn scaling(h: crate::graphics::Hud) -> Vec4 { Vec4::new(if h == crate::graphics::Hud::Original { 1.0 } else { 0.0 }, 0.0, 0.0, 0.0) }
 
 /// Applies a changed HUD option to both composites.
-fn apply_scaling(gfx: Res<crate::graphics::GraphicsSettings>, mut a: ResMut<Assets<HudComposite>>, mut b: ResMut<Assets<HudStaticComposite>>) {
+fn apply_scaling(gfx: Res<crate::graphics::GraphicsSettings>, mut a: ResMut<Assets<HudComposite>>, mut b: ResMut<Assets<HudStaticComposite>>, mut c: ResMut<Assets<HudCompositeOver>>) {
     if !gfx.is_changed() { return; }
     let v = scaling(gfx.hud);
     for (_, m) in a.iter_mut() { if m.scaling != v { m.scaling = v; } }
+    for (_, m) in c.iter_mut() { if m.scaling != v { m.scaling = v; } }
     for (_, m) in b.iter_mut() { if m.scaling != v { m.scaling = v; } }
 }
 
@@ -548,6 +583,8 @@ struct HudRuntime {
     cine_banner_seq: u32,
     /// The last [`HudFeed::reset`] applied.
     reset: u32,
+    /// The last [`HudFeed::empty`] applied.
+    empty: u32,
     /// The last [`HudFeed::prompt_released`] applied.
     prompt_released: u32,
     /// The last game-side HUD call applied (`rc_game::hud::Calls::since`, `Services::hud`).
@@ -606,9 +643,12 @@ pub struct HudFeed {
     pub prompt_text: Vec<u8>,
     pub bolts_pinned: bool,
     pub weapon: Option<Option<(u16, i32, i32)>>,
-    /// Bumped by `FUN_0024fb00` callers (the vendor's open) and the death reload's `fun_001fee88`: every HUD slot is
-    /// emptied at once.
+    /// Bumped by `FUN_0024fb00` callers (the vendor's open, the gold upgrade): every HUD slot is emptied at once and the
+    /// ammo counter held off until the vendor's exit (`rc_game::hud::HudState::reset_slots`).
     pub reset: u32,
+    /// Bumped by the death reload's `fun_001fee88`: every HUD slot is emptied at once, the ammo counter not held
+    /// (`rc_game::hud::HudState::empty_slots`).
+    pub empty: u32,
     /// `rc_game::moby_update::interact::Prompt::released`: the prompt's slot emptied at once on a change.
     pub prompt_released: u32,
     /// The slot calls the engine-side callers made this frame (the quick select's opening and `PageMenuClose`: health and
@@ -642,6 +682,90 @@ pub struct SceneLayer {
     pub prims: Vec<Prim>,
 }
 
+/// A 2D layer for a caller with its own textures and primitive list (Going Commando's front end, crate::rac2): this
+/// pass's atlas, material, mesh and composite without the Ratchet & Clank HUD. Its textures are [`Tex::Frame`] n; the
+/// composite sits on the frame's 4:3 box (crate::display::UiBoxed), drawn by `ui_camera`.
+pub struct Layer {
+    pub atlas: Handle<Image>,
+    pub mesh: Handle<Mesh>,
+    /// Atlas rectangle of each texture.
+    pub frames: Vec<[u32; 4]>,
+    /// The layer's camera, primitives and composite, for [`Layer::despawn`].
+    pub entities: [Entity; 3],
+}
+
+impl Layer {
+    #[allow(clippy::too_many_arguments)]
+    pub fn spawn(
+        commands: &mut Commands,
+        images: &mut Assets<Image>,
+        meshes: &mut Assets<Mesh>,
+        materials: &mut Assets<HudMaterial>,
+        composites: &mut Assets<HudComposite>,
+        textures: &[Texture],
+        scaling: Vec4,
+        ui_camera: Entity,
+    ) -> Layer {
+        let atlas = build_atlas(textures, &[]);
+        let mut img = Image::new(
+            Extent3d { width: ATLAS_W, height: atlas.height, depth_or_array_layers: 1 },
+            TextureDimension::D2,
+            atlas.rgba,
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::all(),
+        );
+        img.sampler = bevy::image::ImageSampler::nearest();
+        let atlas_handle = images.add(img);
+        let target = images.add(Image::new_target_texture(W as u32, H as u32, TextureFormat::Rgba16Float, None));
+        let camera = commands.spawn((
+            Camera2d,
+            Camera { order: -10, clear_color: ClearColorConfig::Custom(Color::NONE), ..default() },
+            RenderTarget::Image(target.clone().into()),
+            Hdr,
+            Msaa::Off,
+            Tonemapping::None,
+            DebandDither::Disabled,
+            RenderLayers::layer(HUD_LAYER),
+            Name::new("2d layer camera (512x416 offscreen)"),
+        )).id();
+        let mesh = meshes.add(empty_mesh());
+        let prims = commands.spawn((
+            Mesh2d(mesh.clone()),
+            MeshMaterial2d(materials.add(HudMaterial { atlas: atlas_handle.clone(), additive: false })),
+            Transform::IDENTITY,
+            NoFrustumCulling,
+            RenderLayers::layer(HUD_LAYER),
+            Name::new("2d layer primitives"),
+        )).id();
+        let composite = commands.spawn((
+            Node { position_type: PositionType::Absolute, ..default() },
+            crate::display::UiBoxed,
+            MaterialNode(composites.add(HudComposite { image: target, scaling })),
+            UiTargetCamera(ui_camera),
+            Name::new("2d layer composite"),
+        )).id();
+        Layer { atlas: atlas_handle, mesh, frames: atlas.frames, entities: [camera, prims, composite] }
+    }
+
+    /// Removes the layer's entities (its images and mesh go with their last handles).
+    pub fn despawn(&self, commands: &mut Commands) { for e in self.entities { commands.entity(e).despawn(); } }
+
+    /// The mesh of a primitive list.
+    pub fn build(&self, d: &Hud2d) -> Mesh { build_mesh(&d.prims, &d.fine, &d.add, &self.frames, &[], &[], 0) }
+
+    /// Rewrites texture `i`'s texels (its own size, raw GS bytes): a movie's picture.
+    pub fn write(&self, images: &mut Assets<Image>, i: usize, rgba: &[u8]) {
+        let Some(&[x, y, w, h]) = self.frames.get(i) else { return };
+        let Some(mut img) = images.get_mut(&self.atlas) else { return };
+        let Some(data) = img.data.as_mut() else { return };
+        for row in 0..h.min(rgba.len() as u32 / (w * 4).max(1)) {
+            let src = &rgba[(row * w * 4) as usize..((row + 1) * w * 4) as usize];
+            let dst = (((y + row) * ATLAS_W + x) * 4) as usize;
+            data[dst..dst + src.len()].copy_from_slice(src);
+        }
+    }
+}
+
 /// The system set that ticks the HUD and builds the primitive mesh.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct HudBuild;
@@ -652,7 +776,7 @@ impl Plugin for HudPlugin {
         // A runtime level change (crate::level_switch): the level's HUD is built again by `setup`.
         app.add_systems(crate::level_switch::LevelUnload, (crate::level_switch::reset::<Hud2dHook>, crate::level_switch::reset::<SceneLayer>, crate::level_switch::reset::<HudFeed>, crate::level_switch::remove::<HudRuntime>, crate::level_switch::remove::<crate::hud_images::HudImages>));
         if std::env::var("RC_HUD").is_ok_and(|v| v.trim() == "0") { return; }
-        app.add_plugins((Material2dPlugin::<HudMaterial>::default(), UiMaterialPlugin::<HudComposite>::default(), UiMaterialPlugin::<HudStaticComposite>::default()))
+        app.add_plugins((Material2dPlugin::<HudMaterial>::default(), UiMaterialPlugin::<HudComposite>::default(), UiMaterialPlugin::<HudCompositeOver>::default(), UiMaterialPlugin::<HudStaticComposite>::default()))
             .add_systems(crate::level_switch::LevelStartup, setup)
             .add_systems(Update, (target_main_camera, tick_and_build, apply_fx_cuts).chain().in_set(HudBuild))
             .add_systems(PostUpdate, apply_scaling);
@@ -687,7 +811,7 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<HudMaterial>>,
-    (mut composites, mut static_composites): (ResMut<Assets<HudComposite>>, ResMut<Assets<HudStaticComposite>>),
+    (mut composites, mut static_composites, mut over_composites): (ResMut<Assets<HudComposite>>, ResMut<Assets<HudStaticComposite>>, ResMut<Assets<HudCompositeOver>>),
     gfx: Res<crate::graphics::GraphicsSettings>,
 ) {
     let sc = scaling(gfx.hud);
@@ -738,6 +862,8 @@ fn setup(
     // On the frame's 4:3 box (crate::display: in 16:9 the 512×416 screen is centred, the world widens around it).
     // The whole frame (crate::display): the 512×416 screen in its middle, wider in 16:9 ([`HudRuntime::extra`]).
     let hud_node = commands.spawn((full(), MaterialNode(composites.add(HudComposite { image: target.clone(), scaling: sc })), GlobalZIndex(i32::MAX), HudCompositeNode, Name::new("hud composite"))).id();
+    // Its pixels with an alpha above 1, right after it ([`HudCompositeOver`]).
+    commands.spawn((full(), MaterialNode(over_composites.add(HudCompositeOver { image: target.clone(), scaling: sc })), ZIndex(-1), ChildOf(hud_node), Name::new("hud composite (alpha above 1)")));
     // The 512×416 screen's box inside it: the parent of the canvases composed with the HUD (crate::screen_canvas).
     commands.spawn((full(), crate::display::UiBoxed, HudBoxNode, ChildOf(hud_node), Name::new("hud box")));
     // The static layer: its own 512×416 target, three meshes in pass order (Transparent2d sorts by z), a node over
@@ -804,6 +930,7 @@ fn setup(
         banner_seq: 0,
         cine_banner_seq: 0,
         reset: 0,
+        empty: 0,
         prompt_released: 0,
         calls_cursor: None,
         pending: Vec::new(),
@@ -824,7 +951,7 @@ type GameInputs<'w> = (Option<Res<'w, crate::gameplay::Persistent>>, Option<Res<
 #[allow(clippy::too_many_arguments)]
 fn tick_and_build(
     rt: Option<ResMut<HudRuntime>>,
-    ticks: Res<crate::determinism::GameTicks>,
+    (ticks, frame_no): (Res<crate::determinism::GameTicks>, Res<crate::determinism::FrameNumber>),
     hook: Res<Hud2dHook>,
     scene: Res<SceneLayer>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -869,7 +996,14 @@ fn tick_and_build(
     // `ShowBanner(msg, ticks)` of the moby loop (the gold bolt, the planet banners: rc_game::cinematic::show_banner).
     if let Some(b) = play.as_ref().map(|p| p.svc.cinematic.banner).filter(|b| b.seq != rt.cine_banner_seq) {
         rt.cine_banner_seq = b.seq;
-        rt.state.show_banner_msg(b.msg, b.ticks);
+        if let Some(text)=play.as_ref().and_then(|p|p.svc.cinematic.banner_text.as_ref())
+            .filter(|(seq,_)|*seq==b.seq).map(|(_,text)|text.as_slice()) {
+            rt.state.show_banner(text,Some(b.ticks));
+        } else if let Some(text) = b.literal {
+            rt.state.show_banner(text, Some(b.ticks));
+        } else {
+            rt.state.show_banner_msg(b.msg, b.ticks);
+        }
     }
     // The game's values (bolts 0x15ed98, max HP 0x15eda0, HP 0x1415f8, the held item's ammo slot), unless the
     // RC_HUD_DEMO values drive it.
@@ -894,6 +1028,10 @@ fn tick_and_build(
     if feed.reset != rt.reset {
         rt.reset = feed.reset;
         rt.state.reset_slots();
+    }
+    if feed.empty != rt.empty {
+        rt.empty = feed.empty;
+        rt.state.empty_slots();
     }
     rt.state.set_prompt(feed.prompt, &feed.prompt_text);
     if feed.prompt_released != rt.prompt_released {
@@ -935,10 +1073,12 @@ fn tick_and_build(
         for &id in &rc_game::weapon_evo::WEAPON_IDS {
             levels[id as usize]=evo.weapon_level(id).unwrap_or(0) as u8;
         }
+        if !evo.hud.level_up_popup {levels.fill(0);}
+        if evo.world_settings.enemy_damage_by_health {levels[0]=(evo.nanotech.bonus+1).min(255) as u8;}
         let duration=(evo.hud.level_up_popup_duration_seconds*60.0).round().max(1.0) as u64;
         let alive=p.game.hero.health>0 && !matches!(p.game.hero.state,0x7b|0x7f);
-        let started=rt.evo_notice.update(p.game.counter,alive,evo.hud.level_up_popup,levels,duration);
-        evo_notice_sound=started && evo.hud.level_up_sound;
+        let started=rt.evo_notice.update(p.game.counter,alive,evo.hud.level_up_popup || evo.world_settings.enemy_damage_by_health,levels,duration);
+        evo_notice_sound=started && if rt.evo_notice.popup().is_some_and(|p|p.0==0){evo.world_settings.nanotech_upgrade_sound}else{evo.hud.level_up_sound};
     }
     if evo_notice_sound {
         if let (Some(p), Some(a)) = (play.as_deref_mut(), audio.as_deref_mut()) {
@@ -977,10 +1117,10 @@ fn tick_and_build(
     // Weapon Evolution v0.1.5: a small three-second, nonblocking notice.
     if !hook.replace_hud && !scene.hide_hud && !hud_off {
         if let (Some(p), Some((weapon, level, _))) = (play.as_deref(), rt.evo_notice.popup()) {
-            if p.svc.bomb_evo.hud.level_up_popup {
+            if weapon==0 || p.svc.bomb_evo.hud.level_up_popup {
                 let gold = p.game.hero.weapons.gold.get(weapon as usize).is_some_and(|&g| g != 0);
-                let message = evolution_native_name(rt, weapon, gold).and_then(|name|
-                    p.svc.bomb_evo.level_notice(weapon, level as usize, language(), name));
+                let message = if weapon==0 {Some(b"Max Nanotech increased!".to_vec())} else {evolution_native_name(rt, weapon, gold).and_then(|name|
+                    p.svc.bomb_evo.level_notice(weapon, level as usize, language(), name))};
                 if let Some(message) = message {
                     let font = rc_formats::font::Font::Small;
                     let glyphs = &rt.glyphs[font as usize];
@@ -1001,6 +1141,15 @@ fn tick_and_build(
         if let Some(p) = play.as_deref() {
             let evo = &p.svc.bomb_evo;
             let ui = evo.hud;
+            let nanotech_height=rc_game::hud::xp_bar::nanotech_height(ui.xp_bar_height_px);
+            if let (Some((left,top,width,fade)),Some(fraction)) = (
+                rt.state.nanotech_xp_anchor(rt.evo_bar_cap_inset,nanotech_height),
+                evo.nanotech.fraction(&evo.world_settings,evo.nanotech_native_max)) {
+                let alpha=(rc_game::weapon_evo::HudOptions::alpha(ui.nanotech_xp_bar_opacity_percent) as f32*fade) as u32;
+                let maxed=evo.nanotech.bonus >= evo.world_settings.nanotech_max_health;
+                let draws=rc_game::hud::xp_bar::draws(left,top,width,nanotech_height,fraction,alpha,maxed);
+                crate::text_render::execute(&mut rt.hud2d,&mut st,&rt.glyphs,&draws);
+            }
             let item = rt.state.weapon_evo_display_item(true).unwrap_or(0);
             let without_ammo=ui.show_for_weapons_without_ammo || (item==8 && evo.weapon_hud_enabled(8));
             let gold = p.game.hero.weapons.gold.get(item as usize).is_some_and(|&g| g != 0);
@@ -1017,19 +1166,9 @@ fn tick_and_build(
                     ) {
                         // The border is inside the panel span; legacy INI inset only
                         // keeps its old name position, it cannot misalign the XP bar.
-                        let right = left + outer_width;
-                        let x = left + 1;
-                        let width = outer_width - 2;
-                        let frame_alpha = (alpha_bar * 3 / 4).min(128);
-                        rt.hud2d.rect(bottom_y - 1, bottom_y + height + 1, left, right,
-                            (frame_alpha << 24) | 0x00202020);
-                        rt.hud2d.rect(bottom_y, bottom_y + height, x, x + width,
-                            (alpha_bar << 24) | 0x00605038);
-                        let fill = (width as f32 * evo.weapon_fraction(item).unwrap_or(0.0)).round() as i32;
-                        if fill > 0 {
-                            let color = if evo.weapon_level(item) == Some(5) { 0x0020_c6_f1 } else { 0x00e5_91_28 };
-                            rt.hud2d.rect(bottom_y, bottom_y + height, x, x + fill, (alpha_bar << 24) | color);
-                        }
+                        let draws=rc_game::hud::xp_bar::draws(left,bottom_y,outer_width,height,
+                            evo.weapon_fraction(item).unwrap_or(0.0),alpha_bar,evo.weapon_at_cap(item));
+                        crate::text_render::execute(&mut rt.hud2d,&mut st,&rt.glyphs,&draws);
                     }
                 }
                 let alpha_name = (rc_game::weapon_evo::HudOptions::alpha(ui.name_opacity_percent) as f32 * fade) as u32;
@@ -1058,6 +1197,21 @@ fn tick_and_build(
             }
         }
     }
+    // The main loop's card icon (`entry` 0x259c40) while the card is in use (an autosave, any save or load), drawn
+    // last in every mode [L: also on the frame the page menu opens, which the game skips (0x1ba2ac)].
+    if crate::saves::with_card(|c| c.in_use()).unwrap_or(false) {
+        let a = &rt.state.assets;
+        let (icon, spin) = (a.icon_frame(rc_game::menus::freeze::CARD_ICON, 0), a.icon_frame(rc_game::menus::freeze::CARD_ICON, 1));
+        for d in rc_game::menus::freeze::busy_icon(icon, spin, frame_no.0 as u32) {
+            match d {
+                rc_game::menus::MenuDraw::Hud(Draw::Sprite { frame, x, y, w, h, alpha, rot }) => rt.hud2d.sprite(frame, x, y, w, h, alpha, rot),
+                rc_game::menus::MenuDraw::Quad { tex: rc_game::menus::QuadTex::Frame(f), pos, uv, rgba, repeat, uv16 } => {
+                    rt.hud2d.prims.push(Prim { tex: Tex::Frame(f), pos, uv, rgba, scissor: [0, W - 1, 0, H - 1], repeat, nearest: false, boxed: false, uv16 });
+                }
+                _ => {}
+            }
+        }
+    }
     let dyns = dyn_images.as_deref().map_or([None; crate::hud_images::SLOTS], |d| d.rects());
     let e = rt.extra;
     // Only the meshes whose inputs changed ([`Built`]).
@@ -1074,6 +1228,7 @@ fn hero_inputs(g: &mut Inputs, p: &crate::gameplay::Play) {
     let h = &p.game.hero;
     let react = &p.svc.creatures.react;
     let morph = &h.weapons.reactive.morph;
+    g.bolt_chain=if p.svc.bomb_evo.ng_plus {p.svc.bomb_evo.bolt_chain.kills}else{0};
     g.level = p.svc.level as i32;
     g.mode = p.svc.game_mode;
     g.pressed = p.game.pad.pressed;

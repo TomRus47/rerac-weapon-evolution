@@ -1,10 +1,7 @@
 @echo off
-setlocal
+setlocal DisableDelayedExpansion
 cd /d "%~dp0"
-where py >nul 2>nul
-if %errorlevel%==0 (
-  py -3 "%~dp0launcher.py" %*
-) else (
-  python "%~dp0launcher.py" %*
-)
-if errorlevel 1 pause
+py -3 "%~dp0launcher.py"
+set "RESULT=%ERRORLEVEL%"
+pause
+exit /b %RESULT%

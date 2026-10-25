@@ -1,7 +1,7 @@
 {
-  "base_workspace_version": "0.3.4",
-  "gameplay_version": "0.1.6.59",
-  "launcher_version": "0.17.2",
+  "base_workspace_version": "0.3.6",
+  "gameplay_version": "0.1.6.83",
+  "launcher_version": "0.27.1",
   "supplied_source_archive_sha256": "691ec727930a62463c6bdb9e3161e77f4ce906ec9209a5274cf31bddd4400592",
   "upstream_git_revision": null,
   "baseline": "User-supplied source archive; already contains an earlier Weapon Evolution version.",
@@ -140,5 +140,17 @@
   },
   "public_update_parent": "96cb175b79b85150e2ff0dcdae447ba8797289f5",
   "default_profile": "Latest weapons.ini supplied with the attached v48 kit; copied to default/example and synchronized with the optional embedded profile. Historical delta_paths below describe the original supplied-source export, not the cumulative v49 changes.",
-  "public_release_build_revision": 2
+  "public_release_build_revision": 2,
+  "historical_export": {
+    "base_workspace_version": "0.3.4",
+    "gameplay_version": "0.1.6.59",
+    "launcher_version": "0.17.2",
+    "supplied_source_archive_sha256": "691ec727930a62463c6bdb9e3161e77f4ce906ec9209a5274cf31bddd4400592",
+    "upstream_git_revision": null,
+    "baseline": "User-supplied source archive; already contains an earlier Weapon Evolution version."
+  },
+  "status": "development; not released",
+  "current_source_archive": "crate8s.zip",
+  "current_source_archive_sha256": "289fde4bf31779005c9d20a6abf4ce1c213c0281f46d4a3f3cde34dead813a8b",
+  "current_baseline": "User-supplied v80 modified ReRAC 0.3.6-alpha crates plus the supplied v78 workspace support files and launcher source. Subsequent v81-v83 control changes are documented in docs/mod/SAVED_CONTROLS.md."
 }

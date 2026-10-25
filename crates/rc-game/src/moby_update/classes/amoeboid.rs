@@ -498,7 +498,7 @@ fn pre(w: &mut World, id: MobyId) -> bool {
         c::set_pi32(w, id, TGT_STATE, tg.kind as i32);
         if tg.kind != 2 {
             let home = c::pv4(w, id, HOME);
-            let ok = c::dist3(home, tg.pos) <= r && (c::pos(w, id)[2] - tg.pos[2]).abs() <= 3.0;
+            let ok = c::dist3(home, tg.pos) <= crate::weapon_evo::world::chase_range(w,id,r) && (c::pos(w, id)[2] - tg.pos[2]).abs() <= 3.0;
             if !ok { c::set_pi32(w, id, TGT_STATE, 2); }
         }
     }
@@ -616,8 +616,8 @@ mod evolution_stage_tests {
         svc.bomb_evo.real_hp = true;
         svc.bomb_evo.xp_per_damage = 0.1;
         svc.bomb_evo.pyro.enabled = true;
-        svc.bomb_evo.pyro.xp_required = [10000.0; 4];
-        for track in &mut svc.bomb_evo.extras { track.enabled = true; track.xp_required = [10000.0; 4]; }
+        svc.bomb_evo.pyro.xp_required = [10000.0; 7];
+        for track in &mut svc.bomb_evo.extras { track.enabled = true; track.xp_required = [10000.0; 7]; }
         let mut w = World::new(&mut table, &hero, &mut rng, &classes, &mut svc, 1);
         for id in 1..=7 { init(&mut w, id); }
         test(&mut w);

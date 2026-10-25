@@ -142,7 +142,7 @@ fn blend(w: &mut World, id: MobyId, s: u8, n: i32) {
         w.anim_blend(id, s, 0, t);
     }
 }
-fn range(w: &World, id: MobyId) -> f32 { c::pf(w, id, pv::RANGE) }
+fn range(w: &World, id: MobyId) -> f32 { crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, pv::RANGE)) }
 fn group_call(w: &mut World, id: MobyId, v: u8) {
     let g = w.m(id).group;
     if g != -1 { attack::group_command(w, g, v); }
@@ -401,7 +401,7 @@ fn charge(w: &mut World, id: MobyId, t: &target::Target, old: c::V) {
             m.position[1] = old[1];
         }
         let z = w.m(id).position[2];
-        if range(w, id) + 4.0 <= c::len3(e) || 8.0 <= (z - t.pos[2]).abs() {
+        if (range(w, id) + 4.0) * crate::weapon_evo::world::chase_bonus(w,id) <= c::len3(e) || 8.0 <= (z - t.pos[2]).abs() {
             if w.m(id).cmd != 1 { set_state(w, id, st::HOME); }
         } else {
             group_call(w, id, 1);
@@ -455,7 +455,7 @@ fn home(w: &mut World, id: MobyId, t: &target::Target, old: c::V) {
         blend(w, id, 3, 3);
     }
     let e = c::sub(t.pos, hm);
-    let go = if c::len3(e) < range(w, id) {
+    let go = if c::len3(e) < range(w, id) * crate::weapon_evo::world::chase_bonus(w,id) {
         group_call(w, id, 1);
         true
     } else {
@@ -545,7 +545,7 @@ fn leashed(w: &mut World, id: MobyId) {
         w.mm(id).position[2] = g;
     }
     let l = c::pi32(w, id, pv::LEASH);
-    if l > 0 && ((l - 1) as usize) < w.table.mobys.len() && c::dist2(c::pos(w, id), c::pos(w, (l - 1) as usize)) <= c::pi16(w, id, pv::LEASH_R) as f32 {
+    if l > 0 && ((l - 1) as usize) < w.table.mobys.len() && c::dist2(c::pos(w, id), c::pos(w, (l - 1) as usize)) <= crate::weapon_evo::world::chase_range(w,id,c::pi16(w, id, pv::LEASH_R) as f32) {
         w.mm(id).cmd = 0;
         return;
     }
@@ -773,7 +773,7 @@ pub fn update(w: &mut World, id: MobyId) {
             let hm = c::pv4(w, id, pv::HOME);
             let hd = heading(w, id, hm);
             turn_to(w, id, hd, 0.05, 0.3, 0.2);
-            let near = c::len3(c::sub(t.pos, hm)) < range(w, id) && (hm[2] - t.pos[2]).abs() < 8.0;
+            let near = c::len3(c::sub(t.pos, hm)) < (range(w, id) * crate::weapon_evo::world::chase_bonus(w,id)) && (hm[2] - t.pos[2]).abs() < 8.0;
             if near || w.m(id).cmd == 2 {
                 group_call(w, id, 2);
                 let s = (w.rng.rand() & 1) as u8 + 9;

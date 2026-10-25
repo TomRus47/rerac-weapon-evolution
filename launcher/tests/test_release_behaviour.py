@@ -96,7 +96,7 @@ class DefaultWorkflowTests(unittest.TestCase):
         (self.kit/'weapons.ini').write_bytes(old)
         self.assertTrue(release.install_default(self.kit))
         self.assertEqual((self.kit/'weapons.ini').read_bytes(),self.raw)
-        backup=list((self.kit/'backup/defaults_before_v05').glob('*/weapons.ini'))
+        backup=list((self.kit/'backup/defaults_before_v03').glob('*/weapons.ini'))
         self.assertEqual(len(backup),1);self.assertEqual(backup[0].read_bytes(),old)
         (self.kit/'weapons.ini').write_bytes(old)
         self.assertFalse(release.install_default(self.kit));self.assertEqual((self.kit/'weapons.ini').read_bytes(),old)
@@ -104,7 +104,7 @@ class DefaultWorkflowTests(unittest.TestCase):
         (self.kit/'weapons.default.ini').write_bytes(self.raw.replace(b'max_ammo = 40',b'max_ammo = -2',1))
         with self.assertRaises(ValueError):release.install_default(self.kit)
         self.assertEqual((self.kit/'weapons.ini').read_bytes(),self.raw)
-        self.assertFalse((self.kit/'defaults-installed-v05.json').exists())
+        self.assertFalse((self.kit/'defaults-installed-v03.json').exists())
     def test_manual_game_launcher_also_injects_real_hp_only_into_the_session_copy(self):
         (self.exe.parent/'build-info.json').write_text(json.dumps({'mode':'editable','mod_version':'0.1.6.44','root':str(self.kit)}))
         observed={}

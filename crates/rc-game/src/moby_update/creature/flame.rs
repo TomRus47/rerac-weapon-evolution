@@ -35,6 +35,7 @@ pub fn clear(w: &mut World, id: MobyId, rec: usize) {
 
 /// `0x264e70(range, flames, start, dir)` (module doc); `rec` = the pvar offset of the flames' record.
 pub fn emit(w: &mut World, id: MobyId, rec: usize, range: f32, start: c::V, dir: c::V) {
+    let range=range*w.svc.bomb_evo.world_settings.enemy_projectile_range_multiplier;
     let keep = w.counter & 3 == 0;
     let reach = c::set_len3(dir, range + 0.75);
     let end = c::add(reach, start);
@@ -77,12 +78,14 @@ pub fn emit(w: &mut World, id: MobyId, rec: usize, range: f32, start: c::V, dir:
 /// `PartType12Spawn(len, pos, vel, flags)` (its draws only with a free record). The record index.
 fn part12(w: &mut World, len: f32, p: c::V, vel: c::V, flags: u8) -> Option<usize> {
     *w.svc.fx.part_spawns.entry(12).or_default() += 1;
+    let speed=w.svc.bomb_evo.world_settings.enemy_projectile_speed_multiplier;
     match w.particles.as_deref_mut() {
         Some(sys) => {
             if 0x800 <= sys.pool.hint { w.svc.fx.part_failed += 1; return None; }
             let d = crate::particles::type12::Draws::draw(w.rng, flags);
             let r = crate::particles::type12::spawn(sys, len, p, vel, flags, 0, &d).map(|x| x.0);
             if r.is_none() { w.svc.fx.part_failed += 1; }
+            if let Some(i)=r {if speed!=1. {sys.hostile_clocks.insert(i,(speed,0.));}}
             r
         }
         None => {

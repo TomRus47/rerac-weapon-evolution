@@ -1,8 +1,10 @@
 # Developer guide
 
-This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.59 gameplay implementation and v0.17.2 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
+This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.83 gameplay implementation and v0.27.1 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
 
 Current model, palette and steering behavior is described in [MODELS_AND_STATIC_PAGES_V58.md](MODELS_AND_STATIC_PAGES_V58.md). Its page-cache section is historical; launcher 0.17.2 uses the original rendering lifecycle documented in [LAUNCHER_RESTORE_V58_1.md](LAUNCHER_RESTORE_V58_1.md). The shared percentage for alternative mine models is explained in [FLAME_MINE_MODEL_SCALE.md](FLAME_MINE_MODEL_SCALE.md). See [build layout](BUILD_LAYOUT.md) for the distinct source and player folders, and [credits](CREDITS.md) for authorship and original-game rights.
+
+Current additions and changed contracts are mapped in [CURRENT_IMPLEMENTATION.md](CURRENT_IMPLEMENTATION.md) and [SAVED_CONTROLS.md](SAVED_CONTROLS.md). The base is ReRAC 0.3.6-alpha; V6 is an NG+ Gold purchase for weapons, followed by V7/V8 XP. Save companions now use v8 and retain v1–v7 decoding. Older versioned examples below are historical where these current documents specify different limits.
 
 ## 1. Start here
 

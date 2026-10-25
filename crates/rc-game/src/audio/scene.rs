@@ -49,6 +49,9 @@ pub enum SceneAudioCmd {
     StopSpeech,
     /// `FUN_0027a460(after)`: the music resumes after `after` ticks.
     ResumeMusic { after: i32 },
+    /// A reward without a cinematic: resume the held music when its one-shot
+    /// ends. A later scene or menu takes ownership of the music hold instead.
+    PickupJingle { vag: Arc<[u8]> },
 }
 
 static INBOX: Mutex<VecDeque<SceneAudioCmd>> = Mutex::new(VecDeque::new());
@@ -63,6 +66,20 @@ pub fn post(cmd: SceneAudioCmd) { INBOX.lock().unwrap_or_else(|e| e.into_inner()
 /// Takes every queued request.
 pub fn take() -> Vec<SceneAudioCmd> { INBOX.lock().unwrap_or_else(|e| e.into_inner()).drain(..).collect() }
 
+/// A world pickup has no vendor menu to hold the level music. The native
+/// vendor/demo stream supplies its non-looping acquisition jingle separately.
+pub fn begin_weapon_pickup() {
+    post(SceneAudioCmd::PauseMusic);
+    post(SceneAudioCmd::StopSpeech);
+}
+
+/// Restore the held track; never restart track zero or allocate another music
+/// player. This also stops a jingle that outlasts its acquisition scene.
+pub fn end_weapon_pickup() {
+    post(SceneAudioCmd::StopSpeech);
+    post(SceneAudioCmd::ResumeMusic { after: 0 });
+}
+
 /// The scene audio state kept by [`AudioSystem`].
 #[derive(Clone, Debug, Default)]
 pub struct SceneAudio {
@@ -72,6 +89,7 @@ pub struct SceneAudio {
     pub speech: Option<(usize, u32)>,
     /// Between `PauseMusic` and the resume: every music stream voice is held.
     pub music_paused: bool,
+    pickup_auto_resume: bool,
     /// Frozen music voices: (voice, generation, pitch, volume registers).
     paused: Vec<(usize, u32, u16, [u16; 2])>,
     /// Ticks until the music resumes (`FUN_0027a460`).
@@ -89,9 +107,24 @@ pub struct SceneAudio {
 pub const MENU_PAUSED_GROUPS: u32 = 0x1d;
 
 impl AudioSystem {
+    /// A pickup demo freezes the world, including the gameplay audio hook.
+    /// Drain its requests and advance the audio once per demo frame anyway.
+    /// No enemy updates, emitters, music-box requests or gameplay RNG run here.
+    pub fn weapon_pickup_frame(&mut self, out: &mut Vec<[i16; 2]>) {
+        self.scene_frame();
+        self.music_resume_countdown();
+        self.render(super::SAMPLES_PER_FRAME, out);
+    }
+
     /// Applies one scene request (called by `game_frame` for the inbox; callable directly).
     pub fn scene_command(&mut self, cmd: SceneAudioCmd) {
         self.scene.applied += 1;
+        // A story scene, another pickup or a stop/resume request supersedes a
+        // banner-only reward. Release its hold before the new owner acts.
+        if std::mem::take(&mut self.scene.pickup_auto_resume) {
+            self.stop_speech();
+            self.music_unpause();
+        }
         match cmd {
             SceneAudioCmd::PauseMusic => {
                 self.scene.cutscene = true;
@@ -111,12 +144,19 @@ impl AudioSystem {
                 self.scene.cutscene = false;
                 self.scene.resume_in = Some(after.max(0));
             }
+            SceneAudioCmd::PickupJingle { vag } => {
+                self.scene_command(SceneAudioCmd::PauseMusic);
+                self.scene_command(SceneAudioCmd::Speech { vag });
+                self.scene.cutscene = false;
+                self.scene.pickup_auto_resume = true;
+            }
         }
     }
 
     /// `music_Pause(0)` outside a scene (the vendor's `OpenVendorMenu`): the music voices are held, the volumes are the
     /// normal ones.
     pub fn music_pause(&mut self) {
+        if std::mem::take(&mut self.scene.pickup_auto_resume) { self.stop_speech(); }
         self.scene.music_paused = true;
         self.pause_music();
     }
@@ -199,9 +239,20 @@ impl AudioSystem {
         self.render(super::SAMPLES_PER_FRAME, out);
     }
 
-    /// Per EE frame, before `sound_update`: the inbox and the resume countdown.
+    /// Per EE frame, before `sound_update`: the inbox.
     pub(super) fn scene_frame(&mut self) {
         self.scene_inbox();
+        if self.scene.pickup_auto_resume && !self.speech_playing() {
+            self.scene.pickup_auto_resume = false;
+            self.stop_speech();
+            self.music_unpause();
+        }
+    }
+
+    /// The resume countdown: `music_UpdateStream` 0x27a4a0's `FastDecTimer(+0xe)` on a paused player (state & 0x8000)
+    /// inside `music_Update`, so every frame that runs `sound_update` counts it: gameplay, the page menus and the
+    /// credits slideshow (mode 7), which the end of the game enters within the 30 ticks after its last scene.
+    pub(super) fn music_resume_countdown(&mut self) {
         if let Some(t) = self.scene.resume_in {
             if t <= 0 {
                 self.scene.resume_in = None;
@@ -290,6 +341,132 @@ impl AudioSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn synthetic_pickup_audio() -> (AudioSystem, Arc<[u8]>) {
+        use super::super::LevelAudio;
+        use rc_formats::sound_bank::{Bank, LevelSounds, SfxHeader};
+        let data = LevelAudio {
+            bank: Arc::new(Bank { file_type: 3, chunks: [(0, 0); 2],
+                header: SfxHeader::default(), sounds: vec![], grains: vec![],
+                vags: vec![], samples: vec![] }),
+            sounds: LevelSounds::default(), instances: vec![], instance_pvars: vec![],
+            music: std::array::from_fn(|_| None), env_points: vec![], collision: None,
+        };
+        let mut sys = AudioSystem::new(data);
+        let mut body = vec![0x11; 16 * 128];
+        for frame in body.chunks_exact_mut(16) { frame[0] = 12; frame[1] = 0; }
+        body[16 * 127 + 1] = vag::FLAG_END | vag::FLAG_REPEAT;
+        let voice = &mut sys.spu.voices[0];
+        voice.key_on(VoiceData::Stream { cur: StreamPart {
+            data: Arc::from(body.clone()), looped: true }, queue: Default::default() },
+            0, 0x1000, STREAM_ADSR1, STREAM_ADSR2);
+        voice.vol = [0x2000; 2];
+        sys.snd.vm.voices[0] = VoiceSlot { owner: VoiceUse::Stream { handle: 77 },
+            priority: 127, group: MUSIC_GROUP, basevol: (0x2000, 0x2000), start_tick: 0,
+            generation: voice.generation };
+        sys.music.main.track = 6; sys.music.main.handle = 77;
+        let mut jingle = vec![0; vag::VAG_HEADER_SIZE];
+        jingle[..4].copy_from_slice(b"VAGp");
+        jingle[12..16].copy_from_slice(&(body.len() as u32).to_be_bytes());
+        jingle[16..20].copy_from_slice(&48_000u32.to_be_bytes());
+        jingle.extend_from_slice(&body);
+        (sys, Arc::from(jingle))
+    }
+
+    #[test]
+    fn pickup_audio_runs_without_world_ticks_plays_once_and_restores_the_held_track() {
+        let _lock = TEST_INBOX.lock().unwrap_or_else(|e| e.into_inner());
+        take();
+        let (mut sys, jingle) = synthetic_pickup_audio();
+        let held = sys.spu.voices[0].stream_remaining();
+        let generation = sys.spu.voices[0].generation;
+        begin_weapon_pickup();
+        let mut out = Vec::new();
+        sys.weapon_pickup_frame(&mut out);
+        assert_eq!(out.len(), super::super::SAMPLES_PER_FRAME);
+        assert_eq!(sys.music_voices(), (0, 1));
+        post(SceneAudioCmd::Speech { vag: jingle });
+        sys.weapon_pickup_frame(&mut Vec::new());
+        assert!(sys.speech_playing());
+        let jingle_voice = sys.scene.speech;
+        for _ in 0..20 {
+            sys.weapon_pickup_frame(&mut Vec::new());
+            assert_eq!(sys.music_voices(), (0, 1));
+            assert_eq!(sys.spu.voices[0].stream_remaining(), held);
+            assert_eq!(sys.scene.speech, jingle_voice, "jingle restarted");
+        }
+        assert!(!sys.speech_playing(), "one-shot must finish before the scene ends");
+        end_weapon_pickup();
+        sys.weapon_pickup_frame(&mut Vec::new());
+        assert_eq!(sys.music_voices(), (1, 0));
+        assert!(sys.scene.speech.is_none());
+        assert_eq!(sys.spu.voices[0].generation, generation);
+        assert_eq!((sys.music.main.track, sys.music.main.handle), (6, 77));
+        assert!(sys.spu.voices[0].stream_remaining() < held);
+        assert!(take().is_empty());
+    }
+
+    #[test]
+    fn ending_a_short_pickup_stops_a_jingle_that_has_not_finished() {
+        let _lock = TEST_INBOX.lock().unwrap_or_else(|e| e.into_inner());
+        take();
+        let (mut sys, jingle) = synthetic_pickup_audio();
+        begin_weapon_pickup(); post(SceneAudioCmd::Speech { vag: jingle });
+        sys.weapon_pickup_frame(&mut Vec::new());
+        assert!(sys.speech_playing());
+        end_weapon_pickup(); sys.weapon_pickup_frame(&mut Vec::new());
+        assert!(sys.scene.speech.is_none());
+        assert!(!sys.scene.music_paused);
+        assert_eq!(sys.music_voices(), (1, 0));
+    }
+
+    #[test]
+    fn banner_only_reward_resumes_music_when_the_jingle_ends_and_accepts_another_pickup() {
+        let _lock = TEST_INBOX.lock().unwrap_or_else(|e| e.into_inner());
+        take();
+        let (mut sys, jingle) = synthetic_pickup_audio();
+        let generation = sys.spu.voices[0].generation;
+        for _ in 0..2 {
+            post(SceneAudioCmd::PickupJingle { vag: jingle.clone() });
+            sys.weapon_pickup_frame(&mut Vec::new());
+            assert!(sys.speech_playing());
+            assert_eq!(sys.music_voices(), (0, 1));
+            for _ in 0..20 { sys.weapon_pickup_frame(&mut Vec::new()); }
+            assert!(!sys.scene.music_paused);
+            assert!(sys.scene.speech.is_none());
+            assert_eq!(sys.music_voices(), (1, 0));
+            assert_eq!(sys.spu.voices[0].generation, generation);
+        }
+    }
+
+    #[test]
+    fn a_story_or_menu_takes_over_a_banner_jingle_without_premature_music_resume() {
+        let _lock = TEST_INBOX.lock().unwrap_or_else(|e| e.into_inner());
+        take();
+        for menu in [false, true] {
+            let (mut sys, jingle) = synthetic_pickup_audio();
+            post(SceneAudioCmd::PickupJingle { vag: jingle });
+            sys.weapon_pickup_frame(&mut Vec::new());
+            if menu { sys.music_pause(); }
+            else { sys.scene_command(SceneAudioCmd::PauseMusic); }
+            for _ in 0..20 { sys.weapon_pickup_frame(&mut Vec::new()); }
+            assert!(sys.scene.music_paused);
+            assert_eq!(sys.music_voices(), (0, 1));
+            sys.music_unpause();
+            assert_eq!(sys.music_voices(), (1, 0));
+        }
+    }
+
+    #[test]
+    fn missing_jingle_data_never_leaves_level_music_paused() {
+        let _lock = TEST_INBOX.lock().unwrap_or_else(|e| e.into_inner());
+        take();
+        let (mut sys, _) = synthetic_pickup_audio();
+        post(SceneAudioCmd::PickupJingle { vag: Arc::from(&b"invalid"[..]) });
+        sys.weapon_pickup_frame(&mut Vec::new());
+        assert!(!sys.scene.music_paused);
+        assert_eq!(sys.music_voices(), (1, 0));
+    }
 
     #[test]
     fn inbox_keeps_order() {
@@ -382,6 +559,52 @@ mod tests {
             assert_eq!(sys.music_voices(), (1, 0));
         }
         assert!(sys.music.main.state == 4 && sys.music.main.handle != 0, "{:?}", sys.music.main);
+    }
+
+    /// The end of the game: the last scene (Veldin's boss, scene 5) ends with `FUN_0027a460(ticks(30))` and the boss enters
+    /// the credits slideshow (mode 7) at once, whose frames run only `sound_update`. The resume delay counts down there
+    /// (`music_UpdateStream`'s `FastDecTimer(+0xe)`), so the music comes back 30 frames in; it did not (silent credits).
+    #[test]
+    fn music_resumes_during_slideshow_frames() {
+        use super::super::{FrameInput, LevelAudio};
+        let _lock = TEST_INBOX.lock().unwrap_or_else(|e| e.into_inner());
+        let root = rc_formats::test_data::root().join("levels/01");
+        let Ok(bank) = std::fs::read(root.join("sound_bank.bin")) else { eprintln!("skipped: no extracted/"); return };
+        let rd = |n: &str| std::fs::read(root.join(n)).unwrap();
+        let idx = rd("core_index.bin");
+        let data = rc_formats::test_data::core_data(1).unwrap();
+        let core = rc_formats::level::parse_level_core(&idx, data.len()).unwrap();
+        let music: [Option<Vec<u8>>; 15] = std::array::from_fn(|k| std::fs::read(root.join(format!("music/{k:03}.bin"))).ok());
+        let audio = LevelAudio::from_parts(&bank, &idx, &core, &data, &rc_formats::test_data::gameplay(1).unwrap(), &rd("level_header.bin"), &music, None).unwrap();
+        let input = FrameInput { hero_pos: [162.5, 136.4, 60.5], ..Default::default() };
+        let mut sys = AudioSystem::new(audio);
+        let mut rng = crate::rng::Rng::new();
+        rng.srand(crate::rng::LEVEL_SEED);
+        let mut out = Vec::new();
+        let mut counter = 1u32;
+        take();
+        sys.tick_with(&input, counter, &mut rng, &|_| None, &mut out);
+        counter += 1;
+        assert_eq!(sys.music_voices(), (1, 0));
+        // The scene: the music held, then its end arms the resume.
+        for cmd in [SceneAudioCmd::PauseMusic, SceneAudioCmd::ResumeMusic { after: 30 }] {
+            post(cmd);
+            sys.scene_frame_with(false, &input, counter, &mut rng, &|_| None, &mut Vec::new());
+        }
+        assert_eq!(sys.music_voices(), (0, 1));
+        // Slideshow frames: `sound_update` and the samples, no gameplay frame.
+        let slide = |sys: &mut AudioSystem, rng: &mut crate::rng::Rng| {
+            let mut buf = Vec::new();
+            sys.sound_update_with(&input, counter, rng, &|_| None);
+            sys.render(crate::audio::SAMPLES_PER_FRAME, &mut buf);
+        };
+        for _ in 0..30 {
+            slide(&mut sys, &mut rng);
+            assert_eq!(sys.music_voices(), (0, 1));
+        }
+        slide(&mut sys, &mut rng);
+        assert!(!sys.scene.music_paused);
+        assert_eq!(sys.music_voices(), (1, 0));
     }
 
     /// The page menu's audio (`EnterMenuMode` 0x28bf50 / `PageMenuUpdate` 0x28c990's close) on Novalis: the open holds the

@@ -55,8 +55,8 @@ class ModelTests(unittest.TestCase):
         removed={i for (s,k),i in self.doc.addresses.items() if k in MODEL_NEW_KEYS}
         old=b'\xef\xbb\xbf'+''.join(line for i,line in enumerate(self.doc.lines) if i not in removed).replace('\n','\r\n').encode()
         before=core.checked_document(old);out=convert(old)[0];after=core.checked_document(out)
-        self.assertEqual(core.required_config(before),56);self.assertEqual(core.required_config(after),58)
-        self.assertEqual(len(after.entries)-len(before.entries),75)
+        self.assertEqual(core.required_config(before),82);self.assertEqual(core.required_config(after),82)
+        self.assertEqual(len(after.entries)-len(before.entries),len(removed))
         for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value)
         self.assertEqual(convert(out)[0],out);self.assertTrue(out.startswith(b'\xef\xbb\xbf'));self.assertIn(b'\r\n',out)
 

@@ -577,7 +577,7 @@ pub fn target(w: &mut World, id: MobyId) {
     c::set_pv4(w, id, o::T + 0x30, t.body);
     c::set_pi32(w, id, o::TM, t.moby.map_or(0, |m| m as i32 + 1));
     c::set_pi32(w, id, o::KIND, t.kind as i32);
-    if t.kind != 2 && c::pf(w, id, o::RANGE) < c::dist2(c::pos(w, id), t.pos) { c::set_pi32(w, id, o::KIND, 2); }
+    if t.kind != 2 && crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, o::RANGE)) < c::dist2(c::pos(w, id), t.pos) { c::set_pi32(w, id, o::KIND, 2); }
     if c::pi32(w, id, o::TM) == 0 { c::set_pi32(w, id, o::TM, w.hero_moby.map_or(0, |m| m as i32 + 1)); }
 }
 

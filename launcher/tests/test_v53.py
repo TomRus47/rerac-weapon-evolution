@@ -22,14 +22,14 @@ class GrenadeMineTests(unittest.TestCase):
             self.assertEqual(self.doc.entries[section,'grenade_launcher_enabled'],'false')
         doc=core.checked_document(self.doc.render(changes))
         for p,v in changes.items():self.assertEqual(doc.entries[p],v)
-        self.assertEqual(core.required_config(doc),58)
+        self.assertEqual(core.required_config(doc),82)
     def test_migration_adds_55_fields_without_changing_old_values(self):
         new={p for p in self.doc.entries if p[1] not in MODEL_NEW_KEYS and (p[1].startswith('grenade_') or p[1]=='flame_mine_size_percent' or (p[0].startswith('weapon.visibomb.level') and p[1]=='explosion_damage_radius'))}
-        self.assertEqual(len(new),55);indexes={self.doc.addresses[p] for p in new}
+        self.assertEqual(len(new),88);indexes={self.doc.addresses[p] for p in new}
         old=''.join(line for i,line in enumerate(self.doc.lines) if i not in indexes).encode()
         original=core.IniDocument(old);migrated=convert(old)[0];loaded=core.checked_document(migrated)
         for p,v in original.entries.items():self.assertEqual(loaded.entries[p],v)
-        self.assertEqual(len(loaded.entries)-len(original.entries),55);self.assertEqual(convert(migrated)[0],migrated)
+        self.assertEqual(len(loaded.entries)-len(original.entries),len(new));self.assertEqual(convert(migrated)[0],migrated)
     def test_invalid_new_values_rejected(self):
         for key,value in [('grenade_size_percent','0'),('grenade_arc_height','NaN'),('grenade_fire_interval_ticks','2.5'),('grenade_max_range','0'),('grenade_explosion_radius','9'),('grenade_damage_hp','-1'),('grenade_color','GG0000'),('grenade_launcher_enabled','perhaps')]:
             with self.assertRaises(ValueError,msg=key):core.validate_value('weapon.visibomb.level1',key,value)

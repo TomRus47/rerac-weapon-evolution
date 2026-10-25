@@ -10,7 +10,7 @@ WEAPONS = {
     'drone_device': (24, 'Drone Device'), 'decoy_glove': (25, 'Decoy Glove'),
 }
 EXTRA = {
-    8: 'hit_radius_multiplier knockback_multiplier throw_range throw_speed show_hud crate_breaker_enabled crate_breaker_radius moving_attacks_enabled bolt_attraction_bonus',
+    8: 'trail_color hit_radius_multiplier knockback_multiplier throw_range throw_speed show_hud crate_breaker_enabled crate_breaker_radius moving_attacks_enabled bolt_attraction_bonus',
     9: 'capacity suck_range_multiplier shot_damage_multiplier',
     11: 'fire_interval_ticks homing_strength_multiplier missile_speed_multiplier missile_range_multiplier explosion_radius_multiplier explosion_visual_size_multiplier explosion_color trail_color',
     13: 'duration_multiplier turn_multiplier invulnerable_while_guiding',
@@ -25,14 +25,14 @@ EXTRA = {
     24: 'drone_count detection_range_multiplier drone_size_multiplier blast_radius_multiplier',
     25: 'decoy_health_multiplier explosion_enabled explosion_radius_multiplier explosion_damage_multiplier throw_range_multiplier xp_attract_fraction lure_range',
 }
-XP = ('xp_v1_to_v2', 'xp_v2_to_v3', 'xp_v3_to_v4', 'xp_v4_to_v5')
+XP = ('xp_v1_to_v2', 'xp_v2_to_v3', 'xp_v3_to_v4', 'xp_v4_to_v5', 'xp_v5_to_v6', 'xp_v6_to_v7', 'xp_v7_to_v8')
 NAMES = {'name', 'name_en', 'name_it', 'name_fr', 'name_de', 'name_es'}
 BOOLEANS = set('fire_in_air gold gold_effects gold_texture air_dash_enabled gold_electric_fx invulnerable_while_guiding explode_small_chickens explosion_enabled show_for_weapons_without_ammo level_up_popup'.split())
 COLORS = {key for value in EXTRA.values() for key in value.split() if key.endswith('_color')} | set('flame_core_color flame_outer_color burn_flame_color light_color'.split())
 BOMB = set('xp_to_next throw_range auto_lock_range trajectory_height explosion_radius explosion_color cooldown_seconds max_ammo damage_multiplier gold gold_effects gold_texture name'.split())
 PYRO = set('xp_to_next flame_range flame_width damage_multiplier flame_core_color flame_outer_color light_color max_ammo gold gold_effects gold_texture burn_flame_color'.split())
-HUD = set('name_opacity_percent xp_bar_height_px xp_bar_horizontal_inset_px show_for_weapons_without_ammo level_up_popup level_up_popup_duration_seconds level_up_sound'.split())
-INTEGER = set('damage_interval_ticks id max_ammo capacity robot_count robot_max_alive drone_count missiles_per_salvo fire_interval_ticks ammo_interval_ticks wave_interval_ticks wave_alpha stun_duration_ticks name_opacity_percent xp_bar_height_px xp_bar_horizontal_inset_px'.split())
+HUD = set('nanotech_xp_bar_opacity_percent name_opacity_percent xp_bar_height_px xp_bar_horizontal_inset_px show_for_weapons_without_ammo level_up_popup level_up_popup_duration_seconds level_up_sound'.split())
+INTEGER = set('damage_interval_ticks id max_ammo capacity robot_count robot_max_alive drone_count missiles_per_salvo fire_interval_ticks ammo_interval_ticks wave_interval_ticks wave_alpha stun_duration_ticks name_opacity_percent nanotech_xp_bar_opacity_percent xp_bar_height_px xp_bar_horizontal_inset_px'.split())
 BOMB.add('damage_hp')
 PYRO.update({'damage_per_second', 'ammo_interval_ticks', 'damage_interval_ticks'})
 EDITOR_WEAPONS = dict(WEAPONS)
@@ -119,7 +119,7 @@ for key in AMMO_DROP_DEFAULTS:
 
 
 def global_field_groups(doc):
-    """Exactly two Global Settings cards; the mode enabler is its first field."""
+    """Separate base and Ammo-Survival settings; the mode enabler comes first."""
     base = [(section, key) for section in ('general', 'hud') for key in doc.keys(section)
             if key not in GLOBAL_EXPERIMENTAL_DEFAULTS and key != 'damage_mode']
     mode = [('general', key) for key in GLOBAL_EXPERIMENTAL_DEFAULTS if ('general', key) in doc.entries]
@@ -314,7 +314,8 @@ def field_groups(weapon, keys):
 # Wrench-specific bounds live in launcher_core.numeric_range; Walloper uses the
 # same keys and keeps its existing accepted ranges and help semantics.
 WRENCH_HELP = {
-    'hit_radius_multiplier': 'Wrench hit-volume multiplier for all three combo swings, airborne contact, Comet Strike outbound/return and ground-slam impact. 1 preserves native collisions; 2 doubles reach/thickness. Does not scale throw travel distance, the visible model or the separate Crate Breaker radius. Captured at attack/throw start.',
+    'hit_radius_multiplier': 'Wrench hit-volume multiplier for all three combo swings, airborne contact, Comet Strike outbound/return and ground-slam impact. 1 preserves native collisions; 2 doubles reach/thickness. Also scales the melee trail. Does not scale throw travel distance, the visible model or the separate Crate Breaker radius. Captured at attack/throw start.',
+    'trail_color': 'Wrench melee trail color for this grade. Use default for the original pale blue or RRGGBB for a custom color. Trail reach and width follow the hit-radius multiplier captured at attack start.',
     'knockback_multiplier': 'Horizontal enemy push multiplier for all wrench attacks. 1 preserves native push; 0 removes horizontal push; 2 doubles its strength. Vertical launch, damage, XP, animations and native enemy resistance remain unchanged. Captured at attack/throw start.',
 }
 
@@ -364,3 +365,209 @@ for _key in MODEL_NEW_KEYS & COLORS:
     _kind = next((k for k in ('explosion','core','outer','burn') if k in _key), 'body')
     LABELS[_key] = {'body':'Model color','explosion':'Explosion color','core':'Inner flame color',
                     'outer':'Outer flame color','burn':'Persistent flame color'}[_kind]
+
+# v60 encounter rules, ordered consistently in the editor and profiles.
+WORLD_DEFAULTS = {'enemy_health_multiplier': '1',
+ 'enemy_health_include_bosses': 'true',
+ 'extra_enemies_per_level': '0',
+ 'extra_enemy_prefer_small': 'true',
+ 'extra_enemy_prefer_medium': 'true',
+ 'extra_enemy_prefer_large': 'true',
+ 'enemy_damage_by_health': 'false',
+ 'enemy_damage_multiplier': '1',
+ 'enemy_perception_multiplier': '1',
+ 'enemy_chase_range_multiplier': '1',
+ 
+ 'nanotech_xp_per_upgrade': '1000',
+ 'nanotech_max_health': '20',
+ 'nanotech_upgrade_sound': 'true',
+ 'nanotech_random_healing': 'true',
+ }
+WORLD_RANGES = {'enemy_health_multiplier': (0.1, 100),
+ 'extra_enemies_per_level': (0, 100),
+ 'enemy_damage_multiplier': (0.1, 100),
+ 'enemy_perception_multiplier': (0.1, 10),
+ 'enemy_chase_range_multiplier': (0.1, 10),
+ 'nanotech_xp_per_upgrade': (0.1, 1000000),
+ 'nanotech_max_health': (0, 64)}
+GLOBAL_STANDARD_DEFAULTS.update(WORLD_DEFAULTS)
+BOOLEANS.update({'enemy_health_include_bosses',   'nanotech_upgrade_sound', 'extra_enemy_prefer_large', 'extra_enemy_prefer_small', 'enemy_damage_by_health', 'nanotech_random_healing', 'extra_enemy_prefer_medium'})
+INTEGER.update({"extra_enemies_per_level","nanotech_max_health"})
+LABELS.update({'enemy_health_multiplier': 'Enemy health multiplier', 'enemy_health_include_bosses': 'Apply health multiplier to bosses', 'extra_enemies_per_level': 'Extra enemies per level (total count, selected categories only)', 'extra_enemy_prefer_small': 'Duplicate small enemies (up to 100 base HP)', 'extra_enemy_prefer_medium': 'Duplicate medium enemies (over 100, up to 200 base HP)', 'extra_enemy_prefer_large': 'Duplicate large enemies (over 200 base HP)', 'enemy_damage_by_health': 'Health-based enemy damage and Nanotech progression', 'enemy_damage_multiplier': 'Enemy damage multiplier (including boss attacks)', 'enemy_perception_multiplier': 'Enemy perception multiplier',  'nanotech_xp_per_upgrade': 'XP per Nanotech upgrade', 'nanotech_max_health': 'Maximum extra Nanotech from XP', 'nanotech_upgrade_sound': 'Nanotech upgrade notification sound', 'nanotech_random_healing': 'Random Nanotech healing (1-4)', })
+HELP.update({'enemy_health_multiplier': 'Scales effective enemy HP and actual-loss XP together. Native AI phase thresholds are preserved.', 'enemy_health_include_bosses': 'Includes the four boss classes in health scaling.', 'extra_enemies_per_level': 'Extra enemies per level (total count, selected categories only)', 'extra_enemy_prefer_small': 'Duplicate small enemies (up to 100 base HP)', 'extra_enemy_prefer_medium': 'Duplicate medium enemies (over 100, up to 200 base HP)', 'extra_enemy_prefer_large': 'Duplicate large enemies (over 200 base HP)', 'enemy_damage_by_health': 'Health-based enemy damage and Nanotech progression', 'enemy_damage_multiplier': 'Enemy damage multiplier (including boss attacks)', 'enemy_perception_multiplier': 'Scales enemy detection and engagement distances. Does not change projectile physics.',  'nanotech_xp_per_upgrade': 'Constant hidden XP threshold. Each completion adds one usable maximum HP; excess XP carries over. Max-grade weapons still contribute.', 'nanotech_max_health': 'Limits XP-earned extra HP only (0-64). Total HP = 4 + Premium (1) + Ultra (3) + XP bonus. Progress is stored per save.', 'nanotech_upgrade_sound': 'Play the HelpDesk notification sound for Max Nanotech increased! Independent of weapon upgrade sound.', 'nanotech_random_healing': 'Requires damage tiers. Each field pickup heals 1-4 HP: original, indigo, violet, red. Never overheals or revives Ratchet.', })
+
+
+# BEGIN WEAPON EVOLUTION V64 LAVA
+# Configuration remains English; the existing launcher handles its selected UI language.
+_LAVA_DEFAULTS_V64 = {'lava_stream_enabled': 'false', 'lava_launch_speed': '24', 'lava_gravity': '18', 'lava_max_range': '18', 'lava_size_percent': '100', 'lava_core_color': 'default', 'lava_outer_color': 'default', 'lava_impact_color': 'default', 'lava_light_color': 'default'}
+EXPERIMENTAL_DEFAULTS.setdefault('pyrocitor', {}).update(_LAVA_DEFAULTS_V64)
+# Keep toggles first and colors last even when a prior schema has extra fields.
+_pyro_experiments_v64 = EXPERIMENTAL_DEFAULTS['pyrocitor']
+EXPERIMENTAL_DEFAULTS['pyrocitor'] = {
+    **{k:v for k,v in _pyro_experiments_v64.items() if k.endswith('_enabled')},
+    **{k:v for k,v in _pyro_experiments_v64.items() if not k.endswith(('_enabled','_color'))},
+    **{k:v for k,v in _pyro_experiments_v64.items() if k.endswith('_color')},
+}
+PYRO.update(_LAVA_DEFAULTS_V64)
+BOOLEANS.add('lava_stream_enabled')
+COLORS.update(k for k in _LAVA_DEFAULTS_V64 if k.endswith('_color'))
+LABELS.update({'lava_stream_enabled': 'Experimental lava stream: on/off', 'lava_launch_speed': 'Lava launch speed (units/s)', 'lava_gravity': 'Lava gravity (units/s²)', 'lava_max_range': 'Maximum lava travel distance', 'lava_size_percent': 'Lava stream thickness (%)', 'lava_core_color': 'Lava core color', 'lava_outer_color': 'Lava outer color', 'lava_impact_color': 'Lava impact color', 'lava_light_color': 'Lava light color'})
+HELP.update({'lava_stream_enabled': 'Replace normal and triple flames with a ballistic lava stream. Lava takes priority if both experiments are on. Uses this grade damage_per_second, damage_interval_ticks, ammo_interval_ticks and experimental_max_ammo. No extra damage from overlapping droplets.', 'lava_launch_speed': 'Initial velocity in game units per second. Gravity curves the stream after launch. Damage and ammo clocks are independent of speed.', 'lava_gravity': 'Downward acceleration in game units per second squared. 0 produces a straight stream.', 'lava_max_range': 'Maximum travelled path length, not horizontal range. Droplets stop on collision or at this distance. A 2-second safety lifetime also applies.', 'lava_size_percent': 'Visual thickness and damaging radius together. 100 gives a 0.22-unit contact radius; does not change damage per second.'})
+EXPERIMENTAL_RANGES.update({'lava_launch_speed': (1, 120), 'lava_gravity': (0, 120), 'lava_max_range': (0.5, 100), 'lava_size_percent': (10, 500)})
+# Reuse the shared ordering: switches, ammo, damage/reach, options, then colors.
+EXPERIMENTAL_ENABLERS['pyrocitor'] = ('triple_flame_enabled', 'lava_stream_enabled')
+LABELS['lava_stream_enabled'] = 'Experimental lava stream'
+
+# END WEAPON EVOLUTION V64 LAVA
+
+
+# WEAPON EVOLUTION V65 LAVA ELEVATION
+EXPERIMENTAL_DEFAULTS.setdefault('pyrocitor', {}).setdefault('lava_launch_angle_degrees', '10')
+PYRO.add('lava_launch_angle_degrees')
+EXPERIMENTAL_RANGES['lava_launch_angle_degrees'] = (-45, 45)
+LABELS['lava_launch_angle_degrees'] = 'Lava launch elevation (degrees)'
+HELP['lava_launch_angle_degrees'] = ('Elevation added to the weapon aim. 0 follows the aim; positive values raise the stream, '
+    'negative values lower it. Default: 10 degrees. Clamped at straight up/down; does not change speed, damage or ammo timing.')
+
+# Weapon Evolution v66: upgrade ammunition reward
+BOOLEANS.add('refill_ammo_on_upgrade')
+LABELS['refill_ammo_on_upgrade']='Refill ammo on weapon upgrade'
+HELP['refill_ammo_on_upgrade']='Refills an owned ammo weapon to the newly earned grade capacity, including its active experimental capacity. Loading a save grants no ammo. Suck Cannon contents are not created.'
+if 'GLOBAL_STANDARD_DEFAULTS' in globals():
+    GLOBAL_STANDARD_DEFAULTS['refill_ammo_on_upgrade']='false'
+_v66_previous_global_field_groups=global_field_groups
+def global_field_groups(doc):
+    base,mode=_v66_previous_global_field_groups(doc)
+    base=list(base)
+    field=('general','refill_ammo_on_upgrade')
+    if field in doc.entries and field not in base:base.append(field)
+    return base,[entry for entry in mode if entry!=field]
+
+
+# Weapon Evolution v67: seeded Gold Bolt rewards.
+GLOBAL_STANDARD_DEFAULTS.update({'golden_bolts_to_weapons':'false','golden_bolts_early_bias_percent':'0'})
+BOOLEANS.add('golden_bolts_to_weapons')
+INTEGER.add('golden_bolts_early_bias_percent')
+LABELS.update({'golden_bolts_to_weapons': 'Golden Bolts_to_Weapons', 'golden_bolts_early_bias_percent': 'Early weapon placement bias (%)'})
+HELP.update({'golden_bolts_to_weapons': 'Replace 15 Gold Bolts with the 15 weapons. A new game generates a layout saved with that slot. Uses a separate memory card and refuses ordinary saves. Original weapon sources remain available; this option changes Gold Bolt rewards only. Gemlik’s extra RYNO pickup is replaced by the seeded reward system.', 'golden_bolts_early_bias_percent': '0: locations anywhere, subject to access rules. 100: the earliest conservative gadget-access tiers; late planets have no weapon replacements. Existing saves keep their original layout and bias. Range: 0–100.'})
+_v67_global_field_groups=global_field_groups
+def global_field_groups(doc):
+    groups=list(_v67_global_field_groups(doc))
+    if len(groups)!=2: raise ValueError('Unsupported Global Settings layout; expected two cards.')
+    keys=('golden_bolts_to_weapons','golden_bolts_early_bias_percent')
+    groups=[[(section,key) for section,key in group if key not in keys] for group in groups]
+    groups[0].extend(('general',key) for key in keys if ('general',key) in doc.entries)
+    return tuple(groups)
+
+# Independent health-progression overlay; weapon opacity keeps its native rules.
+LABELS['nanotech_xp_bar_opacity_percent'] = 'Nanotech XP bar opacity (%)'
+HELP['nanotech_xp_bar_opacity_percent'] = ('Opacity of the Nanotech progression bar only: 0 hides it, 100 is fully visible. '
+    'Weapon selection activates the bar; it follows the health HUD fade. Damage and healing do not activate it. '
+    'Requires enemy damage tiers and Nanotech progression.')
+
+# Encounter motion controls share one ordered group in both INI and editor.
+MOTION_DEFAULTS = {
+    'enemy_speed_multiplier':'1',
+    'enemy_projectile_range_multiplier':'1',
+    'enemy_projectile_speed_multiplier':'1',
+}
+WORLD_DEFAULTS.update(MOTION_DEFAULTS)
+_WORLD_ORDER = (
+    'enemy_health_multiplier','enemy_health_include_bosses',
+    'enemy_damage_by_health','enemy_damage_multiplier','enemy_speed_multiplier',
+    'enemy_projectile_range_multiplier','enemy_projectile_speed_multiplier',
+    'enemy_perception_multiplier','enemy_chase_range_multiplier','extra_enemies_per_level',
+    'extra_enemy_prefer_small','extra_enemy_prefer_medium','extra_enemy_prefer_large',
+    'nanotech_xp_per_upgrade','nanotech_max_health','nanotech_upgrade_sound','nanotech_random_healing')
+WORLD_DEFAULTS = {key:WORLD_DEFAULTS[key] for key in _WORLD_ORDER}
+WORLD_RANGES.update({'enemy_speed_multiplier':(0.1,4),
+    'enemy_projectile_speed_multiplier':(0.1,4),'enemy_projectile_range_multiplier':(0.1,10)})
+GLOBAL_STANDARD_DEFAULTS.update(WORLD_DEFAULTS)
+GLOBAL_STANDARD_DEFAULTS['golden_bolts_one_weapon_per_planet']='false'
+BOOLEANS.add('golden_bolts_one_weapon_per_planet')
+LABELS.update({
+    'enemy_speed_multiplier':'Enemy action speed multiplier',
+    'enemy_projectile_range_multiplier':'Enemy projectile range multiplier',
+    'enemy_projectile_speed_multiplier':'Enemy projectile speed multiplier',
+    'golden_bolts_one_weapon_per_planet':'At most one weapon per planet',
+})
+HELP.update({
+    'enemy_speed_multiplier':'Native movement, animations and action cadence for enemies and bosses. 1 is original speed; 2 runs twice as fast. Collision is checked at each simulation step. Does not accelerate Ratchet, friendly companions or cutscenes. Range: 0.1-4.',
+    'enemy_projectile_speed_multiplier':'Speed of hostile shots, bombs, missiles and boss projectile actors. Independent of enemy action speed and projectile reach. Native collision checks run at every step. Ballistic trajectories run faster, including gravity and fuses. Range: 0.1-4.',
+    'enemy_projectile_range_multiplier':'Scales native shot reach, straight-shot lifetime or ballistic horizontal travel. Terrain impacts, locked target points and world boundaries still stop shots. Does not enlarge explosions or increase damage. Range: 0.1-10.',
+    'golden_bolts_one_weapon_per_planet':'New games only: distribute the 15 weapons across 15 different planets, choosing one candidate location on each. Explosive-wall, Visibomb and Taunter access rules still apply. Existing saves keep their stored layout.',
+})
+_previous_global_groups = global_field_groups
+def global_field_groups(doc):
+    base,mode=_previous_global_groups(doc)
+    golden=('golden_bolts_to_weapons','golden_bolts_early_bias_percent','golden_bolts_one_weapon_per_planet')
+    base=[entry for entry in base if entry[1] not in golden]
+    base.extend(('general',key) for key in golden if ('general',key) in doc.entries)
+    # Adjacent visibility controls; geometry and notification options follow.
+    hud_order=('name_opacity_percent','nanotech_xp_bar_opacity_percent',
+        'show_for_weapons_without_ammo','xp_bar_height_px','xp_bar_horizontal_inset_px',
+        'level_up_popup','level_up_popup_duration_seconds','level_up_sound')
+    base=[e for e in base if e[0]!='hud']+ [('hud',key) for key in hud_order if ('hud',key) in doc.entries]
+    return base,mode
+
+LABELS['enemy_chase_range_multiplier']='Enemy chase range multiplier (extra)'
+HELP['enemy_chase_range_multiplier']='Additional multiplier for home/territory pursuit limits after perception scaling. 1 follows perception; perception 2 and chase 2 allow four times the native territory. Does not enlarge melee hits, move home points or remove physical walls and scripted routes. Range: 0.1-10.'
+
+# The same eight-grade schema is used for weapons and the NG+ wrench track.
+GLOBAL_STANDARD_DEFAULTS['hide_ryno']='false'
+BOOLEANS.add('hide_ryno')
+LABELS['hide_ryno']='Hide_Ryno'
+HELP['hide_ryno']='Places the R.Y.N.O. in a secret area in the normal game and removes its Blackwater City seller without granting the weapon. Off keeps the native seller. Seeded weapon randomization takes priority.'
+_previous_global_fields_v76=global_field_groups
+def global_field_groups(doc):
+    base,experimental=_previous_global_fields_v76(doc)
+    field=('general','hide_ryno')
+    base=[p for p in base if p!=field];experimental=[p for p in experimental if p!=field]
+    if field in doc.entries:
+        at=next((i for i,p in enumerate(base) if p==('general','golden_bolts_to_weapons')),len(base))
+        base.insert(at,field)
+    return base,experimental
+
+
+# First in the encounter card; the coefficient does not multiply itself.
+WORLD_DEFAULTS = {'ngplus_multiplier':'1', **WORLD_DEFAULTS}
+GLOBAL_STANDARD_DEFAULTS.update(WORLD_DEFAULTS)
+WORLD_RANGES['ngplus_multiplier'] = (0.1, 4)
+LABELS['ngplus_multiplier'] = 'NGPlus_Multiplier'
+HELP['ngplus_multiplier'] = ('NG+ only: multiplies enemy health, damage, action speed, projectile speed/range, '
+    'perception and chase coefficients. Base 1 with 2 becomes 2; base 1.5 with 2 becomes 3. '
+    'Normal games keep base values. Counts, switches and Nanotech XP requirements are unchanged. Range: 0.1-4.')
+
+# Saved player controls are standard global options, outside encounter/survival
+# tuning. Runtime mode choices never rewrite the per-grade INI switches.
+CONTROL_DEFAULTS={'dpad_quick_select':'false','r1_experimental':'false'}
+GLOBAL_STANDARD_DEFAULTS.update(CONTROL_DEFAULTS)
+BOOLEANS.update(CONTROL_DEFAULTS)
+LABELS['dpad_quick_select']='D-pad Quick Select'
+LABELS['r1_experimental']='R1_Experimental'
+HELP['dpad_quick_select']=('Reserves the physical D-pad for four saved equipment shortcuts; movement uses the left stick. '
+    'In the paused Weapons/Gadgets grids hold L1 and press a D-pad direction to assign the highlighted owned item. '
+    'L1 freezes cursor navigation, including the stick. Borders: Up green, Right red, Down blue, Left pink. '
+    'Native restrictions apply during gameplay; weapons cannot be equipped underwater or on magnetic surfaces. '
+    'Each save keeps its own shortcuts. Off restores native D-pad movement.')
+HELP['r1_experimental']=('Hold Triangle, select Pyrocitor, Mine Glove, Visibomb Gun or R.Y.N.O. and press R1 to cycle '
+    'the saved firing mode shown under radial-menu ammo. Mode 0 is native; mode 1 is Lava Gun/flame mine/grenade launcher, '
+    'or continuous R.Y.N.O. missiles; R.Y.N.O. mode 2 is shotgun. Each save starts at mode 0 and remembers choices. '
+    'These four launcher mode switches are overridden while On; per-grade tuning remains in the INI. '
+    'Cluster bombs, triple flame, crate suction, Drone Device and dual Tesla remain launcher-only. '
+    'Off uses the launcher mode switches again without deleting saved choices.')
+_control_global_groups=global_field_groups
+def global_field_groups(doc):
+    base,mode=_control_global_groups(doc)
+    base=[field for field in base if field[1] not in CONTROL_DEFAULTS]
+    base.extend(('general',key) for key in CONTROL_DEFAULTS if ('general',key) in doc.entries)
+    return base,mode
+
+HELP['dpad_quick_select'] += ' Repeating a boot/helmet shortcut removes the equipped item. Repeating a Clank backpack shortcut cycles owned Heli-Pack, Thruster-Pack and Hydro-Pack after its first selection.'
+
+# Ballistic stream colors are independent of the ordinary flame palette.
+HELP.update({
+    'lava_core_color':'Inner lava stream color for this grade: default or RRGGBB.',
+    'lava_outer_color':'Outer lava stream color for this grade: default or RRGGBB.',
+    'lava_impact_color':'Lava contact effect color for this grade: default or RRGGBB.',
+    'lava_light_color':'Lava light color for this grade: default or RRGGBB.'})

@@ -15,15 +15,15 @@ class ExperimentalTests(unittest.TestCase):
         old=b''.join(line for line in self.raw.splitlines(True) if line.split(b'=',1)[0].strip().decode() not in keys)
         before=core.checked_document(old);result,_=convert(old);after=core.checked_document(result)
         for key,value in before.entries.items(): self.assertEqual(after.entries[key],value)
-        self.assertEqual(len(after.entries)-len(before.entries),sum(len(f)*5 for f in EXPERIMENTAL_DEFAULTS.values()))
+        self.assertEqual(len(after.entries)-len(before.entries),sum(len(f)*8 for f in EXPERIMENTAL_DEFAULTS.values()))
         for weapon,fields in EXPERIMENTAL_DEFAULTS.items():
-            for grade in range(1,6):
+            for grade in range(1,9):
                 for key,value in fields.items():
                     expected=before.entries[f'weapon.{weapon}.level{grade}','capacity' if weapon=='suck_cannon' else 'max_ammo'] if key=='experimental_max_ammo' else value
                     self.assertEqual(after.entries[f'weapon.{weapon}.level{grade}',key],expected)
         self.assertEqual(convert(result)[0],result)
-        self.assertEqual(core.required_config(before),56)
-        self.assertEqual(core.required_config(after),58)
+        self.assertEqual(core.required_config(before),82)
+        self.assertEqual(core.required_config(after),82)
     def test_custom_behavior_and_balance_survive_bom_crlf_and_preset_round_trip(self):
         doc=core.checked_document(self.raw)
         changed=doc.render({('weapon.bomb_glove.level3','cluster_bombs_enabled'):'true',
@@ -36,7 +36,7 @@ class ExperimentalTests(unittest.TestCase):
         self.assertEqual(convert(normalized)[0],normalized)
         with tempfile.TemporaryDirectory() as folder:
             store=core.PresetStore(Path(folder));store.save('Experimental',changed)
-            self.assertEqual(store.read('Experimental').raw,changed)
+            self.assertEqual(store.read('Experimental').raw,normalized)
     def test_every_new_setting_has_english_metadata_and_matching_limits(self):
         for weapon,fields in EXPERIMENTAL_DEFAULTS.items():
             for key in fields:
@@ -52,7 +52,7 @@ class ExperimentalTests(unittest.TestCase):
             info=dict(name='rerac',game='rac1',version='0.3.4',data_format=1,weapon_evolution_config=40)
             with patch.object(core.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(info))):
                 with self.assertRaises(ValueError):core.probe_exe(exe,core.required_config(doc))
-            info['weapon_evolution_config']=58
+            info['weapon_evolution_config']=84
             with patch.object(core.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(info))):
                 self.assertEqual(core.probe_exe(exe,core.required_config(doc)),info)
 

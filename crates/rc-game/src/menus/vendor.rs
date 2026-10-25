@@ -59,9 +59,20 @@ use rc_formats::moby_anim::{self, AnimState, MobyAnimClass, MobyFrame};
 use rc_formats::save_game::ItemTables;
 use salesman::Salesman;
 use std::sync::Arc;
+mod reload_all;
+pub use reload_all::ReloadAllQuote;
 
 /// Items with an entry in the tables.
 pub const ITEMS: usize = 37;
+
+/// Randomized runs may open an ammo vendor as soon as a compatible weapon has
+/// been discovered. Recompute from live progress and native prices; never cache
+/// this decision in a level actor or require missing ammo/affordability.
+pub fn randomized_ammo_available(progress: crate::weapon_evo::golden::State, shop: &ShopTable, remote: bool) -> bool {
+    !progress.active() || crate::weapon_evo::ammo_mode::AMMO_IDS.into_iter().any(|item| {
+        progress.collected(item) && if remote { shop.pda_ammo_price(item) > 0 } else { shop.ammo_price(item) > 0 }
+    })
+}
 /// Text ids.
 pub mod msg {
     pub const AMMO: i32 = 20317;
@@ -179,6 +190,25 @@ pub struct Entry {
 /// (bit 0x40) → its ammo when it has an ammo price), then the ammo of every owned item with an ammo price that is
 /// not listed yet.
 pub fn build_list(gs: &GameState, shop: &ShopTable, remote: bool) -> Vec<Entry> {
+    if gs.weapon_progress.golden.active() {
+        // Randomize weapons only. Any native gadget stock must remain usable
+        // so this mode cannot remove an unrelated progression purchase.
+        let mut entries=Vec::new();
+        if !remote {
+            for &stock in gs.global.vendor.iter().take_while(|&&b|b!=0xff) {
+                let item=usize::from(stock&0x3f);
+                if stock&0x40==0 && item>0 && item<ITEMS && gs.global.owned[item]==0
+                    && !crate::weapon_evo::ammo_mode::is_weapon(item)
+                    && !entries.iter().any(|e:&Entry|e.item==item) {
+                    entries.push(Entry {item,ammo:false,locked:false});
+                }
+            }
+        }
+        entries.extend(crate::weapon_evo::ammo_mode::AMMO_IDS.into_iter()
+            .filter(|&item| gs.weapon_progress.golden.collected(item) && shop.ammo_price(item) > 0)
+            .map(|item| Entry { item, ammo: true, locked: false }));
+        return entries;
+    }
     if crate::weapon_evo::ammo_mode::enabled() { return Vec::new(); }
     let g = &gs.global;
     let n = g.vendor.iter().position(|&b| b == 0xff).unwrap_or(g.vendor.len());
@@ -445,7 +475,7 @@ impl Vendor {
     fn full(&self, gs: &GameState, item: usize) -> bool { self.tables.shop.max_ammo(item) as i32 <= gs.global.ammo[item] }
 
     /// 0x1ca4a0[item]: the item's weapon demo scene (None: −1, or no table).
-    fn layout_demo(&self, item: usize) -> Option<i32> { self.tables.layout.as_ref()?.demo.get(item).copied().filter(|&s| s >= 0) }
+    fn layout_demo(&self, item: usize) -> Option<i32> { acquisition_demo_scene(&self.tables,item) }
 
     /// `set_scrolling_status_message(msg)` 0x2aede0: 18 spaces and the text, scroll 0.
     pub fn set_ticker(&mut self, text: &[u8]) {
@@ -579,15 +609,20 @@ impl Vendor {
                 self.set_ticker(&t);
                 out.selection_changed = true;
             }
-            if edge(button::CROSS) && self.current().is_some_and(|e| !e.locked) {
+            if edge(button::SQUARE) && inp.pressed_u & button::TRIANGLE==0 && !self.remote {
+                self.reload_all(gs,assets,out);
+            } else if edge(button::CROSS) && self.current().is_some_and(|e| !e.locked) {
                 self.buy = 1;
                 out.sounds.push(sound::SELECT);
             }
-            if inp.pressed_u & button::TRIANGLE != 0 && !self.salesman_loading {
-                self.exit_req = true;
-                self.exit_t = POWER_TICKS;
-                out.sounds.push(sound::EXIT);
-            }
+        }
+        // Empty stock must never disable the exit key. A failed/missing salesman
+        // load also cannot trap the player in an otherwise empty vendor.
+        if self.buy == 0 && !self.exit_req && (n == 0 || inp.pressed_u & button::TRIANGLE != 0)
+            && (!self.salesman_loading || n == 0) {
+            self.exit_req = true;
+            self.exit_t = POWER_TICKS;
+            out.sounds.push(sound::EXIT);
         }
         self.buy_flow(inp, gs, items, session, assets, rng, out);
         self.ease_strip();
@@ -719,6 +754,8 @@ impl Vendor {
     /// State 4 of the buy flow with ✕: the purchase; returns the class sound.
     #[allow(clippy::too_many_arguments)]
     fn purchase(&mut self, e: Entry, gs: &mut GameState, items: &ItemTables, session: &mut SessionState, assets: &MenuAssets, rng: &mut Rng, out: &mut VendorOut) -> u8 {
+        if gs.weapon_progress.golden.active() && crate::weapon_evo::ammo_mode::is_weapon(e.item)
+            && (!e.ammo || !gs.weapon_progress.golden.collected(e.item)) { return sound::DENIED; }
         let bolts = gs.global.bolts;
         let max = self.tables.shop.max_ammo(e.item) as i32;
         let cost = if e.ammo { self.ammo_unit(e.item) * self.qty } else { self.price(gs, e.item) };
@@ -1140,3 +1177,9 @@ impl Vendor {
 
 #[cfg(test)]
 mod tests;
+
+/// World acquisitions use the same native demo table as a purchased weapon.
+/// A missing/negative entry means the native weapon has no acquisition scene.
+pub fn acquisition_demo_scene(tables:&VendorTables,item:usize)->Option<i32> {
+    tables.layout.as_ref()?.demo.get(item).copied().filter(|&scene|scene>=0)
+}

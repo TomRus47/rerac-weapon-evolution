@@ -1,7 +1,57 @@
-ReRAC Weapon Evolution source launcher
+# ReRAC Weapon Evolution 0.3 — v81 local controls test
 
-See ../README.md for the Windows build and release workflow.
-Run Editor.bat to open the editor after building the game.
+Runtime base: **ReRAC 0.3.6-alpha**. Internal patch: **0.1.6.81**, configuration capability **82**, launcher **0.27.0**. This kit compiles locally; it performs no GitHub operations and contains no original game data.
 
-Authorship and rights
-Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only and does not develop the original Ratchet & Clank games or the ReRAC project. TomRus47 does not own the original games, characters, trademarks or game assets and is not affiliated with Sony Interactive Entertainment or Insomniac Games. Original-game rights remain with their respective rights holders. ReRAC retains its existing license and contributor credits.
+## Install and test
+
+1. Extract the entire ZIP into a new folder outside your ReRAC checkout and outside the playable mod folder.
+2. Run `01_BUILD_AND_INSTALL.bat`. Windows x64, Rust MSVC, Visual Studio C++ tools and 64-bit Python with Tk are required on the authoring PC. The script initializes Visual Studio automatically when installed. It downloads PyInstaller into a private launcher tools environment if needed.
+3. At the source prompt select your **existing v80 ReRAC source checkout**, normally `C:\ReRAC-Mod\rerac`. This update requires the v80 sources supplied in `crate8s.zip`; do not select this patch's `source` subfolder.
+4. At the mod prompt select the **existing playable folder** containing all three: `ReRAC_Weapon_Evolution.exe`, `weapons.ini`, `runtime\rerac.exe`. Do not select this update folder or a launcher source subfolder.
+5. Wait for both runtime and launcher compilation. Only after tests, runtime identity and launcher smoke checks pass does the installer replace both playable executables. The window remains open with its exit code.
+6. Run `02_START_MOD.bat` or open the updated `ReRAC_Weapon_Evolution.exe` in that existing playable folder.
+
+The installer accepts already updated v81 source files, refuses unknown changes before writing, and keeps source/playable backups under `.weapon_evo_backup_v81_<timestamp>` in the source checkout. A failed compilation leaves the previous playable EXEs in place. Source changes remain installed for inspection/retry. Existing balance, comments, INI line endings, presets, selected preset, game-data path, save path and custom icon are preserved. Only missing control toggles default to Off.
+
+To create a standalone player ZIP after installation, run `03_CREATE_LAUNCHER_ZIP.bat`. It checks both EXEs, includes shaders and licenses, and excludes game data, saves, logs and personal paths. Players extract that ZIP and open its EXE directly; Python/Rust are not required. Do not import it into the official ReRAC launcher.
+
+## Controls
+
+- **R2** fires alongside Circle during normal movement and locked camera. With the wrench equipped it performs the wrench attack. Both triggers form one logical firing input, so releasing one while holding the other does not interrupt fire. **L1** is the crouch button; R1 no longer crouches in ordinary Ratchet gameplay. L2 camera lock remains usable with L1 crouching. Native turret, vehicle, alternate-body and scripted inputs are preserved.
+- **D-pad Quick Select** is optional, at the bottom of the first Global Settings card. On reserves physical D-pad directions for four equipment bindings; movement uses the analog stick.
+- In paused **Weapons or Gadgets**, hold **L1 + a D-pad direction** to assign the highlighted owned item. L1 freezes cursor movement from both stick and D-pad. Assignments use the confirmation jingle. Outlines: Up green, Right red, Down blue, Left pink. Moving an item to another direction clears its previous binding.
+- The Weapons page shows the native L1 glyph plus a D-pad drawing and a localized Assign label above the grid. Gadgets shows borders without extra header text.
+- During direct Ratchet gameplay, a direction requests its bound owned item using the normal equipment system. Native underwater, magnetic-surface, head/back and grinding restrictions remain in force. Wearing Grindboots alone does not block weapon shortcuts. Shops, turrets, scenes, death and vehicles cannot activate them.
+
+## R1_Experimental
+
+This second optional switch is also at the bottom of the first Global Settings card. While On, hold Triangle, select a supported owned weapon in the radial menu, and tap R1. The native R1 glyph and `= 0`, `= 1` or `= 2` appear just below the center ammo and fade with the radial. Ammo is not required to display a supported mode.
+
+| Weapon | Mode 0 | Mode 1 | Mode 2 |
+| --- | --- | --- | --- |
+| Pyrocitor | Standard flame | Lava stream | — |
+| Mine Glove | Standard mines | Flame mines | — |
+| Visibomb Gun | Guided missile | Grenade launcher | — |
+| R.Y.N.O. | Native burst | Continuous missiles | Shotgun |
+
+These four replacement behaviors start at mode 0 for saves without stored choices. Per-grade damage, range, colors, models and other tuning remain in the INI. Switching mode selects the corresponding standard/experimental ammo capacity; it does not refill ammunition. Turning R1_Experimental Off restores the original per-grade launcher switches without erasing saved choices.
+
+**Launcher-only enhancements remain unchanged:** Bomb Glove clusters, Pyrocitor triple flame, Suck Cannon crate suction and crate choices, Drone Device companion and Tesla Claw dual beam. None acquires a radial R1 selector.
+
+```ini
+[general]
+dpad_quick_select = false
+r1_experimental = false
+```
+
+Use the launcher Off/On lists to enable them. Manual per-slot choices are stored with XP and progression, not in this INI.
+
+## Save compatibility and verification
+
+Four bindings and four modes occupy eight appended bytes in the version-8 `.wev` companion associated with the native save's content hash and slot. Existing companion versions 1–7 load with empty bindings and mode 0 while preserving XP, grades, randomizer seed, Nanotech and NG+ rewards. The new format keeps the existing checksum and atomic commit behavior. Saves do not share bindings or modes. Older runtimes cannot read newly written v8 companions; use the updated runtime for those saves.
+
+See `VALIDATION.md` for checks completed here and the remaining Windows/gameplay test checklist. Full input policy and persistence documentation is included in `source/docs/weapon-evolution/V81_SAVED_CONTROLS.md`.
+
+## Authorship and rights
+
+Weapon Evolution is an unofficial independent mod by TomRus47. The author develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to those games, characters, trademarks or game assets, and is not affiliated with their rights holders. Existing upstream licenses and contributor credits remain applicable. Original game assets are not included.

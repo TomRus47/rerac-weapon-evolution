@@ -44,7 +44,7 @@
 
 use crate::moby_runtime::MobyId;
 use crate::moby_update::classes::crate_::set_death_bits;
-use crate::moby_update::creature::{self as c, damage, flash, fx, react, region, target, turn, walker, DT, DT2};
+use crate::moby_update::creature::{self as c, damage, flash, fx, react, target, turn, walker, DT, DT2};
 use crate::moby_update::services::{self as sv, pf, pv, HitTemplate, World};
 use crate::ps2v::Pf;
 use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, FRAC_PI_6, PI};
@@ -109,7 +109,7 @@ mod v44_tests {
             table.mobys[1].position=[100.0,100.0,50.0,1.0];
             let mut svc=Services::new();svc.level=4;svc.bomb_evo.enabled=true;svc.bomb_evo.real_hp=true;
             svc.bomb_evo.pyro.enabled=true;
-            for track in &mut svc.bomb_evo.extras {track.enabled=true;track.xp_required=[10000.0;4];}
+            for track in &mut svc.bomb_evo.extras {track.enabled=true;track.xp_required=[10000.0; 7];}
             svc.bomb_evo.damage_hp[weapon as usize][0]=Some(100.0);
             let classes=ClassTable::default();let mut rng=Rng::new();
             let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
@@ -164,13 +164,13 @@ fn node_point(w: &World, path: usize, i: i32) -> c::V {
 /// `PointInPathPolygon(p, area)`; true without an area.
 fn in_area(w: &World, id: MobyId, q: c::V) -> bool {
     match spline(w, c::pi32(w, id, p::AREA)) {
-        Some(a) => region::point_in_polygon(w, a, q),
+        Some(a) => crate::weapon_evo::world::chase_in_area(w,id,a,q),
         None => true,
     }
 }
 fn alerted(w: &World, id: MobyId) -> bool { c::pi32(w, id, p::LURE) != 0 || c::pi16(w, id, p::ALERT) != 0 }
 fn range(w: &World, id: MobyId) -> f32 {
-    let r = c::pf(w, id, p::RANGE);
+    let r = crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, p::RANGE));
     if alerted(w, id) { r + r } else { r }
 }
 fn turn_to(w: &mut World, id: MobyId, a: f32) { turn::spring_turn2_pvar(w, id, a, DT2 * FRAC_PI_3, DT2 * PI, DT * PI, p::TURN_V); }

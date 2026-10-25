@@ -1,5 +1,7 @@
 use super::screens::{Quad, Statics, View};
 use super::*;
+#[path="reload_tests.rs"]
+mod reload_tests;
 
 fn shop() -> ShopTable {
     let mut records = vec![[0u8; 0x18]; crate::moby_update::interact::SHOP_RECORDS];

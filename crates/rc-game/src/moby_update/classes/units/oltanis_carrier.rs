@@ -416,8 +416,20 @@ pub fn fighter_update(w: &mut World, id: MobyId) {
 }
 
 /// State 1: the launch's conditions (module doc).
+fn route_missions_ready(w:&World,id:MobyId)->bool {
+    // Randomized play removes the native Morph-o-Ray pickup, so its original
+    // acquisition mission cannot complete. Substitute only that exact authored
+    // mission; the other two route/PDA requirements retain their native checks.
+    (0..3).all(|k| {
+        let mission=c::pi32(w,id,o::MISSIONS+4*k);
+        story::mission_done(w,mission) || (w.svc.bomb_evo.golden_settings.enabled
+            && w.svc.golden.native_morph_mission==Some(mission))
+    })
+
+}
+
 fn arm(w: &mut World, id: MobyId, missile: Option<MobyId>) {
-    if !(0..3).all(|k| story::mission_done(w, c::pi32(w, id, o::MISSIONS + 4 * k))) { return; }
+    if !route_missions_ready(w,id) { return; }
     if w.hero.f65c != 0 || w.hero.ground_moby.is_some() { return; }
     if !w.in_cuboid(w.hero_point(), c::pi32(w, id, o::CUBOID)) { return; }
     let Some(mi) = missile else { return };
@@ -474,8 +486,11 @@ pub fn missile_update(w: &mut World, id: MobyId) {
                 let m = w.mm(id);
                 m.rotation[1] = r1;
                 m.rotation[2] = r2;
-                let r0 = w.m(id).rows[0];
-                let p = c::add(c::pos(w, id), c::scale([r0[0], r0[1], r0[2], 0.0], step));
+                w.build_matrix(id);
+                // A scripted missile must reach its authored statue cuboid.
+                // Its old cached row can be stale/zero after the carrier releases
+                // it; use the target vector for native 24 u/s flight instead.
+                let p = c::add(c::pos(w,id),c::set_len3(v,step));
                 w.mm(id).position = p;
                 jet(w, id, -0.3, 0.0, None, true, None);
                 if !w.sound_alive(c::pi32(w, id, 8), id) {
@@ -492,5 +507,39 @@ pub fn missile_update(w: &mut World, id: MobyId) {
             w.delete_moby(id);
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod v80_story_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    #[test]
+    fn randomized_carrier_substitutes_only_the_removed_pickup_mission() {
+        let mut b=Bench::new(crate::hero::testkit::floor(48.,0,48,0,48),&[921],[20.,20.,48.]);
+        let mut missions=crate::moby_update::services::LevelMissions::default();missions.level=14;
+        missions.done[0]=0xff;missions.done[1]=0xff;
+        let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,0);
+        w.svc.level=14;w.missions=&missions;
+        let id=w.create_moby(921).unwrap();w.mm(id).pvars.resize(o::SIZE,0);
+        for k in 0..3 {c::set_pi32(&mut w,id,o::MISSIONS+4*k,k as i32);}
+        w.svc.golden.native_morph_mission=Some(2);
+        assert!(!route_missions_ready(&w,id));
+        w.svc.bomb_evo.golden_settings.enabled=true;assert!(route_missions_ready(&w,id));
+        w.svc.golden.native_morph_mission=Some(1);assert!(!route_missions_ready(&w,id));
+    }
+    #[test]
+    fn statue_missile_reaches_target_with_native_speed_even_when_rows_are_initially_zero() {
+        let mut b=Bench::new(crate::hero::testkit::floor(48.,0,48,0,48),&[922],[20.,20.,48.]);
+        let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,0);
+        w.svc.level=14;w.svc.bomb_evo.world_settings.enemy_projectile_speed_multiplier=4.;
+        w.svc.bomb_evo.world_settings.enemy_projectile_range_multiplier=4.;
+        let target=w.create_moby(922).unwrap();let id=w.create_moby(922).unwrap();
+        w.mm(id).pvars.resize(0x10,0);w.mm(id).state=2;w.mm(id).position=[8.,0.,0.,1.];w.mm(id).rows=[[0.;4];4];
+        c::set_pi32(&mut w,id,4,target as i32);c::set_pi32(&mut w,id,8,-1);
+        crate::weapon_evo::world::motion::run(&mut w,id,missile_update);
+        assert!((w.m(id).position[0]-7.6).abs()<0.0001);
+        for _ in 0..40 {if w.m(id).state>=0xfd{break;}crate::weapon_evo::world::motion::run(&mut w,id,missile_update);}
+        assert!(w.m(id).is_deleted());assert!(w.m(target).is_deleted());
     }
 }

@@ -23,7 +23,7 @@
 //! | 0x2a4080 subs 0 / 8 | 0x13e054++; fade −= 0.125 (≥ 0); scene / chunk tick +1; skip = 0x13e058, or (✕ / △ pressed, tick > `ticks(30)`, fade 0) and (take-off: tick < `ticks(558 − 30)`; landing: tick < end − `ticks(30)`); a skip stops the stream; take-off → tick = `ticks(558)`, its chunk parsed, chunk tick = tick % 96, `FadeToBlack(4)` (none with 0x13e058, which is cleared), fade 1.0; landing → tick = end | [`ShipMode::scene_tick`] |
 //! | | the camera: the record of the chunk tick, ship-local: eye `rows·e + pos`, angle z + the ship's yaw; tan(hfov/2) the record's; the mirror cheat 0x15edb4: `FastVecCross(left, up, forward)` | [`ShipMode::scene_tick`] (`scene_player::scene_camera`) |
 //! | | each actor: frame f = chunk tick >> 1, f + 1, t = (tick & 1)·0.5 (1.0 on an odd tick of a cut record); position = the lerp of its track, ship-local; +0x71 = 0xff; yaw = the ship's; +0x52 / +0x53 the class's streamed slot; `MobyBuildMatrix` (the streamed sequence's bounding sphere) | [`ShipMode::scene_tick`] (the poses: [`SpaceFrame::actors`]; the table mobys written; the streamed class: [`ShipMode::actor_anim_for`]) |
-//! | | class 0: +0x7f (its shadow) = take-off: 0 on level 10 without item 6, else 0x18 until `ticks(62)`; landing: 0x18 past `ticks(360)` (level 10: only with item 6), else 0; class 10: take-off 0x18 until `ticks(350)`, landing 0x18 past `ticks(524)`; +0x7f ≠ 0 → `FUN_0026f0e0`; class 10 → `FUN_00228bc0`; class 0 → `FUN_0024a1d0` and, on level 10 with item 6 or on level 13, the helmet: `CreateMoby(0x509)` once (+0x32 = 0x40, mode \|= 0x806, Ratchet's light, +0x73 = 0x18), `FUN_0024a310` (on Ratchet's joint 4) | +0x7f [`ShipMode::scene_tick`]; `FUN_0026f0e0` and the actors' shadows: [`SpaceFrame::scene_actors`] (`rc-engine` `shadow_render`); `FUN_00228bc0`: [`crate::scene_actors::clank`]; `FUN_0024a1d0`: [`crate::scene_actors::ratchet`] (its `FUN_0024a0e8`: NOT ported, G-CUT-009); the helmet: [`ShipMode::helmet`] |
+//! | | class 0: +0x7f (its shadow) = take-off: 0 on level 10 without item 6, else 0x18 until `ticks(62)`; landing: 0x18 past `ticks(360)` (level 10: only with item 6), else 0; class 10: take-off 0x18 until `ticks(350)`, landing 0x18 past `ticks(524)`; +0x7f ≠ 0 → `FUN_0026f0e0`; class 10 → `FUN_00228bc0`; class 0 → `FUN_0024a1d0` and, on level 10 with item 6 or on level 13, the helmet: `CreateMoby(0x509)` once (+0x32 = 0x40, mode \|= 0x806, Ratchet's light, +0x73 = 0x18), `FUN_0024a310` (on Ratchet's joint 4) | +0x7f [`ShipMode::scene_tick`]; `FUN_0026f0e0` and the actors' shadows: [`SpaceFrame::scene_actors`] (`rc-engine` `shadow_render`); `FUN_00228bc0`: [`crate::scene_actors::clank`]; `FUN_0024a1d0`: [`crate::scene_actors::ratchet`] (its `FUN_0024a0e8`: the always-on extras and their glow pulses are the engine's, `rc-engine` `moby_attach`; the head / hand / feet items are NOT ported, G-CUT-009); the helmet: [`ShipMode::helmet`] |
 //! | | the ship classes 531..533: glass `RegisterDrawCallback2(0x2a70a8)`, shadow `RegisterDrawCallback(0x2a2130)`; take-off: the glow pulse `cos(((tick & 0x3f) − 0x20)·π/32)·80 + 0x78` until `ticks(360)`; to `ticks(504)`: `min(0xff, (tick − 360)·1.25)` (533: no red), past `ticks(420)` the real ship's flames (+0xbc = (tick − 420)·1.2, +0xb2 = 0), past `ticks(464)` white += 0.025 (≤ 1); then white −= 0.025 (≥ 0), glow 0xa0a0a0; landing: until `ticks(240)` the exhaust (`fun_0022f5b0(−4·dt)`, `(−3·dt)` until `ticks(200)`), the pulse, flames (+0xbc = 0x32, +0xb2 = 10); to `ticks(360)`: the real ship's flames dying (+0xbc = (300 − tick)·1.5 until `ticks(300)`), glow `(360 − tick)·1.25`; then the pulse | [`ship_fx`] |
 //! | | the end (tick ≥ end): stream stopped, tan 0.63, the actors deleted (their class slots freed) and the helmet, the ship shown (mode &= ~1), classes 74 / 203 &= ~0x80; take-off: `EnterMenuMode(0)` with kind 0xe (the planet page), 0x15f5d8 = 1; landing: mode 0, `music_Unpause`, 0x15f5d8 = 1, 0x1413f5 = 0, `FUN_002487a8` (shown), then the level-start landing `FUN_0024a3d8` (a point 0.75 behind him, `GroundHeight` from 0.5 up; within 0.3: placed there and `0x249580(yaw, point, 1)`, the walk-to) or `HeroTeleport(0x13e090, 0x13e0a0, 0, 1)` | [`ShipMode::scene_end`] |
 //! | 0x2a4080 sub 3 | the first tick: `music_Pause(0)`, the stream 40015 + ship, `FadeToBlack(ticks(12))`, the ship's sequences 1 → 2 at t 0, +0x72 = 0xff, +0x94 = 0; with a path: the riders `CreateMoby(0)` / `CreateMoby(10)` (+0x32 = 0x1ff, +0x72 = 0xff, +0x94 = 0, mode \|= 6, the hero's light); `CameraScript(0x167240, 0x167250, 1, 0, 0)`; the path's points get their turn rates as w (normalised to 20° at the sharpest), the first segment's length, the start (ship) and end (point 0) of the approach, its pitch and yaw | [`ShipMode::fly_away_start`] |
@@ -850,8 +850,9 @@ impl ShipMode {
         }
     }
 
-    /// `FUN_0024a1d0` on the Ratchet actor ([`crate::scene_actors::ratchet`]; its `FUN_0024a0e8` is NOT ported,
-    /// G-CUT-009).
+    /// `FUN_0024a1d0` on the Ratchet actor ([`crate::scene_actors::ratchet`]; its items, `FUN_0024a0e8`, are the
+    /// engine's: `rc-engine` `moby_attach` places the always-on extras on the actor and pulses them, G-CUT-009 for the
+    /// rest).
     fn ratchet_actor(&mut self, w: &mut World, id: MobyId) {
         let actors: Vec<Option<MobyId>> = self.actors.iter().map(|a| a.0).collect();
         crate::scene_actors::ratchet(w, id, &actors);
@@ -1152,8 +1153,15 @@ impl ShipMode {
                 None => w.classes.anim(class as i16)?.clone(),
             };
             let mut anim = base;
-            let slot = anim.sequences.len() as u8;
-            anim.sequences.push(seq.cloned());
+            // `FUN_00259288`: the streamed sequence takes the class's own slot, its sequence count (the class's
+            // sequences are 0..count−1; the class header's +0x0c, `ClassInfo::b0c`) — the drawing schemes do the
+            // same (`travel_render::spawn_gfx`, `scene_render::spawn_actors`). Appending it instead
+            // (`anim.sequences.len()`) overflows the u8 slot for Ratchet, whose class carries the 256-entry
+            // `ratchet_seq` table (slot = sequence id): 256 → 0, so the actor was posed from `ratchet_seq/000`
+            // (10 frames) and a joint read past frame 9 failed — the helmet (`ShipMode::helmet`) sat at his feet.
+            let slot = w.classes.info(class as i16).map_or(anim.sequences.len() as u8, |i| i.b0c);
+            if anim.sequences.len() <= slot as usize { anim.sequences.resize(slot as usize + 1, None); }
+            if let Some(q) = anim.sequences.get_mut(slot as usize) { *q = seq.cloned(); }
             self.actor_anim[k] = Some((self.chunk, Arc::new(anim), slot, None));
         }
         self.actor_anim[k].as_ref().map(|(_, a, s, _)| (a.clone(), *s))
@@ -1476,5 +1484,36 @@ fn walk_back(w: &mut World) {
         let f = w.hero_fields_mut();
         f.call(HeroCall::WalkTo { point: p, yaw, release: 1 });
         f.pose = Some(crate::moby_update::services::HeroPose { pos: p, yaw, target_yaw: yaw });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::moby_runtime::{ClassInfo, Moby, MobyTable};
+    use crate::moby_update::{ClassTable, Services};
+    use rc_formats::moby_anim::{MobyAnimClass, MobySequence, MobySequenceHeader, IDENTITY};
+
+    /// `FUN_00259288`: the streamed sequence goes in the class's own slot — its sequence count — not appended.
+    /// Ratchet's class carries the 256-entry `ratchet_seq` table (slot = sequence id), so appending made the slot
+    /// `256 as u8` = 0: the actor was posed from `ratchet_seq/000` (10 frames) and a joint read past frame 9 failed,
+    /// which put the helmet at his feet. Class 10's table is already `sequence_count` long (unchanged).
+    #[test]
+    fn the_streamed_slot_is_the_classs_sequence_count() {
+        let streamed = MobySequence { header: MobySequenceHeader { frame_count: 7, loop_sound: 0xff, ..Default::default() }, frames: vec![], triggers: vec![] };
+        let class_with = |seqs: usize| MobyAnimClass { joint_count: 1, skeleton: vec![IDENTITY], rest: vec![[0.0; 3]], parent_word: vec![0], sequences: vec![None; seqs] };
+        for (oc, count, seqs, want) in [(0i16, 134u8, 256usize, 134u8), (10, 3, 3, 3)] {
+            let mut t = MobyTable::new(vec![Moby { o_class: 0, state: 1, ..Moby::default() }, Moby { o_class: oc, state: 1, ..Moby::default() }], 4);
+            let hero = crate::hero::Hero::new();
+            let mut rng = crate::rng::Rng::new();
+            let mut classes = ClassTable::default();
+            classes.classes.insert(oc, (ClassInfo { b0c: count, ..Default::default() }, Some(class_with(seqs))));
+            let mut svc = Services::new();
+            let w = World::new(&mut t, &hero, &mut rng, &classes, &mut svc, 0);
+            let mut mode = ShipMode::default();
+            let (anim, slot) = mode.actor_anim_for(&w, 0, oc as i32, Some(&streamed)).expect("an anim");
+            assert_eq!(slot, want, "class {oc}");
+            assert_eq!(anim.sequences[slot as usize].as_ref().map(|s| s.header.frame_count), Some(7), "class {oc}: the streamed sequence is in the slot");
+        }
     }
 }

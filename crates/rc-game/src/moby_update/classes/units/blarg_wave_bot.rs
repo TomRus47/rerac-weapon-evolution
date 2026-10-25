@@ -345,7 +345,7 @@ fn hits(w: &mut World, id: MobyId) {
     c::set_pv4(w, id, pv::TGT_REC, t.pos);
     c::set_pi32(w, id, pv::TGT, t.moby.map_or(0, |m| m as i32 + 1));
     let mut kind = t.kind as i32;
-    if kind != 2 && (sight < c::dist2(c::pv4(w, id, pv::HOME), t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs()) { kind = 2; }
+    if kind != 2 && (crate::weapon_evo::world::chase_range(w,id,sight) < c::dist2(c::pv4(w, id, pv::HOME), t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs()) { kind = 2; }
     c::set_pi32(w, id, pv::KIND, kind);
     if c::pi32(w, id, pv::TGT) == 0 {
         let h = w.hero_moby.map_or(0, |m| m as i32 + 1);

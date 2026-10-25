@@ -1,0 +1,10 @@
+{
+  "public_mod_version": "0.3",
+  "status": "development; not released",
+  "runtime_base": "0.3.6-alpha",
+  "patch": "0.1.6.83",
+  "config_capability": 84,
+  "launcher": "0.27.1",
+  "release_created": false,
+  "notes": "docs/mod/SAVED_CONTROLS.md"
+}

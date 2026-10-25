@@ -1,3 +1,7 @@
+# Current development policy
+
+Main is not approved for a new release. Keep `mod/release.json`, existing release tags and assets unchanged until the author requests publication after testing. `mod/development.json` describes the current ReRAC 0.3.6-alpha snapshot. Source pushes never publish: the Windows workflow requires an explicit manual draft opt-in. Historical release instructions follow and do not authorize this development snapshot.
+
 # Windows packages and GitHub releases
 
 Weapon Evolution is an independent mod for ReRAC 0.3.4-alpha. TomRus47 develops

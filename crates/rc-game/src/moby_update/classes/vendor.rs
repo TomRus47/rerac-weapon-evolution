@@ -70,7 +70,7 @@ fn child(w: &World, id: MobyId) -> Option<MobyId> {
 
 /// The vendor update (0x2bb128).
 pub fn update(w: &mut World, id: MobyId) {
-    if crate::weapon_evo::ammo_mode::enabled() {
+    if !w.svc.bomb_evo.golden_settings.enabled && crate::weapon_evo::ammo_mode::enabled() {
         if w.m(id).pvars.len() >= CHILD+4 {
             if let Some(c) = child(w, id) { w.delete_moby(c); }
         }
@@ -135,6 +135,12 @@ pub fn update(w: &mut World, id: MobyId) {
             }
             tail(w, id);
             if st == 2 {
+                // Keep the actor alive: finding an ammo weapon on this same
+                // planet must enable the vendor on the next interaction tick.
+                if !crate::menus::vendor::randomized_ammo_available(
+                    w.svc.bomb_evo.golden_progress(), &w.svc.interact.tables.shop, false) {
+                    return;
+                }
                 let settled = w.m(id).anim.seq_a == 1;
                 let (show, can_use) = interact::vendor_rule(&h, [pos[0], pos[1], pos[2]], settled);
                 let lease = show && w.svc.interact.try_prompt(owner::VENDOR, PROMPT) != 0;
@@ -189,6 +195,32 @@ pub fn on_exit(table: &mut crate::moby_runtime::MobyTable, id: MobyId) {
 mod tests {
     use super::*;
     use crate::moby_runtime::{Moby, MobyTable};
+
+    #[test]
+    fn found_ammo_weapon_enables_the_same_vendor_without_reloading_the_level() {
+        let actor=Moby{o_class:11,state:2,position:[2.,0.,0.,1.],pvars:vec![0;PVAR_SIZE],..Default::default()};
+        let mut table=MobyTable::new(vec![actor],4);
+        table.mobys[0].anim.seq_a=1;table.mobys[0].anim.seq_b=1;
+        let hero=crate::hero::Hero::new();let mut rng=crate::rng::Rng::new();
+        let classes=crate::moby_update::ClassTable::default();let mut svc=crate::moby_update::Services::new();
+        let mut progress=crate::weapon_evo::save::Progress::default();
+        progress.golden=crate::weapon_evo::golden::State::generate(702,0);
+        svc.bomb_evo.golden_settings.enabled=true;svc.bomb_evo.restore_progress(&progress);
+        let mut tables=interact::TalkTables::default();tables.shop.records=vec![[0;0x18];43];
+        tables.shop.records[10][8..10].copy_from_slice(&5u16.to_le_bytes());
+        svc.interact.tables=std::sync::Arc::new(tables);
+        let mut world=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+        world.svc.interact.pressed=crate::pad::button::TRIANGLE;
+        update(&mut world,0);
+        assert_eq!(world.m(0).state,2);assert!(world.svc.interact.handoffs.is_empty());
+        assert_ne!(world.svc.interact.prompt.owner,owner::VENDOR);
+        progress.golden.collect(14);world.svc.bomb_evo.commit_golden_reward(progress.golden);
+        update(&mut world,0);assert!(world.svc.interact.handoffs.is_empty());
+        progress.golden.collect(10);world.svc.bomb_evo.commit_golden_reward(progress.golden);
+        update(&mut world,0);
+        assert_eq!(world.m(0).state,3);
+        assert!(world.svc.interact.handoffs.iter().any(|h|matches!(h,Handoff::OpenVendor{vendor:Some(0)})));
+    }
 
     /// State 0 creates the hologram and links the two manipulators into its lists 0 / 1 (list 1's node in front);
     /// the tail of state 1 turns them about z by the phases (a, b) of this tick, then a += 0.01, b −= 0.01; far away

@@ -182,17 +182,29 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
         hero.weapons.glove.warmup += 1;
         return;
     }
-    // 2. The hand point: joint list 0 + the row's offset in the glove's frame.
+    // 2. The hand point: joint list 0 + the row's offset in the glove's frame. The joint-0 matrix is kept too
+    // (`MobyAttachToJoint(glove, 0)`): the held mine's frame (`0x2bfe40`) is it turned by π about x.
     {
         let it = hero.items.slot.item.as_ref().unwrap();
-        let rows: [[f32; 3]; 3] = [0, 1, 2].map(|i| [0, 1, 2].map(|k| f32::from_bits(it.rows[i][k])));
-        let base = class.chains.first().filter(|c| !c.is_empty()).map_or(from_f32x3(it.position), |chain| {
-            let p = moby_anim::evaluate_chains(&class.anim, &it.anim, it.snapshot.as_ref(), &[chain.as_slice()]);
-            super::melee::list_point(&p[0], &it.rows, it.position, it.scale)
-        });
+        let j0 = class.chains.first().filter(|c| !c.is_empty())
+            .map(|chain| moby_anim::evaluate_chains(&class.anim, &it.anim, it.snapshot.as_ref(), &[chain.as_slice()])[0]);
+        let base = j0.map_or(from_f32x3(it.position), |j| super::melee::list_point(&j, &it.rows, it.position, it.scale));
+        let mtx = j0.map_or_else(
+            || {
+                let mut f = [[0.0f32; 4]; 4];
+                for i in 0..3 { f[i] = it.rows[i].map(f32::from_bits); }
+                f[3] = [it.position[0], it.position[1], it.position[2], 1.0];
+                f
+            },
+            |j| moby_anim::attach_matrix(&j, &it.rows, it.position, it.scale),
+        );
+        // `fun_0020cca8(glove, 0, M)` (`MobyAttachToJoint`) then `fun_001f9d20(o, M)` = M0·o.x + M1·o.y + M2·o.z (o.w = 0):
+        // the offset turns with joint 0's frame, not the glove moby's rows (the mine stuck out of the glove's front).
         let o = row.hand;
-        let off: [f32; 3] = std::array::from_fn(|k| rows[0][k] * o[0] + rows[1][k] * o[1] + rows[2][k] * o[2]);
-        hero.weapons.glove.hand = add3(to_f32x3(base), off);
+        let off: [f32; 3] = std::array::from_fn(|k| mtx[0][k] * o[0] + mtx[1][k] * o[1] + mtx[2][k] * o[2]);
+        let g = &mut hero.weapons.glove;
+        g.hand = add3(to_f32x3(base), off);
+        g.hand_mtx = mtx;
     }
     // 3. The held object.
     if let Some(b) = hero.weapons.glove.held {
@@ -322,7 +334,7 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
 
 /// Ratchet's facing row (0x13f9c0: `(1, 0, 0)` through his rows 0x13f990) and its yaw.
 fn facing(hero: &Hero) -> ([f32; 3], f32) {
-    let fwd = to_f32x3(hero.moby_rows[0]);
+    let fwd = to_f32x3(hero.aim_rows[0]);
     (fwd, fwd[1].atan2(fwd[0]))
 }
 
@@ -599,7 +611,7 @@ mod allocation_tests {
         let anim=crate::hero::RecordingAnim::default();
         for frame in 0..=5 {
             if frame==2 {table.delete(blocker,frame as u64);}
-            let env=ItemEnv {data:&data,pad:&pad,frame,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+            let env=ItemEnv { mobys: None,data:&data,pad:&pad,frame,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
             update(&mut hero,&mut table,&anim,&env,&mut sink,&mut rng);
             hero.state=0;hero.timer=0;
             if frame<5 {assert_eq!(hero.weapons.ammo[17],5);assert_eq!(hero.weapons.throws,0);assert!(hero.fx.item_voices.is_empty());}

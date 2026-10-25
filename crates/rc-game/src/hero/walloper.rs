@@ -163,6 +163,10 @@ pub struct Walloper {
     pub listed: Vec<(MobyId, i16)>,
     /// Air-dash variant of the Walloper lunge; fixed altitude until its propulsion ends.
     pub dash_air: bool,
+    /// Refilled only by real ground contact, never by another attack/state.
+    pub air_dash_used: bool,
+    /// Snapshot the grade's hold extension for this attack.
+    pub extension_limit: i32,
     /// Extra propulsion ticks accumulated only while the original fire hold continues.
     pub held_extra_ticks: i32,
     pub hold_eligible: bool,
@@ -174,16 +178,20 @@ pub struct Walloper {
 
 /// `HeroPdaGadget` 0x240ed8, case 0x12 (the checks before the switch are the caller's).
 pub fn fire(h: &mut Hero, c: &mut Ctx) {
+    fire_with_air(h,c,crate::weapon_evo::extra_flag(18,"air_dash_enabled",false));
+}
+fn fire_with_air(h: &mut Hero, c: &mut Ctx, air_enabled:bool) {
     let g = h.group;
     let airborne = h.air_ticks != 0 || g == 2 || (g == 4 && h.jump.landed == 0);
-    let air_dash = airborne && crate::weapon_evo::extra_flag(18, "air_dash_enabled", false);
+    let air_dash = airborne && air_enabled;
+    if h.state == LUNGE || (air_dash && (h.walloper.air_dash_used || !matches!(g, 0 | 1 | 2 | 4))) { return; }
     if (!air_dash && (1 < g && (g != 4 || h.jump.landed == 0))) || h.state == 1 { return; }
     let n = ticks(10).min(h.items.slot.ticks_ready);
     if c.env.pad.pressed_within(h.items.slot.fire_mask, n).is_none() { return; }
     if h.items.slot.item.is_none() { return; }
     if !h.set_state(c, LUNGE, true) { return; }
     h.walloper.dash_air = air_dash;
-    if air_dash { h.vel[2] = Pf::ZERO; }
+    if air_dash { h.walloper.air_dash_used = true; h.vel[2] = Pf::ZERO; }
     // `PlayClassSound(0, 0, item)` right after the SetState (the queue plays it after the item's update).
     if h.items.slot.item.is_some() { h.fx.item_sounds.push(SWING_SOUND); }
 }
@@ -194,6 +202,8 @@ pub fn fire(h: &mut Hero, c: &mut Ctx) {
 /// SetState's case 0x20 after the group-6 part (`super::melee`): with the item out, the animations (when `play`) and
 /// the aim.
 pub(super) fn entry(h: &mut Hero, c: &mut Ctx, play: bool) {
+    h.anim_speed = Pf::ONE;
+    h.walloper.extension_limit = held_extension_limit();
     h.walloper.held_extra_ticks = 0;
     h.walloper.hold_eligible = true;
     h.walloper.held_pose_frozen = false;
@@ -205,6 +215,16 @@ pub(super) fn entry(h: &mut Hero, c: &mut Ctx, play: bool) {
         h.items.pending_blend = Some((ITEM_SEQ, 4, -1));
     }
     h.aim_assist(c.env, AIM_RANGE, SIDE, -1.0);
+}
+
+/// Clean up a held pose before the next state's animation is selected. Damage,
+/// equipment changes and death must not inherit a zero animation speed.
+pub(super) fn leave(h: &mut Hero) {
+    if h.walloper.held_pose_frozen { h.anim_speed = Pf::ONE; }
+    h.walloper.held_pose_frozen = false;
+    h.walloper.hold_eligible = false;
+    h.walloper.dash_air = false;
+    h.walloper.hits.clear();
 }
 
 fn fire_held(h: &Hero, pad: &crate::pad::PadState) -> bool {
@@ -244,7 +264,8 @@ pub(super) fn physics(h: &mut Hero, env: &Env, anim: &mut dyn AnimCtl) -> bool {
     }
     let t10 = ticks(10);
     let held = fire_held(h, env.pad);
-    let end = held_punch_end(h, held, held_extension_limit(), anim.view());
+    let limit = h.walloper.extension_limit;
+    let end = held_punch_end(h, held, limit, anim.view());
     h.target_speed = Pf::ZERO;
     if t10 < t && t < end { h.target_speed = DT * Pf::b(0x4190_0000); }
     if t == ticks(8) { super::packs::thruster_trail_start(h, &GHOSTS); }
@@ -265,7 +286,7 @@ pub(super) fn physics(h: &mut Hero, env: &Env, anim: &mut dyn AnimCtl) -> bool {
     }
     if t10 < t && !h.walloper.dash_air { h.edge_brake(env, Pf::b(0x406c_cccd), Pf::ZERO); }
     h.wall_check(env, 1);
-    if h.walloper.dash_air {
+    if h.walloper.dash_air && t < end {
         // The air lunge is horizontal. Ignore anti-edge braking, not solid walls.
         // Gravity resumes on transitioning to the normal fall state.
         h.vel[2] = Pf::ZERO;
@@ -284,14 +305,16 @@ fn sub_yaw(a: f32, b: f32) -> f32 { crate::moby_update::creature::add_rot(a, -b)
 /// The transitions of 0x20 (`0x242930` case 0x20).
 pub(super) fn transitions(h: &mut Hero, c: &mut Ctx) {
     let v = c.anim.view();
+    // A missing/changed item or an animation blend can never suspend Ratchet
+    // indefinitely. Normal punches still finish at their original key time.
+    let expired = h.timer >= ticks(60) + h.walloper.extension_limit;
     if h.walloper.hold_eligible && fire_held(h, c.env.pad)
-        && held_extension_limit() > 0 && h.timer < ticks(18) + held_extension_limit() { return; }
-    if h.items.slot.item.is_none() || v.blending() || v.frame <= 20.0 { return; }
+        && h.walloper.extension_limit > 0 && h.timer < ticks(18) + h.walloper.extension_limit { return; }
+    if !expired && (h.items.slot.item.is_none() || v.blending() || v.frame <= 20.0) { return; }
     let was_air_dash = h.walloper.dash_air;
     h.walloper.dash_air = false;
     if was_air_dash && h.air_ticks != 0 {
-        h.vel[2] = Pf::ZERO;
-        h.set_state(c, 6, true); // normal fall, zero initial vertical velocity
+        h.set_state(c, 6, true);
     } else {
         h.set_state(c, 0, false);
     }
@@ -526,6 +549,63 @@ pub fn ends(v: &AnimView, item: bool) -> bool { item && !v.blending() && 20.0 < 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repeated_air_fire_cannot_reset_a_lunge_or_refill_it_before_landing() {
+        use super::super::{anim::RecordingAnim,items::HandItem,testkit::{floor,cam_x}};
+        use crate::pad::{PadInput,PadState,button};
+        let coll=floor(10.,0,12,0,12);let mut pad=PadState::default();
+        pad.update(Some(&PadInput::neutral().press(button::CIRCLE).bytes()),false);
+        let (cam_rows,cam_yaw)=cam_x();
+        let env=Env{coll:&coll,pad:&pad,cam_yaw,cam_rows,mirror:false,death_z:Pf::ZERO,mobys:None,hero_moby:None,water:None,world:None};
+        let mut anim=RecordingAnim::default();let mut rng=Rng::new();
+        let mut c=Ctx{env:&env,anim:&mut anim,rng:&mut rng,voice:None};
+        let mut h=Hero::new();h.state=6;h.group=2;h.air_ticks=10;
+        h.pos=[Pf::f(20.),Pf::f(20.),Pf::f(20.),Pf::ONE];
+        h.items.slot.id=WALLOPER;h.items.slot.ticks_ready=30;h.items.slot.fire_mask=button::CIRCLE;
+        h.items.slot.item=Some(HandItem{o_class:CLASS,mstate:2,anim:rc_formats::moby_anim::AnimState {seq_a:0,frame_a:0,seq_b:0,frame_b:0,t:0.,speed:1.,rate:1.,flags:0,trigger_count:0,skip_advance:false},snapshot:None,scale:1.,position:[0.;3],rows:[[0;4];3],hit_timer:0,flight:Default::default()});
+        fire_with_air(&mut h,&mut c,true);
+        assert_eq!(h.state,LUNGE);assert!(h.walloper.air_dash_used);
+        let serial=h.walloper.attack_serial;h.timer=12;h.vel[2]=Pf::f(-0.1);
+        for _ in 0..100 {fire_with_air(&mut h,&mut c,true);}
+        assert_eq!(h.timer,12);assert_eq!(h.walloper.attack_serial,serial);
+        assert_eq!(h.vel[2],Pf::f(-0.1));
+        h.set_state(&mut c,6,true);
+        for _ in 0..100 {fire_with_air(&mut h,&mut c,true);}
+        assert_eq!(h.state,6);assert_eq!(h.walloper.attack_serial,serial);
+        // Genuine contact refills the air action, even if no Walloper input
+        // occurs between landing and the next jump.
+        h.pos[2]=Pf::f(10.);h.vel[2]=Pf::ZERO;h.ground_probe(&env);
+        assert_eq!(h.air_ticks,0);assert!(!h.walloper.air_dash_used);
+        h.air_ticks=1;h.state=6;h.group=2;
+        fire_with_air(&mut h,&mut c,true);
+        assert_eq!(h.state,LUNGE);assert_eq!(h.walloper.attack_serial,serial+1);
+    }
+
+    #[test]
+    fn suspended_gravity_and_missing_item_pose_have_finite_lifetimes() {
+        use super::super::{anim::RecordingAnim,testkit::{floor,cam_x}};
+        let coll=floor(10.,0,4,0,4);let pad=crate::pad::PadState::default();
+        let (cam_rows,cam_yaw)=cam_x();
+        let env=Env{coll:&coll,pad:&pad,cam_yaw,cam_rows,mirror:false,death_z:Pf::ZERO,mobys:None,hero_moby:None,water:None,world:None};
+        let mut anim=RecordingAnim::default();let mut rng=Rng::new();
+        let mut h=Hero::new();h.state=LUNGE;h.group=6;h.air_ticks=10;h.walloper.dash_air=true;
+        h.walloper.extension_limit=extension_for_percent(1000.);
+        h.timer=ticks(18)+h.walloper.extension_limit+1;
+        physics(&mut h,&env,&mut anim);
+        assert!(h.vel[2]<Pf::ZERO,"gravity must resume without waiting for an animation key");
+        h.timer=ticks(60)+h.walloper.extension_limit;
+        h.walloper.held_pose_frozen=true;h.anim_speed=Pf::ZERO;h.items.slot.item=None;
+        let mut c=Ctx{env:&env,anim:&mut anim,rng:&mut rng,voice:None};
+        transitions(&mut h,&mut c);
+        assert_eq!(h.state,6);assert_eq!(h.anim_speed,Pf::ONE);
+        assert!(!h.walloper.dash_air);assert!(!h.walloper.held_pose_frozen);
+        // Interruption uses the same cleanup before the next state selects
+        // its own animation speed.
+        h.state=LUNGE;h.walloper.held_pose_frozen=true;h.anim_speed=Pf::ZERO;
+        h.set_state(&mut c,0,false);
+        assert!(!h.walloper.held_pose_frozen);assert_ne!(h.anim_speed,Pf::ZERO);
+    }
 
     /// `0x22e238` / `0x22dff0`: the lowest `d + yaw_off·d` (+7 for a crate) among the live, targetable targets within
     /// the range and the cone.

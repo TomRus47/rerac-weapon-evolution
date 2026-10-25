@@ -130,7 +130,7 @@ fn tick(w: &mut World, id: MobyId) {
     c::set_pi32(w, id, pv::TGT_KIND, t.kind as i32);
     if t.kind != 2 {
         let h = c::pv4(w, id, pv::HOME);
-        if 16.0 < c::dist2(h, t.pos) || 3.0 < (w.m(id).position[2] - t.pos[2]).abs() { c::set_pi32(w, id, pv::TGT_KIND, 2); }
+        if crate::weapon_evo::world::chase_range(w,id,16.0) < c::dist2(h, t.pos) || 3.0 < (w.m(id).position[2] - t.pos[2]).abs() { c::set_pi32(w, id, pv::TGT_KIND, 2); }
     }
     if c::pi32(w, id, pv::TGT_MOBY) == 0 {
         let h = w.hero_moby.map_or(0, |m| m as i32 + 1);

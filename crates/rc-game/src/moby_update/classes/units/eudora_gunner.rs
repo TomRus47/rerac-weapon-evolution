@@ -343,7 +343,7 @@ fn dash(w: &mut World, id: MobyId, k: &Tick) {
     if k.d < 1.0 && facing(w, id, k.aim, 0.261_799_4) {
         set_st(w, id, 7);
         blend(w, id, 7, 7);
-    } else if k.d < 14.0 {
+    } else if k.d < crate::weapon_evo::world::perception_range(w,id,14.0) {
         set_st(w, id, 5);
         blend(w, id, 3, 7);
     } else {
@@ -385,7 +385,7 @@ fn shoot(w: &mut World, id: MobyId, k: &Tick) {
 /// The retreat in states 1 and 5: beyond 14 → flee (seq 10, 2); under 8 with the cooldown out → dash (seq 0xb, 3).
 fn retreat_or_dash(w: &mut World, id: MobyId, k: &Tick, t_flee: i32, t_dash: i32) -> bool {
     if k.alert || k.d <= 2.5 || k.rd <= 1.0 { return false; }
-    if 14.0 < k.d {
+    if crate::weapon_evo::world::perception_range(w,id,14.0) < k.d {
         blend(w, id, 10, t_flee);
         set_st(w, id, 2);
         return true;
@@ -413,7 +413,7 @@ fn states(w: &mut World, id: MobyId, k: &Tick) -> bool {
                 blend(w, id, 0xb, 8);
                 set_st(w, id, 3);
             } else if retreat_or_dash(w, id, k, 8, 8) {
-            } else if 14.0 <= k.d || k.d < 2.5 || 8.0 <= dz {
+            } else if crate::weapon_evo::world::perception_range(w,id,14.0) <= k.d || k.d < 2.5 || 8.0 <= dz {
                 if k.d <= 2.5 {
                     if hold(w, id) < 1 {
                         set_st(w, id, 7);
@@ -433,7 +433,7 @@ fn states(w: &mut World, id: MobyId, k: &Tick) -> bool {
             }
         }
         2 => {
-            if k.d < 13.0 || k.rd < 1.0 {
+            if k.d < crate::weapon_evo::world::perception_range(w,id,13.0) || k.rd < 1.0 {
                 blend(w, id, 0, 10);
                 set_st(w, id, 1);
             } else {
@@ -468,12 +468,12 @@ fn states(w: &mut World, id: MobyId, k: &Tick) -> bool {
                 let cam = w.camera.map(|x| x.to_f32());
                 let me = c::pos(w, id);
                 let seen = c::diff_rots(w.camera_yaw, c::atan(me[0] - cam[0], me[1] - cam[1])) < 0.610_865_24;
-                if hold(w, id) == 0 && k.d < 14.0 && dz < 4.0 && seen && c::diff_rots(yaw(w, id), heading_to(me, k.aim)) < FRAC_PI_4 {
+                if hold(w, id) == 0 && k.d < crate::weapon_evo::world::perception_range(w,id,14.0) && dz < 4.0 && seen && c::diff_rots(yaw(w, id), heading_to(me, k.aim)) < FRAC_PI_4 {
                     set_st(w, id, 6);
                     blend(w, id, 5, 7);
                     set_hold(w, id, 30);
                     c::set_pu8(w, id, p::SHOTS, 3);
-                } else if 14.0 < k.d {
+                } else if crate::weapon_evo::world::perception_range(w,id,14.0) < k.d {
                     set_st(w, id, if k.alert { 3 } else { 1 });
                     blend(w, id, 6, 10);
                     set_hold(w, id, 30);
@@ -586,7 +586,7 @@ pub fn update(w: &mut World, id: MobyId) {
             w.mm(id).b7f = 0x15;
         }
     }
-    let r = c::pf(w, id, p::RANGE);
+    let r = crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, p::RANGE));
     let t = target::acquire(w, id, if alert { r + r } else { r });
     let d = c::dist2(c::pos(w, id), t.pos);
     let kt = c::ground::key_time(w, id);

@@ -46,6 +46,7 @@ pub const INFORMANT_CLASSES: [i16; 1] = [1190];
 
 /// Level04 `0x2e1a10` (1120; module doc).
 pub fn suck_cannon_update(w: &mut World, id: MobyId) {
+    if w.svc.bomb_evo.golden_settings.enabled { w.delete_moby(id); return; }
     story::pvars(w, id, 0x50);
     let y = c::add_rot(c::yaw(w, id), DT * std::f32::consts::FRAC_PI_2);
     c::set_yaw(w, id, y);

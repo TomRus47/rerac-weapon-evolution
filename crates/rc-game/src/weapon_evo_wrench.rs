@@ -6,6 +6,28 @@ use crate::moby_update::services::HitTemplate;
 use crate::ps2v::Pf;
 pub const THROWN:u32=0x4000_0000;
 
+/// Cosmetic geometry uses native anchors and the attack's captured hit radius.
+/// Color follows the active grade, using the same BBGGRR packing as other FX.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TrailStyle {
+    pub color: u32,
+    pub radius_multiplier: f32,
+}
+impl TrailStyle {
+    pub const DEFAULT_COLOR: u32 = 0x00ff_dda5;
+    pub fn capture(evolution: &super::Evolution, tuning: AttackTuning) -> Self {
+        let color = evolution.extras.iter().find(|t| t.id == 8 && t.enabled)
+            .and_then(|t| t.params[t.level.saturating_sub(1).min(7)].get("trail_color"))
+            .copied().filter(|v| v.is_finite() && (0.0..=16_777_215.0).contains(v))
+            .map_or(Self::DEFAULT_COLOR, |v| v as u32);
+        Self { color, radius_multiplier: tuning.hit_radius_multiplier }
+    }
+    pub fn edge(self, hand: [f32;3], native_tip: [f32;3]) -> [f32;3] {
+        if self.radius_multiplier == 1. { return native_tip; }
+        std::array::from_fn(|i| hand[i] + (native_tip[i]-hand[i])*self.radius_multiplier)
+    }
+}
+
 /// Captured once per attack, independently of XP gained during that attack.
 /// Identity values preserve native PS2 float results exactly.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -180,7 +202,7 @@ mod tuning_tests {
     #[test]
     fn all_combo_swings_and_air_hit_expand_collision_without_changing_pose_or_damage() {
         let d=data();let pad=crate::pad::PadState::default();
-        let env=ItemEnv{data:&d,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+        let env=ItemEnv{ mobys: None,data:&d,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
         for (state,combo) in [(0x13,0),(0x13,1),(0x13,2),(0x70,5),(0x70,6),(0x14,4)] {
             let run=|tuning:AttackTuning| {
                 let (mut h,mut table)=fixture();h.state=state;h.melee.combo=combo;h.melee.tuning=tuning;
@@ -206,7 +228,7 @@ mod tuning_tests {
     #[test]
     fn slam_impact_scales_once_and_preserves_vertical_push_and_native_reaction_scaling() {
         let d=data();let pad=crate::pad::PadState::default();
-        let env=ItemEnv{data:&d,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+        let env=ItemEnv{ mobys: None,data:&d,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
         let (mut h,mut table)=fixture();h.melee.tuning=AttackTuning{hit_radius_multiplier:2.,knockback_multiplier:3.};
         h.shockwave=Some((h.pos,[Pf::f(2.),Pf::ZERO,Pf::ZERO,Pf::b(0x45af_df66)]));
         let mut hits=Hits::default();hero::melee::jump_attack_shockwave(&mut h,&mut table,&env,&mut hits);
@@ -219,7 +241,7 @@ mod tuning_tests {
     #[test]
     fn thrown_outbound_and_return_use_captured_radius_and_push() {
         let d=data();let pad=crate::pad::PadState::default();
-        let env=ItemEnv{data:&d,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+        let env=ItemEnv{ mobys: None,data:&d,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
         for state in [hero::comet::OUT,hero::comet::BACK] {
             let (mut h,mut table)=fixture();h.items.slot.detached=1;
             let it=h.items.slot.item.as_mut().unwrap();it.mstate=state;
@@ -248,5 +270,34 @@ mod tuning_tests {
         for (key,bad) in [("hit_radius_multiplier","0"),("hit_radius_multiplier","10.1"),("knockback_multiplier","-1"),("knockback_multiplier","10.1"),("hit_radius_multiplier","NaN")] {
             let changed=raw.replace("hit_radius_multiplier=0.5",&format!("{key}={bad}"));assert!(crate::weapon_evo::Evolution::parse(&changed).is_err(),"{key}={bad}");
         }
+    }
+}
+
+#[cfg(test)]
+mod trail_tests {
+    use super::*;
+    #[test]
+    fn all_eight_grades_select_their_own_exact_trail_color() {
+        let colors=["000000","FF0000","00FF00","0000FF","AABBCC","FFFFFF","012345","default"];
+        let expected=[0,0xff,0xff00,0xff0000,0xccbbaa,0xffffff,0x452301,TrailStyle::DEFAULT_COLOR];
+        let mut raw=String::from("[general]\ndamage_mode=real_hp\n");
+        for grade in 1..=5 {raw+=&format!("[weapon.bomb_glove.level{grade}]\n");}
+        for grade in 1..=8 {raw+=&format!("[weapon.wrench.level{grade}]\ntrail_color={}\nhit_radius_multiplier=4\n",colors[grade-1]);}
+        let mut e=crate::weapon_evo::Evolution::parse(&raw).unwrap();
+        for grade in 1..=8 {
+            e.extras.iter_mut().find(|t|t.id==8).unwrap().level=grade;
+            let style=TrailStyle::capture(&e,AttackTuning{hit_radius_multiplier:2.,..Default::default()});
+            assert_eq!(style.color,expected[grade-1]);
+            assert_eq!(style.radius_multiplier,2.,"must use the attack capture, not a later config value");
+            assert_eq!(style.edge([10.,20.,30.],[11.,22.,33.]),[12.,24.,36.]);
+        }
+    }
+    #[test]
+    fn legacy_default_preserves_native_color_and_identity_geometry() {
+        let e=crate::weapon_evo::Evolution::default();
+        let style=TrailStyle::capture(&e,AttackTuning::default());
+        assert_eq!(style.color,TrailStyle::DEFAULT_COLOR);
+        let tip=[1.,-0.,3.];
+        assert_eq!(style.edge([10.,20.,30.],tip).map(f32::to_bits),tip.map(f32::to_bits));
     }
 }

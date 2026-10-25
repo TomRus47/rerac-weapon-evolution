@@ -266,7 +266,11 @@ pub fn pickup_spawn(w: &mut World, pos: V4, ty: i32, amount: i32, a3: i32) -> Op
 /// also admits the otherwise omitted R.Y.N.O. with a small relative weight.
 pub fn random_ammo_item(w: &mut World, unrestricted: bool) -> Option<i32> {
     use crate::weapon_evo::ammo_mode;
-    let candidates: Vec<usize> = if unrestricted {
+    let golden = w.svc.bomb_evo.golden_progress();
+    let candidates: Vec<usize> = if golden.active() {
+        ammo_mode::AMMO_IDS.into_iter().filter(|&id|
+            golden.collected(id) && w.inventory.max_ammo(id) > 0).collect()
+    } else if unrestricted {
         ammo_mode::AMMO_IDS.into_iter().filter(|&id| w.inventory.max_ammo(id) > 0).collect()
     } else {
         let mut items = Vec::new();
@@ -293,7 +297,31 @@ pub fn random_ammo_item(w: &mut World, unrestricted: bool) -> Option<i32> {
     None
 }
 
+fn offer_ryno_in_authored_crate(w:&mut World,ty:&mut i32) {
+    if w.inventory.owned(23) && w.inventory.max_ammo(23)>0
+        && item_ammo(w,23)<i32::from(w.inventory.max_ammo(23))
+        && random_ammo_item(w,false)==Some(23) { *ty=23; }
+}
+
 pub fn ammo_pick(w: &mut World, id: Option<MobyId>, ty: &mut i32) -> i32 {
+    let golden=w.svc.bomb_evo.golden_progress();
+    if golden.active() {
+        let survival=w.svc.bomb_evo.ammo_unlock_mode;
+        // Revalidate authored/forced packs too. No Bomb Glove fallback before
+        // the first discovery, even when Survival mode is also selected.
+        let allowed=usize::try_from(*ty).ok().is_some_and(|item|
+            crate::weapon_evo::ammo_mode::AMMO_IDS.contains(&item)
+                && golden.collected(item) && w.inventory.max_ammo(item)>0);
+        if !allowed || survival {
+            let Some(item)=random_ammo_item(w,survival) else { *ty=0; return 0; };
+            *ty=item;
+        } else { offer_ryno_in_authored_crate(w,ty); }
+        if survival {
+            let gold=w.svc.interact.game.gold_bolts.max(0) as u32;
+            return crate::weapon_evo::ammo_mode::pack_count(gold,w.rng.randi(4000));
+        }
+        return if w.rng.randi(5)!=0 {1} else {2};
+    }
     if crate::weapon_evo::ammo_mode::enabled() {
         let Some(item) = random_ammo_item(w, true) else { *ty = 0; return 0; };
         *ty = item;
@@ -305,6 +333,7 @@ pub fn ammo_pick(w: &mut World, id: Option<MobyId>, ty: &mut i32) -> i32 {
         w.svc.save.death.contains(&(w.svc.level, spawn))
     });
     if repick { *ty = random_ammo_item(w, false).unwrap_or(10); }
+    else { offer_ryno_in_authored_crate(w,ty); }
     if w.rng.randi(5) != 0 { 1 } else { 2 }
 }
 
@@ -398,6 +427,9 @@ fn alpha_toward(w: &mut World, id: MobyId, target: f32) {
 pub fn collect(w: &mut World, id: MobyId) -> bool {
     if w.m(id).state == 2 { return false; }
     let item = p::i32(&w.m(id).pvars, 8);
+    let golden=w.svc.bomb_evo.golden_progress();
+    if golden.active() && !usize::try_from(item).ok().is_some_and(|i|
+        crate::weapon_evo::ammo_mode::AMMO_IDS.contains(&i) && golden.collected(i)) { return false; }
     let i = item.clamp(0, N as i32 - 1) as usize;
     let old = item_ammo(w, i);
     let amount = p::i32(&w.m(id).pvars, 0);
@@ -531,7 +563,8 @@ mod nt {
     pub const HUE: usize = 0x60;
     pub const PLAT_OFF: usize = 0x70;
     pub const PENDING: usize = 0x7c;
-    pub const SIZE: usize = 0x80;
+    pub const HEAL_AMOUNT:usize=0x80;
+    pub const SIZE: usize = 0x84;
 }
 
 /// Orb record fields (type 62 kind 1) the cluster keeps: +0x28 radius, +0x2c breathing phase (state 2); +0x24 the
@@ -619,6 +652,7 @@ pub fn nanotech_update(w: &mut World, id: MobyId) {
 /// +0xe0; the cluster's own rotation, which is the crate's from the init, when the crate is gone).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NanotechGlow {
+    pub tint:Option<u32>,
     pub pos: [f32; 3],
     pub bob: f32,
     pub on_crate: bool,
@@ -632,6 +666,7 @@ pub fn nanotech_glow(t: &crate::moby_runtime::MobyTable, id: MobyId) -> Option<N
     let c = ptr(&m.pvars, nt::CRATE).and_then(|c| t.mobys.get(c)).unwrap_or(m);
     let r = sv::euler_rows(pv(c.rotation));
     Some(NanotechGlow {
+        tint:nanotech_tint(m),
         pos: [m.position[0], m.position[1], m.position[2]],
         bob: p::ff(&m.pvars, nt::BOB),
         on_crate: m.state == 1,
@@ -642,6 +677,10 @@ pub fn nanotech_glow(t: &crate::moby_runtime::MobyTable, id: MobyId) -> Option<N
 
 /// State 0.
 fn nt_init(w: &mut World, id: MobyId) {
+    w.mm(id).pvars.resize(nt::SIZE,0);
+    let s=w.svc.bomb_evo.world_settings;
+    let amount=if s.enemy_damage_by_health && s.nanotech_random_healing {w.rng.rand_range(1,4)} else {1};
+    p::set_i32(&mut w.mm(id).pvars,nt::HEAL_AMOUNT,amount);
     let crate_id = ptr(&w.m(id).pvars, nt::CRATE).unwrap_or(id);
     let (cpos, crot) = { let c = w.m(crate_id); (c.position, c.rotation) };
     {
@@ -735,6 +774,7 @@ fn orb_pos(w: &World, id: MobyId, i: usize) -> [f32; 3] {
 /// The states 0 / 1 / 2 (after their own part): the free fall and breathing (2), the heal check, the bob, the
 /// master's turn and the orbs.
 fn nt_common(w: &mut World, id: MobyId) {
+    let orb_color=nanotech_tint(w.m(id)).map_or(ORB_RGBA,|rgb|0x7f000000|rgb);
     if w.m(id).state == 2 {
         let pos = pos3(w, id);
         set_v3p(&mut w.mm(id).pvars, nt::CENTRE, [pos[0], pos[1], pos[2] + 0.5]);
@@ -771,7 +811,7 @@ fn nt_common(w: &mut World, id: MobyId) {
         if let Some(t) = part62(w, q, life, 2) {
             orb_rec(w, t, |r| {
                 type62::attach(r, anchor, pos);
-                rec::set_u32(r, 4, ORB_RGBA);
+                rec::set_u32(r, 4, orb_color);
                 rec::set_ff(r, 0xc, TRAIL_SIZE);
             });
         }
@@ -783,7 +823,7 @@ fn nt_common(w: &mut World, id: MobyId) {
                         rec::set_ff(r, orb::BREATH, 0.0);
                         rec::set_ff(r, orb::RADIUS, 0.25);
                         rec::set_ff(r, 0xc, ORB_SIZE);
-                        rec::set_u32(r, 4, ORB_RGBA);
+                        rec::set_u32(r, 4, orb_color);
                     });
                 }
                 set_ptr(&mut w.mm(id).pvars, nt::ORBS + 4 * k, o);
@@ -878,7 +918,7 @@ fn nt_heal_check(w: &mut World, id: MobyId) {
     let hp_ = f3(w.hero.pos);
     if w.line(v4([pos[0], pos[1], pos[2] + 0.5]), v4([hp_[0], hp_[1], hp_[2] + 0.5]), 0x12, None).is_some() { return; }
     w.mm(id).state = 3;
-    let n = p::i32(&w.m(master).pvars, nt::PENDING) + 1;
+    let n = p::i32(&w.m(master).pvars, nt::PENDING) + heal_amount(w.m(id));
     p::set_i32(&mut w.mm(master).pvars, nt::PENDING, n);
     // The cheat 6: 0x13f510 = ticks(600) (ten seconds of invulnerability).
     if cheat { w.hero_fields_mut().invulnerable = Some(w.ticks(600)); }
@@ -919,6 +959,7 @@ fn cubic(a: f32, b: f32, c: f32, d: f32, t: f32) -> f32 {
 
 /// State 3: the orbs fly to Ratchet; the first to arrive heals.
 fn nt_heal(w: &mut World, id: MobyId) {
+    let orb_color=nanotech_tint(w.m(id)).map_or(ORB_RGBA,|rgb|0x7f000000|rgb);
     if w.svc.pickups.master == Some(id) { turn_dirs(w); }
     if p::i16(&w.m(id).pvars, nt::HEALED) != 0 {
         let c = chest(w);
@@ -971,7 +1012,7 @@ fn nt_heal(w: &mut World, id: MobyId) {
                 let life = w.ticks(0x14);
                 if let Some(t) = part62(w, add(at, j), life, 0) {
                     orb_rec(w, t, |r| {
-                        rec::set_u32(r, 4, ORB_RGBA);
+                        rec::set_u32(r, 4, orb_color);
                         rec::set_ff(r, 0xc, TRAIL_SIZE);
                     });
                 }
@@ -980,9 +1021,9 @@ fn nt_heal(w: &mut World, id: MobyId) {
             if p::i16(&w.m(id).pvars, nt::HEALED) == 0 {
                 let max = max_health(w);
                 let hp = w.hero_fields().health;
-                if hp != 0 { w.hero_fields_mut().health = if hp < max { hp + 1 } else { max }; }
+                if hp != 0 { w.hero_fields_mut().health = (hp + heal_amount(w.m(id))).min(max); }
                 if let Some(m) = w.svc.pickups.master.filter(|&m| w.m(m).pvars.len() >= nt::SIZE) {
-                    let n = (p::i32(&w.m(m).pvars, nt::PENDING) - 1).max(0);
+                    let n = (p::i32(&w.m(m).pvars, nt::PENDING) - heal_amount(w.m(id))).max(0);
                     p::set_i32(&mut w.mm(m).pvars, nt::PENDING, n);
                 }
                 w.play_sound_as(1, 0, id, NANOTECH_CRATE);
@@ -1126,5 +1167,31 @@ mod tests {
         assert_eq!((w.m(0).state, w.hero_fields().ammo[10], w.hero_fields().ammo_picked[10]), (2, 40, 3), "clamped to 40, 3 picked");
         assert_eq!(w.svc.sounds.iter().map(|e| (e.sound_class, e.index, e.flags)).collect::<Vec<_>>(), [(PICKUP_SOUND_CLASS, 0, 0)]);
         assert!(!collect(&mut w, 0), "already flying");
+    }
+}
+
+fn heal_amount(m:&crate::moby_runtime::Moby)->i32 {
+    if m.pvars.len()<nt::SIZE {1} else {p::i32(&m.pvars,nt::HEAL_AMOUNT).clamp(1,4)}
+}
+fn nanotech_tint(m:&crate::moby_runtime::Moby)->Option<u32> {
+    match heal_amount(m){2=>Some(0x82004b),3=>Some(0xd30094),4=>Some(0x3030ff),_=>None}
+}
+
+#[cfg(test)]
+mod v80_crate_tests {
+    use super::*;
+    #[test]
+    fn authored_first_visit_crates_can_offer_ryno_without_survival_and_never_before_ownership() {
+        use crate::{hero::Hero,moby_runtime::{Moby,MobyTable},rng::Rng,moby_update::{Services,ClassTable}};
+        let mut records=vec![[0u8;0x18];N];
+        for item in [10,23]{records[item][14..16].copy_from_slice(&50u16.to_le_bytes());}
+        for owned in [false,true] {
+            let mut hero=Hero::new();hero.owned.0[10]=1;hero.owned.0[23]=u8::from(owned);
+            let inventory=ItemTables::new(&records,[10,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff]).with_hero(&hero);
+            let mut table=MobyTable::new(vec![Moby::zeroed()],0);let mut rng=Rng::new();let classes=ClassTable::default();let mut svc=Services::new();
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);w.inventory=&inventory;
+            let found=(0..5000).filter(|_|{let mut ty=10;assert!((1..=2).contains(&ammo_pick(&mut w,Some(0),&mut ty)));ty==23}).count();
+            assert_eq!(found>0,owned);
+        }
     }
 }

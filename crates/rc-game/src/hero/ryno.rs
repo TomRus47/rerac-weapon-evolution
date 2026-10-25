@@ -252,7 +252,7 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
             }
             let fwd = match (hero.state == 0x1e, env.camera) {
                 (true, Some((_, f))) => f,
-                _ => to_f32x3(hero.moby_rows[0]),
+                _ => to_f32x3(hero.aim_rows[0]),
             };
             let motion = scale3(add3(to_f32x3(hero.disp), to_f32x3(hero.plat_applied)), 3.0);
             let fwd = if super::combat_strafe::active(hero) {
@@ -496,7 +496,7 @@ mod shotgun_tests {
         let data = super::super::items::ItemData::default();
         let mut pad = crate::pad::PadState::default();
         if held { pad.held = crate::pad::button::CIRCLE; }
-        let env = ItemEnv { data: &data, pad: &pad, frame: 0, hero_moby: 0,
+        let env = ItemEnv { mobys: None, data: &data, pad: &pad, frame: 0, hero_moby: 0,
             coll: None, camera: None, camera_up: None, targets: &[] };
         experimental_fire(hero, &mut MobyTable::new(vec![], 0), &env,
             &mut super::super::items::NoHits, &mut Rng::new());
@@ -551,7 +551,7 @@ mod shotgun_tests {
     fn shotgun_tick(hero: &mut Hero, table: &mut MobyTable, allocator: &mut Allocator, frame: i32) {
         let data = super::super::items::ItemData::default();
         let mut pad = crate::pad::PadState::default(); pad.held = crate::pad::button::CIRCLE;
-        let env = ItemEnv { data: &data, pad: &pad, frame, hero_moby: 0,
+        let env = ItemEnv { mobys: None, data: &data, pad: &pad, frame, hero_moby: 0,
             coll: None, camera: Some(([0.; 3], [1., 0., 0.])), camera_up: Some([0., 0., 1.]), targets: &[] };
         hero.state = 0x1e;
         hero.items.slot.item.as_mut().unwrap().position = [410., 410., 100.];

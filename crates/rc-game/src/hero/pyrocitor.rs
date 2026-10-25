@@ -88,6 +88,8 @@ pub mod glow_pv {
 /// The Pyrocitor's pvars (item moby +0x78).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Pyro {
+    /// Transient ballistic stream; discarded on put-away, death or level reset.
+    pub lava: super::pyro_lava::Stream,
     /// +0x00: the pilot flame.
     pub glow: Option<MobyId>,
     /// +0x04..: the kept flames, each with "created this tick" (not yet stepped by `UpdateParts`).
@@ -104,7 +106,7 @@ pub struct Pyro {
 }
 
 impl Default for Pyro {
-    fn default() -> Self { Pyro { glow: None, hits: [None; 45], light: -1, fire_timer: 0, ammo_timer: 0, smoke_timer: 0, hold: 0 } }
+    fn default() -> Self { Pyro { lava: Default::default(), glow: None, hits: [None; 45], light: -1, fire_timer: 0, ammo_timer: 0, smoke_timer: 0, hold: 0 } }
 }
 
 /// `0x2cde98`'s other half (the item not being put away; from the disassembly): while the "hold ○" help (record 0x4e)
@@ -238,7 +240,13 @@ pub fn update(hero: &mut Hero, table: &mut MobyTable, _anim: &dyn super::anim::A
             m.pvars[glow_pv::READY..glow_pv::READY + 2].copy_from_slice(&r.to_le_bytes());
         }
     }
-    kept_hits(hero, table, env, hits, rng, gold);
+    if hero.weapons.pyro_evo.is_some_and(|s| s.lava.enabled) {
+        hero.weapons.pyro.hits = [None; 45];
+        hero.weapons.pyro.lava.step(table, env, hits, &mut hero.fx.parts);
+    } else {
+        hero.weapons.pyro.lava.clear();
+        kept_hits(hero, table, env, hits, rng, gold);
+    }
 }
 
 /// `MobyAnimKeyTime` 0x263920 for the item.
@@ -303,7 +311,7 @@ fn ready(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn H
 #[allow(clippy::too_many_arguments)]
 fn firing(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng: &mut Rng, nozzle: [f32; 3], held: bool, id: i32, gold: u8) {
     hero.fx.item_voices.push(SoundCmd::ItemLoop { n: 0, index: LOOP_SOUND, flags: 4 });
-    let rows: [[f32; 3]; 3] = [0, 1, 2].map(|i| to_f32x3(hero.moby_rows[i]));
+    let rows: [[f32; 3]; 3] = [0, 1, 2].map(|i| to_f32x3(hero.aim_rows[i]));
     let hpos = to_f32x3(hero.pos);
     // The light: 2 ahead, 2 up, flickering.
     let pl = hero.weapons.pyro.light;
@@ -316,7 +324,7 @@ fn firing(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn 
             let ph = (env.frame % 120) as f32 / 120.0 * 6.28318 - 3.14159;
             let t = ph.sin() * 0.5 + 0.5;
             let mut target: [f32; 4] = std::array::from_fn(|k| LIGHT_A[k] + (LIGHT_B[k] - LIGHT_A[k]) * t);
-            if let Some(rgb) = hero.weapons.pyro_evo.and_then(|s| s.light_color) {
+            if let Some(rgb) = hero.weapons.pyro_evo.and_then(|s| if s.lava.enabled { s.lava.light_color.or(Some(0x0866FF)) } else { s.light_color }) {
                 let color = crate::weapon_evo::rgb_float(rgb);
                 target[..3].copy_from_slice(&color);
             }
@@ -338,8 +346,31 @@ fn firing(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn 
         _ => (nozzle, with_len(rows[0], range + 0.75)),
     }};
     let stats = hero.weapons.pyro_evo.unwrap_or_default();
-    for (lane, direction) in flame_directions_asymmetric(dir, rows[2], stats.triple_flame_enabled, stats.side_flame_left_angle_degrees.unwrap_or(stats.side_flame_angle_degrees), stats.side_flame_right_angle_degrees.unwrap_or(stats.side_flame_angle_degrees)).into_iter().enumerate() {
-        emit_flame(hero, table, env, hits, rng, nozzle, start, direction, range, first_person, gold, rows[0], lane);
+    if stats.lava.enabled {
+        // Replace native fire with ballistic lava on every enabled lane. The
+        // shared stream clock deduplicates overlapping contacts per target;
+        // side rays widen coverage without multiplying damage at the nozzle.
+        hero.weapons.pyro.hits = [None; 45];
+        let damage = crate::moby_update::real_hp::StreamSnapshot {
+            damage_hp_per_second: (1.0 + gold as f32) * stats.damage_multiplier * 100.0,
+            interval: stats.damage_interval_ticks as u32,
+            burn_color: Some(stats.lava.outer_color.unwrap_or(0x0444F0)),
+        };
+        // Prevent launching through a nearby wall between the body and nozzle.
+        let blocked = match hits.probe(table, hero.body_point, from_f32x3(start), 2, Some(env.hero_moby)) {
+            Some(hit) => hit.is_some(),
+            None => env.coll.and_then(|c| super::physics::line_world(c, hero.body_point, from_f32x3(start), 2)).is_some(),
+        };
+        if !blocked {
+            let directions = flame_directions_asymmetric(dir, rows[2], stats.triple_flame_enabled,
+                stats.side_flame_left_angle_degrees.unwrap_or(stats.side_flame_angle_degrees),
+                stats.side_flame_right_angle_degrees.unwrap_or(stats.side_flame_angle_degrees));
+            hero.weapons.pyro.lava.launch_lanes(start, &directions, stats.lava, damage);
+        }
+    } else {
+        for (lane, direction) in flame_directions_asymmetric(dir, rows[2], stats.triple_flame_enabled, stats.side_flame_left_angle_degrees.unwrap_or(stats.side_flame_angle_degrees), stats.side_flame_right_angle_degrees.unwrap_or(stats.side_flame_angle_degrees)).into_iter().enumerate() {
+            emit_flame(hero, table, env, hits, rng, nozzle, start, direction, range, first_person, gold, rows[0], lane);
+        }
     }
     let ammo_interval = hero.weapons.pyro_evo.map(|s| s.ammo_interval_ticks);
     if ammo_due(&mut hero.weapons.pyro, env.frame, ammo_interval) {
@@ -489,17 +520,52 @@ pub fn shut_down(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &m
     }
     if hero.fx.item_loops[0].is_some() { hero.fx.item_voices.push(SoundCmd::ItemRelease { n: 0 }); }
     p.hits = [None; 45];
+    p.lava.clear();
 }
 
 /// The item is gone (swapped away, the slot emptied) with the Pyrocitor's resources still out.
 pub fn item_gone(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink) {
     let p = &hero.weapons.pyro;
-    if p.glow.is_some() || p.light != -1 || hero.fx.item_loops[0].is_some() { shut_down(hero, table, env, hits); }
+    if p.glow.is_some() || p.light != -1 || !p.lava.is_empty() || hero.fx.item_loops[0].is_some() { shut_down(hero, table, env, hits); }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn triple_lava_replaces_native_flames_preserves_one_ammo_and_audio_clock_and_cleans_up_on_swap() {
+        let mut hero=Hero::new();
+        hero.moby_rows=hero.rows;
+        hero.weapons.uses_ammo[16]=true;
+        hero.weapons.ammo[16]=50;
+        let mut stats=crate::weapon_evo::PyroStats::default();
+        stats.triple_flame_enabled=true;
+        stats.lava.enabled=true;
+        stats.ammo_interval_ticks=6;
+        hero.weapons.pyro_evo=Some(stats);
+        let data=super::super::items::ItemData::default();let pad=crate::pad::PadState::default();
+        let mut table=MobyTable::default();let mut sink=super::super::items::NoHits;let mut rng=Rng::new();
+        for frame in 0..60 {
+            let env=ItemEnv{ mobys: None,data:&data,pad:&pad,frame,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+            firing(&mut hero,&mut table,&env,&mut sink,&mut rng,[0.0;3],true,16,0);
+            hero.weapons.pyro.lava.step(&mut table,&env,&mut sink,&mut hero.fx.parts);
+            hero.fx.parts.clear();
+        }
+        assert_eq!(hero.weapons.ammo[16],40);
+        assert_eq!(hero.weapons.used[16],10);
+        assert!(!hero.weapons.pyro.lava.is_empty());
+        let quads = hero.weapons.pyro.lava.quads([0.0,-5.0,2.0]);
+        assert!(quads.iter().any(|q| q.corners.iter().any(|p| p[1] > 0.5)), "left lava stream");
+        assert!(quads.iter().any(|q| q.corners.iter().any(|p| p[1] < -0.5)), "right lava stream");
+        assert!(hero.weapons.pyro.hits.iter().all(Option::is_none));
+        assert!(!hero.fx.parts.iter().any(|part| matches!(part,PartSpawn::Flame{..})));
+        assert!(hero.fx.item_voices.iter().all(|voice| matches!(voice,SoundCmd::ItemLoop{n:0,..})));
+        assert_eq!(hero.fx.item_voices.len(),60,"one loop command per firing tick, not per ray");
+        let env=ItemEnv{ mobys: None,data:&data,pad:&pad,frame:61,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+        item_gone(&mut hero,&mut table,&env,&mut sink);
+        assert!(hero.weapons.pyro.lava.is_empty());
+    }
 
     /// `0x270830` from rest: `sqrt(2·48·dt²·len)` up to 16 u/s.
     #[test]
@@ -550,7 +616,7 @@ mod tests {
             h.weapons.pyro_evo=Some(crate::weapon_evo::PyroStats { triple_flame_enabled:triple,ammo_interval_ticks:1,..Default::default() });
             h.weapons.uses_ammo[16]=true;h.weapons.ammo[16]=10;h.weapons.pyro.fire_timer=100;
             let mut table=MobyTable::default();let data=ItemData::default();let pad=PadState::default();
-            let env=ItemEnv { data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[] };
+            let env=ItemEnv { mobys: None, data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[] };
             firing(&mut h,&mut table,&env,&mut NoHits,&mut Rng::new(),[10.0,10.0,1.0],true,16,0);
             h
         };

@@ -94,10 +94,14 @@ pub(crate) fn award_health_write(w: &mut World, id: MobyId, offset: usize, befor
         let interval = w.ticks(super::super::real_hp::STREAM_REACTION_INTERVAL_TICKS).max(1) as u64;
         w.svc.hits.real_hp.commit_stream_reaction(id, w.counter, interval);
     }
+    if after<=0. && super::super::real_hp::donor(w.m(id)) && w.svc.bomb_evo.mark_terminal_target(id) {
+        w.svc.bomb_evo.bolt_chain.kill(w.svc.bomb_evo.ng_plus);
+    }
     award_effective(w, hit, actual);
 }
 
 fn award_effective(w: &mut World, hit: HitRecord, actual: f32) {
+    let actual=actual*w.svc.bomb_evo.world_settings.health_scale(w.m(hit.target).o_class);
     // A robot touching a creature only triggers detonation. Only a marked blast
     // whose HP loss has been committed can credit the Glove of Doom.
     if hit.h2a == 0xba && !hit.independent() { return; }
@@ -129,10 +133,11 @@ pub(crate) fn award_terminal(w: &mut World, id: MobyId, hit: Option<HitRecord>, 
         let (actual, dead) = w.svc.hits.real_hp.terminal_loss(id, damage);
         award_effective(w, hit, actual);
         if !dead { return false; }
-        w.svc.bomb_evo.mark_terminal_target(id);
+        if w.svc.bomb_evo.mark_terminal_target(id) {w.svc.bomb_evo.bolt_chain.kill(w.svc.bomb_evo.ng_plus);}
         return true;
     }
     if w.m(id).state >= 0x80 || !w.svc.bomb_evo.mark_terminal_target(id) { return true; }
+    if super::super::real_hp::donor(w.m(id)){w.svc.bomb_evo.bolt_chain.kill(w.svc.bomb_evo.ng_plus);}
     award_effective(w, hit, damage.min(remaining_hp));
     true
 }
@@ -145,7 +150,20 @@ pub(crate) fn special_health(w: &World, id: MobyId) -> Option<f32> {
     let hp = if w.svc.bomb_evo.real_hp_enabled() && super::super::real_hp::terminal_class(m.o_class) {
         w.svc.hits.real_hp.logical_health(id)
     } else { crate::targeting::record_health(m).unwrap_or(1.0) };
-    (hp.is_finite() && hp > 0.0).then_some(hp)
+    (hp.is_finite() && hp > 0.0).then_some(hp*w.svc.bomb_evo.world_settings.health_scale(m.o_class))
+}
+
+/// Use the boss life's original HP for its single attraction reward, even if
+/// earlier weapon hits have already damaged it. Ordinary enemy rewards retain
+/// their existing remaining-health policy. Always check that the target lives.
+pub(crate) fn attraction_health(w: &World, id: MobyId) -> Option<f32> {
+    let remaining = special_health(w, id)?;
+    let m = w.table.mobys.get(id)?;
+    if !crate::weapon_evo::world::boss(m.o_class) { return Some(remaining); }
+    w.svc.enemies.records.get(&id)
+        .filter(|e| e.class == m.o_class && e.base_hp.is_finite() && e.base_hp > 0.0)
+        .map(|e| e.base_hp * w.svc.bomb_evo.world_settings.health_scale(e.class))
+        .or(Some(remaining))
 }
 
 /// Apply a nonlethal independent hit during an existing native stagger, without

@@ -103,6 +103,11 @@ fn offer(w: &mut World, id: MobyId, o: (usize, i32, i32, usize, i32, i32)) {
     let held = w.svc.interact.try_prompt(owner::VENDOR, msg);
     if !w.svc.interact.triangle() || held == 0 { return; }
     story::set_flag(w, flag, 1);
+    let hp = if w.svc.bomb_evo.world_settings.enemy_damage_by_health {
+        let native = crate::weapon_evo::world::native_nanotech(&w.svc.interact.game.flags);
+        w.svc.bomb_evo.nanotech_native_max = native;
+        w.svc.bomb_evo.nanotech.max_health(&w.svc.bomb_evo.world_settings, native)
+    } else { hp };
     story::set_max_hp(w, hp);
     story::set_health(w, hp);
     story::add_bolts(w, -price);
@@ -136,5 +141,29 @@ pub fn nanotech_update(w: &mut World, id: MobyId) {
             w.mm(id).state = 0;
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod nanotech_sale_tests {
+    use super::*;
+    use crate::{hero::Hero,moby_runtime::{Moby,MobyTable},moby_update::services::{ClassTable,Services},rng::Rng};
+    #[test]
+    fn real_purchases_add_native_slots_to_live_xp_health_and_heal_to_the_new_total() {
+        for enabled in [false,true] {
+            let mut svc=Services::new();svc.bomb_evo.world_settings.enemy_damage_by_health=enabled;
+            svc.bomb_evo.nanotech=crate::weapon_evo::world::NanotechProgress{bonus:12,xp:37.};
+            svc.counters.bolts=100_000;svc.interact.pressed=crate::pad::button::TRIANGLE;
+            let mut table=MobyTable::new(vec![Moby::zeroed()],0);let hero=Hero::new();let mut rng=Rng::new();let classes=ClassTable::default();
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);
+            offer(&mut w,0,PREMIUM);
+            assert_eq!(w.svc.interact.game.flags[4],1);
+            let hp=if enabled {17}else{5};assert_eq!(w.svc.counters.max_hp,hp);assert_eq!(w.hero_fields().health,hp);
+            offer(&mut w,0,ULTRA);
+            assert_eq!(w.svc.interact.game.flags[5],1);
+            let hp=if enabled {20}else{8};assert_eq!(w.svc.counters.max_hp,hp);assert_eq!(w.hero_fields().health,hp);
+            assert_eq!((w.svc.bomb_evo.nanotech.bonus,w.svc.bomb_evo.nanotech.xp),(12,37.));
+            assert_eq!(w.svc.counters.bolts,66_000);
+        }
     }
 }

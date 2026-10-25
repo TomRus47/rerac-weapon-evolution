@@ -84,7 +84,7 @@ class StandaloneTests(unittest.TestCase):
         make.assert_not_called()
     def test_smoke_test_requires_frozen_python_tk_and_the_correct_folder(self):
         def report(args,**kwargs):
-            Path(args[2]).write_text(json.dumps({'frozen':True,'gui_ok':True,'launcher_version':c.VERSION,
+            Path(args[2]).write_text(json.dumps({'saved_controls_ui':True,'wrench_trail_ui':True,'ngplus_difficulty_ui':True,'eight_grade_ui':True,'additive_nanotech_ui':True,'nanotech_xp_bar_ui':True,'encounter_motion_ui':True,'pursuit_ui':True,'location_test_ui':True,'frozen':True,'gui_ok':True,'launcher_version':c.VERSION,
                 'application_folder':str(self.launcher.parent),'tcl_version':'8.6','tk_version':'8.6'}))
         with patch.object(build.subprocess,'run',side_effect=report):self.assertTrue(build.smoke_test(self.launcher)['frozen'])
         def bad(args,**kwargs):
@@ -107,7 +107,7 @@ class StandaloneTests(unittest.TestCase):
         self.assertEqual(calls[0][:3],[str(python),'-m','PyInstaller'])
         for flag in ['--onefile','--windowed','--noupx']:self.assertIn(flag,calls[0])
         smoke.assert_called_once()
-        self.assertEqual(json.loads((self.launcher.parent/'launcher-build.json').read_text())['launcher_version'],'0.17.2')
+        self.assertEqual(json.loads((self.launcher.parent/'launcher-build.json').read_text())['launcher_version'],c.VERSION)
     def test_cached_exe_is_reused_only_when_sources_and_binary_match(self):
         self.prepare_sources()
         metadata={'sources_sha256':build.source_digest(self.kit),'exe_sha256':hashlib.sha256(self.launcher.read_bytes()).hexdigest()}

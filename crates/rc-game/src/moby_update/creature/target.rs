@@ -66,7 +66,7 @@ fn acquire_ranges(w: &World, id: MobyId, range: f32, glove_range: f32, cuboids: 
     let (mut best, mut kind) = (w.hero_moby, 0u32);
     let tested = &cuboids[..cuboids.len().saturating_sub(1)];
     let inside = |p: V| {
-        if cuboids.is_empty() { return region.is_none_or(|r| super::region::point_in_polygon(w, r, p)); }
+        if cuboids.is_empty() { return region.is_none_or(|r| crate::weapon_evo::world::chase_in_area(w, id, r, p)); }
         !tested.iter().any(|&c| crate::moby_update::triggers::point_in_cuboid(&w.svc.volumes, [p[0], p[1], p[2]], c))
     };
     if w.hero.group == 0x18 || w.hero.state == 0x72 || !inside(w.hero.pos.map(|x| f32::from_bits(x.0))) {
@@ -94,9 +94,9 @@ fn acquire_ranges(w: &World, id: MobyId, range: f32, glove_range: f32, cuboids: 
     // The target API has &World, so XP is posted to a queue and processed
     // on the gameplay thread after the tick (one award per target lifetime).
     if kind == 1 && DECOY_STATE3.contains(&w.m(t).o_class) {
-        if let Some(hp) = super::damage::special_health(w, id) {
+        if let Some(hp) = super::damage::attraction_health(w, id) {
             let frac = crate::weapon_evo::extra(25, "xp_attract_fraction", 0.25);
-            w.svc.bomb_evo.enqueue_special(25, id, hp, frac);
+            w.svc.bomb_evo.enqueue_attraction(25, id, w.m(id).o_class, hp, frac);
         }
     }
     let m = w.m(t);

@@ -122,6 +122,8 @@ pub enum DamageEvent {
 /// The damage fields of the hero block.
 #[derive(Clone, Debug, Default)]
 pub struct Damage {
+    pub health_loss_events:u64,
+    pub enemy_hit_points:Option<i32>,
     /// This tick's hit message for Ratchet (set by the tick before the hero update; None: `+0xa4` = 0xff or a
     /// record for another moby).
     pub hit: Option<HeroHit>,
@@ -171,7 +173,9 @@ fn scale_motion(h: &mut Hero, k: Pf) {
 pub fn take_damage(h: &mut Hero, n: i32) {
     if n == 0 { return; }
     let d = if n < 2 { n } else { 1 };
+    let before=h.health;
     h.health = (h.health - d).max(0);
+    if h.mode==0 && h.health<before {h.damage.health_loss_events=h.damage.health_loss_events.wrapping_add(1);}
 }
 
 /// `MobyGetHitMessage(Ratchet, 1, 0)` then `HeroTakeDamage`: the message's damage (truncated), 1 without one.
@@ -180,7 +184,17 @@ fn take_hit_damage(h: &mut Hero) {
         Some(m) => m.damage as i32,
         None => 1,
     };
-    take_damage(h, n);
+    take_enemy_damage_or_native(h, n);
+}
+
+/// Shared intake for ordinary hurt, enemy fire and grind hits. Environmental
+/// hazards and alternate bodies retain their native damage policy.
+pub(crate) fn take_enemy_damage_or_native(h: &mut Hero, n: i32) {
+    if n>0 && h.mode==0 && h.damage.enemy_hit_points.is_some() {
+        let before=h.health;
+        h.health=h.health.saturating_sub(h.damage.enemy_hit_points.unwrap().max(1)).max(0);
+        if h.health<before {h.damage.health_loss_events=h.damage.health_loss_events.wrapping_add(1);}
+    } else {take_damage(h, n);}
 }
 
 /// `SetAnim(−3, seq, 3)` plus the entries' immediate first curve step (`moby+0x54 = curve[0x13fdf4++]`).
@@ -450,7 +464,7 @@ fn burn_bounce_entry(h: &mut Hero, c: &mut Ctx, play: bool, old_sub: i32) -> Opt
     j.hmin = Pf::f(5.5);
     j.ramp = ticks(2) as i16;
     j.max_air = ticks(120) as i16;
-    take_damage(h, 1);
+    take_enemy_damage_or_native(h, 1);
     if h.idle.level == 10 {
         h.set_state(c, 0x7c, true);
         return Some(false);
@@ -647,5 +661,15 @@ pub(super) fn flush(h: &mut Hero, moby: &Moby, sounds: &mut dyn HeroSounds, rng:
         let b = (DT * Pf::f(4.363_323)).to_f32();
         h.damage.spin_target[0] = rng.randf_sym(a, b);
         h.damage.spin_target[1] = rng.randf_sym(a, b);
+    }
+}
+
+#[cfg(test)]mod difficulty_tests {
+    use super::*;
+    #[test]fn enemy_override_removes_three_real_hp_but_environment_keeps_native_rules(){
+        let mut h=Hero::new();h.health=20;
+        h.damage.enemy_hit_points=Some(3);take_hit_damage(&mut h);assert_eq!(h.health,17);
+        h.damage.enemy_hit_points=None;take_damage(&mut h,30);assert_eq!(h.health,16);
+        h.damage.enemy_hit_points=Some(99);take_hit_damage(&mut h);assert_eq!(h.health,0);
     }
 }

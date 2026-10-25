@@ -358,9 +358,10 @@ pub fn lure(w: &mut World, list: &[MobyId], from: [f32; 3], range: f32, crates: 
                 // XP for a newly lured living enemy, once per enemy and session.
                 let is_enemy = w.classes.info(w.m(m).o_class).is_some_and(|k| k.ty == 5)
                     || react::table(w, m).is_some();
-                if let Some(enemy_hp) = c::damage::special_health(w, m).filter(|_| is_enemy) {
+                if let Some(enemy_hp) = c::damage::attraction_health(w, m).filter(|_| is_enemy) {
                     let frac = crate::weapon_evo::extra(14, "xp_attract_fraction", 1.0 / 3.0);
-                    w.svc.bomb_evo.award_special_once(14, m, enemy_hp, frac);
+                    let class = w.m(m).o_class;
+                    w.svc.bomb_evo.award_attraction_once(14, m, class, enemy_hp, frac);
                     // Taunter's actual stun: a percentage roll once per cooldown,
                     // then a temporary suspension of this creature's AI update.
                     // Its native animation/collision keeps running throughout.

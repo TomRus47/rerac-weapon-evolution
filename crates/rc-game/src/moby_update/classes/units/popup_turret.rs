@@ -415,7 +415,7 @@ pub fn shot_update(w: &mut World, id: MobyId) {
     let flags = (c::pi32(w, id, sv::FLAG) == 0) as u32;
     let start = c::pv4(w, id, sv::START);
     let drawn = w.m(id).visible != 0;
-    if k::REACH < c::dist2(p, start) {
+    if crate::weapon_evo::world::motion::range(w,id,k::REACH) < c::dist2(p, start) {
         if drawn {
             for _ in 0..3 {
                 let x = w.rng.randf(-1.0, 1.0);

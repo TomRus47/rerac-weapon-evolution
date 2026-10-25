@@ -430,15 +430,17 @@ pub struct HitRecord {
     /// Port-only: a unique Glove of Doom explosion. Zero for every native/contact hit.
     pub doom_explosion: u64,
     /// Independent weapon event. Native collision templates stay byte-for-byte compatible.
+    pub wrench: bool,
     pub evolution: Option<super::real_hp::Attack>,
 }
 
 impl HitRecord {
     /// Independent hits retain the source identity after projectile deletion/reuse.
     /// Native records keep their original pointer-based behavior.
-    pub(crate) fn attacker_class(&self, table: &MobyTable) -> Option<i16> {
+    pub fn attacker_class(&self, table: &MobyTable) -> Option<i16> {
         self.evolution.and_then(|a| a.origin).map(|o| o.class)
             .or_else(|| self.attacker.and_then(|a| table.mobys.get(a)).map(|m| m.o_class))
+            .or_else(|| self.wrench.then_some(WRENCH_CLASS))
     }
     pub(crate) fn attacker_position(&self, table: &MobyTable) -> Option<[f32; 4]> {
         self.evolution.and_then(|a| a.origin).map(|o| o.position)
@@ -450,6 +452,23 @@ impl HitRecord {
         self.doom_explosion != 0 && self.h2a == 0xba && self.b28 == 2
             && self.b29 == 3 && self.flags == 0x1_0000
     }
+    /// The record names an attacker (+0x20 ≠ 0): a moby, or Ratchet's wrench.
+    pub fn has_attacker(&self) -> bool { self.attacker.is_some() || self.wrench || self.evolution.and_then(|a|a.origin).is_some() }
+
+    /// The attacker's position (`*(attacker + 0x10)`): the attacker moby's; for Ratchet's wrench his hand item's (the
+    /// wrench in hand or in flight), else his own; None when the record names none.
+    pub fn attacker_pos(&self, w: &World) -> Option<[f32; 4]> {
+        if let Some(p) = self.attacker_position(w.table) { return Some(p); }
+        match self.attacker {
+            Some(a) => w.table.mobys.get(a).map(|m| m.position),
+            None if self.wrench => Some(match w.hero.items.slot.item.as_ref().filter(|i| i.o_class == WRENCH_CLASS) {
+                Some(i) => [i.position[0], i.position[1], i.position[2], 1.0],
+                None => w.hero.pos.map(|x| f32::from_bits(x.0)),
+            }),
+            None => None,
+        }
+    }
+
 }
 
 /// Only Doom blasts use this FIFO. Distinct explosions must not replace each
@@ -462,6 +481,9 @@ struct DoomExplosions {
     taken: HashMap<MobyId, u64>,
     resolved: HashMap<MobyId, u64>,
 }
+
+/// Ratchet's wrench (`0x47`).
+pub const WRENCH_CLASS: i16 = 0x47;
 
 /// The attack a sender fills in (the 0x24-byte template the hit functions copy into a record).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -529,7 +551,7 @@ impl HitLog {
     }
 
     pub(crate) fn queue_doom_explosion(&mut self, target: MobyId, t: &HitTemplate, explosion: u64) -> bool {
-        let r = HitRecord { pos: [Pf::ZERO; 4], dir: t.dir, attacker: t.attacker,
+        let r = HitRecord { wrench: false, pos: [Pf::ZERO; 4], dir: t.dir, attacker: t.attacker,
             flags: t.flags, b28: t.b18, b29: t.b19, h2a: t.h1a, damage: t.damage,
             w30: t.w20, target, prim: 0, doom_explosion: explosion, evolution: None };
         let damage = t.damage.to_f32();
@@ -610,6 +632,7 @@ impl HitLog {
             prim,
             doom_explosion: 0,
             evolution: None,
+            wrench: false,
         };
         table.mobys[target].hit_slot = slot;
         self.next = (slot + 1) & 0x3f;
@@ -678,6 +701,9 @@ pub trait SoundSink {
     /// (`0x13e5c0 + slot·0x70` +0x18 owner, +0x20 position), by which one looping voice moves between the emitters of a
     /// class (the laser fences 838, the spouts 855 on Rilgar). Default: nothing.
     fn hand_over(&mut self, _slot: i32, _moby: MobyId, _pos: [f32; 3]) {}
+    /// `0x2982e8(slot, offset)`: the slot's flag 0x40 (follow the owner at a rotated local offset) and its offset
+    /// (+0x30); the owner is not touched (no owner or state test, as the game). Default: nothing.
+    fn set_offset(&mut self, _slot: i32, _offset: [f32; 3]) {}
 }
 
 /// One glint (0x16eec0 + i·0x20): the sparkle drawn on idle bolts.
@@ -976,6 +1002,13 @@ impl EvoStunTracker {
 pub struct Services {
     /// Experimental Bomb Glove XP + editable weapon statistics.
     pub bomb_evo: crate::weapon_evo::Evolution,
+    pub enemies:crate::weapon_evo::world::Enemies,
+    pub motion:crate::weapon_evo::world::motion::Motion,
+    pub population: crate::weapon_evo::world::population::Population,
+    pub golden:crate::weapon_evo::golden::WorldState,
+    /// An isolated optional world pickup; contains no actor-table references.
+    pub gold_shop:crate::weapon_evo::gold_shop::State,
+    pub discovery: crate::weapon_evo::discovery::State,
     /// Per-enemy stun from the Taunter; reset with the planet, never saved.
     pub evo_stuns: EvoStunTracker,
     pub timing: Timing,
@@ -992,6 +1025,9 @@ pub struct Services {
     /// The scene actors' manipulator records 0x17c7c0 / 0x17c800 / 0x17c840 / 0x17c880 and their glow sprites
     /// (`crate::scene_actors`).
     pub actor_records: crate::scene_actors::ActorRecords,
+    /// 0x15f5ac: the page menu's frame holds the elapsed time 0x15ee24 (rc-engine `gameplay::elapsed_frame` reads and
+    /// clears it).
+    pub elapsed_hold: bool,
     /// `0x15f638`: the level's death height (gameplay header +0x28; set by the engine at the load): Veldin's floating
     /// platforms 587 kill Ratchet riding one below it.
     pub death_z: f32,
@@ -1157,6 +1193,11 @@ impl Services {
         self.draw_callbacks = Default::default();
         self.mouse = Default::default();
         self.evo_stuns = Default::default();
+        self.enemies=Default::default();
+        self.motion=Default::default();
+        self.population=Default::default();
+        self.golden.reset_for_reload();
+        self.discovery.reset_for_reload();
         self.units.oltanis_arcs.reset_for_reload(&mut self.point_lights);
         // Every owner belongs to the discarded table, including flame mines.
         // Retain allocation generations so renderer attachment lists notice
@@ -1167,6 +1208,7 @@ impl Services {
     pub fn new() -> Services {
         Services {
             bomb_evo: crate::weapon_evo::Evolution::from_env(),
+            motion:Default::default(),enemies:Default::default(), population:Default::default(), golden:Default::default(), gold_shop:Default::default(),discovery:Default::default(),
             evo_stuns: EvoStunTracker::default(),
             timing: Timing::NTSC,
             level: 1,
@@ -1174,6 +1216,7 @@ impl Services {
             cheats: Default::default(),
             scene_head: None,
             actor_records: Default::default(),
+            elapsed_hold: false,
             death_z: 0.0,
             camera_classes: Vec::new(),
             camera_focus: Vec::new(),
@@ -1629,6 +1672,14 @@ impl HeroFields {
             h.pos = [pf(p.pos[0]), pf(p.pos[1]), pf(p.pos[2]), h.pos[3]];
             h.rot[2] = pf(p.yaw);
             h.target_yaw = pf(p.target_yaw);
+            // `HeroTeleport` 0x2368e0 builds Ratchet's moby rows (+0xc0) from the new Euler before its
+            // `CameraResetBehindHero`, which the camera calls apply next (the snap reads them): without it the camera
+            // snapped behind his facing on the pad he left (the forum's warp pads).
+            if self.calls.iter().flatten().any(|c| matches!(c, HeroCall::Teleport { .. })) {
+                h.rows = crate::hero::physics::euler_rows(h.rot);
+                h.moby_rows = h.rows;
+                h.moby_rot = h.rot;
+            }
         }
     }
 
@@ -1710,6 +1761,8 @@ pub struct World<'a> {
     pub camera_rows: [[f32; 3]; 3],
     /// The current camera's class (`[0x167280]+0x86`, the previous tick's camera update).
     pub camera_class: i32,
+    /// The fly-by's phase while the current camera is class 19 (its D+0x54; 0 otherwise), as [`World::camera_class`].
+    pub camera_flyby_phase: i16,
     /// `0x16d140..`: the view the crate respawn's `FastBSphereCheck` uses (None: never out of view).
     pub view: Option<&'a BSphereView>,
     /// The game's one `rand` stream (shared with the particles and the hero).
@@ -1779,6 +1832,7 @@ impl<'a> World<'a> {
             svc.hits.real_hp = super::real_hp::Events::default();
             svc.hits.real_hp.epoch = svc.bomb_evo.combat_epoch;
         }
+        svc.hits.real_hp.difficulty = svc.bomb_evo.world_settings;
         svc.hits.real_hp.enabled = svc.bomb_evo.real_hp_enabled();
         svc.hits.real_hp.values = svc.bomb_evo.absolute_values();
         svc.hits.real_hp.stream_intervals = svc.bomb_evo.stream_intervals();
@@ -1794,6 +1848,7 @@ impl<'a> World<'a> {
             camera_yaw: 0.0,
             camera_rows: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
             camera_class: 0,
+            camera_flyby_phase: 0,
             view: None,
             rng,
             coll: None,
@@ -1974,6 +2029,12 @@ impl<'a> World<'a> {
         if let Some(s) = self.sound.as_deref_mut() { s.hand_over(slot, id, pos); }
     }
 
+    /// `0x2982e8(slot, offset)`: the slot follows its owner at `offset` ([`SoundSink::set_offset`]; the owner stays).
+    pub fn set_sound_offset(&mut self, slot: i32, offset: [f32; 3]) {
+        if slot < 0 { return; }
+        if let Some(s) = self.sound.as_deref_mut() { s.set_offset(slot, offset); }
+    }
+
     /// `SoundSetPitchBend(slot, pb)` 0x2a1988 ([`SoundSink::set_pitch_bend`]; the game writes slot −1's field too:
     /// memory before the table, nothing here).
     pub fn set_pitch_bend(&mut self, slot: i32, pb: i32) {
@@ -1993,6 +2054,9 @@ impl<'a> World<'a> {
     pub fn create_moby(&mut self, o_class: i16) -> Option<MobyId> {
         let info = self.classes.info(o_class);
         let id = self.table.create(o_class, info.as_ref(), self.counter)?;
+        crate::weapon_evo::world::population::forget(&mut self.svc.population,id);
+        self.svc.motion.forget(id);
+        self.svc.enemies.created(id,info.as_ref().is_none_or(|c|c.ty!=5));
         self.svc.bomb_evo.forget_special_target(id);
         self.svc.hits.forget_doom_target(id);
         self.svc.hits.real_hp.on_spawn(id, o_class);
@@ -2005,6 +2069,8 @@ impl<'a> World<'a> {
     /// `DeleteMoby` 0x2636c0: state 0xfd / 0xfe, the reuse tick, and the grid removal
     /// (`UpdateMobyGrids(moby, 0x80807f7f)`).
     pub fn delete_moby(&mut self, id: MobyId) {
+        self.svc.motion.forget(id);
+        crate::weapon_evo::world::population::forget(&mut self.svc.population,id);
         self.svc.hits.forget_doom_target(id);
         self.table.delete(id, self.counter);
         Arc::make_mut(&mut self.svc.grid).remove(&mut self.table.mobys[id]);
@@ -2488,13 +2554,36 @@ pub struct ServiceHits<'a> {
     pub coll: Option<&'a Collision>,
 }
 
+impl ServiceHits<'_> {
+    /// The records just written from the hero's template `tmpl`: one naming no attacker is the wrench's (the only hero
+    /// hits the game sends from a moby the port keeps out of the table: the swings and the thrown wrench;
+    /// [`HitRecord::wrench`]).
+    fn mark_wrench(&mut self, start: u8, tmpl: &HitTemplate) {
+        if tmpl.attacker.is_some() { return; }
+        let mut s = start;
+        while s != self.svc.hits.next {
+            self.svc.hits.records[s as usize].wrench = true;
+            s = (s + 1) & 0x3f;
+        }
+    }
+}
+
 impl crate::hero::items::HitSink for ServiceHits<'_> {
+    fn stream_snapshot(&mut self, snapshot: Option<super::real_hp::StreamSnapshot>) {
+        self.svc.hits.real_hp.stream_snapshot = snapshot;
+    }
     fn sphere(&mut self, table: &mut MobyTable, r: Pf, centre: V4, flags: u32, ignore: Option<MobyId>, tmpl: &HitTemplate) -> Option<MobyId> {
-        sphere_mobys_in(table, self.svc, self.classes, r, centre, flags, ignore, Some(tmpl)).first().copied()
+        let start = self.svc.hits.next;
+        let out = sphere_mobys_in(table, self.svc, self.classes, r, centre, flags, ignore, Some(tmpl)).first().copied();
+        self.mark_wrench(start, tmpl);
+        out
     }
 
     fn line(&mut self, table: &mut MobyTable, a: V4, b: V4, flags: u32, ignore: Option<MobyId>, tmpl: &HitTemplate) -> Option<Option<MobyId>> {
-        line_hit_in(table, self.svc, self.classes, self.coll, a, b, flags, ignore, tmpl).map(|h| h.moby)
+        let start = self.svc.hits.next;
+        let out = line_hit_in(table, self.svc, self.classes, self.coll, a, b, flags, ignore, tmpl).map(|h| h.moby);
+        self.mark_wrench(start, tmpl);
+        out
     }
 
     fn probe(&mut self, table: &mut MobyTable, a: V4, b: V4, flags: u32, ignore: Option<MobyId>) -> Option<Option<[f32; 3]>> {
@@ -2579,6 +2668,9 @@ impl crate::tick::MobySystem for SharedServices<'_, '_> {
         let mut s = self.svc.borrow_mut();
         deliver_hit_in(table, &mut s.hits, target, tmpl);
     }
+    fn hero_damage_points(&self, table:&MobyTable, hit:&HitRecord)->Option<i32> {
+        let s=self.svc.borrow();s.enemies.hit_points(hit,table,s.level,&s.bomb_evo.world_settings)
+    }
     fn hit_message(&self, table: &MobyTable, target: MobyId) -> Option<HitRecord> { self.svc.borrow().hits.current(table, target).copied() }
     fn take_hero_writes(&mut self) -> Option<HeroFields> { self.svc.borrow_mut().take_hero_writes() }
     fn spline(&self, i: usize) -> Option<Vec<[f32; 4]>> {
@@ -2614,6 +2706,8 @@ impl crate::tick::MobySystem for SharedServices<'_, '_> {
         crate::moby_update::anim_sound::init(&mut table.mobys[id], self.classes.anim(o_class));
         let mut s = self.svc.borrow_mut();
         s.hits.forget_doom_target(id);
+        crate::weapon_evo::world::population::forget(&mut s.population,id);
+        s.enemies.created(id,false);
         s.hits.real_hp.on_spawn(id, o_class);
         if s.snapshots.len() <= id { s.snapshots.resize(id + 1, None); }
         s.snapshots[id] = None;
@@ -2622,6 +2716,7 @@ impl crate::tick::MobySystem for SharedServices<'_, '_> {
     fn delete_moby(&mut self, table: &mut MobyTable, id: MobyId, counter: u64) {
         table.delete(id, counter);
         let mut s = self.svc.borrow_mut();
+        crate::weapon_evo::world::population::forget(&mut s.population,id);
         s.hits.forget_doom_target(id);
         Arc::make_mut(&mut s.grid).remove(&mut table.mobys[id]);
     }
@@ -2657,6 +2752,27 @@ pub fn normalize_angle(a: Pf) -> Pf {
 mod tests {
     use super::*;
     use crate::particles::type11;
+
+    /// A class's `HeroTeleport` turns Ratchet's moby rows to the new yaw when its stores land, before the camera calls
+    /// (its `CameraResetBehindHero` snaps behind those rows): the warp pads on Gemlik left the camera facing the old way.
+    #[test]
+    fn a_class_teleport_turns_the_moby_rows_before_the_camera_reset() {
+        let mut h = Hero::new();
+        h.rot = [Pf::ZERO; 4];
+        h.moby_rows = crate::hero::physics::euler_rows(h.rot);
+        let mut f = HeroFields::of(&h);
+        let yaw = std::f32::consts::FRAC_PI_2;
+        f.pose = Some(HeroPose { pos: [10.0, 20.0, 30.0], yaw, target_yaw: yaw });
+        f.call(HeroCall::Teleport { state: 0 });
+        f.apply(&mut h);
+        let fwd = h.moby_rows[0].map(|x| x.to_f32());
+        assert!(fwd[0].abs() < 1e-3 && (fwd[1] - 1.0).abs() < 1e-3, "facing {fwd:?}");
+        // A pose store without a teleport (a class carrying Ratchet) leaves the rows to the hero's write-back.
+        let mut f = HeroFields::of(&h);
+        f.pose = Some(HeroPose { pos: [10.0, 20.0, 30.0], yaw: 0.0, target_yaw: 0.0 });
+        f.apply(&mut h);
+        assert!((h.moby_rows[0][1].to_f32() - 1.0).abs() < 1e-3);
+    }
 
     /// `SetDeathBits` writes the persistent bits straight into the save's chunk 3005 (0x14c190 + L·0x100), and the load's
     /// spawn test / `CollectBolt` the spawner slots into chunk 3006: the save and the next arrival see them.
@@ -2705,6 +2821,36 @@ mod tests {
 
     /// `World::part11` is `type11::spawn` (plus the spawn counters): same draws, same record, for each frame load,
     /// with and without a free record, and throttle-only without a particle system.
+    /// The hero's swings send their hit with no table attacker (the wrench is his hand item): the records they write are
+    /// the wrench's, so classes that test `attacker->class` (Orxon's lava rocks, the mines) see class 0x47 and Ratchet's
+    /// hand, as with the original's wrench moby; records from a template naming an attacker stay that attacker's.
+    #[test]
+    fn hero_hits_with_no_attacker_are_the_wrenchs() {
+        let mut hero = Hero::new();
+        hero.pos = crate::hero::physics::v4(1.0, 2.0, 3.0);
+        let classes = ClassTable::default();
+        let mut svc = Services::new();
+        svc.hits.next = 0x3e;
+        {
+            let mut sink = ServiceHits { svc: &mut svc, classes: &classes, coll: None };
+            sink.svc.hits.next = 0x01; // two records written, wrapping the ring
+            sink.mark_wrench(0x3e, &HitTemplate::default());
+            sink.svc.hits.next = 0x02;
+            sink.mark_wrench(0x01, &HitTemplate { attacker: Some(0), ..HitTemplate::default() });
+        }
+        let r = &svc.hits.records;
+        assert!(r[0x3e].wrench && r[0x3f].wrench && r[0x00].wrench);
+        assert!(!r[0x01].wrench && !r[0x3d].wrench);
+        let mut table = MobyTable::new(Vec::new(), 1);
+        let mut rng = Rng::new();
+        let w = World::new(&mut table, &hero, &mut rng, &classes, &mut svc, 0);
+        let (wrench, none) = (w.svc.hits.records[0x3e], HitRecord::default());
+        assert_eq!(wrench.attacker_class(w.table), Some(WRENCH_CLASS));
+        assert!(wrench.has_attacker());
+        assert_eq!(wrench.attacker_pos(&w).map(|p| [p[0], p[1], p[2]]), Some([1.0, 2.0, 3.0]));
+        assert_eq!((none.attacker_class(w.table), none.has_attacker(), none.attacker_pos(&w)), (None, false, None));
+    }
+
     #[test]
     fn part11_is_type11_spawn_draw_for_draw() {
         let hero = Hero::new();

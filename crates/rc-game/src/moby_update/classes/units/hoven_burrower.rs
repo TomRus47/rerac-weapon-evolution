@@ -218,7 +218,7 @@ fn dust(w: &mut World, at: c::V) {
         let t1 = w.rng.randf(1.0, 10.0) as i32;
         let t2 = w.rng.randf(15.0, 25.0) as i32;
         let t3 = w.rng.randf(40.0, 70.0) as i32;
-        let s = crate::particles::type02::Spawn { pos: p, v1, v2, c1: 0xa0f0_e8e0, c2: 0x20f0_e8e0, t: [t1, t2, t3], def: -1 };
+        let s = crate::particles::type02::Spawn { pos: p, v1, v2, c1: 0xa0f0_e8e0, c2: 0x20f0_e8e0, t: [t1, t2, t3], def: 0x1_0017 }; // gp−0x5334: def[0x17], additive
         fx::part02(w, &s);
     }
 }
@@ -415,7 +415,7 @@ fn idle(w: &mut World, id: MobyId, tpos: c::V) {
     let p = c::pos(w, id);
     let d = c::dist3(tpos, home);
     let off = c::diff_rots(c::yaw(w, id), heading_to(p, tpos));
-    if d < c::pf(w, id, pv::RANGE) && (p[2] - tpos[2]).abs() < 4.0 {
+    if d < crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, pv::RANGE)) && (p[2] - tpos[2]).abs() < 4.0 {
         set_state(w, id, 3);
         if 0.959_931_1 <= off {
             blend_n(w, id, 0x11, 5);
@@ -470,7 +470,7 @@ fn chase(w: &mut World, id: MobyId, tpos: c::V) {
         w.mm(id).cmd = 0;
         return;
     }
-    if c::len3(v) < c::pf(w, id, pv::RANGE) + 5.5 && (p[2] - tpos[2]).abs() < 4.4 {
+    if c::len3(v) < crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, pv::RANGE)) + 5.5 && (p[2] - tpos[2]).abs() < 4.4 {
         tell(w, id, 1);
         w.mm(id).cmd = 0;
         return;
@@ -524,7 +524,7 @@ fn home(w: &mut World, id: MobyId, tpos: c::V) {
         w.mm(id).cmd = 0;
         return;
     }
-    if d < c::pf(w, id, pv::RANGE) {
+    if d < crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, pv::RANGE)) {
         if w.ticks(0x46) < n {
             tell(w, id, 1);
             to_chase(w, id);
@@ -540,7 +540,7 @@ fn home(w: &mut World, id: MobyId, tpos: c::V) {
 fn jump_out(w: &mut World, id: MobyId, tpos: c::V) {
     let home = c::pv4(w, id, pv::HOME);
     turn::spring_turn2_pvar(w, id, heading_to(c::pos(w, id), home), 0.05, f32::from_bits(0x3e99_999a), f32::from_bits(0x3e4c_cccd), pv::TURN_V);
-    let near = c::len3(c::sub(tpos, home)) < c::pf(w, id, pv::RANGE) && (home[2] - tpos[2]).abs() < 8.0;
+    let near = c::len3(c::sub(tpos, home)) < crate::weapon_evo::world::chase_range(w,id,c::pf(w, id, pv::RANGE)) && (home[2] - tpos[2]).abs() < 8.0;
     if !near && w.m(id).cmd != 2 { return; }
     tell(w, id, 2);
     let kr = pv::K;
@@ -582,10 +582,10 @@ pub fn update(w: &mut World, id: MobyId) {
     if w.m(id).pvars.len() < pv::SIZE { return; }
     tick(w, id);
     manip::big_head_scale(w, 2.2, id, pv::LOOK);
-    let range = c::pf(w, id, pv::RANGE);
+    let range = crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, pv::RANGE));
     let t = target::acquire(w, id, range);
     let (tm, tpos) = target_of(w, &t);
-    if c::pos(w, id)[2] < 26.0 {
+    if c::pos(w, id)[2] < if w.svc.level==12 {26.0} else {w.svc.death_z} {
         w.delete_moby(id);
         return;
     }

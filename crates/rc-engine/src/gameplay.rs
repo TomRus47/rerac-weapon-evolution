@@ -148,7 +148,8 @@ fn give_items() -> Option<Vec<usize>> {
 }
 
 /// `RC_PLAY` (default on; `0` = fly camera only).
-pub fn enabled() -> bool { !std::env::var("RC_PLAY").is_ok_and(|v| v.trim() == "0") }
+/// Going Commando has no game tick yet (its logic is rc-game2's, docs/plan/rac2_bringup.md §6.3 F).
+pub fn enabled() -> bool { !std::env::var("RC_PLAY").is_ok_and(|v| v.trim() == "0") && crate::disc_source::current() == crate::disc_source::Game::Rac1 }
 
 /// The boot's game state: a direct boot into level `index` (`load_game_state`) with the debug grants applied. Built
 /// once, before the boot's level load (its spawn bits, [`level_spawn_save`]), and handed to [`GameplayPlugin`].
@@ -273,6 +274,7 @@ impl Plugin for GameplayPlugin {
                 (setup, input_map::sample_system, set_budget, keys).chain().after(bevy::input::InputSystems),
             )
             .add_systems(FixedUpdate, tick.in_set(GameTick).before(crate::particle_render::tick))
+            .add_systems(FixedUpdate, elapsed_frame.after(GameTick).after(crate::menu_render::MenuFrameSet))
             .add_systems(Update, (show_reloaded, debug_dump, respawn_probe))
             .add_systems(PostUpdate, ratchet_visibility.before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate))
             .add_systems(RunFixedMainLoop, play_camera::apply.in_set(RunFixedMainLoopSystems::AfterFixedMainLoop))
@@ -305,6 +307,19 @@ pub struct GameTick;
 /// The persistent game state (what the memory card saves), `rc_game::game_state`.
 #[derive(Resource)]
 pub struct Persistent(pub GameState);
+
+/// `FUN_00226e08` (level01 0x29aa10), called at the end of every frame of the main loop (`entry` 0x259c40; boot
+/// 0x2326b4 / 0x232708 / 0x232748) whatever the mode (unlike the play time 0x15eea4 of the tick): the elapsed time
+/// 0x15ee24 + 1 per 60 Hz frame, unless 0x15f5ac is set: `SceneController` 0x28c990 sets it on the page menu's frames
+/// of kinds 2 (the pause menu's root page) / 0x1a / 0x1e / 0x1f, and the menu modes' frame path clears it after the
+/// call, so those frames do not count (the PAL +10 per 50 frames does not apply, NTSC only). After the menu frame, so
+/// it sees that frame's flag. The save slots show it as `hh:mm` (rc_game::menus::pause::saves); without it they
+/// stayed at 00:00 (GitHub #8).
+fn elapsed_frame(state: Option<ResMut<Persistent>>, play: Option<ResMut<Play>>) {
+    let hold = play.is_some_and(|mut p| std::mem::take(&mut p.svc.elapsed_hold));
+    if hold { return; }
+    if let Some(mut s) = state { s.0.global.elapsed = s.0.global.elapsed.wrapping_add(1); }
+}
 
 /// The session-only state (hero HP, temporary items, Clank hidden, tick scale).
 #[derive(Resource)]
@@ -363,6 +378,19 @@ fn item_data(lv: &crate::level_load::LoadedLevel) -> anyhow::Result<ItemTablesOu
         item_targets.push((g.moby.o_class as i16, targets));
         classes.push(ItemClass { o_class: g.moby.o_class as i16, anim: rc_formats::moby_anim::MobyAnimClass::new(c, seqs), scale: c.header.scale, chains });
     }
+    // The Swingshot's hook (0xd1) is a class of the level, not of the gadget table (`0x2dcbf0`'s `CreateMoby`;
+    // crate::moby_attach draws it from there too): the claws' animation (rc_game::hero::swingshot's hook update) needs
+    // its sequences, or the hook stays on its first frame with the claws folded.
+    let hook = rc_game::hero::swingshot::HOOK_CLASS;
+    if !classes.iter().any(|c| c.o_class == hook) {
+        if let Some(ci) = lv.mobys.classes.iter().position(|c| c.o_class == hook as i32) {
+            let c = &lv.mobys.classes[ci].class;
+            let chains = crate::interact_render::class_blob(hook as i32)
+                .map(|b| (0..16).map_while(|l| gadget::joint_list(&b, &c.header, l).ok().map(|(a, _)| a)).collect())
+                .unwrap_or_default();
+            classes.push(ItemClass { o_class: hook, anim: lv.mobys.anim[ci].clone(), scale: c.header.scale, chains });
+        }
+    }
     let ammo = tables.records.iter().map(|r| (r.has_ammo(), u16::from_le_bytes([r.0[0xe], r.0[0xf]]))).collect();
     Ok((ItemData { defs, hero_chains, classes }, ammo, weapon_defs, seconds, firsts, item_targets))
 }
@@ -386,6 +414,7 @@ impl rc_game::tick::MobySystem for HeroWorld<'_, '_, '_, '_> {
     fn build_matrix(&mut self, table: &mut MobyTable, id: MobyId) { self.world.build_matrix(table, id) }
     fn deliver_hit(&mut self, table: &mut MobyTable, target: MobyId, tmpl: &HitTemplate) { self.world.deliver_hit(table, target, tmpl) }
     fn water(&self) -> Option<&dyn rc_game::hero::swim::WaterQuery> { Some(&self.water) }
+    fn hero_damage_points(&self,table:&MobyTable,hit:&rc_game::moby_update::services::HitRecord)->Option<i32>{self.world.hero_damage_points(table,hit)}
     fn hit_message(&self, table: &MobyTable, target: MobyId) -> Option<rc_game::moby_update::services::HitRecord> { self.world.hit_message(table, target) }
     fn take_hero_writes(&mut self) -> Option<rc_game::moby_update::services::HeroFields> { self.world.take_hero_writes() }
     fn spline(&self, i: usize) -> Option<Vec<[f32; 4]>> { self.world.spline(i) }
@@ -425,6 +454,10 @@ struct CellHits<'a, 'b, 'c> {
 }
 
 impl HitSink for CellHits<'_, '_, '_> {
+    fn stream_snapshot(&mut self, snapshot: Option<rc_game::moby_update::real_hp::StreamSnapshot>) {
+        let mut services = self.svc.borrow_mut();
+        ServiceHits { svc: &mut services, classes: self.classes, coll: Some(self.coll) }.stream_snapshot(snapshot);
+    }
     fn sphere(&mut self, table: &mut MobyTable, r: rc_game::ps2v::Pf, centre: [rc_game::ps2v::Pf; 4], flags: u32, ignore: Option<MobyId>, tmpl: &HitTemplate) -> Option<MobyId> {
         let mut s = self.svc.borrow_mut();
         ServiceHits { svc: &mut s, classes: self.classes, coll: Some(self.coll) }.sphere(table, r, centre, flags, ignore, tmpl)
@@ -536,12 +569,29 @@ fn load_game_state(root: &std::path::Path, index: u32) -> anyhow::Result<(GameSt
         Ok(ItemTables::load(&elf, &crate::disc_source::level_file(root, l, "overlay.bin").with_context(|| format!("level {l:02} overlay"))?)?)
     };
     let mut gs = GameState::new_game(ChunkTables::from_boot_elf(&elf)?, &lump.template)?;
+    if rc_game::weapon_evo::location_test::enabled() {
+        anyhow::ensure!(gs.weapon_progress.golden.active(),
+            "location test: a valid editable weapon profile is required");
+        // No final-battle gameplay is read here. Tier-0 gameplay files are
+        // WAD-compressed; parsing one as raw data previously dropped the entire
+        // persistent boot state, disabling menus and the reward layout.
+        rc_game::weapon_evo::location_test::prepare_new_game(&mut gs);
+    }
     let mut sess = SessionState::default();
     gs.apply_level_start(0, &items(0)?, &mut sess);
     if index >= 1 {
         gs.on_veldin_clank_init(&mut sess);
         gs.apply_transition(index as i32);
         gs.apply_level_start(index as i32, &items(index)?, &mut sess);
+    }
+    if rc_game::weapon_evo::location_test::enabled() {
+        println!("location test: persistent state ready; Veldin II, ship 2, all missions complete, zero collected gold bolts, layout seed {}", gs.weapon_progress.golden.seed);
+    }
+    if rc_game::weapon_evo::gemlik_test::enabled() {
+        rc_game::weapon_evo::gemlik_test::prepare_new_game(&mut gs);
+        sess.hp=gs.global.max_hp;
+        sess.temp_hand=8;
+        println!("Gemlik NG+ test: V5 weapons, 40 Gold Bolts, 5000000 bolts; independent test memory card");
     }
     Ok((gs, sess))
 }
@@ -879,7 +929,7 @@ pub fn level_reactions() -> &'static std::collections::HashMap<i16, rc_game::mob
     level_reactions_for(&crate::level_load::extracted_root(), crate::level_load::level_index())
 }
 
-fn level_reactions_for(root: &std::path::Path, index: u32) -> &'static std::collections::HashMap<i16, rc_game::moby_update::creature::react::Table> {
+pub(crate) fn level_reactions_for(root: &std::path::Path, index: u32) -> &'static std::collections::HashMap<i16, rc_game::moby_update::creature::react::Table> {
     static T: crate::level_load::PerLevel<std::collections::HashMap<i16, rc_game::moby_update::creature::react::Table>> = [const { std::sync::OnceLock::new() }; 20];
     T[index.min(19) as usize].get_or_init(|| {
         let overlay = |l| parsed_overlay(root,l);
@@ -956,12 +1006,21 @@ fn class_table(lv: &crate::level_load::LoadedLevel, ext: &dyn Fn(i16) -> Option<
     t
 }
 
+/// Whether the loader fills `o`'s joint lists into `Services::joint_lists`: a port whose update reads joint points
+/// (`rc_game::moby_update::classes::needs_joint_lists`), or a scene actor class `rc_game::scene_actors` reads
+/// ([`rc_game::scene_actors::ACTOR_CLASSES`]: Clank's antenna sprite at joint list 1 / 6, which the scene / space
+/// modes 2 / 6 draw, and Ratchet's head manipulator and helmet — the class's own lists, so without them the sprite
+/// sat at the actor's origin and the head scale / helmet were missing).
+fn wants_joint_lists(o: i16) -> bool {
+    rc_game::scene_actors::ACTOR_CLASSES.contains(&(o as i32)) || level_ports().needs_joint_lists(o)
+}
+
 /// The joint lists of the classes whose update reads joint points (`rc_game::moby_update::classes::needs_joint_lists`,
 /// `Services::joint_lists`), from their blobs in the level core (as `menu_render::load_frame_class`).
 /// With them, per class, each list's manipulator target joint (`Services::joint_targets`, `rc_game::moby_update::manip`).
 type JointLists = (HashMap<i16, Vec<Vec<u8>>>, HashMap<i16, Vec<u8>>);
 fn class_joint_lists(lv: &crate::level_load::LoadedLevel) -> anyhow::Result<JointLists> {
-    let both = class_joint_data_where(lv, |o| o == 1818 || level_ports().needs_joint_lists(o))?;
+    let both = class_joint_data_where(lv, |o| o == 1818 || wants_joint_lists(o))?;
     let targets = both.iter().map(|(o, l)| (*o, l.iter().map(|(_, s)| rc_formats::moby_anim::list_target(s).unwrap_or(0xff)).collect())).collect();
     Ok((both.into_iter().map(|(o, l)| (o, l.into_iter().map(|(a, _)| a).collect())).collect(), targets))
 }
@@ -1109,7 +1168,14 @@ fn moby_table(lv: &crate::level_load::LoadedLevel, classes: &mut ClassTable, shi
     let spawned: Vec<bool> = tests.iter().map(|t| t.spawn).collect();
     let pvars = rc_formats::gameplay::parse_pvars_spawned(&lv.gameplay, &spawned)?;
     let statics = scheduler::load_level_mobys(insts, classes, &pvars, &tests);
-    let mut table = MobyTable::new(statics.mobys.clone(), spawnable_count(&lv.gameplay).max(1));
+    // Use the level's native dynamic actor budget.
+    // Extra creatures (and their weapons) must not consume the native actor pool.
+    let extras = rc_game::weapon_evo::profile_extra_enemy_count();
+    let dynamic_count = spawnable_count(&lv.gameplay).max(1)
+        + if rc_game::weapon_evo::location_test::enabled() {rc_game::weapon_evo::location_test::actor_reserve(level)} else {0}
+        // A duplicated Amoeboid reserves its full seven-actor split family.
+        + if extras == 0 { 0 } else { 32 + extras * 7 };
+    let mut table = MobyTable::new(statics.mobys.clone(), dynamic_count);
     let mut ship_id = None;
     if let Some(s) = ship {
         let inst = &m.instances[s];
@@ -1181,6 +1247,20 @@ impl DynMobys {
 /// The gameplay instances' moby entities (not the attachments).
 type GameplayEntities<'w, 's> = Query<'w, 's, (Entity, &'static MeshTag), (With<MeshMaterial3d<MobyMaterial>>, Without<AttachedTo>)>;
 
+/// Resolve a reward name through the native inventory definition and the
+/// current language's font bytes. Disc reads are cached by disc_source and this
+/// runs only for a successful pickup, never in the steady-state update loop.
+pub(crate) fn golden_item_name(item:usize,address:u32,root:&std::path::Path,index:u32,
+    messages:&[rc_formats::strings::Message])->Vec<u8> {
+    let Some(overlay)=crate::disc_source::level_file(root,index,"overlay.bin").ok() else {return Vec::new();};
+    let Some(sections)=rc_formats::font::parse_overlay_sections(&overlay).ok() else {return Vec::new();};
+    let count=rc_formats::save_game::ITEM_COUNT*rc_formats::save_game::ITEM_DEF_SIZE;
+    let Some(raw)=rc_formats::font::read_overlay(&sections,address,count) else {return Vec::new();};
+    let infos=rc_game::inventory::ItemInfos::from_raw(raw);
+    let Some(info)=infos.get(item as i32) else {return Vec::new();};
+    messages.iter().find(|m|m.id==info.name && !m.text.is_empty()).map(|m|m.text.clone()).unwrap_or_default()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn setup(
     mut done: Local<bool>,
@@ -1243,6 +1323,12 @@ fn setup(
             if let Some(&y) = v.get(3) { m.rotation[2] = y; }
             println!("gameplay: RC_HERO_AT: Ratchet placed at {:?}, yaw {}", &v[..3], m.rotation[2]);
         }
+    }
+    if rc_game::weapon_evo::gemlik_test::enabled() && level_index == 13 {
+        let at=rc_game::weapon_evo::discovery::State::from_gameplay(13,&lv.gameplay).location();
+        let Some(at)=at else {eprintln!("Gemlik test: Gold room anchors unavailable; refusing an incorrect spawn");return;};
+        table.mobys[hero_id].position=[at[0],at[1],at[2]+0.5,1.];
+        println!("Gemlik test: spawning Ratchet in the upper Gold room at {:?}",at);
     }
     let spawn_moby = table.mobys[hero_id].clone();
     let opts = state.as_ref().map(|s| s.0.options());
@@ -1307,8 +1393,18 @@ fn setup(
 
     // The moby loop's services and the load pass (counter 0) on the game's stream.
     let mut svc = Services::new();
-    if let Some(s) = state.as_ref() { svc.bomb_evo.restore_progress(&s.0.weapon_progress); }
+    if let Some(s) = state.as_ref() { svc.bomb_evo.configure_ng_plus(s.0.global.completes>0);svc.bomb_evo.restore_progress(&s.0.weapon_progress);
+        let migrated=svc.bomb_evo.migrate_legacy_gold(&s.0.global.gold_weapons);
+        if migrated>0 { println!("weapon evolution: restored {migrated} previously purchased Gold weapons to V6"); }
+    }
     svc.level = level_index;
+    if svc.bomb_evo.enabled || svc.bomb_evo.golden_settings.enabled {
+        svc.discovery = rc_game::weapon_evo::discovery::State::from_gameplay(level_index, &lv.gameplay);
+    }
+    if svc.bomb_evo.golden_settings.enabled {
+        svc.golden=rc_game::weapon_evo::golden::WorldState::from_gameplay(
+            level_index,&svc.bomb_evo.golden_progress(),&lv.gameplay,svc.discovery.location());
+    }
     svc.death_z = lv.death_z;
     // The persistent death bits the classes latch on (0x14c190: the save's memory in the game).
     if let Some(s) = state.as_ref() { svc.load_death_bits(&s.0); }
@@ -1395,6 +1491,20 @@ fn setup(
         }
         Err(e) => eprintln!("gameplay: no body joint lists ({e:#}): Clank / Giant Clank's joint points sit at the body's origin"),
     }
+    // The scene actors' classes (rc_game::scene_actors, game modes 2 / 6): Ratchet's (0) head manipulator target (list
+    // 0x18) and the Clank actors' (10, 0x1a3, 0x555) joint lists 1 / 6 for their antenna sprite and 1 / 2 for the noggin.
+    // Without them the sprite sat at the actor's origin, his feet.
+    match class_joint_data_where(lv, |o| matches!(o, 0 | 10 | 0x1a3 | 0x555)) {
+        Ok(m) => {
+            for (o, l) in m {
+                let targets: Vec<u8> = l.iter().map(|(_, s)| rc_formats::moby_anim::list_target(s).unwrap_or(0xff)).collect();
+                svc.joint_targets.entry(o).or_insert(targets);
+                // (Class 0 is the hero moby's too: only its manipulator targets, so no other joint query on Ratchet changes.)
+                if o != 0 { svc.joint_lists.entry(o).or_insert_with(|| l.into_iter().map(|(a, _)| a).collect()); }
+            }
+        }
+        Err(e) => eprintln!("gameplay: the scene actors' classes: no joint lists ({e:#})"),
+    }
     // A ship class the level itself carries (Gemlik's placed 533, which `rc_game::travel::ship::adopt` makes the ship): its
     // joint lists from the level's class, as for any class (the canopy glass sits on joint list 0).
     match class_joint_data_where(lv, |o| rc_game::travel::ship::CLASSES.contains(&o)) {
@@ -1418,6 +1528,9 @@ fn setup(
     svc.groups = statics.groups(&lv.gameplay);
     // The "use" system: talk tables, text, talk slots, save values (crate::interact_render; before the load pass).
     crate::interact_render::install(&mut svc, lv, &statics.instance_to_moby, state.as_ref().map(|s| &s.0));
+    // InitLevelRenderGlobals: the ship it creates is the hook slot 0 (`MobyUnknown74Hook(ship, 0)`: the map's ship
+    // marker); an adopted ship (level 13's 533, 0x13e030 set by `0x2a2360`) is not created, so not hooked.
+    if let Some(id) = ship_id.filter(|_| !crate::level_load::ship_adopted()) { svc.interact.register_talk_mobys([(id, 0)]); }
     if let Some(gs) = &state {
         svc.counters.bolts = gs.0.global.bolts;
         // 0x15ee20 (the challenge-gated pads 1135 and gold-weapon offers read it) and 0x13e520.
@@ -1870,6 +1983,7 @@ fn death_reload(p: &mut Play, lv: &crate::level_load::LoadedLevel, state: Option
     // go with them (the ids are the old table's).
     if let Some(ps) = particles {
         ps.sys.pool.level_init();
+        ps.sys.hostile_clocks.clear();
         ps.sys.anchors.clear();
         ps.sys.anchor_scales.clear();
         ps.sys.joint_anchors.clear();
@@ -1919,6 +2033,7 @@ fn death_reload(p: &mut Play, lv: &crate::level_load::LoadedLevel, state: Option
     p.svc.hits = Default::default();
     // The "use" system's talk slots and save values by the new instance → moby map (before the load pass, as the load).
     crate::interact_render::install(&mut p.svc, lv, &statics.instance_to_moby, state);
+    if let Some(id) = ship_id.filter(|_| !crate::level_load::ship_adopted()) { p.svc.interact.register_talk_mobys([(id, 0)]); }
     p.svc.build_grid(&mut p.game.mobys);
     p.reload_shown = shown;
     println!(
@@ -2254,8 +2369,9 @@ fn tick(
         reload_load_pass(p, coll, particles.as_deref_mut(), state.as_deref().map(|s| s.0.global.vendor));
         if let Some(a) = audio.as_deref_mut() { a.system().death_reload(checkpoint); }
         // The main loop's `fun_001fee88` after the reload (L01 0x259c40, as at the level's first load): every HUD slot
-        // emptied and hidden at once, so an element shown at the death (the oxygen meter of a drowning) does not linger.
-        if let Some(f) = hud_feed.as_deref_mut() { f.reset = f.reset.wrapping_add(1); }
+        // emptied and hidden at once, so an element shown at the death (the oxygen meter of a drowning) does not linger;
+        // unlike the vendor's `FUN_0024fb00` it leaves the ammo counter shown (the port held it off until a vendor).
+        if let Some(f) = hud_feed.as_deref_mut() { f.empty = f.empty.wrapping_add(1); }
         println!("gameplay: death reload done: respawned at {}", if checkpoint { "the checkpoint" } else { "the uid-0 moby" });
     }
 
@@ -2302,6 +2418,7 @@ fn tick(
         w.camera_yaw = cam.yaw().to_f32();
         w.camera_rows = cam.rows_f32();
         w.camera_class = cam.class;
+        w.camera_flyby_phase = cam.flyby_phase;
         w.coll = Some(coll);
         w.particles = parts.as_deref_mut().map(|p| &mut p.sys);
         w.view = view_cull.as_ref();
@@ -2362,6 +2479,16 @@ fn tick(
             }
         }
     }
+    if let Some(gs)=state.as_deref_mut() {
+        let mut svc=svc_cell.borrow_mut();
+        svc.bomb_evo.configure_ng_plus(gs.0.global.completes>0);
+        let gold_flags=gs.0.global.gold_weapons;
+        svc.bomb_evo.sync_gold_progress(&mut gs.0.weapon_progress, &gold_flags);
+        let native=rc_game::weapon_evo::world::native_nanotech(&gs.0.global.flags);
+        svc.bomb_evo.nanotech_native_max=native;
+        gs.0.global.max_hp=svc.bomb_evo.nanotech.max_health(&svc.bomb_evo.world_settings,native);
+        svc.counters.max_hp=gs.0.global.max_hp;
+    }
     if let Some(gs) = state.as_deref() {
         p.game.hero.weapons.ammo = gs.0.global.ammo;
         p.game.hero.owned.0 = gs.0.global.owned;
@@ -2411,7 +2538,7 @@ fn tick(
         // Weapon Evolution v0.1.3: Pyrocitor's independent level, gold effect and ammo cap.
         // This is the same RefCell scope as the Bomb Glove and does not change save flags.
         if svc.bomb_evo.pyro.enabled {
-            let stats = svc.bomb_evo.pyro.current();
+            let stats = svc.bomb_evo.effective_pyro();
             let gold = u8::from(stats.gold);
             p.game.hero.weapons.gold[16] = gold;
             if let Some(slot) = svc.counters.gold_weapons.get_mut(16) { *slot = gold; }
@@ -2432,6 +2559,7 @@ fn tick(
                 if id == 21 { svc.creatures.react.gold_morph = g; }
             }
         }
+        svc.bomb_evo.apply_upgrade_refills(&mut p.game.hero.weapons,&gs.0.global.owned);
         svc.bomb_evo.apply_ammo_limits(&mut p.game.hero.weapons);
     }
     // Max health 0x15eda0 (the nanotech orbs heal up to it) and the bolt grabber 0x13d4e2 (item 34: the pickup
@@ -2479,9 +2607,27 @@ fn tick(
     // The hero's animation: Ratchet's, or the body moby's while a body is the hero moby (rc_game::hero::bodies).
     let mut anim_ctl = rc_game::hero::anim::HeroAnimCtl { ratchet: p.ratchet.ctl(class), body: &mut p.body_anim, classes: &body_class };
     let sound = if has_audio { Some(&mut sound as &mut rc_game::tick::SoundHook) } else { None };
+    let health_before=p.game.hero.health;
+    let loss_before=p.game.hero.damage.health_loss_events;
     let report = p.game.tick_with_hero_sounds(Some(&input.bytes()), coll, &mut anim_ctl, &mut hooks, &mut hits, sound, &mut hero_sounds);
+    if p.game.hero.damage.health_loss_events>loss_before || p.game.hero.health<health_before {
+        svc_cell.borrow_mut().bomb_evo.bolt_chain.hurt();
+    }
     // Resolve XP for read-only target acquisition after the mutating game tick.
     svc_cell.borrow_mut().bomb_evo.drain_special();
+    if let Some(gs)=state.as_ref() {
+        // Spend upgrade rewards before the inventory is synchronized back and
+        // Ammo-Survival can lock an empty weapon after its final damaging shot.
+        svc_cell.borrow_mut().bomb_evo.apply_upgrade_refills(&mut p.game.hero.weapons,&gs.0.global.owned);
+    }
+    {
+        let mut svc=svc_cell.borrow_mut();
+        let max=svc.bomb_evo.nanotech.max_health(&svc.bomb_evo.world_settings,svc.bomb_evo.nanotech_native_max);
+        let gain=std::mem::take(&mut svc.bomb_evo.nanotech_pending_heal) as i32;
+        svc.counters.max_hp=max;
+        if p.game.hero.health>0 && p.game.hero.mode==0 {p.game.hero.health=(p.game.hero.health+gain).min(max);}
+        if let Some(gs)=state.as_mut(){gs.0.global.max_hp=max;}
+    }
     // Keep the live state across planet changes and capture it with normal saves.
     // A slot load/new game takes precedence over the previous world's live XP.
     if let Some(gs) = state.as_mut() { svc_cell.borrow_mut().bomb_evo.sync_progress(&mut gs.0.weapon_progress); }
@@ -2566,8 +2712,35 @@ fn tick(
                     .zip(crate::disc_source::level_file(&root, index, "overlay.bin").ok())
                     .and_then(|(elf, ov)| ItemTables::load(&elf, &ov).ok());
                 match (tables, session.as_mut()) {
-                    (Some(t), Some(s)) if item < rc_formats::save_game::ITEM_COUNT => gs.0.give_item(item, equip, &t, &mut s.0),
-                    _ => println!("interact: GiveItem({item}) not applied (no item tables or session)"),
+                    (Some(t), Some(s)) if item < rc_formats::save_game::ITEM_COUNT => {
+                        if p.svc.golden.pending(item) {
+                            let land=equip && !rc_game::weapon_evo::golden::is_swimming(&p.game.hero);
+                            let granted=rc_game::weapon_evo::golden::grant_with_equip(&mut gs.0,&mut s.0,&t,item,
+                                &p.svc.bomb_evo.ammo_mode_settings,land);
+                            if granted {
+                                if land { request_acquisition_demo(p,&root,index,t.item_defs_addr,item); }
+                                else { request_pickup_jingle(&root); }
+                            }
+                            p.svc.bomb_evo.commit_golden_reward(gs.0.weapon_progress.golden);
+                            p.svc.golden.finish(item);
+                            // Item-name IDs come from the same native table as
+                            // the inventory/HUD, never a guessed pickup message.
+                            let native_name=golden_item_name(item,t.item_defs_addr,&root,index,&p.svc.interact.messages);
+                            let text=rc_game::weapon_evo::golden::localized_notice(item,p.svc.interact.lang,&native_name);
+                            rc_game::cinematic::text_banner_call(&mut p.svc.cinematic,text,rc_game::menus::scale_ticks(300));
+                            p.svc.cinematic.requests.push(rc_game::cinematic::EngineRequest::Save);
+                        } else if item == rc_game::weapon_evo::discovery::ITEM && p.svc.discovery.grant_pending() {
+                            rc_game::weapon_evo::discovery::grant(&mut gs.0, &mut s.0, &t, &p.svc.bomb_evo.ammo_mode_settings);
+                            request_acquisition_demo(p,&root,index,t.item_defs_addr,item);
+                            p.svc.discovery.finish_grant();
+                        } else {
+                            gs.0.give_item(item, equip, &t, &mut s.0);
+                        }
+                    },
+                    _ => {
+                        p.svc.golden.finish(item);
+                        println!("interact: GiveItem({item}) not applied (no item tables or session)");
+                    },
                 }
             }
         }
@@ -2585,6 +2758,9 @@ fn tick(
     let collected = std::mem::take(&mut p.svc.counters.ammo_mode_bolts);
     if let (Some(gs), Some(sess)) = (state.as_deref_mut(), session.as_deref_mut()) {
         rc_game::weapon_evo::ammo_mode::reconcile_configured(&mut gs.0, &mut sess.0, p.svc.bomb_evo.ammo_unlock_mode, collected, p.game.hero.weapons.visibomb.missile.is_some(), &p.svc.bomb_evo.ammo_mode_settings);
+        if rc_game::weapon_evo::golden::finish_deferred_equip(&mut gs.0,&mut sess.0,&p.game.hero,p.svc.game_mode) {
+            p.svc.bomb_evo.commit_golden_reward(gs.0.weapon_progress.golden);
+        }
     }
     if let Some(o) = occl.as_deref_mut() { drive_statics(p, lv, o, anim.as_deref_mut()); }
 
@@ -2593,7 +2769,7 @@ fn tick(
         let s = &p.ratchet.state;
         println!(
             "tick {:5}: state {:#04x} pos {:.4?} yaw {:+.4} air {:3} | anim {}:{} -> {}:{} t {:.3} | cam {:.3?} | {:?} | rng {:#010x} \
-             mobys {n_active} bolts {} free {} dyn {}/{} parts {} grass seq1 {} | hand {}:{} {:?} combo {} hit {} fr {:.2} tip {:.3?} | back {} | snd {} | hp {} inv {} | shake {:.4} {:.4}",
+             mobys {n_active} bolts {} free {} dyn {}/{} parts {} grass seq1 {} | hand {}:{} {:?} combo {} hit {} fr {:.2} tip {:.3?} | back {} | snd {} | hp {} energy {} inv {} | shake {:.4} {:.4} | arm grp {:#x} out {} raised {} layers {:?} recs8/9 {:.3} {:.3} r0..3 {:.3?} irows {:.2?} aim {:.2?}",
             p.game.counter - 2, h.state, h.position(), h.yaw().to_f32(), h.air_ticks, s.seq_a, s.frame_a, s.seq_b, s.frame_b, s.t,
             report.camera.pos_f32(), report.hero, p.game.rng.state, p.svc.counters.bolts, p.game.mobys.free_slots,
             p.dynamic.drawn, p.dynamic.live, particles.as_ref().map_or(0, |s| s.sys.pool.count),
@@ -2602,7 +2778,11 @@ fn tick(
             h.melee.combo, h.melee.hit, p.ratchet.frame.to_f32(), rc_game::hero::physics::to_f32x3(h.melee.tip),
             h.back.as_ref().map_or("-".to_string(), |b| format!("pack {}:{} clank {}:{}", b.pack.anim.seq_b, b.pack.anim.frame_b, b.clank.anim.seq_b, b.clank.anim.frame_b)),
             audio_cell.borrow().as_ref().map_or("-".to_string(), |a| { let st = a.stats(); format!("{} plays, class {}/{}", st.plays, st.class_slots, st.class_sounds) }),
-            h.health, h.f510, p.game.camera.shake[0].offset.to_f32(), p.game.camera.shake[1].offset.to_f32()
+            h.health, h.bodies.energy, h.f510, p.game.camera.shake[0].offset.to_f32(), p.game.camera.shake[1].offset.to_f32(),
+            h.group, h.f13f8, h.f13fa, h.weapons.layers.iter().map(|l| l.map(|l| (l.seq_b, l.weight))).collect::<Vec<_>>(),
+            h.idle.joints[rc_game::hero::idle::joint::ARM_L].cur[1], h.idle.joints[rc_game::hero::idle::joint::ARM].cur[1],
+            h.idle.joints[..4].iter().map(|j| (j.attached, j.cur)).collect::<Vec<_>>(),
+            h.items.slot.item.as_ref().map(|m| m.rows), rc_game::hero::physics::to_f32x3(h.aim_rows[0])
         );
     }
     // The swim's ripple disturbances (`RippleDisturb` 0x2b82a8 on every patch; it draws nothing, so after the tick is
@@ -2898,4 +3078,50 @@ fn write_visible(play: Option<ResMut<Play>>, occl: Option<Res<MobyOcclusion>>, a
         if let Some(m) = t.mobys.get_mut(first + slot) { m.visible = v; }
     }
     if let Some((id, ii)) = p.ship { t.mobys[id].visible = drawn(ii); }
+}
+
+/// Missing demo resources preserve the successful reward and its ordinary
+/// localized banner. Underwater pickups never enter this path.
+fn request_acquisition_demo(play:&Play,root:&std::path::Path,index:u32,item_defs:u32,item:usize) {
+    let scene=menu_overlay_for(root,index).and_then(|overlay|
+        rc_game::menus::vendor::VendorTables::load(overlay,item_defs,play.svc.interact.tables.shop.clone()))
+        .and_then(|tables|rc_game::menus::vendor::acquisition_demo_scene(&tables,item));
+    let Some(scene)=scene else {
+        println!("weapon pickup: item {item}: no native demo entry on level {index}; banner and one-shot jingle");
+        request_pickup_jingle(root);return;
+    };
+    println!("weapon pickup: item {item}: native demo {scene}, level {index}");
+    crate::travel_render::request_pickup_demo(scene);
+}
+
+/// Banner-only and underwater rewards still get the acquisition feedback,
+/// without a camera change, forced equipment or a fabricated cinematic.
+pub(crate) fn request_pickup_jingle(root:&std::path::Path) {
+    use rc_game::audio::scene::{post,SceneAudioCmd};
+    use rc_game::travel::space::{DEMO_STREAM,VENDOR_AUDIO_BASE};
+    let index=DEMO_STREAM-VENDOR_AUDIO_BASE;
+    match crate::disc_source::read(root,&format!("global/vendor_audio/{index:03}.bin")) {
+        Ok(bytes)=>post(SceneAudioCmd::PickupJingle{vag:std::sync::Arc::from(bytes)}),
+        Err(error)=>eprintln!("weapon pickup: acquisition jingle unavailable: {error:#}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The loader fills the scene actor classes' joint data (`rc_game::scene_actors`): Clank's antenna sprite reads
+    /// joint list 1 / 6, Ratchet's head manipulator and helmet joint list 0x18 / 4. Level 01 carries Ratchet (0) and
+    /// Clank (10); skips without the extracted data.
+    #[test]
+    fn the_scene_actors_joint_data_is_loaded() {
+        for o in rc_game::scene_actors::ACTOR_CLASSES { assert!(wants_joint_lists(o as i16), "class {o}"); }
+        let root = crate::level_load::extracted_root();
+        let Ok(lv) = crate::level_load::load_level(&root, 1) else { eprintln!("skipped: no extracted level 01"); return };
+        let (lists, targets) = class_joint_lists(&lv).unwrap();
+        let has = |o: i16, l: usize| lists.get(&o).is_some_and(|ls| ls.get(l).is_some_and(|c| !c.is_empty()));
+        assert!(has(0, 0x18) && has(0, 4), "Ratchet's joint lists 0x18 (head) and 4 (helmet)");
+        assert!(has(10, 1), "Clank's joint list 1 (antenna)");
+        assert!(targets.get(&0).is_some_and(|t| t.get(0x18).is_some_and(|&j| j != 0xff)), "Ratchet's head target joint");
+    }
 }

@@ -396,7 +396,7 @@ pub fn update(w: &mut World, id: MobyId) {
                     return;
                 }
                 let home = c::pv4(w, id, o::HOME);
-                if c::dist3(q, home) <= 32.0 && (q[2] - w.m(id).position[2]).abs() <= 3.0 { return; }
+                if c::dist3(q, home) <= crate::weapon_evo::world::chase_range(w,id,32.) && (q[2] - w.m(id).position[2]).abs() <= 3.0 { return; }
             }
             set_st(w, id, 0xb);
         }

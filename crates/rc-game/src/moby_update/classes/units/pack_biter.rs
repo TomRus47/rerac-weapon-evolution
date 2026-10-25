@@ -124,7 +124,7 @@ fn blend_r(w: &mut World, id: MobyId, s: u8) {
         w.anim_blend(id, s, 0, t);
     }
 }
-fn range(w: &World, id: MobyId) -> f32 { c::pf(w, id, pv::RANGE) }
+fn range(w: &World, id: MobyId) -> f32 { crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, pv::RANGE)) }
 fn group_call(w: &mut World, id: MobyId) {
     let g = w.m(id).group;
     if g != -1 { attack::group_command(w, g, 1); }
@@ -379,7 +379,7 @@ fn charge(w: &mut World, id: MobyId, t: &target::Target) {
         return;
     }
     let p = c::pos(w, id);
-    if range(w, id) + 4.0 <= c::len3(e) || 8.0 <= (p[2] - t.pos[2]).abs() {
+    if (range(w, id) + 4.0) * crate::weapon_evo::world::chase_bonus(w,id) <= c::len3(e) || 8.0 <= (p[2] - t.pos[2]).abs() {
         if w.m(id).cmd != 1 { set_state(w, id, st::HOME); }
         w.mm(id).cmd = 0;
     } else {
@@ -424,7 +424,7 @@ fn home(w: &mut World, id: MobyId, t: &target::Target, stuck: i32, old: c::V) {
     }
     let e = c::sub(t.pos, h);
     if stuck != 0 {
-        let go = if c::len3(e) < range(w, id) {
+        let go = if c::len3(e) < range(w, id) * crate::weapon_evo::world::chase_bonus(w,id) {
             group_call(w, id);
             true
         } else {
@@ -519,7 +519,7 @@ fn leashed(w: &mut World, id: MobyId) -> ground::Ground {
     let leash = c::pi32(w, id, pv::LEASH);
     if leash > 0 {
         let l = (leash - 1) as usize;
-        if l < w.table.mobys.len() && c::dist2(c::pos(w, id), c::pos(w, l)) <= c::pi16(w, id, pv::LEASH_R) as f32 {
+        if l < w.table.mobys.len() && c::dist2(c::pos(w, id), c::pos(w, l)) <= crate::weapon_evo::world::chase_range(w,id,c::pi16(w, id, pv::LEASH_R) as f32) {
             w.mm(id).cmd = 0;
             return g;
         }

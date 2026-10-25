@@ -173,6 +173,9 @@ pub struct Cinematic {
     /// The banner buffer's last `ShowBanner(msg, ticks)` of the moby loop (0x179598 / 0x15f640: one banner, the last
     /// call wins), for the HUD; `seq` counts the calls.
     pub banner: BannerCall,
+    /// Font-encoded dynamic text tied to a banner sequence. Last-call-wins
+    /// native/literal banners clear it; it is transient and never serialized.
+    pub banner_text: Option<(u32, Vec<u8>)>,
     /// 0x15f3fc as the gameplay classes write it (the fade to black over the world, 0..1; drawn by the engine at
     /// `trunc(min(f, 1)·128)` black when > 0, `DrawWorld` 0x21a1b8). The scene player keeps its own copy in mode 2 and
     /// ends it at 0, so a scene start clears this one ([`start_scene`]) [L].
@@ -180,6 +183,9 @@ pub struct Cinematic {
     /// 0x15f400 as the gameplay classes write it (the white quad over the world, 0..1, drawn like [`Cinematic::fade`];
     /// Blarg's escape 1108 whites out the exploding station).
     pub white: f32,
+    /// 0x1ba25c: the level moby an In-Level Movies replay hides while its scene runs (`MenuSetPostAction` case 6 from the
+    /// hook table 0x179638; `DialogStreamStart` sets its mode bit 1, `FUN_002ac608` clears it and the word).
+    pub replay_hide: Option<crate::moby_runtime::MobyId>,
 }
 
 /// `ShowBanner(msg, ticks)` 0x2789e0 as the HUD takes it (`HudState::show_banner_msg`).
@@ -188,6 +194,9 @@ pub struct BannerCall {
     pub seq: u32,
     /// The level message id (`msg_string`).
     pub msg: i32,
+    /// A mod-owned literal bypasses the level's localized message table. Native
+    /// calls always clear it; this is transient presentation, never saved.
+    pub literal: Option<&'static [u8]>,
     /// The countdown 0x15f640 (`ticks(180)` for `ShowBanner(msg, −1)`).
     pub ticks: i32,
 }
@@ -417,8 +426,26 @@ pub fn show_banner(w: &mut World, msg: i32, ticks: i32) { banner_call(&mut w.svc
 /// `ShowBanner(msg, ticks)` from outside the moby loop (the page menu's code entry `MenuInput` 0x298f80, the hero
 /// update's cheat entry `0x2285a0`): the same banner buffer.
 pub fn banner_call(c: &mut Cinematic, msg: i32, ticks: i32) {
+    c.banner_text=None;
     let b = &mut c.banner;
-    *b = BannerCall { seq: b.seq.wrapping_add(1), msg, ticks };
+    *b = BannerCall { seq: b.seq.wrapping_add(1), msg, literal: None, ticks };
+}
+
+/// A notification with no disc message ID. Share the native banner's timing,
+/// styling and last-call-wins behavior instead of inventing a per-level ID.
+pub fn show_literal_banner(w: &mut World, text: &'static [u8], ticks: i32) {
+    literal_banner_call(&mut w.svc.cinematic, text, ticks);
+}
+pub fn literal_banner_call(c: &mut Cinematic, text: &'static [u8], ticks: i32) {
+    c.banner_text=None;
+    let b = &mut c.banner;
+    *b = BannerCall { seq: b.seq.wrapping_add(1), msg: -1, literal: Some(text), ticks };
+}
+
+/// A localized dynamic notice using the same single native banner buffer.
+pub fn text_banner_call(c:&mut Cinematic,text:Vec<u8>,ticks:i32) {
+    banner_call(c,-1,ticks);
+    c.banner_text=Some((c.banner.seq,text));
 }
 
 /// `ShowPlanetBanner(p)` 0x277c38.
@@ -552,5 +579,43 @@ mod tests {
         let e = from_creature(&ScriptRequest::End { moby: 3 }, 1);
         assert_eq!(e, [CinematicCall::CameraRelease { kind: 0, level: 1 }, CinematicCall::HeroState { state: 0, play: true }]);
         assert_eq!(creature_moby(&s), 3);
+    }
+}
+
+#[cfg(test)]
+mod literal_banner_tests {
+    use super::*;
+    #[test]
+    fn native_and_literal_requests_share_order_without_leaking_text_or_message_ids() {
+        let mut c=Cinematic::default();
+        banner_call(&mut c,13001,180);
+        assert_eq!((c.banner.seq,c.banner.msg,c.banner.literal),(1,13001,None));
+        literal_banner_call(&mut c,b"RYNO acquired!",300);
+        assert_eq!((c.banner.seq,c.banner.msg,c.banner.literal,c.banner.ticks),
+            (2,-1,Some(b"RYNO acquired!".as_slice()),300));
+        banner_call(&mut c,20001,180);
+        assert_eq!((c.banner.seq,c.banner.msg,c.banner.literal),(3,20001,None));
+    }
+    #[test]
+    fn notification_sequence_wraps_without_changing_native_duration_semantics() {
+        let mut c=Cinematic::default();c.banner.seq=u32::MAX;
+        literal_banner_call(&mut c,b"RYNO acquired!",-1);
+        assert_eq!(c.banner.seq,0);assert_eq!(c.banner.ticks,-1);
+    }
+}
+
+#[cfg(test)]
+mod dynamic_banner_tests {
+    use super::*;
+    #[test]
+    fn localized_owned_text_obeys_native_last_call_wins_and_does_not_leak() {
+        let mut cinematic=Cinematic::default();
+        text_banner_call(&mut cinematic,b"Arma ottenuta: MIPS".to_vec(),300);
+        assert_eq!(cinematic.banner_text.as_ref().unwrap().0,cinematic.banner.seq);
+        assert_eq!(cinematic.banner.literal,None);
+        banner_call(&mut cinematic,1234,180);assert!(cinematic.banner_text.is_none());
+        text_banner_call(&mut cinematic,b"Acquired: RYNO".to_vec(),300);
+        literal_banner_call(&mut cinematic,b"Other message",90);
+        assert!(cinematic.banner_text.is_none());assert_eq!(cinematic.banner.literal,Some(b"Other message".as_slice()));
     }
 }

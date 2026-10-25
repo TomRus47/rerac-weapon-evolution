@@ -627,7 +627,7 @@ fn stand(w: &mut World, id: MobyId, d: f32, t: &target::Target) {
 
 /// Within the leash and 10 in height: the next node and 7 (the shared tail of states 4 / 5).
 fn leash_walk(w: &mut World, id: MobyId, d: f32, dz: f32) {
-    if c::pf(w, id, pv::LEASH) <= d || 10.0 <= dz { return; }
+    if crate::weapon_evo::world::chase_range(w,id,c::pf(w, id, pv::LEASH)) <= d || 10.0 <= dz { return; }
     if c::pi32(w, id, pv::PATROL) == 0 {
         pick_node(w, id);
         to_patrol(w, id);
@@ -759,7 +759,7 @@ fn patrol(w: &mut World, id: MobyId, d: f32, t: &target::Target) {
     c::set_pv4(w, id, pv::MOVE, out);
     if r & 0x14 == 0 { return; }
     let dz = dz_abs(t, c::pos(w, id));
-    if c::pf(w, id, pv::LEASH) <= d || 10.0 <= dz || !next_node(w, id) {
+    if crate::weapon_evo::world::chase_range(w,id,c::pf(w, id, pv::LEASH)) <= d || 10.0 <= dz || !next_node(w, id) {
         to_stand(w, id);
         let p = c::pos(w, id);
         turn_check(w, id, heading_to(p, t.pos), t);

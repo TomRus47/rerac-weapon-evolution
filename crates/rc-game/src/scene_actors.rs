@@ -4,7 +4,7 @@
 //!
 //! | address | what | port |
 //! |---|---|---|
-//! | `FUN_0024a1d0` | Ratchet's head: s = 0x15ee14 (his head scale, at most 1.33 in game mode 6); the record 0x17c7c0 not attached → `AttachManipulator(actor, 0x18, 0x17c7c0)`, its scale s; on levels 2, 9, 11, 13 every actor of class 0x1b1 / 0x50a / 0x509 takes its class scale · s; then `FUN_0024a0e8` (the worn items on the actor: NOT ported, G-CUT-009) | [`ratchet`] |
+//! | `FUN_0024a1d0` | Ratchet's head: s = 0x15ee14 (his head scale, at most 1.33 in game mode 6); the record 0x17c7c0 not attached → `AttachManipulator(actor, 0x18, 0x17c7c0)`, its scale s; on levels 2, 9, 11, 13 every actor of class 0x1b1 / 0x50a / 0x509 takes its class scale · s; then `FUN_0024a0e8` (the actor's items: the always-on extras and their glow pulses `FUN_00249ea0` are the engine's, `rc-engine` `moby_attach`'s `cutscene_host` / `pulse_extras`; the head / hand / feet items are NOT ported, G-CUT-009) | [`ratchet`] |
 //! | `FUN_00228bc0` | mode \|= 0x10, the glow word +0x90 = `fast_sin(2π·(0x15f5cc % ticks(100))/ticks(100) − π)` → `(0x4c + 24s) << 16 \| 0x80000000 \| (0xa2 + 52s) << 8 \| (0x44 + 24s)`; the glow sprite `FUN_00229738`: class 0x1a3 at joint list 6 − 0.07 z when it is more than 2 above the actor (0.25, 0.15), else at joint list 1 − 0.007 z (0.047, 0.15), colour 0x200000c0; the cheat 0x15edb3: the noggin record (0x1a3: 0x17c840 on list 1; 0x555: 0x17c880; else 0x17c800, on list 2) attached once, scale 0x15ee18 | [`clank`] |
 //!
 //! `FUN_00229738` adds to the hero's glow list 0x141120 and registers the hero's draw callback (`0x229400`); the port
@@ -15,6 +15,13 @@ use crate::hero::glow::{At, Sprite};
 use crate::moby_runtime::MobyId;
 use crate::moby_update::classes::draw_callbacks::Callback;
 use crate::moby_update::services::World;
+
+/// The scene actor classes this module reads joint data of: Ratchet (0: [`ratchet`]'s head manipulator on his joint
+/// list 0x18) and the Clank actors (10, 0x1a3, 0x555: [`clank`]'s antenna sprite on joint list 1, 0x1a3's 6). None
+/// is in the loader's `Services::joint_lists` set (`needs_joint_lists`), so the loader fills them
+/// (`rc-engine` `gameplay::wants_joint_lists`) — without them the antenna sprite sat at the actor's origin and
+/// Ratchet's head scale and his helmet were never placed.
+pub const ACTOR_CLASSES: [i32; 4] = [0, 10, 0x1a3, 0x555];
 
 /// The key of the Ratchet actor's head manipulator (record 0x17c7c0) in its joint-modifier list.
 pub const HEAD_KEY: u32 = 0xffff_ffe0;
@@ -53,7 +60,8 @@ fn attach(w: &mut World, id: MobyId, list: u8, key: u32, scale: f32) {
     m.joint_mod_keys.insert(0, key);
 }
 
-/// `FUN_0024a1d0(actor)` (module doc) without its `FUN_0024a0e8`; `actors` = 0x16ce58[0..0x16cd24].
+/// `FUN_0024a1d0(actor)` (module doc); its `FUN_0024a0e8` part — the items that follow the actor — is the engine's
+/// (`rc-engine` `moby_attach` places the always-on extras on it and runs their glow pulses). `actors` = 0x16ce58[0..0x16cd24].
 pub fn ratchet(w: &mut World, id: MobyId, actors: &[Option<MobyId>]) {
     let mut s = w.hero.idle.rec17_scale;
     if w.svc.game_mode == 6 && 1.33 < s { s = 1.33; }
@@ -158,6 +166,56 @@ mod tests {
             assert_eq!(g[0].at, At::Point([0.0, 0.0, 10.0 - 0.007]));
             assert_eq!((g[0].size, g[0].rgba), (f32::from_bits(0x3d40_8312), 0x2000_00c0));
             assert!(w.svc.draw_callbacks.list1.contains(&(Callback::HeroGlow, 0)));
+        });
+    }
+
+    /// A world whose class `o_class` has a two-joint skeleton (joint 1 one unit above the root, rest 1024 = 1.0 at
+    /// scale 1) and joint list 1 = the chain 0 → 1, in `Services::joint_lists` and the class table — what the loader
+    /// fills for the Clank actors (`rc-engine` `gameplay::wants_joint_lists`).
+    fn with_joint_list(o_class: i16, f: impl FnOnce(&mut World, MobyId)) {
+        use crate::moby_runtime::ClassInfo;
+        use rc_formats::moby_anim::{MobyAnimClass, MobyFrame, MobyFrameHeader, MobySequence, MobySequenceHeader, IDENTITY};
+        let q = [0u8, 0, 0, 0, 0, 0, 0xff, 0x7f];
+        let frame = MobyFrame {
+            header: MobyFrameHeader { rate: 0.0, time: 0, qwc: 1, quat_bytes: 16, scale_count: 0, trans_offset: 16, trans_count: 0 },
+            quats: vec![[0, 0, 0, 0x7fff]; 2],
+            scales: vec![],
+            trans: vec![],
+            payload: [q, q].concat(),
+        };
+        let seq = MobySequence { header: MobySequenceHeader { frame_count: 1, loop_sound: 0xff, ..Default::default() }, frames: vec![frame], triggers: vec![] };
+        let class = MobyAnimClass {
+            joint_count: 2,
+            skeleton: vec![IDENTITY, IDENTITY],
+            rest: vec![[0.0; 3], [0.0, 0.0, 1024.0]],
+            parent_word: vec![0, 0x7000_0000],
+            sequences: vec![Some(seq)],
+        };
+        let rows = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]];
+        let mut t = MobyTable::new(vec![Moby::default(), Moby { o_class, state: 1, position: [0.0, 0.0, 10.0, 1.0], scale: 1.0, rows, ..Moby::default() }], 4);
+        let hero = crate::hero::Hero::new();
+        let mut rng = crate::rng::Rng::new();
+        let mut classes = crate::moby_update::ClassTable::default();
+        classes.classes.insert(o_class, (ClassInfo::default(), Some(class)));
+        let mut svc = crate::moby_update::Services::new();
+        svc.joint_lists.insert(o_class, vec![vec![], vec![0, 1]]);
+        let mut w = World::new(&mut t, &hero, &mut rng, &classes, &mut svc, 0);
+        w.hero_moby = Some(0);
+        f(&mut w, 1);
+    }
+
+    /// With the class's joint lists loaded (`Services::joint_lists`), `FUN_00228bc0`'s antenna sprite sits at joint
+    /// list 1's point (`FUN_002645a8`), above the actor — not at his origin (the bug when the loader left the Clank
+    /// actors' classes out).
+    #[test]
+    fn the_clank_actors_antenna_sprite_sits_on_his_joint_list_1() {
+        with_joint_list(10, |w, id| {
+            clank(w, id, None);
+            let g = &w.svc.actor_records.glow;
+            assert_eq!(g.len(), 1);
+            let At::Point(p) = g[0].at else { panic!("not a point") };
+            assert_ne!(p, [0.0, 0.0, 10.0 - 0.007], "not the actor's origin");
+            assert!(p[0].abs() < 1e-4 && p[1].abs() < 1e-4 && p[2] > 10.0, "on the joint above the actor: {p:?}");
         });
     }
 }

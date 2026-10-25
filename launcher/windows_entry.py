@@ -18,6 +18,16 @@ def self_test(destination):
         root.update_idletasks()
         result = {'frozen': bool(getattr(sys,'frozen',False)), 'launcher_version': core.VERSION,
                   'application_folder': str(core.KIT), 'gui_ok': True,
+                  'saved_controls_ui': all(key in schema.BOOLEANS and key in schema.GLOBAL_STANDARD_DEFAULTS for key in ('dpad_quick_select','r1_experimental')),
+                  'wrench_trail_ui': 'trail_color' in schema.EXTRA[8].split(),
+                  'ngplus_difficulty_ui': list(schema.WORLD_DEFAULTS)[0]=='ngplus_multiplier',
+                  'eight_grade_ui': len(schema.XP)==7 and 'hide_ryno' in schema.GLOBAL_STANDARD_DEFAULTS,
+                  'additive_nanotech_ui': core.numeric_range('general','nanotech_max_health') == (0,64),
+                  'nanotech_xp_bar_ui': ('nanotech_xp_bar_opacity_percent' in schema.HUD
+                      and core.numeric_range('hud','nanotech_xp_bar_opacity_percent') == (0,100)),
+                  'location_test_ui': core.game_environment(Path('weapons.ini'),Path('.'),env={'RC_WEAPON_LOCATION_TEST':'1'}).get('RC_LEVEL') == '18',
+                  'pursuit_ui': 'enemy_chase_range_multiplier' in schema.WORLD_DEFAULTS and core.numeric_range('general','enemy_chase_range_multiplier') == (0.1,10),
+                  'encounter_motion_ui': all(key in schema.WORLD_DEFAULTS for key in schema.MOTION_DEFAULTS) and 'golden_bolts_one_weapon_per_planet' in schema.BOOLEANS,
                   'tcl_version': root.tk.call('info','patchlevel'), 'tk_version': str(tk.TkVersion)}
     finally:
         root.destroy()

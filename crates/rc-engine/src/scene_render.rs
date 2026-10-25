@@ -68,7 +68,7 @@ use crate::game_camera::CameraSource;
 use crate::gameplay::{GameTick, Persistent, Play};
 use crate::hud_render::{Hud2d, Prim, SceneLayer};
 use crate::input_map::PadFrame;
-use crate::moby_attach::AttachedTo;
+use crate::moby_attach::{AttachedTo, Slot};
 use crate::moby_render::{self, ExtraMobys, MobyMaterial};
 use crate::tfrag_render::game_to_bevy;
 use anyhow::{Context, Result};
@@ -430,7 +430,7 @@ fn scene_frame(
     pad: Option<Res<PadFrame>>,
     frame: Res<crate::determinism::FrameNumber>,
     hero: HeroEntities,
-    items: Query<Entity, With<AttachedTo>>,
+    items: Query<(Entity, &AttachedTo)>,
     hidden: Query<(Entity, Has<crate::gameplay::RatchetMesh>), With<SceneHidden>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
@@ -534,11 +534,15 @@ fn scene_frame(
         rt.player = Some(player);
         rt.frames = 0;
         if let Some(m) = menu.as_mut() { m.state.set(Mode::Cutscene); }
-        // FUN_002486c0: the hero and his items are hidden.
+        // FUN_002486c0: the hero and his items are hidden. The always-on extras stay drawn on the scene's Ratchet
+        // actor (`FUN_0024a0e8` → `HeroItemsAttach`, which attaches only item slots 4 / 5 in mode 2): crate::moby_attach
+        // places them on the actor, and the game clears their hidden bit every tick.
         for (e, name) in &hero {
             if name.as_str().starts_with("Ratchet (play)") { commands.entity(e).insert((SceneHidden, Visibility::Hidden)); }
         }
-        for e in &items { commands.entity(e).insert((SceneHidden, Visibility::Hidden)); }
+        for (e, at) in &items {
+            if at.slot != Slot::Extra { commands.entity(e).insert((SceneHidden, Visibility::Hidden)); }
+        }
         active.running = true;
         if let Some(p) = play.as_mut() { enter_mode2(rt, p); }
     }
@@ -598,13 +602,14 @@ fn load_ship_class(level: &mut crate::level_load::LoadedLevel, o_class: i32) -> 
     let class = rc_formats::moby::parse_moby_class(s.class).context("parsing the ship class")?;
     let seqs = moby_anim::parse_sequences(s.class, &class).context("parsing the ship sequences")?;
     let tex = level.textures.iter().filter(|t| t.table == TextureTable::Moby).map(|t| t.index + 1).max().unwrap_or(0);
-    let slot = u8::try_from(tex).ok().filter(|&t| t != 0xff).context("moby texture table full")?;
-    let mut textures = [0xff; 16];
-    textures[0] = slot;
+    // Keep ship textures valid after other runtime model imports.
+    let mut imported_textures = [None; 16];
+    imported_textures[0] = Some(tex);
+    let textures = [0xff; 16];
     let desc = TextureEntry { data_offset: 0, width: 256, height: 256, ty: 4, palette: 0, mipmap: 0, pad: 0 };
     level.textures.push(LevelTexture { table: TextureTable::Moby, index: tex, source: TextureSource::Entry(desc), texture: s.texture });
     let anim = MobyAnimClass::new(&class, seqs);
-    Ok((LevelMobyClass { imported_textures: None, o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class }, anim))
+    Ok((LevelMobyClass { imported_textures: Some(imported_textures), o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class }, anim))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -737,9 +742,25 @@ fn enter_mode2(rt: &mut SceneRuntime, p: &mut Play) {
         }
     }
     rt.hid.clear();
+    // DialogStreamStart: the In-Level Movies replay's level moby 0x1ba25c hidden too (FUN_002ac608 shows it again and
+    // clears the word): the level's own Big Al or Qwark beside the scene's.
+    if let Some(id) = p.svc.cinematic.replay_hide.take().filter(|&n| n < p.game.mobys.mobys.len()) {
+        p.game.mobys.mobys[id].mode |= 1;
+        rt.hid.push((id, 1));
+    }
     if let Some(npc) = rt.talker.filter(|&n| n < p.game.mobys.mobys.len()) {
         let m = &mut p.game.mobys.mobys[npc];
         if m.mode & 1 == 0 { m.mode |= 1; rt.hid.push((npc, 1)); }
+    }
+    // FUN_002486c0 with Clank the hero (0x1413f4 = 1): his antenna glow moby 0x140974 hidden too (+0x34 |= 1; shown again
+    // by FUN_002487a8 at the end). It stayed lit where Clank stood before the scene, over the scene's own Clank.
+    if p.game.hero.mode == 1 {
+        if let Some(g) = p.game.hero.bodies.glow {
+            if let Some(m) = p.game.mobys.mobys.get_mut(g).filter(|m| m.mode & 1 == 0) {
+                m.mode |= 1;
+                rt.hid.push((g, 1));
+            }
+        }
     }
     for (id, m) in p.game.mobys.mobys.iter_mut().enumerate() {
         if m.state < 0x80 && SCENE_HIDDEN_CLASSES.contains(&m.o_class) && m.mode & SCENE_HIDDEN_BIT == 0 {
@@ -757,6 +778,9 @@ fn leave_mode2(rt: &mut SceneRuntime, p: &mut Play) {
     p.svc.game_mode = if rt.pending.is_empty() { 0 } else { 2 };
     p.game.camera_paused = false;
     p.svc.cinematic.scene = None;
+    // FUN_002ac608: the gameplay view's tan(hfov/2) 0x16cf70 = 0.63. A class's FOV (the jets' boost) was kept
+    // through every later scene without it, until the next level.
+    p.svc.view_tan_x = rc_game::scene_player::GAMEPLAY_TAN_HALF_FOV.to_f32();
     p.svc.actor_records.glow.clear();
     // FUN_002ac608: the actors deleted (their class sequence slots freed with them).
     let counter = p.game.counter;
@@ -1019,7 +1043,8 @@ fn fade_pass(mut commands: Commands, active: Res<ActiveScene>, hold: Res<FadeHol
 }
 
 /// HUD hidden and the subtitle box (module docs) into the 2D pass; in gameplay, the letterbox of `0x15f404`.
-fn subtitle_layer(mut rt: ResMut<SceneRuntime>, active: Res<ActiveScene>, hold: Res<FadeHold>, play: Option<Res<Play>>, mut layer: ResMut<SceneLayer>, level: Option<Res<crate::Level>>) {
+#[allow(clippy::too_many_arguments)]
+fn subtitle_layer(mut rt: ResMut<SceneRuntime>, active: Res<ActiveScene>, hold: Res<FadeHold>, play: Option<Res<Play>>, mut layer: ResMut<SceneLayer>, level: Option<Res<crate::Level>>, hook: Option<Res<crate::hud_render::Hud2dHook>>) {
     // The font of the level's HUD: the class draws below (the countdowns) need it without a scene having played first.
     if rt.glyphs.is_none() { rt.glyphs = level.as_ref().and_then(|l| l.0.hud.as_ref().map(|h| h.glyphs)); }
     // FadeToBlack blocks inside the tick: the last image (its bars, its HUD) stays under the fade.
@@ -1038,8 +1063,10 @@ fn subtitle_layer(mut rt: ResMut<SceneRuntime>, active: Res<ActiveScene>, hold: 
     layer.prims.clear();
     if !active.running && rt.letterbox > 0 { layer.prims = letterbox_prims(rt.letterbox); }
     // The census units' 2-D draw callbacks (Veldin's countdown 586, `0x2d8098`: `DrawUIFrame` and
-    // `font_print_center_large`, `rc_game::moby_update::classes::units::veldin_pads::countdown_draw`).
-    if !active.running {
+    // `font_print_center_large`, `rc_game::moby_update::classes::units::veldin_pads::countdown_draw`). The page menus
+    // (`PageMenuModeRender` 0x21ab50) draw none of them: the escape and air timers stayed over the pause menu and map.
+    let menu = hook.is_some_and(|h| h.replace_hud);
+    if !active.running && !menu {
         if let (Some(glyphs), Some(p)) = (rt.glyphs.as_ref(), play.as_ref()) {
             let texts = &p.svc.draw_callbacks.texts;
             if !texts.is_empty() {
@@ -1057,7 +1084,7 @@ fn subtitle_layer(mut rt: ResMut<SceneRuntime>, active: Res<ActiveScene>, hold: 
         }
     }
     // The Trespasser locks' minigame (`0x2d93e8`, the frame's draw callback: rc_game's units::trespasser_lock::frame).
-    if !active.running {
+    if !active.running && !menu {
         if let Some(p) = play.as_ref() { layer.prims.extend(p.svc.draw_callbacks.rings.iter().map(ring_prim)); }
     }
     let (Some(glyphs), Some(line)) = (rt.glyphs.as_ref(), active.last.as_ref().and_then(|t| t.subtitle.as_ref())) else { return };

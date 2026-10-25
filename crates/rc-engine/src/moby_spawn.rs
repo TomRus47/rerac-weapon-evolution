@@ -255,15 +255,16 @@ fn load_spaceship(root: &Path, ship: usize, level: &mut LoadedLevel) -> Result<u
     let class = moby::parse_moby_class(s.class).context("parsing the ship class")?;
     let seqs = moby_anim::parse_sequences(s.class, &class).context("parsing the ship sequences")?;
     let tex = level.textures.iter().filter(|t| t.table == TextureTable::Moby).map(|t| t.index + 1).max().unwrap_or(0);
-    let slot = u8::try_from(tex).ok().filter(|&t| t != 0xff).context("moby texture table full")?;
-    let mut textures = [0xff; 16];
-    textures[0] = slot;
+    // Keep ship textures valid after other runtime model imports.
+    let mut imported_textures = [None; 16];
+    imported_textures[0] = Some(tex);
+    let textures = [0xff; 16];
     let o_class = moby_spawn::SHIP_CLASSES[ship];
     let desc = TextureEntry { data_offset: 0, width: 256, height: 256, ty: 4, palette: 0, mipmap: 0, pad: 0 };
     level.textures.push(LevelTexture { table: TextureTable::Moby, index: tex, source: TextureSource::Entry(desc), texture: s.texture });
     let m = &mut level.mobys;
     m.anim.push(MobyAnimClass::new(&class, seqs));
-    m.classes.push(LevelMobyClass { imported_textures: None, o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class });
+    m.classes.push(LevelMobyClass { imported_textures: Some(imported_textures), o_class, entry: ClassEntry { offset_in_asset_wad: 0, o_class, unknown_8: 0, unknown_c: 0, textures }, class });
     Ok(m.classes.len() - 1)
 }
 
@@ -372,7 +373,7 @@ fn init(
 }
 
 /// Hidden wins over the occlusion system's un-hide (see the module doc).
-fn force_hidden(mut q: Query<&mut Visibility, With<SpawnHidden>>) {
+pub(crate) fn force_hidden(mut q: Query<&mut Visibility, With<SpawnHidden>>) {
     for mut v in &mut q {
         if *v != Visibility::Hidden { *v = Visibility::Hidden; }
     }

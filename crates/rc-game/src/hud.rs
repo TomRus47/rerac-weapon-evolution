@@ -73,6 +73,7 @@ use rc_formats::strings::{self, Message};
 use std::collections::HashMap;
 
 pub mod calls;
+pub mod xp_bar;
 mod meters;
 
 pub use calls::{Call, Calls};
@@ -392,6 +393,7 @@ const HELP_COLOUR: u32 = 0x00ff_a888;
 /// Per-tick game values the HUD elements read.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Inputs {
+    pub bolt_chain:u8,
     /// 0x1415f8.
     pub hp: i32,
     /// 0x15eda0 (4 at start, up to 8).
@@ -469,7 +471,7 @@ pub struct Inputs {
 impl Default for Inputs {
     /// Before the first frame reads the game state: 4 / 4, no bolts, no slot, nothing under way.
     fn default() -> Self {
-        Inputs {
+        Inputs { bolt_chain:0,
             hp: 4,
             max_hp: 4,
             bolts: 0,
@@ -515,6 +517,7 @@ impl Default for Inputs {
 /// The HUD.
 #[derive(Clone, Debug)]
 pub struct HudState {
+    nanotech_xp_armed: bool,
     pub assets: HudAssets,
     pub slots: [Slot; SLOTS],
     /// 0x17e958: next request handle.
@@ -572,6 +575,7 @@ pub struct HudState {
 impl HudState {
     pub fn new(assets: HudAssets) -> Self {
         HudState {
+            nanotech_xp_armed: false,
             assets,
             slots: [Slot::default(); SLOTS],
             // 0 is no handle (a refused request's answer, and every slot's before its first request).
@@ -683,6 +687,10 @@ impl HudState {
                     if let Some(h) = self.handle_of(&r) { self.release(h); }
                 }
                 Call::ShowHealthBolts(n) => self.show_health_bolts(n),
+                Call::QuickSelectHealth(n) => {
+                    self.show_health_bolts(n);
+                    self.nanotech_xp_armed = true;
+                }
                 Call::Data(k, v) => {
                     self.words.insert(k, v);
                 }
@@ -791,17 +799,25 @@ impl HudState {
         true
     }
 
-    /// `FUN_0024fb00` → `FUN_0024af10` (`OpenVendorMenu`, the page menus): every slot emptied at once (no ramp), the
-    /// requests the elements keep re-made by their owners.
+    /// `FUN_0024fb00` → `FUN_0024af10` (`OpenVendorMenu`, the gold upgrade `0x2aea70`): every slot emptied at once
+    /// ([`HudState::empty_slots`]), then 0x15f970 = −1, 0x15f96c = 0 and the weapon show held off until
+    /// `update_resource_counter` (the vendor's exit).
     pub fn reset_slots(&mut self) {
+        self.nanotech_xp_armed = false;
+        self.empty_slots();
+        self.weapon_handle = None;
+        self.weapon_gate = 1;
+    }
+
+    /// The slots emptied at once (no ramp), the requests the elements keep re-made by their owners: `FUN_0024af10`, and
+    /// the death reload's `fun_001fee88` (level01 0x24a530, run by `entry` after the reload as at a level's first load),
+    /// which leaves the weapon show's gate and its handle alone: a death never hides the ammo counter.
+    pub fn empty_slots(&mut self) {
         // (+0x58 / +0x5c are not reset: the static sizes stay as the inits left them.)
         let sizes = self.slots.map(|s| s.size);
         self.slots = [Slot::default(); SLOTS];
         for (s, z) in self.slots.iter_mut().zip(sizes) { s.size = z; }
         self.giant_up = false;
-        // 0x15f970 = −1, 0x15f96c = 0, and the weapon show held off until `update_resource_counter`.
-        self.weapon_handle = None;
-        self.weapon_gate = 1;
         self.evo_no_ammo_item = 0;
         self.evo_no_ammo_slide = 0;
         self.morph_last = (false, -1);
@@ -937,7 +953,12 @@ impl HudState {
 
     /// One game tick: the callers that arm elements, `Help_Update`, the slot loop; then the frame's draws.
     pub fn tick(&mut self, inputs: Inputs) -> Vec<Draw> {
+        let chain_advanced=inputs.bolt_chain>self.inputs.bolt_chain;
         self.inputs = inputs;
+        if chain_advanced {
+            let handle = self.queue_req(Request::BOLTS);
+            self.keep_up(handle, scale_ticks(150));
+        }
         let fallback = self.inputs.body == 0 && self.inputs.mode == 0 && self.inputs.weapon.is_none()
             && crate::weapon_evo::WEAPON_IDS.contains(&self.inputs.held_item);
         if fallback && (self.evo_no_ammo_item == self.inputs.held_item || self.evo_no_ammo_slide == 0) {
@@ -966,6 +987,13 @@ impl HudState {
             _ => {}
         }
         self.update_slots();
+        // Retain the ring's lease through the native keep-up and final fade,
+        // then forget it. A later damage/heal request must not revive the bar.
+        let health = &self.slots[1];
+        if self.inputs.hp <= 0 || !matches!(self.inputs.body,0|3)
+            || (health.slide == 0 && !health.pending) {
+            self.nanotech_xp_armed = false;
+        }
         let mut out = Vec::new();
         self.draw(&mut out);
         out
@@ -1240,6 +1268,7 @@ impl HudState {
         if p[1] < 0x7ff && p[2] < 0 { p[3] = 1; }
         if p[1] < 0 { p[1] = 0; }
         let s = &mut self.slots[i];
+        s.max=if self.inputs.body==0 {self.inputs.max_hp.max(8)} else {8};
         s.value = hp.min(s.max);
         if s.shown != s.value || s.shown == 1 {
             s.timer = scale_ticks(120);
@@ -1352,6 +1381,34 @@ impl HudState {
         let mut fr = (p[0] as i32) >> 1;
         if s.value == 0 { fr = 30; }
         let max_hp = if self.inputs.body == 1 { self.inputs.clank_max } else { self.inputs.max_hp };
+        if !matches!(max_hp,4|5|8) {
+            let (scale,centres)=nanotech_layout(max_hp);
+            // Native health anchors include an asymmetric offset. New rows are
+            // independently centered in the 512-unit HUD coordinate system.
+            let centre=256.;let y=y as f32+self.slots[i].offset.1 as f32;
+            for row in 0..2 {
+                let count=centres.iter().filter(|p|p.1==row as f32*24.*scale).count();
+                let half=(count as f32*32.*scale/2.).max(16.*scale);
+                out.push(Self::sprite(mid_frame(self), (centre-half) as i32,(y+row as f32*24.*scale-16.*scale) as i32,
+                    (half*2.) as i32,(32.*scale) as i32,bar_a,Rot::None));
+            }
+            for (n,(ox,oy)) in centres.into_iter().enumerate() {
+                let frame=self.assets.icon_frame(icon::ORB,if n<s.value.max(0) as usize {(fr+n as i32*6)%30} else {30});
+                let (width,height)=self.assets.size(frame);let (width,height)=(width as f32*scale,height as f32*scale);
+                out.push(Draw::Sprite16{frame,x:((centre+ox-width/2.)*16.) as i32,y:((y+oy-height/2.)*16.) as i32,
+                    w:(width*16.) as i32,h:(height*16.) as i32,alpha:a_orb});
+                // Frame 30 is the enclosing cyan shell, including empty HP.
+                // The native four/five/eight layout layers it over the vortex.
+                if n < s.value.max(0) as usize {
+                    let shell=self.assets.icon_frame(icon::ORB,30);
+                    let (sw,sh)=self.assets.size(shell);
+                    let (sw,sh)=(sw as f32*scale,sh as f32*scale);
+                    out.push(Draw::Sprite16{frame:shell,x:((centre+ox-sw/2.)*16.) as i32,
+                        y:((y+oy-sh/2.)*16.) as i32,w:(sw*16.) as i32,h:(sh*16.) as i32,alpha:a_orb});
+                }
+            }
+            return;
+        }
         let (orbs, hw, hw2): (&[(i32, i32)], i32, i32) = match max_hp {
             8 => (&ORBS_8, (sf * 48.0) as i32, (sf * 48.0) as i32),
             5 => (&ORBS_5, (sf * 32.0) as i32, (sf * 16.0) as i32),
@@ -1408,6 +1465,16 @@ impl HudState {
         let (tx, ty) = (x + BOLT_TEXT_D.0, y + BOLT_TEXT_D.1);
         self.text_right(tx + 1, ty + 1, shadow, &number, out);
         self.text_right(tx, ty, colour, &number, out);
+        if self.inputs.bolt_chain>0 {
+            let n=(self.inputs.bolt_chain as u32+1).min(30);
+            let label=format!("x{n}").into_bytes();
+            let panel_y=y+34;
+            for (frame,px,width,rot) in [(cap,x-50,10,Rot::None),(mid,x-40,42,Rot::None),(cap,x+2,10,Rot::R180)] {
+                out.push(Self::sprite(frame,px,panel_y,width,22,bar_a,rot));
+            }
+            self.text_right(x+1,panel_y+4,shadow,&label,out);
+            self.text_right(x,panel_y+3,colour,&label,out);
+        }
         let german_italian = self.inputs.lang == strings::lang::GERMAN || self.inputs.lang == strings::lang::ITALIAN;
         let (sep, (dx, dy)): (&[u8], _) = if german_italian { (b".", SEP_DOT_D) } else { (b"'", SEP_APOSTROPHE_D) };
         let mut k = 3;
@@ -1535,6 +1602,22 @@ impl HudState {
         let left = (x + cap_inset).max(-self.side_extra);
         let right = (x + width - cap_inset).min(512 + self.side_extra);
         (right - left >= 3).then_some((left, y, right - left))
+    }
+
+    /// Fixed four-orb panel span, independent of expanded Nanotech rows, orb
+    /// count, or widescreen side anchors. Only opacity follows the health slot.
+    /// The bar's outer bottom is two pixels above the native panel's top.
+    pub fn nanotech_xp_anchor(&self, cap_inset: i32, height: i32) -> Option<(i32,i32,i32,f32)> {
+        let height=xp_bar::nanotech_height(height);
+        let s=&self.slots[1];
+        if !self.nanotech_xp_armed || self.inputs.hp <= 0 || !matches!(self.inputs.body,0|3)
+            || self.inputs.hero_state == crate::hero::scripted::MOUNTED
+            || s.element != Element::Health || s.slide == 0 { return None; }
+        let inset=cap_inset.clamp(0,BAR_TILE-1);
+        let half=48+BAR_TILE-inset;
+        let top=HEALTH_Y+ELEMENT_Y+BAR_DY-height-3;
+        let fade=Self::fractions(s,HEALTH_STEPS,HEALTH_STEPS).0;
+        Some((ANCHORS[1].0-half,top,half*2,fade))
     }
 
     /// Use exactly the native ammo vignette's envelope, never an independent timer.
@@ -2459,6 +2542,25 @@ mod tests {
         assert_eq!((h.slots[0].slide, h.slots[0].alpha, h.slots[0].flags), (0, 0, 0));
     }
 
+    /// The death reload empties the slots (`fun_001fee88`) without the vendor's hold on the weapon show: the held
+    /// weapon's counter comes straight back. The vendor's reset (`FUN_0024fb00`) holds it until the vendor's exit. (The
+    /// port's death reload used the vendor's reset, so the ammo counter stayed hidden after a death until a shop.)
+    #[test]
+    fn a_death_keeps_the_ammo_counter() {
+        let mut h = HudState::new(assets());
+        let mut ammo = [0; 37];
+        ammo[10] = 25;
+        let held = Inputs { weapon: Some((10, 25, 40)), ammo, ..inputs(4, 0) };
+        for _ in 0..50 { h.tick(held); }
+        h.empty_slots();
+        assert_eq!(h.slots[0].element, Element::Empty);
+        for _ in 0..50 { h.tick(held); }
+        assert_eq!((h.slots[0].icon, h.slots[0].shown, h.slots[0].slide), (icon::ITEM_BASE + 10, 25, 8));
+        h.reset_slots();
+        for _ in 0..50 { h.tick(Inputs { mode: 5, vendor: Some(None), ..held }); }
+        assert_eq!(h.slots[0].element, Element::Empty, "the vendor's reset holds the counter off");
+    }
+
     /// The vendor's own slot-0 requests (`OpenVendorMenu` / `VendorModeUpdate` / `VendorExit`): open with the Bomb Glove
     /// held, the selected ammo entries replace each other at once (flags 0x30), the weapon show is held off; after the
     /// exit the held weapon's counter comes back with its own icon and count, and the wrench hides it. (The old port
@@ -2630,4 +2732,54 @@ mod tests {
         let lines = text::layout(&mut w, b"abcdefghijklmn\x01\x0cxy\x08z", -1, &g, true);
         assert_eq!(lines.iter().map(|l| (l.start, l.count, l.colour)).collect::<Vec<_>>(), [(0, 14, 0), (15, 5, 0)]);
     }
+}
+
+/// Balanced two-row expansion. Scale spacing and art together: fixed 50% above eight HP.
+pub fn nanotech_layout(max_hp:i32)->(f32,Vec<(f32,f32)>) {
+    let n=max_hp.clamp(1,72) as usize;let upper=(n+1)/2;
+    // Above eight HP, orb artwork and spacing stay at exactly half size.
+    let scale: f32 = if n <= 8 { 1.0 } else { 0.5 };
+    let pitch=(32.0*scale).min((512.0-32.0*scale)/(upper.saturating_sub(1).max(1) as f32));
+    let mut points=Vec::with_capacity(n);
+    for (row,count) in [upper,n/2].into_iter().enumerate(){
+        for col in 0..count {points.push(((col as f32-(count as f32-1.)/2.)*pitch,row as f32*24.*scale));}
+    }
+    (scale,points)
+}
+fn mid_frame(h:&HudState)->usize {h.assets.icon_frame(icon::BAR,0)}
+#[cfg(test)] mod expanded_nanotech_tests {
+    use super::*;
+    #[test]fn every_non_native_maximum_has_one_cyan_shell_per_sphere() {
+        let assets=HudAssets{icons:vec![IconEntry{id:icon::ORB,frame_count:32,first_frame:0,..Default::default()}],frame_sizes:vec![(32,32);32],
+            glyphs:[[rc_formats::font::Glyph::default();rc_formats::font::GLYPHS];3],messages:vec![]};
+        for hp in [6,7,9,10,19,20,21,40,64] {
+            let mut hud=HudState::new(assets.clone());
+            hud.inputs=Inputs{hp,max_hp:hp,..Default::default()};
+            hud.slots[1].slide=8;hud.slots[1].value=hp;
+            let mut draws=Vec::new();hud.draw_health(1,&mut draws);
+            let shells=draws.iter().filter(|d|matches!(d,Draw::Sprite16{frame:30,..})).count();
+            assert_eq!(shells,hp as usize,"{hp} HP");
+            hud.slots[1].value=hp-1;draws.clear();hud.draw_health(1,&mut draws);
+            assert_eq!(draws.iter().filter(|d|matches!(d,Draw::Sprite16{frame:30,..})).count(),hp as usize);
+        }
+    }
+    #[test]fn rows_remain_centered_and_orbs_and_spacing_shrink_together(){
+        for hp in 9..=72 {let(s,p)=nanotech_layout(hp);assert_eq!(p.len(),hp as usize);assert!((0.50..=0.50).contains(&s));
+            for row in 0..2 {let xs:Vec<_>=p.iter().filter(|p|p.1==row as f32*24.*s).map(|p|p.0).collect();
+                assert!(xs.iter().sum::<f32>().abs()<0.001);assert!(xs.iter().all(|x|x.abs()+16.*s <= 256.));}
+        }
+    }
+}
+
+#[cfg(test)]mod bolt_chain_hud_tests{
+ use super::*;
+ #[test]fn chain_appears_below_the_bolt_counter_and_disappears_immediately_when_reset(){
+  let assets=HudAssets{icons:vec![],frame_sizes:vec![(32,32)],glyphs:[[rc_formats::font::Glyph::default();rc_formats::font::GLYPHS];3],messages:vec![]};
+  let mut h=HudState::new(assets);let mut draws=vec![];
+  for _ in 0..40 {draws=h.tick(Inputs{bolt_chain:1,..Default::default()});}
+  let chain_y=draws.iter().find_map(|d|if let Draw::Text{text,y,..}=d{(text==b"x2").then_some(*y)}else{None}).expect("chain caption");
+  let bolt_y=draws.iter().find_map(|d|if let Draw::Text{text,y,..}=d{(text==b"0").then_some(*y)}else{None}).expect("bolt caption");
+  assert!(chain_y>bolt_y);
+  draws=h.tick(Inputs::default());assert!(!draws.iter().any(|d|matches!(d,Draw::Text{text,..}if text==b"x2")));
+ }
 }

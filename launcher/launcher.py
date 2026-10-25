@@ -11,10 +11,11 @@ from pathlib import Path
 import launcher_core as core
 import i18n
 from i18n import tr
+from schema import WORLD_DEFAULTS
 from schema import WEAPONS, EDITOR_WEAPONS, XP, NAMES, BOOLEANS, COLORS, title, help_text, field_groups, global_field_groups, AMMO_DROP_DEFAULTS, normalized_ammo_chances, MODEL_OPTIONS, visible_model_field
 
 BASE_LABEL = 'Default configuration (weapons.ini)'
-GRADE_COLORS = ('#8997aa', '#e1ba49', '#e88042', '#bd7be4', '#9cc956')
+GRADE_COLORS = ('#8997aa', '#b840ff', '#ff3030', '#ff8800', '#ffe600', '#bbff20', '#80e0ff', '#ffffff')
 
 def apply_window_icon(root,tk,folder):
     if sys.platform!='win32':return
@@ -429,10 +430,10 @@ class Launcher:
         try:
             value = core.validate_value(*pair, self.variables[pair].get())
             prefix = pair[0].rsplit('.level', 1)[0]
-            for n in range(1, 6):
+            for n in range(1, 9):
                 target = f'{prefix}.level{n}', pair[1]
                 if target in self.variables: self.variables[target].set(core.validate_value(*target, value))
-            self.render_page(); self.status.set(tr('Value copied to all five grades: ')+i18n.label(pair[1]))
+            self.render_page(); self.status.set(tr('Value copied to all eight grades: ')+i18n.label(pair[1]))
         except ValueError as error: self.error(error)
 
     def render_page(self):
@@ -446,10 +447,15 @@ class Launcher:
         if self.page == 'global':
             base_fields, mode_fields = global_field_groups(self.doc)
             base = self.card(self.form, tr('Base settings')); base.pack(fill='x', padx=5, pady=6)
-            self.fields(base, 'general', [key for section,key in base_fields if section == 'general'])
+            self.fields(base, 'general', [key for section,key in base_fields if section == 'general' and key not in WORLD_DEFAULTS and key not in ('dpad_quick_select','r1_experimental')])
             self.ttk.Separator(base, orient='horizontal').pack(fill='x', pady=(12,6))
             self.ttk.Label(base, text=tr('XP bar and HUD'), style='Card.TLabel').pack(anchor='w')
             self.fields(base, 'hud', [key for section,key in base_fields if section == 'hud'])
+            self.ttk.Separator(base,orient='horizontal').pack(fill='x',pady=(12,6))
+            self.fields(base,'general',['dpad_quick_select','r1_experimental'])
+            difficulty=self.card(self.form,tr('Encounter difficulty and Nanotech'))
+            difficulty.pack(fill='x',padx=5,pady=6)
+            self.fields(difficulty,'general',list(WORLD_DEFAULTS))
             mode = self.card(self.form, tr('Ammo-Survival Mode'))
             mode.pack(fill='x', padx=5, pady=6)
             self.fields(mode, 'general', ['experimental_ammo_unlock_mode'])
@@ -474,14 +480,19 @@ class Launcher:
                 self.ttk.Label(profile, text=tr('Game ID: ')+self.doc.entries.get((section, 'id'), '?')+tr('  ·  XP required for each upgrade'), style='CardSmall.TLabel').pack(anchor='w', pady=(0, 7))
                 strip = self.ttk.Frame(profile, style='Card.TFrame'); strip.pack(fill='x')
                 for i, key in enumerate(XP):
+                    if key=='xp_v5_to_v6' and self.page!='wrench':
+                        cell=self.ttk.Frame(strip,style='Card.TFrame');cell.grid(row=i//4,column=i%4,sticky='w',padx=(0,20))
+                        self.ttk.Label(cell,text='V5 → V6',style='Card.TLabel').pack(anchor='w')
+                        self.ttk.Label(cell,text=tr('Gold purchase (NG+)'),style='CardSmall.TLabel').pack(anchor='w')
+                        continue
                     if (section, key) not in self.variables or not self.matches(section, key): continue
-                    cell = self.ttk.Frame(strip, style='Card.TFrame'); cell.grid(row=0, column=i, sticky='w', padx=(0, 20))
+                    cell = self.ttk.Frame(strip, style='Card.TFrame'); cell.grid(row=i//4, column=i%4, sticky='w', padx=(0, 20))
                     self.ttk.Label(cell, text=f'V{i+1} → V{i+2}', style='Card.TLabel').pack(anchor='w')
                     entry = self.ttk.Entry(cell, textvariable=self.variables[(section, key)], width=12); entry.pack(pady=3)
                     entry.bind('<FocusIn>', lambda _, s=section, k=key: self.show_help(s, k))
                     entry.bind('<Enter>', lambda _, s=section, k=key: self.show_help(s, k))
             self.card_area.pack(fill='x')
-            for n in range(1, 6):
+            for n in range(1, 9):
                 card = self.card(self.card_area, tr('V{grade}  /  Grade {grade}',grade=n), GRADE_COLORS[n-1]); self.cards.append(card)
                 level = section+f'.level{n}'; keys = self.doc.keys(level)
                 standard, experimental = field_groups(self.page, keys)
@@ -495,7 +506,7 @@ class Launcher:
                 if not keys:
                     self.ttk.Label(card, text=tr('No settings for this grade in the INI.'), style='CardSmall.TLabel', wraplength=230).pack(anchor='w')
             self.arrange_cards()
-        self.context.set(tr('All five grades are on this page. Scroll to see them all. Right-click a value to copy it to the other grades.') if self.page != 'global' else tr('Global XP, HUD and level-up settings. In-game weapon names follow the game language.'))
+        self.context.set(tr('All eight grades are on this page. Scroll to see them all. Right-click a value to copy it to the other grades.') if self.page != 'global' else tr('Global XP, HUD and level-up settings. In-game weapon names follow the game language.'))
 
     def update_ammo_chance_summary(self):
         if not hasattr(self, 'ammo_chance_summary'): return

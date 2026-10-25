@@ -38,8 +38,18 @@ struct StreamPulse {
     damage: f32,
 }
 
+/// Immutable tuning carried by a ballistic Pyrocitor segment. It remains in
+/// actual HP units until the normal donor/health-scale conversion below.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StreamSnapshot {
+    pub damage_hp_per_second: f32,
+    pub interval: u32,
+    pub burn_color: Option<u32>,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Events {
+    pub difficulty:crate::weapon_evo::world::Settings,
     pub enabled: bool,
     pub epoch: u64,
     pub frame: u64,
@@ -49,6 +59,7 @@ pub struct Events {
     pub values: HashMap<i32, f32>,
     /// Pyrocitor, Tesla: number of actual contact ticks per damage pulse.
     pub stream_intervals: [u32; 2],
+    pub stream_snapshot: Option<StreamSnapshot>,
     streams: HashMap<(MobyId, MobyId, i32, u8), StreamPulse>,
     /// Per-target deadline shared by Blaster, fire and electricity. Damage has its own clock.
     stream_reactions: HashMap<MobyId, u64>,
@@ -154,14 +165,17 @@ impl Events {
             }
             return true;
         }
-        let hp = self.source_damage_hp.get(&(attacker, item)).or_else(|| self.values.get(&item)).copied().unwrap_or_else(|| t.damage.to_f32() * HP_SCALE);
+        let snapshot = if item == 16 { self.stream_snapshot } else { None };
+        let hp = snapshot.map(|s| s.damage_hp_per_second).unwrap_or_else(|| self.source_damage_hp.get(&(attacker, item)).or_else(|| self.values.get(&item)).copied().unwrap_or_else(|| t.damage.to_f32() * HP_SCALE));
         let hp = if item==8 {t.damage.to_f32()*HP_SCALE} else if item == 19 && t.w20 & TESLA_OVERLAP != 0 {
             hp * crate::weapon_evo::extra(19, "secondary_beam_damage_percent", 25.0) / 100.0
         } else { hp };
+        // Preserve native AI health thresholds; effective HP and XP scale together.
         let mut damage = hp / HP_SCALE / if stream { 60.0 } else { 1.0 };
+        damage /= self.difficulty.health_scale(table.mobys[target].o_class);
         if !damage.is_finite() || damage <= 0.0 { return true; }
         if stream {
-            let interval = if item == 17 { 1 } else { self.stream_intervals[usize::from(item == 19)].clamp(1, 600) };
+            let interval = if item == 17 { 1 } else { snapshot.map(|s| s.interval).unwrap_or(self.stream_intervals[usize::from(item == 19)]).clamp(1, 600) };
             let pulse = self.streams.entry((target, attacker, item, channel)).or_default();
             pulse.damage += damage;
             pulse.contact_ticks += 1;
@@ -175,17 +189,18 @@ impl Events {
         // Preserve his position/ownership, but expose the weapon class to native
         // enemy filters: otherwise fire/electricity is mistaken for the wrench.
         let stream_class = match item { 17 if stream => Some(176), 16 => Some(176), 19 => Some(177), _ => None };
-        let r = HitRecord { pos, dir: t.dir, attacker: t.attacker, flags: t.flags,
+        let r = HitRecord { wrench: false, pos, dir: t.dir, attacker: t.attacker, flags: t.flags,
             b28: t.b18, b29: t.b19, h2a: stream_class.unwrap_or(t.h1a as i16) as u16, damage: Pf::f(damage), w30: t.w20 & !TESLA_OVERLAP & if item==8 {!crate::weapon_evo::wrench::THROWN} else {u32::MAX},
             target, prim, doom_explosion: 0,
-            evolution: Some(Attack { burn_color: if item == 16 { Some(crate::weapon_evo::pyro_burn_color()) }
+            evolution: Some(Attack { burn_color: if item == 16 { Some(snapshot.map_or_else(crate::weapon_evo::pyro_burn_color, |s| s.burn_color)) }
                 else if item == 17 { Some(table.mobys.get(attacker).and_then(super::classes::mine::experimental::burn_color)) }
                 else { None }, instance, weapon: item, damage, damage_only: false,
                 origin: table.mobys.get(attacker).map(|m| Origin { class: if item==8 {0x47} else {stream_class.unwrap_or(m.o_class)}, position: m.position }) }) };
         if stream {
             if let Some(old) = self.pending.get_mut(&target).and_then(|q| q.iter_mut().find(|h|
                 h.attacker == Some(attacker) && h.w30 == r.w30 && h.evolution.is_some_and(|a|
-                    a.weapon == item && !self.resolved.contains(&(target, a.instance))))) {
+                    a.weapon == item && !self.resolved.contains(&(target, a.instance))
+                        && !self.terminal_seen.contains(&(target,a.instance))))) {
                 old.damage = Pf::f(old.damage.to_f32() + damage);
                 if let Some(a) = &mut old.evolution { a.damage += damage; }
                 return true;
@@ -220,7 +235,17 @@ impl Events {
         self.resolved.insert((target, attack.instance))
     }
 
-    pub fn terminal_once(&mut self, target: MobyId, instance: u64) -> bool { self.terminal_seen.insert((target, instance)) }
+    pub fn terminal_once(&mut self, target: MobyId, instance: u64) -> bool {
+        if !self.terminal_seen.insert((target,instance)) {return false;}
+        // Direct-log native classes do not call take(). Retire their accepted
+        // pulse too, or later fire/electricity merges into a finished event and
+        // becomes invisible to the FIFO reader indefinitely.
+        if let Some(queue)=self.pending.get_mut(&target) {
+            queue.retain(|h|h.evolution.is_none_or(|a|a.instance!=instance));
+            if queue.is_empty(){self.pending.remove(&target);}
+        }
+        true
+    }
     pub fn logical_health(&self, target: MobyId) -> f32 { self.logical.get(&target).copied().unwrap_or(1.0) }
     /// Called only in an already accepted, native weapon-destruction branch.
     pub fn terminal_loss(&mut self, target: MobyId, damage: f32) -> (f32, bool) {
@@ -250,6 +275,7 @@ impl Events {
             // Per-frame flow identities need not survive after their records were copied.
             self.sources.retain(|(_, item, phase), _| *phase == u64::MAX || (*item == 18 && *phase == self.melee_serial) || (*item==8 && *phase==self.wrench_serial));
             self.frame = frame;
+            self.stream_snapshot = None;
             self.muzzle_bound=false;
         }
     }
@@ -326,6 +352,26 @@ mod tests {
         assert!((damage*HP_SCALE-240.0).abs()<0.001);
     }
     #[test]
+    fn direct_log_terminal_classes_keep_taking_partial_stream_pulses() {
+        for (item,class) in [(16,176),(19,177)] {
+            let mut table=table();table.mobys[0].o_class=1445;
+            let mut e=Events{enabled:true,hero:Some(10),..Default::default()};
+            e.values.insert(item,1500.);
+            let mut loss=0.;
+            for tick in 0..4 {
+                e.begin_frame(tick);
+                for _ in 0..20 {e.queue(&table,0,&flow_template(class),false,[Pf::ZERO;4],0);}
+                let pulse=e.frozen_next(0).expect("new contact must not merge into an already accepted pulse");
+                let instance=pulse.evolution.unwrap().instance;
+                assert!(e.terminal_once(0,instance));
+                assert!(!e.terminal_once(0,instance));
+                loss+=e.terminal_loss(0,pulse.damage.to_f32()).0;
+                assert!(e.pending.get(&0).is_none(),"accepted direct-log pulses cannot accumulate");
+            }
+            assert!((loss-1.).abs()<0.001);assert_eq!(e.logical_health(0),0.);
+        }
+    }
+    #[test]
     fn continuous_weapon_identity_is_not_ratchets_body_or_the_wrench() {
         for (item, class) in [(16, 176), (19, 177)] {
             let mut t = table();
@@ -345,6 +391,31 @@ mod tests {
         let mut t = template(class, 10);
         t.b18 = 5;
         t
+    }
+    #[test]
+    fn lava_overlaps_use_frozen_dps_interval_color_and_normal_target_clock() {
+        let t = table();
+        let mut e = Events { enabled: true, hero: Some(10), stream_intervals: [60, 1], ..Default::default() };
+        e.values.insert(16, 9999.0); // A later grade must not alter a launched stream.
+        let mut hp = 0.0; let mut pulses = 0;
+        for frame in 0..60 {
+            e.begin_frame(frame);
+            e.stream_snapshot = Some(StreamSnapshot { damage_hp_per_second: 120.0, interval: 6, burn_color: Some(0x123456) });
+            for _ in 0..30 { e.queue(&t, 0, &flow_template(176), false, [Pf::ZERO;4], 0); }
+            e.stream_snapshot = None;
+            if let Some(hit) = e.take(0,u32::MAX) {
+                hp += hit.damage.to_f32()*HP_SCALE; pulses += 1;
+                assert_eq!(hit.evolution.unwrap().weapon,16);
+                assert_eq!(hit.evolution.unwrap().burn_color,Some(Some(0x123456)));
+            }
+            assert!(e.take(0,u32::MAX).is_none());
+        }
+        assert_eq!(pulses,10); assert!((hp-120.0).abs()<0.001);
+        // A scoped override never changes Tesla's own DPS or interval.
+        e.begin_frame(61);e.values.insert(19,60.0);
+        e.stream_snapshot=Some(StreamSnapshot{damage_hp_per_second:9999.0,interval:60,burn_color:None});
+        e.queue(&t,0,&flow_template(177),false,[Pf::ZERO;4],0);
+        assert!((e.take(0,u32::MAX).unwrap().damage.to_f32()*HP_SCALE-1.0).abs()<0.001);
     }
     #[test]
     fn both_streams_keep_dps_when_contact_is_batched() {

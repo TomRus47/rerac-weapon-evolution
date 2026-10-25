@@ -27,7 +27,7 @@ class V51Tests(unittest.TestCase):
         for pair, value in before.entries.items(): self.assertEqual(after.entries[pair], value)
         self.assertEqual(after.entries['general', 'experimental_ammo_unlock_mode'], 'false')
         self.assertNotIn(('general','wrench_gold_texture'),after.entries)
-        self.assertEqual(len(after.entries)-len(before.entries), 36)
+        self.assertEqual(len(after.entries)-len(before.entries), len(removed))
         self.assertEqual(convert(migrated)[0], migrated)
 
     def test_custom_gold_and_mode_values_survive_all_grade_migrations(self):
@@ -40,7 +40,7 @@ class V51Tests(unittest.TestCase):
         migrated, _ = convert(raw)
         loaded = core.checked_document(runtime_profile(migrated))
         for pair, value in changes.items(): self.assertEqual(loaded.entries[pair], value)
-        self.assertEqual(core.required_config(loaded),58)
+        self.assertEqual(core.required_config(loaded),82)
         for n in range(1, 6):
             keys = loaded.keys(f'weapon.ryno.level{n}')
             standard, experimental = field_groups('ryno', keys)

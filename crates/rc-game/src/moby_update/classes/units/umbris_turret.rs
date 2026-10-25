@@ -239,7 +239,7 @@ pub fn shot_update(w: &mut World, id: MobyId) {
     let p = c::add(from, c::pv4(w, id, 0x30));
     c::set_pos(w, id, p);
     let drawn = w.m(id).visible != 0;
-    if 30.0 < c::dist2(p, c::pv4(w, id, 0x40)) {
+    if crate::weapon_evo::world::motion::range(w,id,30.0) < c::dist2(p, c::pv4(w, id, 0x40)) {
         if drawn {
             for _ in 0..3 {
                 let r = [w.rng.randf(-1.0, 1.0), w.rng.randf(-1.0, 1.0), 0.0, 0.0];

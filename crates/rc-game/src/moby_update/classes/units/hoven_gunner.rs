@@ -331,7 +331,7 @@ fn init(w: &mut World, id: MobyId) {
 fn ambush(w: &mut World, id: MobyId, tpos: c::V) -> bool {
     let p = c::pos(w, id);
     blend(w, id, 0, 8);
-    let range = c::pf(w, id, pv::RANGE);
+    let range = crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, pv::RANGE));
     let seen = (tpos[2] - p[2]).abs() <= 3.0 && c::dist3(tpos, p) <= range;
     let trig = c::pi32(w, id, pv::TRIGGER);
     let go = seen || (trig != -1 && w.in_cuboid([tpos[0], tpos[1], tpos[2]], trig)) || w.m(id).cmd != 0;
@@ -443,7 +443,7 @@ pub fn update(w: &mut World, id: MobyId) {
         return;
     }
     if !tick(w, id) { return; }
-    let t = target::acquire(w, id, c::pf(w, id, pv::RANGE));
+    let t = target::acquire(w, id, crate::weapon_evo::world::perception_range(w,id,c::pf(w, id, pv::RANGE)));
     let tm = t.moby.or(w.hero_moby);
     let tpos = tm.map_or_else(|| super::hero_pos(w), |m| w.m(m).position);
     let mut aim = t.aim;

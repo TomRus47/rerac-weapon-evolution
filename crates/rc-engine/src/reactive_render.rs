@@ -3,7 +3,8 @@
 //! quads through the shared draw-callback material of crate::fx_draw (additive, ALPHA 0x48). The quads come from rc-game
 //! (`rc_game::hero::suck_vortex::Vortex::quads`, `rc_game::hero::taunter::Rings::quads`,
 //! `rc_game::hero::morph_ray::Beam::quads`: one group per FX texture, in the callback's order); they are drawn on the
-//! ticks their updates registered the callback.
+//! ticks their updates registered the callback. Experimental Pyrocitor ribbons
+//! also use this material; their geometry is cosmetic and never delivers damage.
 
 use crate::fx_draw::{FxAssets, FxGroup, FxPrimMaterial, FxSlots, PrimBuf, LIST1_BIAS, LIST2_BIAS};
 use crate::game_camera::{GameFog, TfragFog};
@@ -22,6 +23,7 @@ struct ReactiveDraw {
     vortex: FxSlots,
     rings: FxSlots,
     morph: FxSlots,
+    lava: FxSlots,
     drawn: Option<u64>,
 }
 
@@ -43,10 +45,19 @@ fn draw(
     let mut vortex: Vec<FxGroup> = Vec::new();
     let mut rings: Vec<FxGroup> = Vec::new();
     let mut morph: Vec<FxGroup> = Vec::new();
+    let mut lava: Vec<FxGroup> = Vec::new();
     if let Some(p) = play.as_deref().filter(|p| p.svc.game_mode != 2) {
         let last = p.game.counter.wrapping_sub(1);
         let r = &p.game.hero.weapons.reactive;
         let id = p.game.hero.items.slot.id;
+        if id == rc_game::hero::pyrocitor::PYROCITOR && p.game.hero.health > 0 {
+            for q in p.game.hero.weapons.pyro.lava.quads(p.game.camera.out.pos_f32()) {
+                if lava.last().is_none_or(|group| group.fx != q.fx) {
+                    lava.push(FxGroup { fx: q.fx, additive: true, subtract: false, prims: PrimBuf::default() });
+                }
+                lava.last_mut().unwrap().prims.quad(q.corners, q.st, q.rgba);
+            }
+        }
         if id == rc_game::hero::suck_cannon::SUCK_CANNON && r.suck.vortex.drawn == Some(last) {
             let mut g = FxGroup { fx: rc_game::hero::suck_vortex::FX, additive: true, subtract: false, prims: PrimBuf::default() };
             for q in r.suck.vortex.quads(p.game.camera.out.pos_f32()) { g.prims.quad(q.corners, q.st, q.rgba); }
@@ -69,5 +80,6 @@ fn draw(
     let mut a = FxAssets { meshes: &mut meshes, images: &mut images, materials: &mut materials, fx: tex, fog };
     state.vortex.show(&mut commands, &mut vis, &mut a, vortex, LIST2_BIAS + 64.0, "suck vortex");
     state.rings.show(&mut commands, &mut vis, &mut a, rings, LIST1_BIAS + 128.0, "taunter rings");
+    state.lava.show(&mut commands, &mut vis, &mut a, lava, LIST2_BIAS + 112.0, "lava stream");
     state.morph.show(&mut commands, &mut vis, &mut a, morph, LIST2_BIAS + 96.0, "morph beam");
 }

@@ -288,7 +288,7 @@ fn idle(w: &mut World, id: MobyId, t: &target::Target) {
     }
     if w.rng.randi(14) != 0 { return; }
     let home = c::pv4(w, id, pv::HOME);
-    if c::dist3(t.pos, home) < c::pf(w, id, pv::SIGHT) && (t.pos[2] - c::pos(w, id)[2]).abs() < 3.0 {
+    if c::dist3(t.pos, home) < crate::weapon_evo::world::chase_range(w,id,c::pf(w, id, pv::SIGHT)) && (t.pos[2] - c::pos(w, id)[2]).abs() < 3.0 {
         set_state(w, id, st::NOTICE);
         let tk = w.ticks(10);
         blend(w, id, 2, tk);
@@ -307,7 +307,7 @@ fn charge(w: &mut World, id: MobyId, t: &target::Target) {
         return;
     }
     let home = c::pv4(w, id, pv::HOME);
-    if c::pf(w, id, pv::SIGHT) < c::dist3(t.pos, home) || 3.0 < (t.pos[2] - c::pos(w, id)[2]).abs() { set_state(w, id, st::HOME); }
+    if crate::weapon_evo::world::chase_range(w,id,c::pf(w, id, pv::SIGHT)) < c::dist3(t.pos, home) || 3.0 < (t.pos[2] - c::pos(w, id)[2]).abs() { set_state(w, id, st::HOME); }
 }
 
 /// State 5 (module doc).

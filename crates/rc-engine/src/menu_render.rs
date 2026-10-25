@@ -11,7 +11,8 @@
 //!   (`SceneController`), its draws (`PageMenuDraw`). The close's post-action: resume; the ship travel (logged:
 //!   the travel lane's); a movie / scene / the slideshow after the 16-frame fade over the menu image
 //!   ([`post_fade_step`], crate::media_render), the return page reopening the menu before the tick
-//!   ([`return_page_reopen`]).
+//!   ([`return_page_reopen`]: the reopening frame still renders as the gameplay frame it was entered on, so the
+//!   snapshot is of the world).
 //! * mode 7: the credits slideshow (crate::media_render::Slides). A class's `EnterMenuMode` / `EnterSlideshowMode` /
 //!   `PlayMovieB` are taken after its tick (crate::media_render::take_class_requests).
 //! * [`MenuMode::loop_frame`] counts main-loop frames: the scripted pad (`RC_PLAY_SCRIPT`) is indexed by it,
@@ -66,7 +67,7 @@
 //! (0..524288, F 255..0): at the frames' depth (≈ 5 units) the two differ by at most one step of F.
 //!
 //! **Port Options** (port-only, `rc_game::menus::pause::port`): an extra "Port Options" entry in the Options
-//! list opens a page built from the game's machinery; its graphics rows are synced with crate::graphics's
+//! list (the pause menu's and the main menu's) opens a page built from the game's machinery; its graphics rows are synced with crate::graphics's
 //! `GraphicsSettings` around every menu tick (the shadows row likewise with `shadow_render::ShadowSettings`, the display
 //! rows with `display::DisplaySettings`): the resource's value is shown, a ✕ writes it back and saves it to the port
 //! settings file. The anti-aliasing row offers only the sample counts the GPU supports ([`SupportedMsaa`]; ✕ skips the
@@ -157,6 +158,10 @@ struct MenuRt {
     last_counter: Option<u64>,
     /// The menu was entered this frame: the snapshot is taken of this frame's render.
     snapshot_request: bool,
+    /// The return page reopened the menu before this frame's tick ([`return_page_reopen`]): the frame still renders
+    /// as the gameplay frame the menu was entered on (the snapshot is taken of it) and runs no menu update, as when
+    /// Start opens the menu (the mode switch takes effect next frame, module docs).
+    reopened: bool,
     /// The snapshot texture holds the entering frame (with the menu's black 0x30 applied to its bytes).
     snapshot_ready: bool,
     /// The snapshot texture (written on the GPU, module docs).
@@ -394,6 +399,7 @@ fn setup(
         script,
         last_counter: None,
         snapshot_request: false,
+        reopened: false,
         snapshot_ready: false,
         snapshot: snapshot.clone(),
         resnap: 0,
@@ -541,6 +547,54 @@ fn read_graphics_rows(menu: &PageMenu, g: &mut crate::graphics::GraphicsSettings
     }
 }
 
+/// The Port Options rows filled from the settings before a menu tick, on both copies of the page (the pause menu's and
+/// the main menu's: crate::menu_render's two ticks).
+fn port_rows_in(
+    menu: &mut PageMenu,
+    shadows: Option<&crate::shadow_render::ShadowSettings>,
+    display: &crate::display::DisplaySettings,
+    gfx: &crate::graphics::GraphicsSettings,
+    supported: Option<&SupportedMsaa>,
+) {
+    if let Some(s) = shadows { menu.set_port_value(Setting::Shadows, !s.enabled as u8); }
+    menu.set_port_value(Setting::Resolution, display.resolution.index());
+    menu.set_port_value(Setting::Aspect, display.aspect.index());
+    menu.set_port_value(Setting::Fullscreen, display.fullscreen as u8);
+    sync_graphics_rows(menu, gfx, &supported.cloned().unwrap_or_default());
+}
+
+/// The Port Options rows read back after the tick: a changed row changes its setting and saves it.
+fn port_rows_out(
+    menu: &PageMenu,
+    shadows: Option<&mut crate::shadow_render::ShadowSettings>,
+    display: &mut crate::display::DisplaySettings,
+    gfx: &mut crate::graphics::GraphicsSettings,
+    gfx_before: &crate::graphics::GraphicsSettings,
+    frame: u64,
+) {
+    if let (Some(v), Some(s)) = (menu.port_value(Setting::Shadows), shadows) {
+        if s.enabled != (v == 0) {
+            s.enabled = v == 0;
+            println!("menus: frame {frame}: Port Options: shadows {}", if s.enabled { "on" } else { "off" });
+            s.save();
+        }
+    }
+    read_graphics_rows(menu, gfx, gfx_before, frame);
+    // The display (crate::display): the game frame's resolution and the window mode.
+    let want = (
+        menu.port_value(Setting::Aspect).map(crate::display::Aspect::from_index),
+        menu.port_value(Setting::Resolution).map(crate::display::Resolution::from_index),
+        menu.port_value(Setting::Fullscreen).map(|v| v == 1),
+    );
+    if let (Some(aspect), Some(res), Some(full)) = want {
+        if display.aspect != aspect || display.resolution != res || display.fullscreen != full {
+            (display.aspect, display.resolution, display.fullscreen) = (aspect, res, full);
+            println!("menus: frame {frame}: Port Options: aspect {aspect:?}, resolution {res:?}, fullscreen {full}");
+            display.save();
+        }
+    }
+}
+
 /// The anti-aliasing row's selectable values (bit k = `AntiAliasing::ALL[k]`) on this device: Original and Off, and the
 /// multisampling counts it supports.
 fn aa_choices(s: &SupportedMsaa) -> u32 {
@@ -586,7 +640,8 @@ fn menu_frame(
     if fer.fe.is_some() {
         let busy = movies.as_deref().is_some_and(|m| m.busy());
         let fer = &mut *fer;
-        front_end_frame(rt, &mut mm, &mut play, gs, fer, &pad, &source, busy, audio.as_deref_mut());
+        let port = (shadows.as_deref_mut(), &mut *display, &mut *gfx, supported.as_deref());
+        front_end_frame(rt, &mut mm, &mut play, gs, fer, &pad, &source, busy, audio.as_deref_mut(), port);
         mm.state.end_frame();
         mm.loop_frame += 1;
         return;
@@ -594,16 +649,28 @@ fn menu_frame(
     let mode = mm.state.mode;
     let counter = play.game.counter;
     if mode == Mode::Gameplay && rt.last_counter == Some(counter) { return; }
+    // The menu was entered on an earlier tick of this frame (a frame that catches up runs several fixed ticks): as on
+    // the PS2, where the mode switch takes effect next frame, the frame still renders as the gameplay frame the
+    // snapshot is taken of (not the menu's first panels at their start positions) and the menu's first tick is the
+    // next frame's.
+    if mode == Mode::Menu && rt.snapshot_request && rt.render_mode == Mode::Gameplay { return; }
     rt.last_counter = Some(counter);
     mm.state.begin_frame();
     let frame = mm.loop_frame;
     let vsync = frame as u32;
-    rt.render_mode = mode;
+    // The return page reopened the menu before this frame's tick ([`return_page_reopen`]): as on the PS2, where the
+    // mode switch takes effect next frame, this frame still renders the gameplay frame the menu was entered on (the
+    // frame-buffer snapshot is taken of it, world + HUD) and runs no menu update; the menu's first tick (which
+    // reopens the page) is the next frame, exactly as when Start opens the menu.
+    let reopened = std::mem::take(&mut rt.reopened);
+    rt.render_mode = if reopened { Mode::Gameplay } else { mode };
     rt.draws.clear();
     let trace = rt.trace;
     match mode {
         Mode::Gameplay => {
             let inp = MenuInput::from_pad(&play.game.pad, true);
+            let control_settings=play.svc.bomb_evo.control_settings;
+            let raw_edges=rc_game::weapon_evo::controls::physical_edges(&play.game.pad,gs.options().mirror);
             // 0x15f594 as the hero update saw it: a context-prompt owner blocks the ring (the vendor's △, Blarg's
             // button are not also a ring open). 0x1403fc the hand swap; 0x1413fc no control (the scripted holds
             // 0x72 / 0x32 / 0x78: the camera runs, the tube ride) and 0x1413f7 unless 0x1413f4 = 1 or 0x13f502;
@@ -628,6 +695,9 @@ fn menu_frame(
                 if let Some(c) = u.command { play.game.hero.bodies.command = c; }
                 // 0x242930: the ring's △ also keeps health and bolts up (`HudShowHealth` + the bolt counter, ScaleTicks(180)).
                 if h.show_health_bolts { feed.calls.push(rc_game::hud::Call::ShowHealthBolts(rc_game::hud::scale_ticks(180))); }
+                if qs.open && !qs.command_page && inp.held_u & button::TRIANGLE != 0 {
+                    feed.calls.push(rc_game::hud::Call::QuickSelectHealth(rc_game::hud::scale_ticks(180)));
+                }
                 if trace || h.request.is_some() || u.closed || h.opened {
                     if h.opened { println!("menus: frame {frame}: quick select opened (slots {:?})", gs.global.quick_select); }
                     if let Some(r) = h.request { println!("menus: frame {frame}: double tap: hand request item {r} (0x141408)"); }
@@ -635,7 +705,24 @@ fn menu_frame(
                         println!("menus: frame {frame}: quick select closed, selection {} → hand request {:?} (0x141408 = {}; the hand swap FUN_002307e0 runs in hero/items.rs)", qs.sel, u.request, sess.temp_hand);
                     }
                 }
-                qs.draw(&rt.assets, &gs.global, play.game.counter, listeners, &mut rt.draws);
+                let selected=usize::try_from(qs.sel).ok().and_then(|i|qs.entries.get(i)).map(|e|e.item);
+                if control_settings.r1 && qs.open && !qs.command_page && inp.held_u&button::TRIANGLE!=0
+                    && raw_edges&button::R1!=0 && !play.death_pending && play.svc.game_mode==0
+                    && selected.is_some_and(|item|rc_game::inventory::owns(gs,item)) {
+                    if gs.weapon_progress.controls.cycle(selected.unwrap()).is_some() {
+                        play.svc.bomb_evo.set_controls(gs.weapon_progress.controls);
+                        if let Some(a)=audio.as_deref_mut(){play_menu_sounds(&mut play,a,&[MenuSound::Confirm]);}
+                    }
+                }
+                if control_settings.dpad && !qs.open && inp.held_u&button::TRIANGLE==0
+                    && !play.death_pending && !play.game.camera_paused && play.svc.game_mode==0 {
+                    let saved=gs.weapon_progress.controls;
+                    let data=play.game.item_data.as_ref();
+                    rc_game::weapon_evo::controls::equip(&saved,raw_edges,gs,sess,&play.game.hero,
+                        |id|data.and_then(|d|d.defs.get(id as usize)).map(|item|item.slot));
+                }
+                qs.draw_with_controls(&rt.assets, &gs.global, play.game.counter, listeners,
+                    control_settings.r1.then_some(&gs.weapon_progress.controls), &mut rt.draws);
             }
             // 0x2abfb0: once the map page has found the level's map (0x184694), move record 9 ("the map was used")
             // is bumped every mode-0 frame (the Novalis director's map hint waits for it).
@@ -700,7 +787,7 @@ fn menu_frame(
                 }
             }
         }
-        Mode::Menu => {
+        Mode::Menu if !reopened => {
             let input = match &rt.script {
                 Some(s) => s.at(frame),
                 None if *source == crate::game_camera::CameraSource::Play => pad.0,
@@ -708,7 +795,10 @@ fn menu_frame(
             };
             let mirror = gs.options().mirror;
             play.game.pad.update(Some(&input.bytes()), mirror);
-            let inp = MenuInput::from_pad(&play.game.pad, true);
+            let mut inp = MenuInput::from_pad(&play.game.pad, true);
+            if play.svc.bomb_evo.control_settings.dpad && inp.held_u&button::L1!=0 {
+                inp.raw_pressed=rc_game::weapon_evo::controls::physical_edges(&play.game.pad,mirror);
+            }
             let env = MenuEnv { vsync, b13f4: play.game.hero.mode, pal: false };
             let mut start_fade = None;
             let mut freeze_req: Option<u32> = None;
@@ -716,38 +806,15 @@ fn menu_frame(
                 // The close's post-action 3 / 4 / 5 / 6 / 7: `FadeToBlack(ticks(16))` over the menu image, then the action.
                 post_fade_step(rt, &mut mm, &mut play, gs, sess.hp, audio.as_deref_mut(), frame, true);
             } else if let Some(menu) = rt.menu.as_mut() {
-                if let Some(s) = shadows.as_deref() { menu.set_port_value(Setting::Shadows, !s.enabled as u8); }
-                menu.set_port_value(Setting::Resolution, display.resolution.index());
-                menu.set_port_value(Setting::Aspect, display.aspect.index());
-                menu.set_port_value(Setting::Fullscreen, display.fullscreen as u8);
                 let gfx_before = *gfx;
-                sync_graphics_rows(menu, &gfx_before, &supported.as_deref().cloned().unwrap_or_default());
+                port_rows_in(menu, shadows.as_deref(), &display, &gfx_before, supported.as_deref());
                 // The card and the save inputs moved into the menu for its tick (crate::saves).
                 saves_in(menu, &play);
                 // 0x15172a as the widgets read it (the Helpdesk girl).
                 menu.media.voice_state = play.svc.help.voice.state;
                 let out = menu.tick(&inp, gs, &env);
-                if let (Some(v), Some(s)) = (menu.port_value(Setting::Shadows), shadows.as_mut()) {
-                    if s.enabled != (v == 0) {
-                        s.enabled = v == 0;
-                        println!("menus: frame {frame}: Port Options: shadows {}", if s.enabled { "on" } else { "off" });
-                        s.save();
-                    }
-                }
-                read_graphics_rows(menu, &mut gfx, &gfx_before, frame);
-                // The display (crate::display): the game frame's resolution and the window mode.
-                let want = (
-                    menu.port_value(Setting::Aspect).map(crate::display::Aspect::from_index),
-                    menu.port_value(Setting::Resolution).map(crate::display::Resolution::from_index),
-                    menu.port_value(Setting::Fullscreen).map(|v| v == 1),
-                );
-                if let (Some(aspect), Some(res), Some(full)) = want {
-                    if display.aspect != aspect || display.resolution != res || display.fullscreen != full {
-                        (display.aspect, display.resolution, display.fullscreen) = (aspect, res, full);
-                        println!("menus: frame {frame}: Port Options: aspect {aspect:?}, resolution {res:?}, fullscreen {full}");
-                        display.save();
-                    }
-                }
+                if out.elapsed_hold { play.svc.elapsed_hold = true; }
+                port_rows_out(menu, shadows.as_deref_mut(), &mut display, &mut gfx, &gfx_before, frame);
                 if trace && !out.sounds.is_empty() { println!("menus: frame {frame}: sounds {:?}", out.sounds); }
                 // The class-0x472 sounds (`PlayClassSound(n, 0x11, frame moby)`), the close's audio, then the frame's sound_update.
                 if let Some(a) = audio.as_deref_mut() {
@@ -969,7 +1036,8 @@ fn open_menu(rt: &mut MenuRt, mm: &mut MenuMode, play: &mut Play, gs: &rc_game::
 
 /// `InLevelFrameUpdate` 0x2aba68's first test: a return page (0x1ba260, set by a movie / scene / slideshow post-action)
 /// in mode 0 → `EnterMenuMode(0)` before the tick (no tick that frame); the first tick reopens that page and restores the
-/// replay mode 0x15eed8 from 0x1ba2a0.
+/// replay mode 0x15eed8 from 0x1ba2a0. The frame itself still renders as the gameplay frame (the mode switch takes
+/// effect next frame), so the snapshot is of the world and not of the menu's own panels ([`MenuRt::reopened`]).
 #[allow(clippy::too_many_arguments)]
 fn return_page_reopen(
     rt: Option<ResMut<MenuRt>>,
@@ -986,6 +1054,9 @@ fn return_page_reopen(
     if play.svc.cinematic.requests.iter().any(|r| matches!(r, rc_game::cinematic::EngineRequest::StartScene { .. })) { return; }
     mm.replay = rt.replay_saved;
     let frame = mm.loop_frame;
+    // The frame still renders as the gameplay frame the menu is entered on (`menu_frame`), so the snapshot is of the
+    // world and not of the menu's own panels.
+    rt.reopened = true;
     open_menu(&mut rt, &mut mm, &mut play, &gs.0, audio.as_deref_mut(), 0, frame);
 }
 
@@ -1034,6 +1105,11 @@ fn post_fade_step(rt: &mut MenuRt, mm: &mut MenuMode, play: &mut Play, _gs: &mut
         }
         PostAction::Scene(arg) => {
             mm.replay = 1;
+            // 0x1ba25c: the hook slot's moby (0x179638[slot]), hidden by the scene's start.
+            let hook = rt.menu.as_mut().map_or(0, |m| std::mem::take(&mut m.replay_hook));
+            if hook != 0 {
+                play.svc.cinematic.replay_hide = play.svc.interact.talk_slots.iter().find(|&(_, &k)| k == hook as i32).map(|(&id, _)| id);
+            }
             // DialogStreamStart: the help box closed, 0x15f3fc = 1 (the scene ramps its own copy).
             play.svc.help.kill();
             play.svc.cinematic.fade = 0.0;
@@ -1300,6 +1376,14 @@ fn end_choice(rt: &mut MenuRt, play: &mut Play, gs: &mut rc_game::game_state::Ga
     }
 }
 
+/// The settings the Port Options page reads and writes (shadows, display, graphics, the device's MSAA counts).
+type FrontPortSettings<'a> = (
+    Option<&'a mut crate::shadow_render::ShadowSettings>,
+    &'a mut crate::display::DisplaySettings,
+    &'a mut crate::graphics::GraphicsSettings,
+    Option<&'a SupportedMsaa>,
+);
+
 /// One main-loop frame of the front end (crate::saves; `rc_game::frontend`).
 #[allow(clippy::too_many_arguments)]
 fn front_end_frame(
@@ -1312,6 +1396,8 @@ fn front_end_frame(
     source: &crate::game_camera::CameraSource,
     movie_busy: bool,
     mut audio: Option<&mut crate::audio_out::AudioOut>,
+    // The Port Options' settings: the main menu's copy of the page reads and writes them as the pause menu's does.
+    (shadows, display, gfx, supported): FrontPortSettings<'_>,
 ) {
     let frame = mm.loop_frame;
     let vsync = frame as u32;
@@ -1378,7 +1464,11 @@ fn front_end_frame(
             if let Some(menu) = rt.menu.as_mut() {
                 saves_in(menu, play);
                 menu.saves.card.front_end = true;
+                let gfx_before = *gfx;
+                port_rows_in(menu, shadows.as_deref(), display, &gfx_before, supported);
                 let o = menu.tick(&inp, gs, &env);
+                port_rows_out(menu, shadows, display, gfx, &gfx_before, frame);
+                if o.elapsed_hold { play.svc.elapsed_hold = true; }
                 if let Some(a) = audio.as_deref_mut() {
                     play_menu_sounds(play, a, &o.sounds);
                     menu_sound_frame(play, a);

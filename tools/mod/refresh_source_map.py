@@ -33,7 +33,7 @@ def main() -> None:
         if Path(name).suffix == ".bat":
             data = data.replace(b"\r\n", b"\n")
         row["sha256"] = hashlib.sha256(data).hexdigest()
-    release = json.loads((ROOT / "mod/release.json").read_text(encoding="utf-8"))
+    release = json.loads((ROOT / "mod/development.json").read_text(encoding="utf-8"))
     record.update(gameplay_version=release["patch"], launcher_version=release["launcher"],
                   files=[rows[name] for name in sorted(rows)])
     index.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")

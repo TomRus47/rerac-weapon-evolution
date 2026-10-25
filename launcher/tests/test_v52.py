@@ -34,7 +34,7 @@ class ModeSettingsTests(unittest.TestCase):
         self.assertTrue(all(key not in GLOBAL_EXPERIMENTAL_DEFAULTS for _,key in base))
         self.assertIn(('hud','xp_bar_height_px'), base)
         self.assertNotIn(('general','wrench_gold_texture'), base)
-        self.assertEqual(core.required_config(doc),58)
+        self.assertEqual(core.required_config(doc),82)
 
     def test_probabilities_normalize_without_implicitly_reenabling_zero_types(self):
         values = dict.fromkeys(AMMO_DROP_DEFAULTS, '0')
@@ -71,14 +71,14 @@ class ModeSettingsTests(unittest.TestCase):
         app.page='global';app.nav_buttons={};app.page_title=Mock();app.context=Mock()
         app.doc=core.checked_document(self.raw);app.ttk=Mock()
         app.tk=SimpleNamespace(StringVar=Mock)
-        app.card=Mock(side_effect=[Mock(),Mock()]);app.fields=Mock()
+        app.card=Mock(side_effect=[Mock(),Mock(),Mock()]);app.fields=Mock()
         app.variables={pair:SimpleNamespace(get=lambda value=value:value) for pair,value in app.doc.entries.items()}
         app.render_page()
-        self.assertEqual([call.args[1] for call in app.card.call_args_list],['Base settings','Ammo-Survival Mode'])
+        self.assertEqual([call.args[1] for call in app.card.call_args_list],['Base settings','Encounter difficulty and Nanotech','Ammo-Survival Mode'])
         calls=app.fields.call_args_list
-        self.assertEqual(calls[2].args[2],['experimental_ammo_unlock_mode'])
-        self.assertEqual(calls[3].args[2],list(AMMO_UNLOCK_DEFAULTS))
-        self.assertEqual(calls[4].args[2],list(AMMO_DROP_DEFAULTS))
+        self.assertEqual(calls[4].args[2],['experimental_ammo_unlock_mode'])
+        self.assertEqual(calls[5].args[2],list(AMMO_UNLOCK_DEFAULTS))
+        self.assertEqual(calls[6].args[2],list(AMMO_DROP_DEFAULTS))
 
 
 class LocalUpdaterTests(unittest.TestCase):

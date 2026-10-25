@@ -34,6 +34,9 @@ pub enum Call {
     /// `FUN_0024b4b0(h, n)`: the "show health and bolts" pair of the quick select's opening (0x242930), `PageMenuClose`
     /// 0x28c6c8 and `InLevelFrameUpdate`'s L3 (0x2aba68), all with `n = ScaleTicks(180)`.
     ShowHealthBolts(i32),
+    /// Actual weapon-ring selection only; damage, healing, L3 and page close
+    /// still use the native health requests and cannot arm the Nanotech XP bar.
+    QuickSelectHealth(i32),
     /// The value behind a data key (the game's `*data` of an element whose value a consumer owns).
     Data(u32, i32),
 }

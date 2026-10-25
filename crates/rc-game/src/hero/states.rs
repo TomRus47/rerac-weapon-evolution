@@ -59,6 +59,9 @@ impl Hero {
             return false;
         }
         let old_sub = self.substate;
+        if self.state == super::walloper::LUNGE && id != super::walloper::LUNGE {
+            super::walloper::leave(self);
+        }
         self.prev_prev_state = self.prev_state;
         self.prev_prev_group = self.prev_group;
         self.prev_timer = self.timer;
