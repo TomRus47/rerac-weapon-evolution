@@ -146,8 +146,9 @@ pub fn update(w: &mut World, id: MobyId) {
                 for xx in x..x + wd { w.svc.map.mask.set(xx, yy, false); }
             }
             crate::cinematic::unlock_planet(w, NEXT);
-            crate::cinematic::save_as(w, NEXT);
-            story::level_exit(w, NEXT);
+            let destination=crate::weapon_evo::randomizer::departure(w.svc.bomb_evo.progress().randomizer,w.svc.level,NEXT,&w.svc.interact.game.planet_unlocked);
+            crate::cinematic::save_as(w, destination);
+            story::level_exit(w, destination);
             w.mm(id).state = 0xc;
         }
         0xc => {

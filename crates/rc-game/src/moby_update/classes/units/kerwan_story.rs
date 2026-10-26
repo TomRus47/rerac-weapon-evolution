@@ -88,7 +88,7 @@ pub fn helga_update(w: &mut World, id: MobyId) {
     crate::moby_update::manip::scene_big_head(w, &[890], 0, 2.3);
     match w.m(id).state {
         0 => {
-            if w.inventory.owned(12) {
+            if crate::weapon_evo::randomizer::source_owned(w,12,w.inventory.owned(12)) {
                 course_open(w, id, 0xd4, true);
                 w.delete_moby(id);
                 return;
@@ -169,10 +169,10 @@ pub fn al_update(w: &mut World, id: MobyId) {
             story::copy_hero_light(w, id);
             interact::talk_register(w, id);
             story::shadow_slab(w, id);
-            if w.inventory.owned(2) { p::set_i16(&mut w.mm(id).pvars, talk::NODE, -1); }
+            if crate::weapon_evo::randomizer::source_owned(w,2,w.inventory.owned(2)) { p::set_i16(&mut w.mm(id).pvars, talk::NODE, -1); }
         }
         1 => {
-            let owned = w.inventory.owned(2);
+            let owned = crate::weapon_evo::randomizer::source_owned(w,2,w.inventory.owned(2));
             if owned { open_gate(w, id); }
             if !(owned && story::mission_done(w, w.m(id).mission as i32)) && interact::talk_update(w, id) {
                 if p::i32(&w.m(id).pvars, 0x140) == 0 {

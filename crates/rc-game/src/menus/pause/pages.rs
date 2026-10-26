@@ -382,7 +382,7 @@ pub fn controls_draw(m: &mut PageMenu, w: u32, lang: u32, out: &mut Vec<MenuDraw
 /// `0x2903d0`: the slots copied from 0x141ea0; the cursor on the first empty slot (0 when all are full).
 pub fn slots_enter(m: &mut PageMenu, w: u32, gs: &GameState) {
     let Some(Data::Slots { slots, cursor }) = m.widgets.get_mut(&w).map(|x| &mut x.data) else { return };
-    *slots = gs.global.quick_select;
+    *slots = crate::weapon_evo::quick_select::slots(gs);
     let mut c = 0i32;
     if slots[0] != 0 {
         loop {
@@ -406,7 +406,7 @@ pub fn slots_update(m: &mut PageMenu, w: u32, inp: &MenuInput, gs: &mut GameStat
     if inp.pressed_u & button::R1 != 0 { *cursor = (*cursor + 1).rem_euclid(8); }
     if inp.pressed_u & button::L1 != 0 { *cursor = (*cursor + 7).rem_euclid(8); }
     if *cursor != old { out.sounds.push(MenuSound::Cursor); }
-    if item != 0 && owned(gs, item) && inp.pressed_u & button::CROSS != 0 {
+    if item != 0 && crate::weapon_evo::quick_select::can_bind(gs,item) && owned(gs, item) && inp.pressed_u & button::CROSS != 0 {
         let (level, t) = (gs.global.level, gs.global.play_time);
         crate::help::bump(&mut gs.global.move_help[21], level, t);
         if let Some(k) = slots.iter().position(|&s| s == item) { slots[k] = 0; }

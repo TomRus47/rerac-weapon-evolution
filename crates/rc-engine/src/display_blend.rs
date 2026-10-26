@@ -257,6 +257,10 @@ fn effect_pass(
     cache: Res<PipelineCache>,
     mut ctx: RenderContext,
 ) {
+    // Diagnostic only: split_effects has already removed the effect draws.
+    // Skip both fullscreen copies and the effect draw pass; restore_effects
+    // still restores the retained phase afterwards. World rendering is kept.
+    if !crate::reward_render_probe::options().display_effects { return; }
     let view_entity = view.entity();
     let (camera, target, depth, targets) = view.into_inner();
     let stash = world.resource::<EffectStash>();

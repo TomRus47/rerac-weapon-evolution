@@ -80,7 +80,7 @@ pub fn grabber_update(w: &mut World, id: MobyId) {
     match w.m(id).state {
         0 => {
             gold_bolt::glow_init(w, id, 0x10);
-            if w.svc.interact.game.acquired.get(34).is_some_and(|&b| b != 0) {
+            if crate::weapon_evo::randomizer::source_owned(w,34,w.svc.interact.game.acquired.get(34).is_some_and(|&b| b != 0)) {
                 w.delete_moby(id);
                 return;
             }

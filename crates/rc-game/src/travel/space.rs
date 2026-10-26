@@ -455,7 +455,7 @@ impl ShipMode {
         }
         let ship = w.svc.travel.ship;
         let level = w.svc.level as i32;
-        let o2 = w.hero.owned.0.get(ITEM_O2_MASK).is_some_and(|&b| b != 0);
+        let o2 = crate::weapon_evo::randomizer::travel_mask(w.svc.bomb_evo.progress().randomizer,w.svc.level,w.hero.owned.0.get(ITEM_O2_MASK).is_some_and(|&b| b != 0));
         let (_, stream) = lump_and_stream(sub, level, ship, o2, self.level_start);
         let fade = if sub == SUB_TAKEOFF || !self.level_start { w.ticks(6) as u32 } else { 0 };
         self.lump = Some(lump);
@@ -500,7 +500,7 @@ impl ShipMode {
         self.level_start = true;
         w.svc.travel.reset_trip = false;
         let level = w.svc.level as i32;
-        let p3 = w.svc.interact.game.planet_unlocked.get(3).is_some_and(|&b| b != 0);
+        let p3 = crate::weapon_evo::randomizer::source_planet(w,3,w.svc.interact.game.planet_unlocked.get(3).is_some_and(|&b| b != 0));
         if (level == 1 && !p3) || level == 0 || (level == 14 && !flag_13d3f0) || level > 0x13 {
             w.svc.game_mode = 0;
             self.phase = Phase::Idle;
@@ -817,7 +817,7 @@ impl ShipMode {
     fn actor_fx(&mut self, w: &mut World, id: MobyId, class: i32, k: usize, seq: &rc_formats::moby_anim::MobySequence) {
         let tick = self.tick;
         let level = w.svc.level;
-        let o2 = w.hero.owned.0.get(ITEM_O2_MASK).is_some_and(|&b| b != 0);
+        let o2 = crate::weapon_evo::randomizer::travel_mask(w.svc.bomb_evo.progress().randomizer,w.svc.level,w.hero.owned.0.get(ITEM_O2_MASK).is_some_and(|&b| b != 0));
         let takeoff = self.sub == SUB_TAKEOFF;
         match class {
             0 => {

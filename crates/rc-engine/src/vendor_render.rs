@@ -319,7 +319,7 @@ fn draw(
         let Some((class, anim)) = find_class(lv, &gadgets, salesman_anim, m.class) else { return };
         let pose = match &m.anim {
             Some((s, snap)) => moby_anim::evaluate_with_snapshot(anim, s, snap.as_ref()),
-            None => still(anim, seq_still),
+            None => still(anim, rc_game::weapon_evo::pickup_visuals::pose_sequence(i32::from(m.class),seq_still)),
         };
         want.push((slot, SlotDraw { class, rows: m.rows, pos: m.position, scale: class.class.header.scale, pose, light: LIGHT_WORD, ambient: amb(m.ambient) }));
     };

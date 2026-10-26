@@ -28,7 +28,7 @@ class Tests(unittest.TestCase):
         exe = self.parent/'Runtime con spazi'/'rerac.exe'; exe.parent.mkdir(exist_ok=True)
         (exe.parent/'assets/shaders').mkdir(parents=True, exist_ok=True)
         (exe.parent/'assets/shaders/test.wgsl').write_text('// shader')
-        version = dict(name='rerac', game='rac1', data_format=1, weapon_evolution_config=84, version='0.3.4-fixed' if fixed else '0.3.4')
+        version = dict(name='rerac', game='rac1', data_format=1, weapon_evolution_config=86, version='0.3.4-fixed' if fixed else '0.3.4')
         code = '''#!/usr/bin/env python3
 import hashlib,json,os,sys
 from pathlib import Path
@@ -47,7 +47,7 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
     def test_all_approved_values_and_every_color_have_metadata(self):
         from schema import LABELS, COLORS
         doc = c.checked_document(self.raw)
-        self.assertEqual(len(doc.sections), 146); self.assertEqual(len(doc.entries), 2379)
+        self.assertEqual(len(doc.sections), 146); self.assertEqual(len(doc.entries), 2510)
         self.assertEqual(doc.render(), self.raw)
         self.assertEqual({key for _, key in doc.entries}-{*LABELS}, set())
         self.assertTrue(all(key in COLORS for _, key in doc.entries if key.endswith('_color')))
@@ -157,7 +157,7 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
 
     def test_mocked_windows_probe_and_launch_accept_paths_with_spaces(self):
         exe, data = self.make_runtime()
-        version = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':84,'version':'0.3.4'}
+        version = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':86,'version':'0.3.4'}
         process = Mock()
         with patch.object(c.subprocess, 'run', return_value=SimpleNamespace(stdout=json.dumps(version))), \
              patch.object(c, 'ensure_closed'), patch.object(c.subprocess, 'Popen', return_value=process) as launch:
@@ -170,7 +170,7 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
 
     def test_fixed_build_and_missing_data_do_not_start_game(self):
         exe, data = self.make_runtime()
-        fixed = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':84,'version':'0.3.4-fixed'}
+        fixed = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':86,'version':'0.3.4-fixed'}
         with patch.object(c.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(fixed))), \
              patch.object(c.subprocess,'Popen') as launch:
             with self.assertRaisesRegex(ValueError,'fixed-profile'): c.launch_game(self.kit,self.raw,'Test',exe,data)
@@ -194,7 +194,7 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
         (self.kit/'save').mkdir();(self.kit/'save/personal.sav').write_bytes(b'private')
         (self.kit/'runs').mkdir();(self.kit/'runs/private.log').write_bytes(b'private')
         destination = self.parent/'Finale mod'
-        version = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':84,'version':'0.3.4'}
+        version = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':86,'version':'0.3.4'}
         with patch.object(c,'probe_exe',return_value=version):
             archive = c.package_distribution(self.kit,destination,self.raw,exe)
         with zipfile.ZipFile(archive) as z:
@@ -259,7 +259,7 @@ class GuiWorkflowTests(unittest.TestCase):
         self.assertTrue(a.save_preset(new=True));self.assertFalse(a.dirty())
         a.load_document(a.store.read('Viola'),'Viola')
         self.assertEqual(a.variables[pair].get(),'AA33FF')
-        self.assertEqual(len(a.variables),2379)
+        self.assertEqual(len(a.variables),len(c.profile_document((ROOT/'weapons.default.ini').read_bytes()).entries))
 
     def test_copy_to_grades_updates_only_that_weapons_parameter(self):
         a=self.app;pair='weapon.blaster.level2','projectile_color'

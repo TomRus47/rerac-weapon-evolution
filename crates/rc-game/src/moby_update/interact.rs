@@ -160,6 +160,8 @@ pub enum Handoff {
 /// ([`Interact::apply_writes`]).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GameWrite {
+    /// Save-owned mixed-pool source; engine resolves the actual reward once.
+    RandomizerReward(usize),
     /// `0x13d388[i] = 0` (a purchase with condition kind 4, e.g. Pokitaru's Raritanium trade).
     ClearFlag(usize),
     /// `0x13d388[i] = v` written by a class update ([`set_global_flag`]).
@@ -603,7 +605,7 @@ impl Interact {
                     if let Some(b) = gs.levels.get_mut(level).and_then(|l| l.gold_bolts.get_mut(index)) { *b = 1; }
                 }
                 // Needs the item tables: the engine applies it from the returned list.
-                GameWrite::GiveItem { .. } => {}
+                GameWrite::GiveItem { .. } | GameWrite::RandomizerReward(_) => {}
                 GameWrite::SkillPoint(k) => { if let Some(b) = gs.global.skill_points.get_mut(k) { *b = 1; } }
                 GameWrite::Owned(i, v) => { if let Some(b) = gs.global.owned.get_mut(i) { *b = v; } }
                 GameWrite::Acquired(i, v) => { if let Some(b) = gs.global.acquired.get_mut(i) { *b = v; } }
@@ -678,7 +680,9 @@ fn condition(w: &World, nd: &TalkNode) -> bool {
     let byte = |v: &Vec<u8>| v.get(it).copied().unwrap_or(0) != 0;
     match nd.kind {
         1 => w.svc.interact.tables.shop.price(it) <= bolts,
-        2 => w.hero.owned.has(it),
+        2 => if w.svc.bomb_evo.randomizer_mode && crate::weapon_evo::randomizer::catalog::locations().iter().any(|l|l.id==it&&l.level==w.svc.level) {
+            crate::weapon_evo::randomizer::source_owned(w,it,w.hero.owned.has(it))
+        }else{w.hero.owned.has(it)},
         3 => w.hero.owned.has(it) && !byte(&g.acquired),
         4 => byte(&g.flags),
         5 => nd.item as i32 <= g.spendable_gold_bolts(),
@@ -691,6 +695,23 @@ fn condition(w: &World, nd: &TalkNode) -> bool {
 /// the language's separator from 0x20a180 (`,` / `.` for German and Italian), the rest).
 fn node_text(w: &World, nd: &TalkNode) -> Vec<u8> {
     let t = w.svc.interact.msg(nd.msg);
+    if w.svc.bomb_evo.randomizer_mode {
+        if let Some(source)=crate::weapon_evo::randomizer::talk_source(w.svc.level,nd.item.max(0) as usize){
+            let state=w.svc.bomb_evo.progress().randomizer;
+            if let Some(reward)=state.reward(source){
+                let new=crate::weapon_evo::randomizer::reward_name(reward,w.svc.interact.lang,&w.svc.gold_shop.names);
+                if let Some(old)=w.svc.gold_shop.names.get(&(nd.item.max(0) as usize)).filter(|s|!s.is_empty()) {
+                    if let Some(at)=t.windows(old.len()).position(|x|x==old.as_slice()){
+                        return [&t[..at],new.as_slice(),&t[at+old.len()..]].concat();
+                    }
+                }
+                if nd.kind==1 {
+                    let mut text=match w.svc.interact.lang{2=>b"Acheter : ".to_vec(),3=>b"Kaufen: ".to_vec(),4=>b"Comprar: ".to_vec(),5=>b"Acquista: ".to_vec(),_=>b"Buy: ".to_vec()};
+                    text.extend(new);text.extend(format!(" - {} bolts",w.svc.interact.tables.shop.price(nd.item.max(0) as usize)).as_bytes());return text;
+                }
+            }
+        }
+    }
     if nd.kind != 6 { return t; }
     let price = w.svc.interact.tables.shop.gold_price(nd.item.max(0) as usize) as u32;
     let sep = if matches!(w.svc.interact.lang % 6, 3 | 5) { "." } else { "," };
@@ -872,6 +893,7 @@ pub fn place_after_scene(w: &mut World, npc: MobyId, d: f32) {
 /// the engine applies with the item tables ([`GameWrite::GiveItem`]: owned, ammo, vendor stock, quick select, the hand
 /// request).
 pub fn give_item(w: &mut World, item: usize, equip: bool) {
+    if crate::weapon_evo::randomizer::item_source(item).is_some() && crate::weapon_evo::randomizer::queue(w,item){return;}
     if w.svc.bomb_evo.golden_settings.enabled
         && crate::weapon_evo::ammo_mode::is_weapon(item)
         && !w.svc.bomb_evo.golden_progress().collected(item) { return; }

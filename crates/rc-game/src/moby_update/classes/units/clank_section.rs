@@ -75,7 +75,11 @@ pub fn update(w: &mut World, id: MobyId) {
         }
     }
     let sid = w.m(id).spawn_id;
-    let o2 = w.hero.owned.has(O2_MASK);
+    // Travel and this native controller must agree. Reading ownership directly
+    // here would delete Clank on arrival and strand his randomized checks when
+    // the real Mask was found before Orxon. Ownership itself remains unchanged.
+    let o2 = crate::weapon_evo::randomizer::travel_mask(
+        w.svc.bomb_evo.progress().randomizer, level, w.hero.owned.has(O2_MASK));
     // Last tick's body word, not `World::body`: the hand-over this class queued in the load pass is made during the
     // landing's space scene, which leaves Clank in the scene state 100; the port relies on the first tick's second
     // `SwitchCharacter` to give him his idle state. A death reload's switch back into Clank counts too: the game makes
@@ -119,4 +123,63 @@ pub fn update(w: &mut World, id: MobyId) {
     teleport(w, at);
     crate::hero::bodies::queue_switch(w, crate::hero::bodies::body::CLANK, crate::hero::bodies::clank::IDLE, clank);
     music(w, 2, 4);
+}
+
+
+#[cfg(test)]
+mod randomizer_tests {
+    use super::*;
+    use crate::hero::{bodies::body, Hero};
+    use crate::moby_runtime::{mode, Moby, MobyTable};
+    use crate::moby_update::{ClassTable, services::{HeroCall, Services}};
+    use crate::rng::Rng;
+    use crate::weapon_evo::{randomizer::State, save::Progress};
+
+    fn fixture() -> (MobyTable, Hero, ClassTable, Services, Rng) {
+        let mut controller=Moby::zeroed();controller.o_class=22;controller.spawn_id=73;
+        controller.pvars=vec![0xff;0x20];
+        for (offset,value) in [(0,1),(4,1),(8,0),(0x14,0)]{p::set_i32(&mut controller.pvars,offset,value);}
+        let mut clank=Moby::zeroed();clank.o_class=87;
+        let table=MobyTable::new(vec![controller,clank],0);
+        let mut hero=Hero::new();hero.owned.0[O2_MASK]=1;
+        let mut svc=Services::new();svc.level=10;svc.bomb_evo.randomizer_mode=true;
+        let mut progress=Progress::default();progress.randomizer=State::generate(723);
+        svc.bomb_evo.restore_progress(&progress);
+        for pos in [[10.,20.,30.],[40.,50.,60.]] {
+            let mut shape=rc_formats::volumes::Shape::default();
+            shape.matrix[3]=[pos[0],pos[1],pos[2],1.];std::sync::Arc::make_mut(&mut svc.volumes).cuboids.push(shape);
+        }
+        (table,hero,ClassTable::default(),svc,Rng::new())
+    }
+
+    #[test]
+    fn early_mask_keeps_native_clank_controller_and_death_checkpoint_alive() {
+        let (mut table,mut hero,classes,mut svc,mut rng)=fixture();
+        {
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);
+            update(&mut w,0);
+            assert!(w.m(0).state<128);
+            assert_eq!(w.m(1).mode&(mode::HIDDEN|mode::NO_UPDATE),0);
+            assert!(w.hero_fields().calls.iter().flatten().any(|c|matches!(c,HeroCall::SwitchCharacter{mode:body::CLANK,moby:1,..})));
+        }
+        // A checkpoint restore must keep Clank at that checkpoint, rather than
+        // teleporting him back to the start or deleting him because of the Mask.
+        hero.mode=body::CLANK;
+        {
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+            update(&mut w,0);
+            assert!(w.m(0).state<128);assert!(w.hero_fields().calls.iter().all(Option::is_none));
+            assert!(w.hero_fields().pose.is_none());assert!(hero.owned.has(O2_MASK));
+        }
+        // Finishing the active Clank checks permits the ordinary Ratchet handover.
+        let mut progress=svc.bomb_evo.progress();
+        for source in [28,75]{if progress.randomizer.reward(source).is_some(){progress.randomizer.collect(source);}}
+        svc.bomb_evo.restore_progress(&progress);
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,2);
+        update(&mut w,0);
+        assert!(w.m(0).state>=128);
+        assert_ne!(w.m(1).mode&mode::HIDDEN,0);
+        assert!(w.hero_fields().calls.iter().flatten().any(|c|matches!(c,HeroCall::LeaveBody{..})));
+        assert_eq!(w.hero_fields().airless,Some(1));
+    }
 }

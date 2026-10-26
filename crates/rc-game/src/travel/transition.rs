@@ -66,10 +66,14 @@ pub const TRANSITION_MOVIE_BASE_PAL: i32 = 52;
 /// `ticks` = `fun_001f96f8` (n on NTSC).
 pub fn plan(gs: &GameState, dest: i32, ticks: &dyn Fn(i32) -> i32) -> Plan {
     let g = &gs.global;
+    // Challenge-mode menus can still request their native Veldin destination.
+    let dest=if dest==0&&gs.weapon_progress.randomizer.active()&&g.level==1{1}else{dest};
     let from = g.level;
     let visited = |l: i32| usize::try_from(l).ok().and_then(|l| gs.levels.get(l)).map_or(0, |s| s.visited);
     let unlocked = |p: usize| g.planet_unlocked.get(p).is_some_and(|&b| b != 0);
-    let ship = super::ship_for(&g.planet_unlocked, dest);
+    let ship = if gs.weapon_progress.randomizer.active() && dest==10
+        && !crate::weapon_evo::randomizer::travel_mask(gs.weapon_progress.randomizer,10,g.owned[6]!=0) {1}
+        else{super::ship_for(&g.planet_unlocked, dest)};
     let mut steps = vec![Step::Begin];
     let card = |a: usize, b: usize, t: i32, load: bool| Step::Card { a, b, ticks: ticks(t), load };
     let fade = |n: i32| Step::Fade(ticks(n) as u32);
@@ -80,6 +84,15 @@ pub fn plan(gs: &GameState, dest: i32, ticks: &dyn Fn(i32) -> i32) -> Plan {
     if dest == 0 && visited(0) == 0 {
         steps.extend([fade(6), card(0, 1, 0xf0, false), Step::Movie(0), card(2, 2, 0xb4, false), Step::Movie(1), Step::SetLevel, card(3, 4, 0xf0, true), Step::Movie(2), Step::Enter]);
         return Plan { dest, from, ship, steps, first_arrival: true };
+    }
+    if gs.weapon_progress.randomizer.active() {
+        // Cutscene destinations and chapter cards must never override a seeded
+        // coordinate. Keep the canonical Novalis crash only when landing there.
+        if !(from==0&&dest==1&&visited(1)==0){
+            steps.extend([fade(6),Step::SetLevel,Step::Flight,Step::Enter]);
+            let first_arrival=dest==1&&!crate::weapon_evo::randomizer::ship_available(gs.weapon_progress.randomizer,1);
+            return Plan{dest,from,ship,steps,first_arrival};
+        }
     }
     if from == 0 && dest == 1 && visited(1) == 0 {
         steps.extend([fade(6), card(5, 6, 0xf0, false), Step::Movie(3), Step::Movie(4), card(7, 7, 0xb4, false), Step::Movie(5), Step::SetLevel, card(8, 8, 0xf0, true), Step::Enter]);

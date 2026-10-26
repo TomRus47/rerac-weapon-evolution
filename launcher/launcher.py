@@ -366,8 +366,10 @@ class Launcher:
             label.grid(row=0, column=0, sticky='w', padx=(0, 8)); row.columnconfigure(0, weight=1)
             cell = self.ttk.Frame(row, style='Card.TFrame'); cell.grid(row=0, column=1, sticky='e')
             variable = self.variables[pair]
-            if key in BOOLEANS or key in ('level_up_sound','sand_mouse_mode') or key in MODEL_OPTIONS:
-                if key in MODEL_OPTIONS:
+            if key in BOOLEANS or key in ('level_up_sound','sand_mouse_mode') or key in MODEL_OPTIONS or key=='r1_experimental_max':
+                if key=='r1_experimental_max':
+                    codes=tuple(str(i) for i in range(int(core.numeric_range(section,key)[1])+1));options=codes;selected=variable.get()
+                elif key in MODEL_OPTIONS:
                     codes=('0','1','2'); options=tuple(i18n.model_name(name) for name in MODEL_OPTIONS[key]); selected=options[int(float(variable.get()))]
                 elif key in BOOLEANS:
                     codes=('false','true'); options=('Off','On'); selected=i18n.boolean_display(variable.get())

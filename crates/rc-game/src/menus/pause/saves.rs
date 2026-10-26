@@ -332,7 +332,7 @@ pub fn new_game_update(m: &mut PageMenu, w: u32, inp: &MenuInput, gs: &mut GameS
             return 0;
         }
         note_preview(&mut m.saves.card, gs);
-        out.level_exit = Some(0);
+        out.level_exit = Some(crate::weapon_evo::randomizer::new_game_destination(gs));
         out.story = Some(true);
     }
     if let Some(r) = page_keys(m, inp) { return r; }
@@ -346,7 +346,7 @@ pub fn new_game_update(m: &mut PageMenu, w: u32, inp: &MenuInput, gs: &mut GameS
             m.saves.card.flags &= !6;
             let t = m.saves.template.clone();
             reset_game(gs, t.as_deref());
-            out.level_exit = Some(0);
+            out.level_exit = Some(crate::weapon_evo::randomizer::new_game_destination(gs));
         out.story = Some(true);
         }
     } else if m.saves.card.card.previews[c as usize].level == -1 {

@@ -12,7 +12,7 @@ from test_nanotech_ui import profile
 class EncounterUiTests(unittest.TestCase):
     def test_all_new_fields_default_neutral_and_require_the_correct_runtime(self):
         doc=core.profile_document(profile())
-        self.assertEqual(core.required_config(doc),82)
+        self.assertEqual(core.required_config(doc),86)
         for key in schema.MOTION_DEFAULTS:self.assertEqual(doc.entries['general',key],'1')
         self.assertEqual(doc.entries['general','golden_bolts_one_weapon_per_planet'],'false')
         for key in schema.MOTION_DEFAULTS:

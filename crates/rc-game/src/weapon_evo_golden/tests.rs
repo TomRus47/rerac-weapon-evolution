@@ -38,7 +38,8 @@ fn new_game_is_wrench_only_native_grants_cannot_bypass_rewards_and_gadgets_still
     gs.global.owned[10]=1;gs.global.ammo[10]=40;gs.global.owned[12]=1;
     gs.global.quick_select=[10,12,0,0,0,0,0,0];
     initialize_new_game(&mut gs,settings(),91);
-    assert_eq!(gs.global.quick_select,[8,0,0,0,0,0,0,0]);
+    // The wrench remains owned, but has no icon in the native quick-select ring.
+    assert_eq!(gs.global.quick_select,[0;8]);
     assert_eq!(gs.global.equipped[0],8);assert_eq!(gs.global.owned[12],1);
     for item in ITEMS {
         gs.give_item(item,true,&items,&mut session);

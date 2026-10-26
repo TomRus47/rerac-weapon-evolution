@@ -135,6 +135,12 @@ pub fn update(w: &mut World, id: MobyId) {
             }
             tail(w, id);
             if st == 2 {
+                if w.svc.bomb_evo.randomizer_mode {
+                    let state=w.svc.bomb_evo.progress().randomizer;
+                    let stock=w.inventory.ammo_list().iter().any(|&b|b!=0xff&&state.reward((b&0x3f) as usize).is_some()&&!state.collected((b&0x3f) as usize));
+                    let ammo=crate::weapon_evo::ammo_mode::AMMO_IDS.iter().any(|&i|w.inventory.owned(i)&&w.svc.interact.tables.shop.ammo_price(i)>0);
+                    if !stock&&!ammo{return;}
+                }
                 // Keep the actor alive: finding an ammo weapon on this same
                 // planet must enable the vendor on the next interaction tick.
                 if !crate::menus::vendor::randomized_ammo_available(

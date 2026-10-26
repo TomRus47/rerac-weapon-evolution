@@ -81,6 +81,9 @@ pub struct MovieRequest {
 /// What follows the movie.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MovieExit {
+    /// A randomized gadget movie holds the current OST and ends with one
+    /// acquisition jingle, then resumes that same player.
+    Acquisition,
     /// `MovieExitToGameplay` 0x2ad2b8: mode 0, `music_start_track(level track, 1, 0x400)`, the talker refreshed.
     #[default]
     Gameplay,
@@ -93,6 +96,9 @@ impl MovieRequest {
     /// `DialogStreamUpdate(n)` 0x2acf50: in-level movie n = `mpegs[2 + n]`, the game language.
     pub fn in_level(n: i32, talker: Option<MobyId>) -> MovieRequest {
         MovieRequest { file: (MOVIE_BASE_NTSC + n) as u32, movie: n, talker, language: None, black_entry: false, fade_in: rc_game::movie_player::FADE_FRAMES, replay: None, exit: MovieExit::Gameplay }
+    }
+    pub fn acquisition(n:i32)->MovieRequest {
+        MovieRequest{file:(64+n) as u32,exit:MovieExit::Acquisition,..Self::in_level(n,None)}
     }
     /// `PlayMovieB(n)` 0x2ad050: `mpegs[40 + n]`, the game language.
     pub fn movie_b(n: i32) -> MovieRequest { MovieRequest { file: (MOVIE_B_BASE_NTSC + n) as u32, ..MovieRequest::in_level(n, None) } }
@@ -357,12 +363,14 @@ fn movie_frame(
         // 0x15eed8: the caller's replay mode (fun_001e9488 sets 2), else the global as the page menu left it.
         if let (Some(r), Some(m)) = (req.replay, menu.as_mut()) { m.replay = r; }
         let replay = req.replay.unwrap_or_else(|| menu.as_ref().map_or(0, |m| m.replay));
-        let ctx = MovieContext { replay, game_beaten: gs.is_some_and(|g| g.game_beaten != 0), completes: gs.map_or(0, |g| g.completes), level: crate::level_load::level_index() as i32 };
+        let ctx = MovieContext { startup_logo: req.file == 0 && req.exit == MovieExit::FrontEnd, replay, game_beaten: gs.is_some_and(|g| g.game_beaten != 0), completes: gs.map_or(0, |g| g.completes), level: crate::level_load::level_index() as i32 };
         println!(
             "movie: app frame {}: DialogStreamUpdate({}) → StartPssMovie(mpegs[{}], language {language}) {}: mode 1, sounds and music stopped",
             frame_no.0, req.movie, req.file, path.display()
         );
-        if let Some(a) = audio.as_mut() { a.system().movie_stop(); }
+        if let Some(a) = audio.as_mut() {
+            if req.exit==MovieExit::Acquisition{a.system().music_pause();}else{a.system().movie_stop();}
+        }
         st.interrupted = menu.as_ref().map(|m| m.state.mode);
         if let Some(m) = menu.as_mut() { m.state.set(Mode::Movie); }
         let player = MoviePlayer::new(ctx).with_entry(req.black_entry, req.fade_in);
@@ -467,12 +475,15 @@ fn movie_exit(
     set_visible(&mut vis, st.picture, false);
     let interrupted = st.interrupted.take();
     match rt.req.exit {
-        MovieExit::Gameplay => {
+        MovieExit::Gameplay | MovieExit::Acquisition => {
             // MovieExitToGameplay: replay mode 2 (the menu's in-level replays) back to 0 (0x15eed8).
             if let Some(m) = menu.as_mut() {
                 if m.replay == 2 { m.replay = 0; }
             }
-            if let Some(a) = audio.as_mut() { a.system().movie_exit(); }
+            if rt.req.exit==MovieExit::Acquisition{
+                rc_game::audio::scene::post(rc_game::audio::scene::SceneAudioCmd::ResumeMusic{after:0});
+                crate::gameplay::request_pickup_jingle(&crate::level_load::extracted_root());
+            }else if let Some(a) = audio.as_mut() { a.system().movie_exit(); }
             if let Some(m) = menu.as_mut() { m.state.set(Mode::Gameplay); }
             if let Some(p) = play.as_mut() {
                 if p.svc.game_mode == 1 { p.svc.game_mode = 0; }

@@ -1,6 +1,6 @@
 # Saved shortcuts, equipment repeat actions and weapon modes
 
-Runtime patch 0.1.6.83 on ReRAC 0.3.6-alpha; launcher 0.27.1. This is unreleased development work. Existing v81/v82 bindings and mode choices remain compatible.
+Runtime patch 0.1.6.95 on ReRAC 0.3.6-alpha; launcher 0.28.2. This is unreleased development work. Existing v81/v82 bindings and mode choices remain compatible.
 
 ## User behavior
 
@@ -10,7 +10,7 @@ During direct gameplay, a bound direction requests the corresponding native equi
 
 These requests do not grant items or bypass native water, magnetic-surface, head/back, grinding, vehicle, turret or scripted-state restrictions. Wearing Grindboots does not itself block weapon selection. Confirmation uses class 0x472 sound 0, the ordinary weapon-menu confirmation, not the cheat jingle.
 
-**L1 and R1 both crouch** in direct Ratchet gameplay. Circle/R2 form one firing trigger; holding one while releasing the other does not stop fire. R2 aliases Square for the wrench. With Triangle's radial menu open, R1 is consumed by its contextual mode selector while gameplay is locked; it does not crouch there.
+**L1 uses first-person aiming and R1 crouches** in direct Ratchet gameplay. Circle/R2 form one firing trigger; holding one while releasing the other does not stop fire. R2 aliases Square for the wrench. With Triangle's radial menu open, R1 is consumed by its contextual mode selector while gameplay is locked; it does not crouch there.
 
 With **R1_Experimental** On, selecting Pyrocitor, Mine Glove, Visibomb or RYNO in the Triangle radial exposes the native R1 glyph and `= 0/1/2` beneath ammo. R1 cycles once per press. Modes are normal/lava, normal/fire mine, guided/grenade and native/continuous/shotgun, respectively. Bomb clusters, triple flame, crate suction, Drone Device companions and dual Tesla remain launcher-only. Turning this master Off restores per-grade INI mode switches while retaining saved player choices.
 
@@ -31,8 +31,8 @@ No runtime file I/O is added to input polling. Controls settings are published w
 
 ## Regression and gameplay checks
 
-Tests exercise all fourteen gadget entries through actual page callbacks, both equipment-page kinds, normal confirmation, analog cursor freeze, four-slot routing, ownership/context rejection, pending and committed boots/helmet toggles, backpack wrap/skip/one-owned behavior, external changes and saved-binding stability. Input tests cover Circle/R2 and L1/R1 unions, pressure, physical directions, mirrors and radial locks. Save tests cover old-version migration, checksums and cross-slot isolation.
+Tests exercise all fourteen gadget entries through actual page callbacks, both equipment-page kinds, normal confirmation, analog cursor freeze, four-slot routing, ownership/context rejection, pending and committed boots/helmet toggles, backpack wrap/skip/one-owned behavior, external changes and saved-binding stability. Input tests cover Circle/R2 unions and distinct L1/R1 actions, pressure, physical directions, mirrors and radial locks. Save tests cover old-version migration, checksums and cross-slot isolation.
 
-On Windows, compile the engine and test visual borders/caption, native equipment animations, both crouch shoulders, repeated shortcuts, R1 radial modes, audio, death, travel and independent save slots. Passing host-side tests does not replace these gameplay checks.
+On Windows, compile the engine and test visual borders/caption, native equipment animations, native first-person/crouch shoulders, repeated shortcuts, R1 radial modes, audio, death, travel and independent save slots. Passing host-side tests does not replace these gameplay checks.
 
 Weapon Evolution is an unofficial independent mod by TomRus47; the mod author does not develop ReRAC or the original games and owns no rights to their games, characters, trademarks or assets. Upstream licenses and contributor credits remain applicable.

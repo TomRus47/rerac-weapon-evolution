@@ -49,6 +49,9 @@ mod input_map;
 mod interact_render;
 mod companion_assets;
 mod discovery_render;
+mod reward_model_render;
+mod reward_render_probe;
+mod live_config;
 mod upgrade_wave_render;
 mod wrench_swing_render;
 mod level_load;
@@ -206,7 +209,9 @@ fn main() -> anyhow::Result<()> {
     .add_plugins(moby_render::MobyRenderPlugin)
     .add_plugins(moby_spawn::MobySpawnPlugin)
     .add_plugins(moby_attach::MobyAttachPlugin)
+    .add_plugins(reward_model_render::RewardModelPlugin)
     .add_plugins(discovery_render::DiscoveryRenderPlugin)
+    .add_plugins(live_config::LiveConfigPlugin)
     .add_plugins(upgrade_wave_render::UpgradeWavePlugin)
     .add_plugins(wrench_swing_render::WrenchSwingPlugin)
     // The moby shadows: the game's shadow rules and a native shadow-volume pass (crate::shadow_render).

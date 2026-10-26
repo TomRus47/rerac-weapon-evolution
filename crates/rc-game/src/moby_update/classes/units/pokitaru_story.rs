@@ -68,7 +68,7 @@ fn checkpoint_here(w: &mut World) {
 pub fn mask_update(w: &mut World, id: MobyId) {
     match w.m(id).state {
         0 => {
-            if w.inventory.owned(6) {
+            if crate::weapon_evo::randomizer::source_owned(w,6,w.inventory.owned(6)) {
                 w.delete_moby(id);
                 return;
             }
@@ -96,7 +96,7 @@ pub fn thruster_update(w: &mut World, id: MobyId) {
     crate::moby_update::manip::scene_big_head(w, &[90], 0, 2.1);
     match w.m(id).state {
         0 => {
-            w.mm(id).state = if w.inventory.owned(3) { 3 } else { 1 };
+            w.mm(id).state = if crate::weapon_evo::randomizer::source_owned(w,3,w.inventory.owned(3)) { 3 } else { 1 };
             interact::talk_register(w, id);
             p::set_ff(&mut w.mm(id).pvars, talk::RADIUS, f32::from_bits(0x406c_cccd));
         }
@@ -138,7 +138,7 @@ pub fn persuader_update(w: &mut World, id: MobyId) {
                 let n = w.ticks(0x14);
                 w.anim_blend(id, 1, 0, n);
             }
-            if w.svc.interact.game.acquired.get(35).is_some_and(|&b| b != 0) {
+            if crate::weapon_evo::randomizer::source_owned(w,35,w.svc.interact.game.acquired.get(35).is_some_and(|&b| b != 0)) {
                 w.delete_moby(id);
                 return;
             }
@@ -151,7 +151,7 @@ pub fn persuader_update(w: &mut World, id: MobyId) {
                 w.mm(id).state = 2;
             }
             let (pos, h) = (c::pos(w, id), story::hero4(w));
-            if story::flag(w, 1) == 0 && !w.inventory.owned(35) && c::len3(c::sub(pos, h)) < 4.0 {
+            if story::flag(w, 1) == 0 && !crate::weapon_evo::randomizer::source_owned(w,35,w.inventory.owned(35)) && c::len3(c::sub(pos, h)) < 4.0 {
                 super::hints::remind(w, 0x86, 0x2b03, 0x86);
             }
             if !story::mission_done(w, w.m(id).mission as i32) && c::len3(c::sub(h, pos)) < 4.0 && (h[2] - pos[2]).abs() < 4.0 {

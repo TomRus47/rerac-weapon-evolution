@@ -50,6 +50,8 @@ pub fn flag(w: &World, i: usize) -> u8 { w.svc.interact.game.flags.get(i).copied
 
 /// `0x13d388[i] = v` from a class update ([`interact::set_global_flag`]).
 pub fn set_flag(w: &mut World, i: usize, v: u8) {
+    let reward_source=match (w.svc.level,i){(5,0)=>Some(48),(12,1)=>Some(49),(17,2)=>Some(50),_=>None};
+    if v!=0 {if let Some(source)=reward_source{if crate::weapon_evo::randomizer::queue(w,source){return;}}}
     let f = &mut w.svc.interact.game.flags;
     if f.len() < 128 { f.resize(128, 0); }
     interact::set_global_flag(w, i, v);
@@ -79,13 +81,17 @@ pub fn set_skill_point(w: &mut World, k: usize) {
 }
 
 /// `0x13d4c0[item] = v`.
-pub fn set_owned(w: &mut World, item: usize, v: u8) { w.svc.interact.writes.push(GameWrite::Owned(item, v)); }
+pub fn set_owned(w: &mut World, item: usize, v: u8) {
+    if v!=0 && crate::weapon_evo::randomizer::item_source(item).is_some() && crate::weapon_evo::randomizer::queue(w,item){return;}
+    w.svc.interact.writes.push(GameWrite::Owned(item,v));
+}
 
 /// `0x13d4e8[item]`: the item was ever acquired.
 pub fn acquired(w: &World, item: usize) -> bool { w.svc.interact.game.acquired.get(item).is_some_and(|&b| b != 0) }
 
 /// `0x13d4e8[item] = v` (and the talk conditions' mirror).
 pub fn set_acquired(w: &mut World, item: usize, v: u8) {
+    if v!=0 && crate::weapon_evo::randomizer::item_source(item).is_some() && crate::weapon_evo::randomizer::queue(w,item){return;}
     if let Some(b) = w.svc.interact.game.acquired.get_mut(item) { *b = v; }
     w.svc.interact.writes.push(GameWrite::Acquired(item, v));
 }

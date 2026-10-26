@@ -16,7 +16,7 @@ class WrenchTests(unittest.TestCase):
         out=core.checked_document(doc.render(values))
         for p,v in values.items():self.assertEqual(out.entries[p],v)
         self.assertNotIn(('general','wrench_gold_texture'),out.entries)
-        self.assertEqual(core.required_config(out),82)
+        self.assertEqual(core.required_config(out),86)
     def test_legacy_global_gold_moves_to_missing_grades_and_explicit_values_win(self):
         doc=core.IniDocument(self.raw)
         remove={i for (s,k),i in doc.addresses.items() if s.startswith('weapon.wrench') and not (s.endswith('level3') and k=='gold_texture')}

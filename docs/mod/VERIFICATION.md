@@ -1,3 +1,27 @@
+# v95 route audit verification
+
+Current checks and remaining limitations are documented in [RANDOMIZER_ROUTE_AUDIT.md](RANDOMIZER_ROUTE_AUDIT.md). This main update is not a release.
+
+## Executed v95 checks
+
+- 1,287 rc-game library tests, two controls API tests and five randomizer API
+  tests passed (1,294 combined). New checks bind the reported Blarg IDs, reject
+  the old blocked permutation, permit Ratchet's return without his own Gold Bolt,
+  verify all 101 entries and retain old save decoding.
+- 1,000 sequential seeds passed exact reward validity, reachability and pacing
+  through an optimized harness compiled from the production generator/catalog.
+  Boundary/reported cases 0, 87, 478, 723, 14461498566715420534 and u64::MAX passed.
+- Full rc-engine check passed with the supplied complete ReRAC 0.3.6-alpha source.
+- 165 launcher/tool checks passed, including current schema/capability handling,
+  preset preservation, default migration stability and per-grade mode limits.
+
+The exported catalog records every check's review basis. Unknown native Gold Bolt
+identities use conservative envelopes; no claim of universal physical validation
+is made. A live route/collision/script survey still requires original extracted
+data and in-game verification. Old saves load without automatic rearrangement.
+
+## Historical validation record
+
 # Verification — current main development snapshot
 
 ReRAC 0.3.6-alpha, gameplay 0.1.6.83, capability 84, launcher 0.27.1. Main/source update only. No release has been created or replaced for this snapshot.

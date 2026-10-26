@@ -1,10 +1,12 @@
 # ReRAC Weapon Evolution
 
-Weapon Evolution **0.3**, current **development snapshot**: gameplay **0.1.6.83**, configuration capability **84**, launcher **0.27.1**, based on **ReRAC 0.3.6-alpha**. This main-branch update is not a new release. The previously published Windows/source assets and their release tag remain unchanged.
+Weapon Evolution **0.3**, current **development snapshot**: gameplay **0.1.6.95**, configuration capability **86**, launcher **0.28.2**, based on **ReRAC 0.3.6-alpha**. This main-branch update is not a new release. The previously published Windows/source assets and their release tag remain unchanged.
 
 **Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to their games, characters, trademarks or game assets, and is not affiliated with their rights holders. Upstream licenses and contributor credits remain applicable. See [credits](docs/mod/CREDITS.md) and [LICENSE](LICENSE).
 
 This repository includes the complete supplied Rust workspace, mod integrations, launcher source, approved default profile, tests and build tools. It does not include compiled executables, game data, saves or personal settings. It can be built directly without installing previous mod patches. Upstream source is included to make the modified runtime reproducible, not to claim authorship of the port.
+
+See the [v95 route audit](docs/mod/RANDOMIZER_ROUTE_AUDIT.md) for corrected Blarg/Orxon access, conservative Gold Bolt gates and the saved-layout inspector. These are modeled access checks; physical gameplay verification remains necessary.
 
 ## Current development features
 
@@ -14,7 +16,7 @@ This repository includes the complete supplied Rust workspace, mod integrations,
 - Enemy health, population, movement, perception, pursuit and projectile tuning, with optional health-class damage to Ratchet and XP-driven Nanotech progression.
 - Seeded weapon discoveries at registered collectible locations, isolated randomizer save state, access constraints and underwater collection; optional Ammo-Survival Mode.
 - NG+ Gold shop progression, shared bolt/weapon-XP/Nanotech-XP reward chain and separate NG+ encounter scaling.
-- Locked-camera movement and directional legs; R2/Circle firing during ordinary or locked movement; **L1 and R1 both crouch** in direct Ratchet gameplay.
+- Locked-camera movement and directional legs; R2/Circle firing during ordinary or locked movement; **L1 uses first-person aiming and R1 crouches** in direct Ratchet gameplay.
 - Optional **D-pad Quick Select** for weapons and all equippable gadgets. Hold L1+direction in paused Weapons/Gadgets to bind the highlighted owned item. Colored borders identify assignments; the help caption appears only in Weapons. Repeating a boots/helmet shortcut removes that equipped item. Repeating a Clank-pack shortcut cycles owned Heli-Pack → Thruster-Pack → Hydro-Pack after its first selection.
 - Optional **R1_Experimental**: hold Triangle and cycle Pyrocitor normal/lava, Mine Glove normal/fire, Visibomb guided/grenade, or RYNO native/continuous/shotgun. Other enhancements remain launcher-only. Modes and bindings are saved per slot; confirmations use normal weapon-menu audio.
 - Synchronized weapon HUD, pause-menu weapon XP and a separate Nanotech XP HUD bar. Multilingual launcher (English, Italian, French, German, Spanish), Off/On selectors, optional named presets and a standalone Windows EXE builder.

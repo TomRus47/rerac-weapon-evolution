@@ -123,7 +123,7 @@ fn cuboid(w: &World, i: i32) -> Option<([f32; 3], [f32; 3])> {
 
 fn planet_unlocked(w: &World, id: MobyId) -> bool {
     let pl = pi32(w, id, pv::PLANET);
-    usize::try_from(pl).ok().and_then(|k| w.svc.interact.game.planet_unlocked.get(k)).is_some_and(|&b| b != 0)
+    crate::weapon_evo::randomizer::source_planet(w,pl.max(0) as usize,usize::try_from(pl).ok().and_then(|k| w.svc.interact.game.planet_unlocked.get(k)).is_some_and(|&b| b != 0))
 }
 
 /// The glow 0x2fce68 (at the moby's position, only while shown; no sprites in game mode 2).

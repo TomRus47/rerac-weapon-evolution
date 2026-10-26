@@ -14,7 +14,7 @@ class WrenchTrailTests(unittest.TestCase):
         before=core.IniDocument(raw);doc=core.profile_document(raw)
         for pair,value in before.entries.items():self.assertEqual(doc.entries[pair],value)
         for grade in range(1,9):self.assertIn((f'weapon.wrench.level{grade}','trail_color'),doc.entries)
-        self.assertEqual(core.required_config(doc),82)
+        self.assertEqual(core.required_config(doc),86)
         raw=doc.render({('weapon.wrench.level2','trail_color'):'AA11CC',('weapon.wrench.level8','trail_color'):'000000'})
         changed=core.profile_document(raw)
         self.assertEqual(changed.entries['weapon.wrench.level2','trail_color'],'AA11CC')

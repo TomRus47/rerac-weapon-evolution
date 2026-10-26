@@ -99,7 +99,7 @@ fn version_six_saves_keep_levels_xp_and_nanotech_and_initialize_new_fields() {
     old.nanotech = world::NanotechProgress { bonus: 9, xp: 17. };
     let mut bytes = old.encode(b"native").unwrap();
     // Discard the v7 reward fields and v8 control choices, plus checksum.
-    bytes.truncate(bytes.len() - 36);
+    bytes.truncate(bytes.len() - 36-super::randomizer::ENCODED_SIZE);
     bytes[5] = 6;
     let checksum = rc_formats::sha1::sha1(&bytes);
     bytes.extend_from_slice(&checksum);
@@ -126,6 +126,31 @@ fn reward_chain_and_gold_spending_survive_progress_sync_and_new_world_restore() 
     next.bolt_chain.hurt();
     next.sync_progress(&mut state);
     assert_eq!(state.bolt_chain, bolt_chain::State::default());
+}
+
+#[test]
+fn death_reset_is_saved_in_ng_plus_and_randomizer_without_erasing_xp_or_seed() {
+    for mixed in [false,true] {
+        let mut e=profile();e.configure_ng_plus(!mixed);
+        e.randomizer_mode=mixed;e.randomizer_bolt_multiplier=mixed;
+        let mut saved=save::Progress::default();
+        if mixed {saved.randomizer=randomizer::State::generate(9303);}
+        e.restore_progress(&saved);
+        e.bolt_chain=bolt_chain::State{kills:30,remainder:17};
+        e.nanotech.xp=19.;e.gold_spent=9;e.sync_progress(&mut saved);
+        let original=saved;
+        assert!(e.reward_factor()>1.);
+        e.reset_reward_chain(Some(&mut saved));
+        assert_eq!(e.reward_factor(),1.);assert_eq!(saved.bolt_chain,Default::default());
+        e.sync_progress(&mut saved);
+        let mut expected=original;expected.bolt_chain=Default::default();assert_eq!(saved,expected);
+        let bytes=saved.encode(b"v93 death reset").unwrap();
+        let mut reloaded=profile();reloaded.configure_ng_plus(!mixed);
+        reloaded.randomizer_mode=mixed;reloaded.randomizer_bolt_multiplier=mixed;
+        reloaded.restore_progress(&save::Progress::decode(&bytes,b"v93 death reset").unwrap());
+        assert_eq!(reloaded.reward_factor(),1.);
+        reloaded.reward_chain_kill();assert_eq!(reloaded.reward_factor(),1.1);
+    }
 }
 #[test]
 fn all_upper_grades_have_independent_damage_ammo_and_experimental_fields() {
@@ -206,4 +231,40 @@ fn gold_bolt_summary_uses_the_actual_prices_and_keeps_native_counts_without_the_
     g.weapon_progress.gold_shop_active = true;
     g.weapon_progress.gold_spent = 2;
     assert_eq!(crate::menus::pause::pages::gold_counts(&g), (40, 2, 38));
+}
+
+#[test]
+fn randomizer_bonus_is_opt_in_and_shares_its_custom_cap_with_all_reward_sources() {
+    for id in [10,16,15,19,17,24] {
+        let mut normal=profile();normal.world_settings.enemy_damage_by_health=true;
+        normal.world_settings.nanotech_xp_per_upgrade=100000.;
+        let mut mixed=normal.clone();mixed.randomizer_mode=true;
+        mixed.state_progress.randomizer=super::randomizer::State::generate(8501);
+        mixed.bolt_chain.kills=30;mixed.bolt_multiplier_max=5.5;
+        assert_eq!(mixed.reward_factor(),1.);
+        mixed.randomizer_bolt_multiplier=true;
+        assert_eq!(mixed.reward_factor_tenths(),55);assert_eq!(mixed.collect_reward_bolts(100),550);
+        award(&mut normal,id,1.);award(&mut mixed,id,1.);
+        let xp=|e:&Evolution|e.progress().tracks[save::IDS.iter().position(|&item|item==id).unwrap()].xp;
+        assert!((xp(&mixed)-5.5*xp(&normal)).abs()<0.001,"weapon {id}");
+        assert!((mixed.nanotech.xp-5.5*normal.nanotech.xp).abs()<0.001,"Nanotech {id}");
+        mixed.randomizer_mode=false;assert_eq!(mixed.reward_factor(),1.);
+        mixed.configure_ng_plus(true);assert_eq!(mixed.reward_factor(),5.5);
+        mixed.randomizer_bolt_multiplier=false;assert_eq!(mixed.reward_factor(),5.5);
+        mixed.bolt_chain.hurt();assert_eq!(mixed.reward_factor(),1.);
+    }
+}
+
+#[test]
+fn custom_reward_cap_validates_and_hot_updates_without_resetting_progress() {
+    let mut e=profile();e.configure_ng_plus(true);e.bolt_chain.kills=15;
+    let mut next=e.clone();next.bolt_multiplier_max=4.;next.randomizer_bolt_multiplier=true;
+    let before=e.progress();e.apply_live_configuration(&next);
+    assert_eq!(e.progress(),before);assert_eq!(e.reward_factor(),2.5);
+    e.bolt_chain.kills=30;assert_eq!(e.reward_factor(),4.);
+    for value in ["0","100.1","1.01","NaN","inf"] {
+        assert!(Evolution::parse(&format!("{}\n[general]\nbolt_multiplier_max={value}\n",include_str!("weapon_evo_release.ini"))).is_err());
+    }
+    let e=Evolution::parse(&format!("{}\n[general]\nbolt_multiplier_max=7.5\nrandomizer_bolt_multiplier=true\n",include_str!("weapon_evo_release.ini"))).unwrap();
+    assert_eq!(e.bolt_multiplier_max,7.5);assert!(e.randomizer_bolt_multiplier);
 }

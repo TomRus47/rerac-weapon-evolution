@@ -140,7 +140,7 @@ pub fn race_girl_update(w: &mut World, id: MobyId) {
             if w.m(id).cmd == 1 {
                 to(w, FINISH);
                 music(w, 0, 8);
-                if story::flag(w, 0) == 0 {
+                if crate::weapon_evo::randomizer::source_flag(w,48,story::flag(w,0)) == 0 {
                     jump(w, id, 4);
                     p::set_u8(&mut w.mm(id).pvars, talk::AUTO, 1);
                 }
@@ -222,7 +222,7 @@ pub fn bouncer_update(w: &mut World, id: MobyId) {
     crate::moby_update::manip::scene_big_head(w, &[919], 0, 2.3);
     match w.m(id).state {
         0 => {
-            if story::planet_unlocked(w, 7) {
+            if crate::weapon_evo::randomizer::source_planet(w,7,story::planet_unlocked(w, 7)) {
                 w.delete_moby(id);
                 return;
             }
@@ -259,7 +259,7 @@ pub fn salesman_update(w: &mut World, id: MobyId) {
     }
     match w.m(id).state {
         0 => {
-            if w.svc.interact.game.acquired.get(23).is_some_and(|&b| b != 0) {
+            if crate::weapon_evo::randomizer::source_owned(w,23,w.svc.interact.game.acquired.get(23).is_some_and(|&b| b != 0)) {
                 w.delete_moby(id);
                 return;
             }

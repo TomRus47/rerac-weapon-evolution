@@ -1228,7 +1228,8 @@ fn hero_inputs(g: &mut Inputs, p: &crate::gameplay::Play) {
     let h = &p.game.hero;
     let react = &p.svc.creatures.react;
     let morph = &h.weapons.reactive.morph;
-    g.bolt_chain=if p.svc.bomb_evo.ng_plus {p.svc.bomb_evo.bolt_chain.kills}else{0};
+    g.bolt_chain=if p.svc.bomb_evo.reward_multiplier_active(){p.svc.bomb_evo.bolt_chain.kills}else{0};
+    g.bolt_multiplier_tenths=p.svc.bomb_evo.reward_factor_tenths();
     g.level = p.svc.level as i32;
     g.mode = p.svc.game_mode;
     g.pressed = p.game.pad.pressed;

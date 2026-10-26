@@ -374,6 +374,9 @@ fn take_requests(rt: &mut SceneRuntime, play: &mut Play, state: Option<&mut Pers
             // 0x2a29a0(dest) / the menus' level exits: DoSpaceTransition (crate::travel_render).
             R::LeaveLevel { dest } => crate::travel_render::request_leave(dest),
             R::ShipHidden(h) => {
+                let h=if play.svc.bomb_evo.randomizer_mode && play.svc.game_mode==0 && play.svc.level!=0 {
+                    !rc_game::weapon_evo::randomizer::ship_available(play.svc.bomb_evo.progress().randomizer,play.svc.level)
+                }else{h};
                 if let Some(id) = play.ship_moby() {
                     let m = &mut play.game.mobys.mobys[id];
                     let was = m.mode & 3 == 3;

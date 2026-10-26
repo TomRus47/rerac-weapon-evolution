@@ -276,7 +276,11 @@ fn spawn_sky(
     });
     let (order, n_tris, star_order) = (s.order, s.triangles, s.star_order);
     let has_dome = ls.sky.shells.iter().any(|s| !s.textured());
-    let clear_first_frame_only = level_zeroes_clear_flag(ls.level);
+    let persistent_pickups=rc_game::weapon_evo::inspect_profile().is_some_and(|e|
+        rc_game::weapon_evo::pickup_visuals::fresh_background(e.randomizer_mode,e.golden_settings.enabled,e.hide_ryno));
+    // World-reward effects must not feed last frame's blended colour back into
+    // a sky shell. This override belongs to mod pickup modes, not native skies.
+    let clear_first_frame_only = level_zeroes_clear_flag(ls.level) && !persistent_pickups;
     commands.spawn((
         Camera3d { depth_load_op: Camera3dDepthLoadOp::Clear(0.0), ..default() },
         // First frame: the loader's clear_screen = 1 clears to the level background (the ClearColor resource).

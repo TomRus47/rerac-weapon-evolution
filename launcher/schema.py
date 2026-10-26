@@ -449,7 +449,7 @@ GLOBAL_STANDARD_DEFAULTS.update({'golden_bolts_to_weapons':'false','golden_bolts
 BOOLEANS.add('golden_bolts_to_weapons')
 INTEGER.add('golden_bolts_early_bias_percent')
 LABELS.update({'golden_bolts_to_weapons': 'Golden Bolts_to_Weapons', 'golden_bolts_early_bias_percent': 'Early weapon placement bias (%)'})
-HELP.update({'golden_bolts_to_weapons': 'Replace 15 Gold Bolts with the 15 weapons. A new game generates a layout saved with that slot. Uses a separate memory card and refuses ordinary saves. Original weapon sources remain available; this option changes Gold Bolt rewards only. Gemlik’s extra RYNO pickup is replaced by the seeded reward system.', 'golden_bolts_early_bias_percent': '0: locations anywhere, subject to access rules. 100: the earliest conservative gadget-access tiers; late planets have no weapon replacements. Existing saves keep their original layout and bias. Range: 0–100.'})
+HELP.update({'golden_bolts_to_weapons': 'Replace 15 Gold Bolts with the 15 weapons. A new game generates a layout saved with that slot. Uses a separate memory card and refuses ordinary saves. Original weapon sources remain available; this option changes Gold Bolt rewards only.', 'golden_bolts_early_bias_percent': '0: locations anywhere, subject to access rules. 100: the earliest conservative gadget-access tiers; late planets have no weapon replacements. Existing saves keep their original layout and bias. Range: 0–100.'})
 _v67_global_field_groups=global_field_groups
 def global_field_groups(doc):
     groups=list(_v67_global_field_groups(doc))
@@ -571,3 +571,19 @@ HELP.update({
     'lava_outer_color':'Outer lava stream color for this grade: default or RRGGBB.',
     'lava_impact_color':'Lava contact effect color for this grade: default or RRGGBB.',
     'lava_light_color':'Lava light color for this grade: default or RRGGBB.'})
+
+
+# Mixed-pool controls are standard globals, kept together in their own card.
+RANDOMIZER_DEFAULTS={'randomizer_mode':'false','randomizer_bolt_multiplier':'false','bolt_multiplier_max':'3'}
+GLOBAL_STANDARD_DEFAULTS.update(RANDOMIZER_DEFAULTS)
+BOOLEANS.update({'randomizer_mode','randomizer_bolt_multiplier'})
+LABELS.update({'randomizer_mode':'Randomizer','randomizer_bolt_multiplier':'Enable multiplier in normal randomizer games','bolt_multiplier_max':'Maximum reward multiplier','r1_experimental_max':'R1_Experimental max'})
+HELP.update({'randomizer_mode':'New games start on Novalis with mixed weapon, gadget, Gold Bolt and coordinate rewards. Uses a separate memory card; existing layouts never reroll. Overrides weapon-only and Ammo-Survival modes.',
+'randomizer_bolt_multiplier':'Allow the shared bolt, weapon XP and Nanotech XP streak in normal randomizer games. NG+ already enables it. Damage or death resets the streak.',
+'bolt_multiplier_max':'Maximum actual reward coefficient in NG+ and enabled randomizer games. Default 3 means x3.0. Range: 1-100.',
+'r1_experimental_max':'Only with global R1_Experimental On: maximum selectable alternate mode for this grade. 0 hides and disables switching. R.Y.N.O. supports 0-2; Pyrocitor, Mine Glove and Visibomb Gun support 0-1. Other weapons support 0.'})
+WORLD_RANGES['bolt_multiplier_max']=(1,100)
+INTEGER.add('r1_experimental_max')
+for _weapon,(_id,_) in WEAPONS.items():
+    STANDARD_DEFAULTS.setdefault(_weapon,{})['r1_experimental_max']=str(2 if _id==23 else 1 if _id in (13,16,17) else 0)
+    EXTRA[_id]=(EXTRA.get(_id,'')+' r1_experimental_max').strip()

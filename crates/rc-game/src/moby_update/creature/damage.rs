@@ -95,7 +95,7 @@ pub(crate) fn award_health_write(w: &mut World, id: MobyId, offset: usize, befor
         w.svc.hits.real_hp.commit_stream_reaction(id, w.counter, interval);
     }
     if after<=0. && super::super::real_hp::donor(w.m(id)) && w.svc.bomb_evo.mark_terminal_target(id) {
-        w.svc.bomb_evo.bolt_chain.kill(w.svc.bomb_evo.ng_plus);
+        w.svc.bomb_evo.reward_chain_kill();
     }
     award_effective(w, hit, actual);
 }
@@ -133,11 +133,11 @@ pub(crate) fn award_terminal(w: &mut World, id: MobyId, hit: Option<HitRecord>, 
         let (actual, dead) = w.svc.hits.real_hp.terminal_loss(id, damage);
         award_effective(w, hit, actual);
         if !dead { return false; }
-        if w.svc.bomb_evo.mark_terminal_target(id) {w.svc.bomb_evo.bolt_chain.kill(w.svc.bomb_evo.ng_plus);}
+        if w.svc.bomb_evo.mark_terminal_target(id) {w.svc.bomb_evo.reward_chain_kill();}
         return true;
     }
     if w.m(id).state >= 0x80 || !w.svc.bomb_evo.mark_terminal_target(id) { return true; }
-    if super::super::real_hp::donor(w.m(id)){w.svc.bomb_evo.bolt_chain.kill(w.svc.bomb_evo.ng_plus);}
+    if super::super::real_hp::donor(w.m(id)){w.svc.bomb_evo.reward_chain_kill();}
     award_effective(w, hit, damage.min(remaining_hp));
     true
 }

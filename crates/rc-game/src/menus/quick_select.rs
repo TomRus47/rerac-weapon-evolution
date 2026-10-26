@@ -627,6 +627,11 @@ impl QuickSelect {
     }
     pub fn draw_with_controls(&self, a: &MenuAssets, g: &Global, tick: u64, listeners: i32,
         controls:Option<&crate::weapon_evo::controls::State>,out: &mut Vec<MenuDraw>) {
+        let item=usize::try_from(self.sel).ok().and_then(|i|g.quick_select.get(i)).copied().unwrap_or(0);
+        self.draw_with_mode_limit(a,g,tick,listeners,controls,crate::weapon_evo::controls::supported_mode_max(item),out);
+    }
+    pub fn draw_with_mode_limit(&self,a:&MenuAssets,g:&Global,tick:u64,listeners:i32,
+        controls:Option<&crate::weapon_evo::controls::State>,max:u8,out:&mut Vec<MenuDraw>) {
         if !self.open { return; }
         if self.command_page {
             self.draw_commands(a, tick, listeners, out);
@@ -689,7 +694,7 @@ impl QuickSelect {
             centre(out, cx + 1, cy + 13, shadow, &s_txt);
             centre(out, cx, cy + 12, col, &s_txt);
         }
-        if let Some(mode)=controls.and_then(|state|state.mode(slot_item)) {
+        if let Some(mode)=controls.and_then(|state|state.mode_limited(slot_item,max)) {
             let text=format!("\x15 = {mode}");
             let font=if a.width(Font::Small,b"\x15")>0{Font::Small}else{Font::Regular};
             let width=a.width(font,text.as_bytes());
@@ -1073,6 +1078,10 @@ mod tests {
                 assert_eq!(text,&format!("\x15 = {}",state.mode(item).unwrap()).into_bytes());
                 assert_eq!(color>>24,128);
             }
+            out.clear();q.draw_with_mode_limit(&a,&g,0,0,Some(&state),0,&mut out);
+            assert!(!out.iter().any(|d|matches!(d,MenuDraw::Hud(crate::hud::Draw::Text{text,..}) if text.starts_with(b"\x15 = "))));
+            out.clear();q.draw_with_mode_limit(&a,&g,0,0,Some(&state),1,&mut out);
+            if item==23{assert!(out.iter().any(|d|matches!(d,MenuDraw::Hud(crate::hud::Draw::Text{text,..}) if text==b"\x15 = 0")));}
             out.clear();q.draw(&a,&g,0,0,&mut out);
             assert!(!out.iter().any(|d|matches!(d,MenuDraw::Hud(crate::hud::Draw::Text{text,..}) if text.starts_with(b"\x15 = "))));
         }

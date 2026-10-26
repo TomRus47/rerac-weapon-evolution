@@ -1398,8 +1398,11 @@ fn setup(
         if migrated>0 { println!("weapon evolution: restored {migrated} previously purchased Gold weapons to V6"); }
     }
     svc.level = level_index;
-    if svc.bomb_evo.enabled || svc.bomb_evo.golden_settings.enabled {
+    if svc.bomb_evo.enabled || svc.bomb_evo.golden_settings.enabled || svc.bomb_evo.randomizer_mode {
         svc.discovery = rc_game::weapon_evo::discovery::State::from_gameplay(level_index, &lv.gameplay);
+    }
+    if svc.bomb_evo.randomizer_mode {
+        svc.randomizer=rc_game::weapon_evo::randomizer::WorldState::from_gameplay(level_index,&lv.gameplay,svc.discovery.location(),state.as_ref().map_or(Default::default(),|s|s.0.weapon_progress.randomizer));
     }
     if svc.bomb_evo.golden_settings.enabled {
         svc.golden=rc_game::weapon_evo::golden::WorldState::from_gameplay(
@@ -2349,6 +2352,7 @@ fn tick(
     // the mobys, the hero side, the checkpoint's visit records (`0x29b080`), the load pass; then the main loop's
     // `music_start_track` with the checkpoint's track.
     if std::mem::take(&mut p.death_pending) {
+        p.svc.bomb_evo.reset_reward_chain(state.as_deref_mut().map(|s| &mut s.0.weapon_progress));
         let checkpoint = p.svc.save.checkpoint.is_some();
         death_reload(p, lv, state.as_deref().map(|s| &s.0), occl.as_deref_mut(), anim.as_deref_mut(), particles.as_deref_mut());
         // `0x29adc8`'s copy of the checkpoint area 0x1bb6b0..0x1bc310 over 0x1baa50..0x1bb6b0 (zeroed without a
@@ -2458,8 +2462,9 @@ fn tick(
     // The moby collision the hero and the camera query (and Ratchet's MobyBuildMatrix, the camera's crate hit).
     let mut world = HeroWorld { world: SharedServices { svc: &svc_cell, classes: classes_arc.clone() }, water: HeroWater(&svc_cell) };
     let mut hooks = TickHooks { mobys: &mut mobys, particles: &mut parts, world: Some(&mut world) };
-    // Reconcile experimental ownership before quick-select and hero mirrors read it.
+    // Reconcile ownership and legacy ring placeholders before hero mirrors read them.
     if let (Some(gs), Some(sess)) = (state.as_deref_mut(), session.as_deref_mut()) {
+        rc_game::weapon_evo::quick_select::repair(&mut gs.0);
         rc_game::weapon_evo::ammo_mode::reconcile_configured(&mut gs.0, &mut sess.0, svc_cell.borrow().bomb_evo.ammo_unlock_mode, 0, p.game.hero.weapons.visibomb.missile.is_some(), &svc_cell.borrow().bomb_evo.ammo_mode_settings);
     }
     // The hand-swap globals in from the saved game / session (the quick-select ring writes the request).
@@ -2610,8 +2615,8 @@ fn tick(
     let health_before=p.game.hero.health;
     let loss_before=p.game.hero.damage.health_loss_events;
     let report = p.game.tick_with_hero_sounds(Some(&input.bytes()), coll, &mut anim_ctl, &mut hooks, &mut hits, sound, &mut hero_sounds);
-    if p.game.hero.damage.health_loss_events>loss_before || p.game.hero.health<health_before {
-        svc_cell.borrow_mut().bomb_evo.bolt_chain.hurt();
+    if rc_game::weapon_evo::bolt_chain::broken_by_hero_tick(&p.game.hero,health_before,loss_before) {
+        svc_cell.borrow_mut().bomb_evo.reset_reward_chain(state.as_deref_mut().map(|s| &mut s.0.weapon_progress));
     }
     // Resolve XP for read-only target acquisition after the mutating game tick.
     svc_cell.borrow_mut().bomb_evo.drain_special();
@@ -2704,6 +2709,23 @@ fn tick(
     // The talk system's saved-game writes (moby_update::interact::GameWrite).
     if let Some(gs) = state.as_mut() {
         for w in p.svc.interact.apply_writes(&mut gs.0) {
+            if let rc_game::moby_update::interact::GameWrite::RandomizerReward(source)=w {
+                let (root,index)=(crate::level_load::extracted_root(),crate::level_load::level_index());
+                let tables=crate::disc_source::read(&root,"boot/SCUS_971.99").ok()
+                    .zip(crate::disc_source::level_file(&root,index,"overlay.bin").ok())
+                    .and_then(|(elf,ov)|ItemTables::load(&elf,&ov).ok());
+                if let (Some(t),Some(s))=(tables,session.as_mut()) {
+                    let equip=p.game.hero.mode==0 && !rc_game::weapon_evo::golden::is_swimming(&p.game.hero);
+                    if let Some(reward)=rc_game::weapon_evo::randomizer::grant(&mut gs.0,&mut s.0,&t,source,equip) {
+                        if matches!(reward,52|53){p.game.hero.health=gs.0.global.max_hp;p.svc.counters.max_hp=gs.0.global.max_hp;}
+                        randomizer_feedback(p,&root,index,t.item_defs_addr,reward,equip);
+                        p.svc.bomb_evo.commit_randomizer(gs.0.weapon_progress.randomizer);
+                        p.svc.cinematic.requests.push(rc_game::cinematic::EngineRequest::Save);
+                    }
+                }
+                p.svc.randomizer.pending.retain(|&s|s!=source);
+                continue;
+            }
             println!("interact: tick {}: game write {w:?}", p.game.counter);
             // A class's `GiveItem(item, equip)` (0x275760; Pokitaru's commando 114): the item tables from the disc.
             if let rc_game::moby_update::interact::GameWrite::GiveItem { item, equip } = w {
@@ -2745,6 +2767,16 @@ fn tick(
             }
         }
     }
+    // Menu purchases call GameState directly. Deliver their actual reward's
+    // feedback after the vendor hands control back, never the source weapon's.
+    if let (Some(gs),Some(s))=(state.as_mut(),session.as_mut()) {
+        if gs.0.weapon_progress.randomizer.active() {
+            let (root,index)=(crate::level_load::extracted_root(),crate::level_load::level_index());
+            let notices=std::mem::take(&mut s.0.randomizer_notices);
+            for reward in notices.into_iter().filter(|&r|r!=0){randomizer_feedback(p,&root,index,0,reward,!rc_game::weapon_evo::golden::is_swimming(&p.game.hero));}
+            p.svc.bomb_evo.commit_randomizer(gs.0.weapon_progress.randomizer);
+        }
+    }
     // The bolt counter (0x15ed98, 0x13df38[level]) into the persistent state the HUD and menus read.
     if let Some(gs) = state.as_mut() {
         let c = &p.svc.counters;
@@ -2757,6 +2789,12 @@ fn tick(
     // All accepted pickups, ammo use and story grants have now been written back.
     let collected = std::mem::take(&mut p.svc.counters.ammo_mode_bolts);
     if let (Some(gs), Some(sess)) = (state.as_deref_mut(), session.as_deref_mut()) {
+        let pending=gs.0.weapon_progress.randomizer.pending_equip;
+        if pending!=0 && p.game.hero.mode==0 && p.game.hero.health>0 && p.svc.game_mode==0
+            && !rc_game::weapon_evo::golden::is_swimming(&p.game.hero){
+            sess.0.temp_hand=pending as i32;gs.0.weapon_progress.randomizer.pending_equip=0;
+            p.svc.bomb_evo.commit_randomizer(gs.0.weapon_progress.randomizer);
+        }
         rc_game::weapon_evo::ammo_mode::reconcile_configured(&mut gs.0, &mut sess.0, p.svc.bomb_evo.ammo_unlock_mode, collected, p.game.hero.weapons.visibomb.missile.is_some(), &p.svc.bomb_evo.ammo_mode_settings);
         if rc_game::weapon_evo::golden::finish_deferred_equip(&mut gs.0,&mut sess.0,&p.game.hero,p.svc.game_mode) {
             p.svc.bomb_evo.commit_golden_reward(gs.0.weapon_progress.golden);
@@ -2829,6 +2867,9 @@ fn tick(
     // `FadeToBlack(16)` and set it; the main loop runs no catch-up tick, skips `DrawWorld` and reloads at the end of
     // the frame (the disc read keeps the screen black, [`RELOAD_BLACK`]).
     if p.game.hero.fell_out != 0 && !p.death_pending {
+        // A script may request the reload after this tick's ordinary XP sync.
+        // Persist this reset now as well as guarding the reload entry above.
+        p.svc.bomb_evo.reset_reward_chain(state.as_deref_mut().map(|s| &mut s.0.weapon_progress));
         let (at, st) = (p.game.hero.position(), p.game.hero.state);
         budget.0 = 0;
         p.death_pending = true;
@@ -3083,6 +3124,9 @@ fn write_visible(play: Option<ResMut<Play>>, occl: Option<Res<MobyOcclusion>>, a
 /// Missing demo resources preserve the successful reward and its ordinary
 /// localized banner. Underwater pickups never enter this path.
 fn request_acquisition_demo(play:&Play,root:&std::path::Path,index:u32,item_defs:u32,item:usize) {
+    if let Some(movie)=rc_game::weapon_evo::randomizer::acquisition_movie(item){
+        crate::movie_render::request(crate::movie_render::MovieRequest::acquisition(movie));return;
+    }
     let scene=menu_overlay_for(root,index).and_then(|overlay|
         rc_game::menus::vendor::VendorTables::load(overlay,item_defs,play.svc.interact.tables.shop.clone()))
         .and_then(|tables|rc_game::menus::vendor::acquisition_demo_scene(&tables,item));
@@ -3092,6 +3136,19 @@ fn request_acquisition_demo(play:&Play,root:&std::path::Path,index:u32,item_defs
     };
     println!("weapon pickup: item {item}: native demo {scene}, level {index}");
     crate::travel_render::request_pickup_demo(scene);
+}
+
+fn randomizer_feedback(play:&mut Play,root:&std::path::Path,index:u32,item_defs:u32,reward:u16,equip:bool){
+    let text=if reward<37 {
+        let name=play.svc.gold_shop.names.get(&(reward as usize)).cloned()
+            .unwrap_or_else(||golden_item_name(reward as usize,item_defs,root,index,&play.svc.interact.messages));
+        if equip {request_acquisition_demo(play,root,index,item_defs,reward as usize);}else{request_pickup_jingle(root);}
+        rc_game::weapon_evo::golden::localized_notice(reward as usize,play.svc.interact.lang,&name)
+    } else {
+        request_pickup_jingle(root);
+        rc_game::weapon_evo::randomizer::reward_name(reward,play.svc.interact.lang,&play.svc.gold_shop.names)
+    };
+    rc_game::cinematic::text_banner_call(&mut play.svc.cinematic,text,rc_game::menus::scale_ticks(300));
 }
 
 /// Banner-only and underwater rewards still get the acquisition feedback,

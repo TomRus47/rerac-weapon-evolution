@@ -441,7 +441,7 @@ fn ship_travel(t: &mut Travel, p: &mut Play, mm: &mut MenuMode, gs: Option<&mut 
     let mut out = SpaceFrame::default();
     let level = p.svc.level as i32;
     let ship = p.svc.travel.ship;
-    let o2 = p.game.hero.owned.0.get(space::ITEM_O2_MASK).is_some_and(|&b| b != 0);
+    let o2 = rc_game::weapon_evo::randomizer::travel_mask(p.svc.bomb_evo.progress().randomizer,p.svc.level,p.game.hero.owned.0.get(space::ITEM_O2_MASK).is_some_and(|&b| b != 0));
     let landing = (dest == level).then(|| space::lump_and_stream(space::SUB_LANDING, level, ship, o2, false).0).and_then(space_lump);
     let revisit = with_world(p, lv.collision.as_ref(), |w| t.mode.travel_to(w, dest, landing.clone(), &mut out));
     if !revisit {
@@ -479,11 +479,11 @@ fn level_entry(t: &mut Travel, p: &mut Play, mm: &mut MenuMode, gs: Option<&mut 
     // The saved game as the tick mirrors it (the set-up ran no tick yet).
     if let Some(g) = gs.as_deref() { sync_mirrors(p, &g.0); }
     let level = p.svc.level as i32;
-    let p3 = p.svc.interact.game.planet_unlocked.get(3).is_some_and(|&b| b != 0);
+    let p3 = if p.svc.bomb_evo.randomizer_mode{p.svc.bomb_evo.progress().randomizer.collected(67)}else{p.svc.interact.game.planet_unlocked.get(3).is_some_and(|&b| b != 0)};
     let flag8 = gs.as_deref().is_some_and(|g| g.0.global.flags[8] != 0);
     if !((level == 1 && !p3) || (level == 0 && flag8)) { scene_audio::post(SceneAudioCmd::PauseMusic); }
     let ship = p.svc.travel.ship;
-    let o2 = p.game.hero.owned.0.get(space::ITEM_O2_MASK).is_some_and(|&b| b != 0);
+    let o2 = rc_game::weapon_evo::randomizer::travel_mask(p.svc.bomb_evo.progress().randomizer,p.svc.level,p.game.hero.owned.0.get(space::ITEM_O2_MASK).is_some_and(|&b| b != 0));
     let lump = space_lump(space::lump_and_stream(space::SUB_LANDING, level, ship, o2, true).0);
     // 0x13d3f0 = global flag 0x68 (level 14's landing).
     let flag = gs.as_deref().is_some_and(|g| g.0.global.flags[0x68] != 0);
@@ -579,7 +579,7 @@ fn post_tick(
         if let Some(g) = gs.as_deref() { sync_mirrors(p, &g.0); }
         let level = p.svc.level as i32;
         let ship = p.svc.travel.ship;
-        let o2 = p.game.hero.owned.0.get(space::ITEM_O2_MASK).is_some_and(|&b| b != 0);
+        let o2 = rc_game::weapon_evo::randomizer::travel_mask(p.svc.bomb_evo.progress().randomizer,p.svc.level,p.game.hero.owned.0.get(space::ITEM_O2_MASK).is_some_and(|&b| b != 0));
         let (k, _) = space::lump_and_stream(space::SUB_TAKEOFF, level, ship, o2, false);
         match space_lump(k) {
             Some(l) => {

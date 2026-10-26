@@ -46,3 +46,18 @@ mod tests {
         assert_eq!(model_class(23, 999), 999);
     }
 }
+
+/// Imported reward actors have different class scales; fit their geometry to
+/// a small world pickup independently of vendor/gadget preview dimensions.
+pub fn world_scale_multiplier(extent:f32)->Option<f32> {
+    if !extent.is_finite() || extent<=0.0001{return None;}
+    let fit=1.5/extent;(fit.is_finite()&&fit>0.).then_some(fit)
+}
+#[cfg(test)]mod mixed_world_tests {
+    #[test]fn native_model_sizes_share_a_bounded_world_extent(){
+        for extent in [0.01,0.5,1.5,100.,10000.] {
+            let fit=super::world_scale_multiplier(extent).unwrap();assert!((extent*fit-1.5).abs()<0.0001);
+        }
+        for extent in [0.,-1.,f32::NAN,f32::INFINITY]{assert!(super::world_scale_multiplier(extent).is_none());}
+    }
+}

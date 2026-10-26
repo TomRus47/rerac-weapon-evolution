@@ -1,0 +1,102 @@
+source,planet,location,requirement_alternatives,review_basis
+2,Kerwan,Heli-pack,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+3,Pokitaru,Thruster-pack,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+4,Hoven,Hydro-pack,Hydrodisplacer,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+5,Aridia,Sonic Summoner,Zoomerator,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+6,Pokitaru,O2 Mask,Pilot's Helmet,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+7,Gaspar,Pilot's Helmet,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+9,Eudora,Suck Cannon,Heli-pack OR Thruster-pack,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+11,Batalia,Devastator,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+12,Kerwan,Swingshot,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+13,Orxon,Visibomb,O2 Mask,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+14,Blarg Station,Taunter,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+15,Kerwan,Blaster,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+16,Novalis,Pyrocitor,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+17,Rilgar,Mine Glove,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+18,Gaspar,Walloper,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+19,Oltanis,Tesla Claw,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+20,Eudora,Glove of Doom,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+21,Oltanis,Morph-O-Ray,Swingshot,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+22,Blarg Station,Hydrodisplacer,Trespasser,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+23,Rilgar,R.Y.N.O.,MetalDetector + Heli-pack OR MetalDetector + Thruster-pack,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+24,Hoven,Drone Device,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+25,Pokitaru,Decoy Glove,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+26,Aridia,Trespasser,Swingshot,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+27,Batalia,MetalDetector,Magneboots,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+28,Orxon,Magneboots,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+29,Blarg Station,Grindboots,Swingshot,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+30,Aridia,Hoverboard,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+31,Kalebo III,Hologuise,Hoverboard + Heli-pack + Swingshot + Grindboots OR Hoverboard + Thruster-pack + Swingshot + Grindboots,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+32,Oltanis,PDA,Magneboots,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+33,Kalebo III,Map-O-Matic,Grindboots,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+34,Quartu,Bolt Grabber,Hydro-pack + O2 Mask,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+35,Pokitaru,Persuader,Trespasser + Raritanium + Hydrodisplacer,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+48,Rilgar,Zoomerator,Hoverboard + Heli-pack OR Hoverboard + Thruster-pack,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+49,Hoven,Raritanium,Swingshot + Heli-pack OR Swingshot + Thruster-pack,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+50,Drek's Fleet,Codebot,Hydro-pack + O2 Mask,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+52,Orxon,Premium Nanotech,O2 Mask + Heli-pack OR O2 Mask + Thruster-pack,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+53,Orxon,Ultra Nanotech,O2 Mask + Thruster-pack + Premium Nanotech + MetalDetector OR O2 Mask + Heli-pack + Premium Nanotech + MetalDetector,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+65,Veldin,Planet coordinates 1,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+66,Novalis,Planet coordinates 2,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+67,Novalis,Planet coordinates 3,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+68,Kerwan,Planet coordinates 4,Heli-pack OR Thruster-pack,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+69,Blarg Station,Planet coordinates 5,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+70,Eudora,Planet coordinates 6,Trespasser + Swingshot + Heli-pack OR Trespasser + Swingshot + Thruster-pack,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+71,Rilgar,Planet coordinates 7,Swingshot + Hydrodisplacer,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+72,Umbris,Planet coordinates 8,Swingshot + Hydrodisplacer,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+73,Batalia,Planet coordinates 9,Grindboots,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+74,Batalia,Planet coordinates 10,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+75,Orxon,Planet coordinates 11,No gadget requirement,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+76,Orxon,Planet coordinates 12,O2 Mask + Swingshot + Magneboots + Thruster-pack,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+77,Hoven,Planet coordinates 13,Devastator OR Visibomb OR Blaster,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+78,Gemlik Base,Planet coordinates 14,Swingshot + Magneboots + Trespasser + Devastator OR Swingshot + Magneboots + Trespasser + Visibomb,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+79,Oltanis,Planet coordinates 15,Grindboots,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+80,Quartu,Planet coordinates 16,Swingshot,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+81,Quartu,Planet coordinates 17,Thruster-pack + Swingshot + Hologuise,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+82,Drek's Fleet,Planet coordinates 18,Magneboots + Hologuise,PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate
+100,Novalis,Native Gold Bolt (conservative route requirements),Heli-pack + Hydro-pack + O2 Mask + Bomb Glove OR Heli-pack + Hydro-pack + O2 Mask + Devastator OR Heli-pack + Hydro-pack + O2 Mask + Visibomb OR Thruster-pack + Hydro-pack + O2 Mask + Bomb Glove OR Thruster-pack + Hydro-pack + O2 Mask + Devastator OR Thruster-pack + Hydro-pack + O2 Mask + Visibomb,Conservative shared envelope; physical pvar identity not independently confirmed
+101,Novalis,Native Gold Bolt (conservative route requirements),Heli-pack + Hydro-pack + O2 Mask + Bomb Glove OR Heli-pack + Hydro-pack + O2 Mask + Devastator OR Heli-pack + Hydro-pack + O2 Mask + Visibomb OR Thruster-pack + Hydro-pack + O2 Mask + Bomb Glove OR Thruster-pack + Hydro-pack + O2 Mask + Devastator OR Thruster-pack + Hydro-pack + O2 Mask + Visibomb,Conservative shared envelope; physical pvar identity not independently confirmed
+102,Novalis,Native Gold Bolt (conservative route requirements),Heli-pack + Hydro-pack + O2 Mask + Bomb Glove OR Heli-pack + Hydro-pack + O2 Mask + Devastator OR Heli-pack + Hydro-pack + O2 Mask + Visibomb OR Thruster-pack + Hydro-pack + O2 Mask + Bomb Glove OR Thruster-pack + Hydro-pack + O2 Mask + Devastator OR Thruster-pack + Hydro-pack + O2 Mask + Visibomb,Conservative shared envelope; physical pvar identity not independently confirmed
+104,Aridia,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Trespasser + Magneboots + Bomb Glove OR Heli-pack + Swingshot + Trespasser + Magneboots + Devastator OR Heli-pack + Swingshot + Trespasser + Magneboots + Visibomb OR Thruster-pack + Swingshot + Trespasser + Magneboots + Bomb Glove OR Thruster-pack + Swingshot + Trespasser + Magneboots + Devastator OR Thruster-pack + Swingshot + Trespasser + Magneboots + Visibomb,Conservative shared envelope; physical pvar identity not independently confirmed
+105,Aridia,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Trespasser + Magneboots + Bomb Glove OR Heli-pack + Swingshot + Trespasser + Magneboots + Devastator OR Heli-pack + Swingshot + Trespasser + Magneboots + Visibomb OR Thruster-pack + Swingshot + Trespasser + Magneboots + Bomb Glove OR Thruster-pack + Swingshot + Trespasser + Magneboots + Devastator OR Thruster-pack + Swingshot + Trespasser + Magneboots + Visibomb,Conservative shared envelope; physical pvar identity not independently confirmed
+106,Aridia,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Trespasser + Magneboots + Bomb Glove OR Heli-pack + Swingshot + Trespasser + Magneboots + Devastator OR Heli-pack + Swingshot + Trespasser + Magneboots + Visibomb OR Thruster-pack + Swingshot + Trespasser + Magneboots + Bomb Glove OR Thruster-pack + Swingshot + Trespasser + Magneboots + Devastator OR Thruster-pack + Swingshot + Trespasser + Magneboots + Visibomb,Conservative shared envelope; physical pvar identity not independently confirmed
+107,Aridia,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Trespasser + Magneboots + Bomb Glove OR Heli-pack + Swingshot + Trespasser + Magneboots + Devastator OR Heli-pack + Swingshot + Trespasser + Magneboots + Visibomb OR Thruster-pack + Swingshot + Trespasser + Magneboots + Bomb Glove OR Thruster-pack + Swingshot + Trespasser + Magneboots + Devastator OR Thruster-pack + Swingshot + Trespasser + Magneboots + Visibomb,Conservative shared envelope; physical pvar identity not independently confirmed
+108,Kerwan,Native Gold Bolt (conservative route requirements),Heli-pack OR Thruster-pack,Conservative shared envelope; physical pvar identity not independently confirmed
+109,Kerwan,Native Gold Bolt (conservative route requirements),Heli-pack OR Thruster-pack,Conservative shared envelope; physical pvar identity not independently confirmed
+110,Kerwan,Native Gold Bolt (conservative route requirements),Heli-pack OR Thruster-pack,Conservative shared envelope; physical pvar identity not independently confirmed
+112,Eudora,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Trespasser,Conservative shared envelope; physical pvar identity not independently confirmed
+116,Rilgar,Native Gold Bolt (conservative route requirements),Heli-pack + Hydro-pack + O2 Mask + Swingshot + Hydrodisplacer OR Thruster-pack + Hydro-pack + O2 Mask + Swingshot + Hydrodisplacer,Conservative shared envelope; physical pvar identity not independently confirmed
+117,Rilgar,Native Gold Bolt (conservative route requirements),Heli-pack + Hydro-pack + O2 Mask + Swingshot + Hydrodisplacer OR Thruster-pack + Hydro-pack + O2 Mask + Swingshot + Hydrodisplacer,Conservative shared envelope; physical pvar identity not independently confirmed
+120,Blarg Station,"Blarg exterior Gold Bolt (Ratchet, airlock)",O2 Mask + Trespasser,Pickup/save identity confirmed by author
+121,Blarg Station,Blarg interior Gold Bolt (upper cage),Heli-pack OR Thruster-pack,Pickup/save identity confirmed by author
+124,Umbris,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Hydrodisplacer OR Thruster-pack + Swingshot + Hydrodisplacer,Conservative shared envelope; physical pvar identity not independently confirmed
+125,Umbris,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Hydrodisplacer OR Thruster-pack + Swingshot + Hydrodisplacer,Conservative shared envelope; physical pvar identity not independently confirmed
+128,Batalia,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Trespasser + Magneboots + Grindboots OR Thruster-pack + Swingshot + Trespasser + Magneboots + Grindboots,Conservative shared envelope; physical pvar identity not independently confirmed
+129,Batalia,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Trespasser + Magneboots + Grindboots OR Thruster-pack + Swingshot + Trespasser + Magneboots + Grindboots,Conservative shared envelope; physical pvar identity not independently confirmed
+132,Gaspar,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot OR Thruster-pack + Swingshot,Conservative shared envelope; physical pvar identity not independently confirmed
+133,Gaspar,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot OR Thruster-pack + Swingshot,Conservative shared envelope; physical pvar identity not independently confirmed
+136,Orxon,Native Gold Bolt (conservative route requirements),O2 Mask + Swingshot + Visibomb + Magneboots + Thruster-pack,Conservative shared envelope; physical pvar identity not independently confirmed
+137,Orxon,Native Gold Bolt (conservative route requirements),O2 Mask + Swingshot + Visibomb + Magneboots + Thruster-pack,Conservative shared envelope; physical pvar identity not independently confirmed
+140,Pokitaru,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot OR Thruster-pack + Swingshot,Conservative shared envelope; physical pvar identity not independently confirmed
+144,Hoven,Native Gold Bolt (conservative route requirements),Heli-pack + Hydro-pack + O2 Mask + Hydrodisplacer OR Thruster-pack + Hydro-pack + O2 Mask + Hydrodisplacer,Conservative shared envelope; physical pvar identity not independently confirmed
+145,Hoven,Native Gold Bolt (conservative route requirements),Heli-pack + Hydro-pack + O2 Mask + Hydrodisplacer OR Thruster-pack + Hydro-pack + O2 Mask + Hydrodisplacer,Conservative shared envelope; physical pvar identity not independently confirmed
+148,Gemlik Base,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Magneboots + Trespasser + Devastator OR Heli-pack + Swingshot + Magneboots + Trespasser + Visibomb OR Thruster-pack + Swingshot + Magneboots + Trespasser + Devastator OR Thruster-pack + Swingshot + Magneboots + Trespasser + Visibomb,Conservative shared envelope; physical pvar identity not independently confirmed
+152,Oltanis,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Morph-O-Ray + Magneboots + Grindboots + PDA OR Thruster-pack + Swingshot + Morph-O-Ray + Magneboots + Grindboots + PDA,Conservative shared envelope; physical pvar identity not independently confirmed
+153,Oltanis,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Morph-O-Ray + Magneboots + Grindboots + PDA OR Thruster-pack + Swingshot + Morph-O-Ray + Magneboots + Grindboots + PDA,Conservative shared envelope; physical pvar identity not independently confirmed
+154,Oltanis,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Morph-O-Ray + Magneboots + Grindboots + PDA OR Thruster-pack + Swingshot + Morph-O-Ray + Magneboots + Grindboots + PDA,Conservative shared envelope; physical pvar identity not independently confirmed
+155,Oltanis,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Morph-O-Ray + Magneboots + Grindboots + PDA OR Thruster-pack + Swingshot + Morph-O-Ray + Magneboots + Grindboots + PDA,Conservative shared envelope; physical pvar identity not independently confirmed
+156,Quartu,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Codebot OR Thruster-pack + Swingshot + Codebot,Conservative shared envelope; physical pvar identity not independently confirmed
+157,Quartu,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Codebot OR Thruster-pack + Swingshot + Codebot,Conservative shared envelope; physical pvar identity not independently confirmed
+160,Kalebo III,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Grindboots + Hoverboard OR Thruster-pack + Swingshot + Grindboots + Hoverboard,Conservative shared envelope; physical pvar identity not independently confirmed
+161,Kalebo III,Native Gold Bolt (conservative route requirements),Heli-pack + Swingshot + Grindboots + Hoverboard OR Thruster-pack + Swingshot + Grindboots + Hoverboard,Conservative shared envelope; physical pvar identity not independently confirmed
+164,Drek's Fleet,Native Gold Bolt (conservative route requirements),Thruster-pack + Hydro-pack + O2 Mask + Swingshot + Magneboots + Hologuise,Conservative shared envelope; physical pvar identity not independently confirmed
+165,Drek's Fleet,Native Gold Bolt (conservative route requirements),Thruster-pack + Hydro-pack + O2 Mask + Swingshot + Magneboots + Hologuise,Conservative shared envelope; physical pvar identity not independently confirmed
+168,Veldin II,Native Gold Bolt (conservative route requirements),Heli-pack + O2 Mask + Swingshot + Taunter + Grindboots + Hologuise OR Thruster-pack + O2 Mask + Swingshot + Taunter + Grindboots + Hologuise,Conservative shared envelope; physical pvar identity not independently confirmed
+169,Veldin II,Native Gold Bolt (conservative route requirements),Heli-pack + O2 Mask + Swingshot + Taunter + Grindboots + Hologuise OR Thruster-pack + O2 Mask + Swingshot + Taunter + Grindboots + Hologuise,Conservative shared envelope; physical pvar identity not independently confirmed
+170,Veldin II,Native Gold Bolt (conservative route requirements),Heli-pack + O2 Mask + Swingshot + Taunter + Grindboots + Hologuise OR Thruster-pack + O2 Mask + Swingshot + Taunter + Grindboots + Hologuise,Conservative shared envelope; physical pvar identity not independently confirmed
+176,Gemlik Base,Additional world location,Heli-pack + Swingshot + Magneboots + Trespasser + Devastator OR Heli-pack + Swingshot + Magneboots + Trespasser + Visibomb OR Thruster-pack + Swingshot + Magneboots + Trespasser + Devastator OR Thruster-pack + Swingshot + Magneboots + Trespasser + Visibomb,Mod-authored route / author corrections
+177,Kerwan,Additional world location,Heli-pack OR Thruster-pack,Mod-authored route / author corrections
+178,Orxon,Additional world location,O2 Mask + Heli-pack OR O2 Mask + Thruster-pack,Mod-authored route / author corrections
+179,Pokitaru,Additional world location,No gadget requirement,Mod-authored route / author corrections
+180,Hoven,Additional world location,Heli-pack OR Thruster-pack,Mod-authored route / author corrections
+181,Novalis,Additional world location,Hydro-pack,Mod-authored route / author corrections

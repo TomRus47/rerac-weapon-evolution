@@ -3,6 +3,16 @@
 //! XP, grades and bonus Nanotech are stored beside each native save; its format is unchanged.
 #[path = "weapon_evo_controls.rs"]
 pub mod controls;
+#[path = "weapon_evo_live.rs"]
+pub mod live;
+#[path = "weapon_evo_randomizer.rs"]
+pub mod randomizer;
+#[path = "weapon_evo_pickup_visuals.rs"]
+pub mod pickup_visuals;
+#[path="weapon_evo_pickup_mesh.rs"]
+pub mod pickup_mesh;
+#[path="weapon_evo_quick_select.rs"]
+pub mod quick_select;
 #[path = "weapon_evo_bolt_chain.rs"]
 pub mod bolt_chain;
 #[path = "weapon_evo_gold_shop.rs"]
@@ -512,7 +522,11 @@ impl PyroEvolution {
 
 #[derive(Clone, Debug)]
 pub struct Evolution {
+    pub randomizer_mode:bool,
+    pub randomizer_bolt_multiplier:bool,
+    pub bolt_multiplier_max:f32,
     pub control_settings:controls::Settings,
+    pub r1_experimental_max:[[u8;8];37],
     /// Opt-in reward for an earned upgrade; loading progress never grants ammo.
     pub golden_settings:golden::Settings,
     pub hide_ryno: bool,
@@ -557,26 +571,54 @@ pub struct Evolution {
 }
 impl Default for Evolution {
     fn default() -> Self {
-        Self { control_settings:Default::default(),golden_settings:Default::default(),hide_ryno:false,ng_plus:false,bolt_chain:Default::default(),gold_spent:0,refill_ammo_on_upgrade:false,upgrade_refills:0,world_settings:Default::default(),encounter_base:None,nanotech:Default::default(),nanotech_native_max:4,nanotech_pending_heal:0,ammo_unlock_mode: false, ammo_mode_settings: Default::default(), wrench_gold_texture: false, enabled: false, level: 1, level_cap: 5, applied_level: 0,
+        Self { randomizer_bolt_multiplier:false,bolt_multiplier_max:3.,r1_experimental_max:controls::default_mode_limits(),randomizer_mode:false,control_settings:Default::default(),golden_settings:Default::default(),hide_ryno:false,ng_plus:false,bolt_chain:Default::default(),gold_spent:0,refill_ammo_on_upgrade:false,upgrade_refills:0,world_settings:Default::default(),encounter_base:None,nanotech:Default::default(),nanotech_native_max:4,nanotech_pending_heal:0,ammo_unlock_mode: false, ammo_mode_settings: Default::default(), wrench_gold_texture: false, enabled: false, level: 1, level_cap: 5, applied_level: 0,
             xp: 0.0, xp_per_damage: 1.0, real_hp: false, combat_epoch: 0, damage_hp: [[None; 8]; 37], stats: [Stats::default(); 8],
             xp_required: [6.0; 7], last_hit_xp: 0.0, pyro: PyroEvolution::default(), extras: extra_tracks(), hud: HudOptions::default(), award_once: HashSet::new(), pending_special: Default::default(), terminal_targets: HashSet::new(), state_progress: Default::default() }
     }
 }
 impl Evolution {
+    pub fn reward_multiplier_active(&self)->bool {
+        self.ng_plus || (self.randomizer_mode && self.randomizer_bolt_multiplier && self.state_progress.randomizer.active())
+    }
+    pub fn reward_factor(&self)->f32 {self.bolt_chain.factor_with_max(self.reward_multiplier_active(),self.bolt_multiplier_max)}
+    pub fn reward_factor_tenths(&self)->u16 {self.bolt_chain.tenths(self.reward_multiplier_active(),self.bolt_multiplier_max)}
+    pub fn reward_chain_kill(&mut self){self.bolt_chain.kill(self.reward_multiplier_active());}
+    /// Commit the reset to both live and saved progress before reload/respawn.
+    /// Updating only the live chain lets a later progress sync restore the old
+    /// saved bonus. XP, inventory, seed and other progression are untouched.
+    pub fn reset_reward_chain(&mut self, persisted: Option<&mut save::Progress>) {
+        self.bolt_chain.hurt();
+        self.state_progress.bolt_chain = self.bolt_chain;
+        if let Some(progress) = persisted { progress.bolt_chain = self.bolt_chain; }
+    }
+    pub fn collect_reward_bolts(&mut self,value:i32)->i32 {
+        self.bolt_chain.collect_with_max(value,self.reward_multiplier_active(),self.bolt_multiplier_max)
+    }
     pub fn controls(&self)->controls::State{self.state_progress.controls}
     pub fn set_controls(&mut self,state:controls::State){
         if state.valid() && state!=self.state_progress.controls {self.state_progress.controls=state;self.publish_max_ammo();}
     }
+    /// R1 limits belong to the current profile/grade, never to the save format.
+    pub fn r1_mode_max(&self,item:i32)->u8 {
+        if !self.control_settings.r1{return 0;}
+        let level=match item {
+            10=>self.level,16=>self.pyro.level,
+            _=>self.extras.iter().find(|t|t.id==item).map_or(1,|t|t.level),
+        };
+        usize::try_from(item).ok().and_then(|id|self.r1_experimental_max.get(id))
+            .map_or(0,|limits|limits[level.saturating_sub(1).min(7)])
+            .min(controls::supported_mode_max(item))
+    }
     pub fn effective_pyro(&self)->PyroStats {
         let mut stats=self.pyro.current();
-        if self.control_settings.r1 {stats.lava.enabled=self.state_progress.controls.mode(16)==Some(1);}
+        if self.control_settings.r1 {stats.lava.enabled=self.state_progress.controls.mode_limited(16,self.r1_mode_max(16))==Some(1);}
         stats
     }
     fn track_ammo_capacity(&self,track:&ExtraTrack)->Option<i32>{
         if !self.control_settings.r1 || !controls::MODE_ITEMS.contains(&track.id){return track.ammo_capacity();}
         if !track.enabled{return None;}
         let params=&track.params[track.level.saturating_sub(1).min(7)];
-        let alternate=self.state_progress.controls.mode(track.id).is_some_and(|m|m>0);
+        let alternate=self.state_progress.controls.mode_limited(track.id,self.r1_mode_max(track.id)).is_some_and(|m|m>0);
         let cap=if alternate {params.get("experimental_max_ammo").or_else(||params.get("max_ammo"))}else{params.get("max_ammo")};
         cap.map(|v|v.round().clamp(0.,9999.) as i32)
     }
@@ -692,7 +734,7 @@ impl Evolution {
                     }
                 }
             }
-            if let Ok(mut registry)=level_values().write(){controls::apply_registry(self.control_settings,&self.state_progress.controls,&mut registry);}
+            if let Ok(mut registry)=level_values().write(){controls::apply_registry(self.control_settings,&self.state_progress.controls,&mut registry,|item|self.r1_mode_max(item));}
             BOMB_AMMO_CAP.store(if self.enabled { self.current().ammo_capacity() } else { 0 }, Ordering::Relaxed);
             PYRO_AMMO_CAP.store(if self.pyro.enabled { self.effective_pyro().ammo_capacity() } else { 0 }, Ordering::Relaxed);
             let p = self.effective_pyro();
@@ -741,7 +783,7 @@ impl Evolution {
         self.nanotech_pending_heal += self.nanotech.award(&self.world_settings,self.nanotech_native_max,amount);
     }
     pub fn award_extra_damage(&mut self, weapon: i32, damage: f32) {
-        let damage=damage*self.bolt_chain.factor(self.ng_plus);
+        let damage=damage*self.reward_factor();
         let before=self.weapon_level(weapon).unwrap_or(1);
         // Lure rewards and the Taunter's optional offensive aura level the
         // weapon only. They must never advance Ratchet's Nanotech progression.
@@ -837,6 +879,7 @@ impl Evolution {
         let mut section = String::new();
         let mut bomb_seen = [false; 8];
         let mut pyro_seen = [false; 8];
+        let mut r1_limit_seen=[[false;8];37];
         for (lineno, raw) in ini.lines().enumerate() {
             let line = raw.trim_start_matches('\u{feff}').split(';').next().unwrap_or("").trim();
             // Hex RGB values legitimately begin with '#'; only full lines are comments.
@@ -857,6 +900,17 @@ impl Evolution {
             if let Some((name, number)) = section.strip_prefix("weapon.").and_then(|s| s.rsplit_once(".level")) {
                 let item = if name == "bomb_glove" { Some(10) } else if name == "pyrocitor" { Some(16) }
                     else { evo.extras.iter().find(|t| t.section == name).map(|t| t.id as usize) };
+                if key == controls::R1_MAX_KEY {
+                    let item=item.ok_or_else(||format!("unknown weapon in [{section}]"))?;
+                    let grade=number.parse::<usize>().ok().filter(|n|(1..=8).contains(n))
+                        .ok_or_else(||format!("invalid level [{section}]"))?;
+                    let max=controls::supported_mode_max(item as i32);
+                    let limit=val.parse::<u8>().ok().filter(|&n|n<=max)
+                        .ok_or_else(||format!("{key} must be an integer 0..{max} in [{section}]"))?;
+                    evo.r1_experimental_max[item][grade-1]=limit;
+                    r1_limit_seen[item][grade-1]=true;
+                    continue;
+                }
                 if key == "damage_hp" || (key == "damage_per_second" && matches!(item, Some(16 | 19)))
                     || (key == "chicken_damage_hp" && item == Some(21)) {
                     let item = item.ok_or_else(|| format!("unknown weapon in [{section}]"))?;
@@ -992,6 +1046,15 @@ impl Evolution {
                 return Err(format!("unsupported or unknown section [{section}] at line {}; gameplay hooks for this level are not active yet", lineno+1));
             }
             if section == "general" {
+                if key==randomizer::KEY {evo.randomizer_mode=parse_bool(val)?;continue;}
+                if key=="randomizer_bolt_multiplier" {evo.randomizer_bolt_multiplier=parse_bool(val)?;continue;}
+                if key=="bolt_multiplier_max" {
+                    let max=parse_number(val,&key)?;
+                    if !(1.0..=100.0).contains(&max)||(max*10.-(max*10.).round()).abs()>0.001 {
+                        return Err("bolt_multiplier_max must be 1..100 in steps of 0.1".into());
+                    }
+                    evo.bolt_multiplier_max=max;continue;
+                }
                 if key==controls::DPAD_KEY {evo.control_settings.dpad=match val.to_ascii_lowercase().as_str(){"on"=>true,"off"=>false,_=>parse_bool(val)?};continue;}
                 if key==controls::R1_KEY {evo.control_settings.r1=match val.to_ascii_lowercase().as_str(){"on"=>true,"off"=>false,_=>parse_bool(val)?};continue;}
                 if key == "hide_ryno" { evo.hide_ryno=parse_bool(val)?; continue; }
@@ -1096,6 +1159,7 @@ impl Evolution {
             if !bomb_seen[i] {evo.stats[i]=evo.stats[i-1];}
             if !pyro_seen[i] {evo.pyro.stats[i]=evo.pyro.stats[i-1];}
             for item in 0..37 {
+                if !r1_limit_seen[item][i]{evo.r1_experimental_max[item][i]=evo.r1_experimental_max[item][i-1];}
                 if evo.damage_hp[item][i].is_none(){evo.damage_hp[item][i]=evo.damage_hp[item][i-1];}
             }
             for track in &mut evo.extras {
@@ -1158,6 +1222,7 @@ impl Evolution {
             }
         }
         evo.ammo_mode_settings.validate()?;
+        if evo.randomizer_mode {evo.golden_settings.enabled=false;evo.ammo_unlock_mode=false;evo.hide_ryno=false;}
         Ok(evo)
     }
     /// Called by creature hit handlers only after their native damage resolution.
@@ -1183,7 +1248,7 @@ impl Evolution {
         if let Some(id) = weapon { self.award_extra_damage(id, effective_damage); }
         if !self.enabled || attack_class != 121 { return; }
         let before=self.level;
-        let amount = self.hp_units(effective_damage.max(0.0)) * self.xp_per_damage * self.bolt_chain.factor(self.ng_plus);
+        let amount = self.hp_units(effective_damage.max(0.0)) * self.xp_per_damage * self.reward_factor();
         self.award_nanotech(amount);
         if self.level >= self.level_cap { return; }
         self.last_hit_xp = amount;
@@ -1201,7 +1266,7 @@ impl Evolution {
     /// direct nozzle hits class 0. Caller additionally checks attacker is Ratchet.
     pub fn award_pyro_damage(&mut self, effective_damage: f32, attack_type: u8, attack_class: u16, from_ratchet: bool) {
         if !from_ratchet || attack_type != 5 || !matches!(attack_class, 0 | 176) { return; }
-        let amount = self.hp_units(effective_damage.max(0.0)) * self.xp_per_damage * self.bolt_chain.factor(self.ng_plus);
+        let amount = self.hp_units(effective_damage.max(0.0)) * self.xp_per_damage * self.reward_factor();
         if self.pyro.enabled { self.award_nanotech(amount); }
         let before=self.pyro.level;
         self.pyro.award(amount);
@@ -1798,7 +1863,7 @@ fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
 
 /// Loader-only inspection. Unlike from_env this never publishes or resets the
 /// active registry, icon levels, ammo caps, XP or gameplay state.
-fn inspect_profile() -> Option<Evolution> {
+pub fn inspect_profile() -> Option<Evolution> {
     #[cfg(feature="weapon-evo-release")]
     let raw=RELEASE_PROFILE.to_string();
     #[cfg(not(feature="weapon-evo-release"))]
@@ -1825,6 +1890,7 @@ pub fn initialize_ammo_mode_new_game(gs: &mut crate::game_state::GameState) {
     if let Some(e) = inspect_profile() {
         ammo_mode::initialize_new_game(gs, e.ammo_unlock_mode, &e.ammo_mode_settings);
         golden::initialize_new_game(gs,e.golden_settings,golden::fresh_seed());
+        randomizer::initialize(gs,e.randomizer_mode,golden::fresh_seed());
         if location_test::enabled() { location_test::prepare_new_game(gs); }
     }
 }

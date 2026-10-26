@@ -697,3 +697,28 @@ _DPAD_REPEAT_HELP={
     'es':'Pulsa otra vez el mismo acceso para quitar las botas o el casco equipado. Para una mochila de Clank, equipa primero la asignada y despues alterna entre Heli-Pack, Thruster-Pack e Hydro-Pack que poseas.'}
 for _language,_text in _DPAD_REPEAT_HELP.items():
     HELP_TEXT['dpad_quick_select'][_language]+=' '+_text
+
+
+FIELD_LABELS['randomizer_mode']=dict(zip(LANGUAGES,('Randomizer','Randomizer','Randomiseur','Randomizer','Aleatorizador')))
+FIELD_LABELS['randomizer_bolt_multiplier']=dict(zip(LANGUAGES,('Enable multiplier in normal randomizer games','Moltiplicatore nella randomizer normale','Multiplicateur dans une partie randomisee normale','Multiplikator im normalen Randomizer-Spiel','Multiplicador en partida aleatoria normal')))
+FIELD_LABELS['bolt_multiplier_max']=dict(zip(LANGUAGES,('Maximum reward multiplier','Moltiplicatore massimo delle ricompense','Multiplicateur maximal des recompenses','Maximaler Belohnungsmultiplikator','Multiplicador maximo de recompensas')))
+FIELD_LABELS['r1_experimental_max']={language:'R1_Experimental max' for language in LANGUAGES}
+HELP_TEXT['r1_experimental_max']=dict(zip(LANGUAGES,('Maximum alternate mode for this grade, only with R1_Experimental enabled. 0 disables switching and hides its caption.', 'Modalita alternativa massima di questo grado, solo con R1_Experimental attivo. 0 disabilita lo switch e nasconde il testo.', 'Mode alternatif maximal de ce rang, uniquement avec R1_Experimental actif. 0 desactive le changement et masque le texte.', 'Maximaler Alternativmodus dieser Stufe, nur mit aktivem R1_Experimental. 0 deaktiviert den Wechsel und blendet den Text aus.', 'Modo alternativo maximo de este nivel, solo con R1_Experimental activo. 0 desactiva el cambio y oculta el texto.')))
+HELP_TEXT['randomizer_mode']=dict(zip(LANGUAGES,(
+'New games only. Mix weapons, gadgets, coordinates and Gold Bolts in a separate save mode. Existing layouts never reroll.',
+'Solo nuove partite. Mescola armi, gadget, coordinate e bolt d’oro in salvataggi separati. Le distribuzioni esistenti non vengono rimescolate.',
+'Nouvelles parties uniquement. Melange armes, gadgets, coordonnees et boulons en or avec des sauvegardes separees. Les distributions existantes restent identiques.',
+'Nur neue Spiele. Mischt Waffen, Gadgets, Koordinaten und Gold-Bolts mit getrennten Spielstanden. Bestehende Verteilungen bleiben erhalten.',
+'Solo partidas nuevas. Mezcla armas, gadgets, coordenadas y guitones de oro con partidas separadas. Las distribuciones existentes se conservan.')))
+HELP_TEXT['randomizer_bolt_multiplier']=dict(zip(LANGUAGES,(
+'Enable the shared bolt, weapon XP and Nanotech XP streak in normal randomizer games. Damage or death resets it; NG+ already enables it.',
+'Abilita la serie condivisa per bolt, XP armi e XP nanotech nella randomizer normale. Danni o morte la azzerano; nel NG+ e gia attiva.',
+'Active le bonus commun de boulons et XP des armes et du Nanotech en partie randomisee normale. Degats ou mort le reinitialisent ; il est deja actif en NG+.',
+'Aktiviert den gemeinsamen Bonus fur Bolts, Waffen-XP und Nanotech-XP im normalen Randomizer-Spiel. Schaden oder Tod setzt ihn zuruck; NG+ aktiviert ihn bereits.',
+'Activa la racha compartida de guitones y XP de armas y nanotec en partidas aleatorias normales. El dano o la muerte la reinician; ya esta activa en NG+.')))
+HELP_TEXT['bolt_multiplier_max']=dict(zip(LANGUAGES,(
+'Maximum actual coefficient in NG+ and enabled randomizer games. 3 means x3.0. Range 1-100, in steps of 0.1.',
+'Coefficiente massimo effettivo nel NG+ e nella randomizer abilitata. 3 significa x3.0. Intervallo 1-100, a passi di 0.1.',
+'Coefficient maximal reel en NG+ et en partie randomisee activee. 3 signifie x3.0. De 1 a 100 par pas de 0.1.',
+'Hoher tatsachlicher Koeffizient in NG+ und aktivierten Randomizer-Spielen. 3 bedeutet x3.0. Bereich 1-100 in Schritten von 0.1.',
+'Coeficiente maximo real en NG+ y partidas aleatorias activadas. 3 significa x3.0. De 1 a 100 en pasos de 0.1.')))

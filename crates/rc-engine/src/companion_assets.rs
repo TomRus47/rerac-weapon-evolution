@@ -98,12 +98,21 @@ pub fn install(
     mobys: &mut crate::moby_render::LevelMobys,
     textures: &mut Vec<LevelTexture>,
 ) -> Result<()> {
-    let companion = *ENABLED.get_or_init(|| rc_game::weapon_evo::profile_uses_extra(24, "sand_mouse_enabled"));
+    let live=std::env::var_os("RC_WEAPON_LIVE_DIR").is_some();
+    if rc_game::weapon_evo::randomizer::enabled() || rc_game::weapon_evo::location_test::enabled() {
+        import_models(root,1,&[1134,750,479],mobys,textures)?;
+        if rc_game::weapon_evo::randomizer::enabled(){
+            import_models(root,17,&[1428],mobys,textures)?;
+            import_models(root,12,&[287],mobys,textures)?;
+        }
+    }
+    let companion = live || *ENABLED.get_or_init(|| rc_game::weapon_evo::profile_uses_extra(24, "sand_mouse_enabled"));
     let ammo_mode = *AMMO_MODE.get_or_init(|| rc_game::weapon_evo::profile_uses_extra(-1, rc_game::weapon_evo::ammo_mode::KEY));
     let mut requested: Vec<i32> = if ammo_mode {
         rc_game::moby_update::classes::pickup::AMMO_CLASSES.iter().map(|&c| c as i32).collect()
     } else { vec![1438] }; // R.Y.N.O. ammo is now eligible in ordinary play too.
     if companion { requested.extend([1818, 1633]); }
+    if live {requested.extend([121,122,1192,74,172,230]);}
     if *GRENADE.get_or_init(||rc_game::weapon_evo::profile_uses_extra(13,"grenade_launcher_enabled")) {requested.extend([121,122,1192,74,172]);}
     if *FLAME_MINE.get_or_init(||rc_game::weapon_evo::profile_uses_extra(17,"flame_mine_enabled")) {requested.extend([121,74,230]);}
     if requested.iter().all(|id| mobys.classes.iter().any(|c| c.o_class == *id))
@@ -168,7 +177,7 @@ pub(crate) fn reference_audio(root:&Path,level:u32)->Result<Arc<rc_game::audio::
     let a=Arc::new(a);cache.insert(key,a.clone());Ok(a)
 }
 pub(crate) fn install_companion_audio(root:&Path,a:&mut rc_game::audio::LevelAudio)->Result<()> {
-    if !rc_game::weapon_evo::profile_uses_extra(24,"sand_mouse_enabled"){return Ok(());}
+    if std::env::var_os("RC_WEAPON_LIVE_DIR").is_none() && !rc_game::weapon_evo::profile_uses_extra(24,"sand_mouse_enabled"){return Ok(());}
     let source=reference_audio(root,1)?;
     rc_game::audio::import::class_sounds(a,&source,&[1818,1633]).map_err(anyhow::Error::msg)?;
     Ok(())

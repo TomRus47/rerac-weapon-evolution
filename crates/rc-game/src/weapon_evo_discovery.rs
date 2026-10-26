@@ -71,7 +71,7 @@ impl State {
     pub fn visual(&self) -> Option<Visual> {
         if !self.visible { return None; }
         let mut position = self.anchor?;
-        let spin = (self.elapsed % 240) as f32 * std::f32::consts::TAU / 240.;
+        let spin = super::pickup_visuals::spin_angle(self.elapsed);
         let bob = (self.elapsed % 180) as f32 * std::f32::consts::TAU / 180.;
         position[2] += 0.15 * bob.sin();
         Some(Visual { position, yaw: spin })

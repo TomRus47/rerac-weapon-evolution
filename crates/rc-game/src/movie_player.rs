@@ -50,6 +50,8 @@ pub const RATE: u64 = 48_000;
 /// What the skip rule reads.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct MovieContext {
+    /// Only the boot logos movie, never an in-level or acquisition movie.
+    pub startup_logo: bool,
     /// 0x15eed8: 0 normal play, 2 replaying from the menu (any button skips), −1 never skippable.
     pub replay: i32,
     /// 0x15eea0.
@@ -64,6 +66,7 @@ pub struct MovieContext {
 /// is beaten or completed, when replaying, or on level 0; otherwise Start pressed with L1 L2 R1 R2 held; never
 /// while 0x15eed8 = −1.
 pub fn skip_requested(ctx: &MovieContext, pad: &PadState) -> bool {
+    if ctx.startup_logo { return pad.pressed & (button::CROSS | button::START) != 0; }
     if ctx.replay == -1 { return false; }
     let start = pad.pressed & button::START != 0;
     let normal = !ctx.game_beaten && ctx.completes == 0 && ctx.replay == 0 && ctx.level > 0;
@@ -196,7 +199,7 @@ mod tests {
 
     #[test]
     fn skip_rule() {
-        let normal = MovieContext { replay: 0, game_beaten: false, completes: 0, level: 1 };
+        let normal = MovieContext { replay: 0, game_beaten: false, completes: 0, level: 1, startup_logo: false };
         // Normal play: Start alone does nothing; Start pressed with the four shoulders held skips.
         assert!(!skip_requested(&normal, &pad(button::START, button::START)));
         assert!(skip_requested(&normal, &pad(SHOULDERS | button::START, button::START)));
@@ -211,6 +214,20 @@ mod tests {
         assert!(skip_requested(&MovieContext { replay: 2, ..normal }, &pad(button::CROSS, button::CROSS)));
         // −1: never.
         assert!(!skip_requested(&MovieContext { replay: -1, ..normal }, &pad(SHOULDERS | button::START, button::START)));
+    }
+
+    #[test]
+    fn startup_logo_accepts_only_a_new_cross_or_start_press() {
+        let logo=MovieContext{startup_logo:true,replay:-1,..Default::default()};
+        for key in [button::CROSS,button::START] {
+            assert!(skip_requested(&logo,&pad(key,key)));
+            assert!(!skip_requested(&logo,&pad(key,0)));
+        }
+        for key in [button::CIRCLE,button::SQUARE,button::L1] {
+            assert!(!skip_requested(&logo,&pad(key,key)));
+        }
+        let movie=MovieContext{startup_logo:false,..logo};
+        assert!(!skip_requested(&movie,&pad(button::CROSS|button::START,button::CROSS|button::START)));
     }
 
     #[test]

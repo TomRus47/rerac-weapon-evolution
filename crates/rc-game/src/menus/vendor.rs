@@ -186,10 +186,34 @@ pub struct Entry {
     pub locked: bool,
 }
 
+/// A mixed-mode sale belongs to its authored planet, not to the actual weapon
+/// discovered elsewhere. Ignore the native stock's ownership bit: owning the
+/// source weapon does not claim the different reward sold at that location.
+fn mixed_offer_available(gs: &GameState, source: usize, remote: bool) -> bool {
+    let state = gs.weapon_progress.randomizer;
+    !remote && state.active() && state.reward(source).is_some() && !state.collected(source)
+        && crate::weapon_evo::randomizer::catalog::is_gadgetron_source(source,gs.global.level)
+        && gs.global.vendor.iter().any(|&stock| stock != 0xff && usize::from(stock & 0x3f) == source)
+}
+
 /// `VendorBuildItemList(remote)` 0x2adef0: the stock 0x15edd0 in order (not owned → the weapon, unless remote; owned
 /// (bit 0x40) → its ammo when it has an ammo price), then the ammo of every owned item with an ammo price that is
 /// not listed yet.
 pub fn build_list(gs: &GameState, shop: &ShopTable, remote: bool) -> Vec<Entry> {
+    if gs.weapon_progress.randomizer.active(){
+        let mut entries=Vec::new();
+        if !remote{
+            for &stock in &gs.global.vendor{
+                let item=usize::from(stock&0x3f);
+                if stock!=0xff && mixed_offer_available(gs,item,remote)
+                    && !entries.iter().any(|e:&Entry|e.item==item){entries.push(Entry{item,ammo:false,locked:false});}
+            }
+        }
+        entries.extend(crate::weapon_evo::ammo_mode::AMMO_IDS.into_iter()
+            .filter(|&item|gs.global.owned[item]!=0 && shop.ammo_price(item)>0)
+            .map(|item|Entry{item,ammo:true,locked:false}));
+        return entries;
+    }
     if gs.weapon_progress.golden.active() {
         // Randomize weapons only. Any native gadget stock must remain usable
         // so this mode cannot remove an unrelated progression purchase.
@@ -320,6 +344,7 @@ pub struct Popup {
 /// The vendor's state (0x1ca940.., the popup, the ticker, the screens).
 #[derive(Clone, Debug)]
 pub struct Vendor {
+    randomizer:crate::weapon_evo::randomizer::State,
     pub tables: VendorTables,
     /// 0x1ca940 / 0x1ca944.
     pub sub: u8,
@@ -393,6 +418,7 @@ impl Vendor {
         out.anim.push(VendorAnim::Speed(0.5));
         out.selection_changed = true;
         Vendor {
+            randomizer:gs.weapon_progress.randomizer,
             tables,
             sub: 0,
             t: 0,
@@ -451,6 +477,14 @@ impl Vendor {
         f
     }
 
+    fn display_reward(&self,e:Entry)->usize {
+        if !e.ammo && self.randomizer.active(){self.randomizer.reward(e.item).unwrap_or(e.item as u16) as usize}else{e.item}
+    }
+    fn display_name(&self,e:Entry,a:&MenuAssets)->Vec<u8>{
+        let reward=self.display_reward(e);
+        if reward<ITEMS {a.msg(self.tables.name.get(reward).copied().unwrap_or(0)).to_vec()}
+        else{crate::weapon_evo::randomizer::reward_name(reward as u16,self.lang as u32,&Default::default())}
+    }
     fn ammo_unit(&self, item: usize) -> i32 {
         if self.remote { self.tables.shop.pda_ammo_price(item) as i32 } else { self.tables.shop.ammo_price(item) as i32 }
     }
@@ -604,7 +638,7 @@ impl Vendor {
                 // first: the two orders give the same stream).
                 if let (Some(s), Some(c)) = (self.salesman.as_mut(), self.tables.classes.salesman.as_ref()) { s.request_at(c, 0, rng, self.vsync); }
                 out.sounds.push(sound::CURSOR);
-                let d = self.current().map_or(0, |e| self.tables.desc.get(e.item).copied().unwrap_or(0));
+                let d = self.current().map_or(0, |e| self.tables.desc.get(self.display_reward(e)).copied().unwrap_or(0));
                 let t = assets.msg(d).to_vec();
                 self.set_ticker(&t);
                 out.selection_changed = true;
@@ -754,6 +788,8 @@ impl Vendor {
     /// State 4 of the buy flow with ✕: the purchase; returns the class sound.
     #[allow(clippy::too_many_arguments)]
     fn purchase(&mut self, e: Entry, gs: &mut GameState, items: &ItemTables, session: &mut SessionState, assets: &MenuAssets, rng: &mut Rng, out: &mut VendorOut) -> u8 {
+        if !e.ammo && gs.weapon_progress.randomizer.active()
+            && !mixed_offer_available(gs,e.item,self.remote) {return sound::DENIED;}
         if gs.weapon_progress.golden.active() && crate::weapon_evo::ammo_mode::is_weapon(e.item)
             && (!e.ammo || !gs.weapon_progress.golden.collected(e.item)) { return sound::DENIED; }
         let bolts = gs.global.bolts;
@@ -787,8 +823,11 @@ impl Vendor {
             if let (Some(s), Some(c)) = (self.salesman.as_mut(), salesman_class.as_ref()) { s.request_at(c, 2, rng, self.vsync); }
             gs.give_item(e.item, true, items, session);
             // 0x2af7e8: buying the Drone Device launches its drones (0x141345 = 1).
-            if e.item == 0x18 { session.drone = true; }
-            self.bought = e.item as i32;
+            if !self.randomizer.active() && e.item == 0x18 { session.drone = true; }
+            // Randomized purchases use the shared receipt feedback on exit;
+            // a source demo would show the wrong weapon and play two jingles.
+            self.bought = if self.randomizer.active(){-1}else{e.item as i32};
+            self.randomizer=gs.weapon_progress.randomizer;
             gs.global.bolts -= price;
             out.purchase = Some((e.item, false, price, 1));
         }
@@ -906,7 +945,7 @@ impl Vendor {
     /// `VendorDrawItemPanel` 0x2b1f08: the item model and the backdrop are the engine's (3D), then the text.
     fn draw_item(&self, a: &MenuAssets, gs: &GameState, out: &mut Vec<MenuDraw>) {
         let Some(e) = self.current() else { return };
-        let name = a.msg(self.tables.name.get(e.item).copied().unwrap_or(0)).to_vec();
+        let name = self.display_name(e,a);
         text(out, Font::Small, 6, 8, WHITE, &name);
         let strike = |out: &mut Vec<MenuDraw>, w: i32| {
             // fun_00200e08: seven 1-pixel lines, alpha 0x20..0x80 (colour 0x959544).
@@ -947,7 +986,7 @@ impl Vendor {
         let n = self.items.len() as i32;
         let pulse = ((self.t & 15) * 4 - 32).max(0) + 0x40;
         let sel_rgba = (pulse as u32).wrapping_mul(0x0001_0202) | 0x8000_0000;
-        let icon = |e: &Entry| a.frame(self.tables.icon.get(e.item).copied().unwrap_or(0), if e.ammo { 2 } else { 0 });
+        let icon = |e: &Entry| a.frame(self.tables.icon.get(self.display_reward(*e)).copied().unwrap_or(0xea30), if e.ammo { 2 } else { 0 });
         // FUN_00223470(x0, y0, x1, y1): an opaque fill of pixels x0..x1−1 (the Rect's corner offset is pixel − 1).
         let fill = |out: &mut Vec<MenuDraw>, x0: i32, y0: i32, x1: i32, y1: i32, rgba: u32| out.push(MenuDraw::Rect { x0: x0 + 1, y0: y0 + 1, x1: x1 + 1, y1: y1 + 1, rgba });
         if n < 8 {
@@ -1114,7 +1153,11 @@ impl Vendor {
         if let Some(e) = self.current() {
             let item = e.item;
             // +0x100: the item's class (0x1df for the Drone Device 24), frozen on its first frames.
-            let class = if item == 0x18 { 0x1df } else { self.tables.class.get(item).copied().unwrap_or(-1) };
+            let reward=self.display_reward(e);
+            let native=self.tables.class.get(reward).copied().unwrap_or(-1);
+            let class=if self.randomizer.active()&&!e.ammo{
+                crate::weapon_evo::randomizer::display_class(reward as u16,i32::from(native)) as i16
+            }else if item==24{479}else{native};
             if let Some(p) = l.panel.get(item) {
                 let mut off = add3(l.item_base, p.offset);
                 if !e.ammo {
@@ -1125,7 +1168,8 @@ impl Vendor {
                     sc.item_panel.push(ScreenMoby {
                         class,
                         position: to_world(rows, pos, off),
-                        rows: euler_rows([p.rot[0], p.rot[1], p.rot[2] + euler[2]]),
+                        rows: euler_rows(crate::weapon_evo::pickup_visuals::preview_euler(reward,
+                            [p.rot[0],p.rot[1],p.rot[2]+euler[2]],self.spin+euler[2])),
                         anim: None,
                         ambient: lit,
                     });
@@ -1154,10 +1198,12 @@ impl Vendor {
                 }
             } else if let Some(h) = l.weapon_holo.get(item) {
                 if class > 0 {
-                    let r = euler_rows([h.rot[0], h.rot[1], self.spin]);
+                    let r = euler_rows(crate::weapon_evo::pickup_visuals::preview_euler(reward,
+                        [h.rot[0],h.rot[1],self.spin],self.spin));
                     let p0 = to_world(rows, pos, add3(base, h.offset));
                     // The post offset turned by the hologram's own rows.
-                    let q: [f32; 3] = std::array::from_fn(|k| h.post[0] * r[0][k] + h.post[1] * r[1][k] + h.post[2] * r[2][k]);
+                    let q: [f32; 3] = if crate::weapon_evo::pickup_visuals::is_coordinate(reward){[0.;3]}
+                        else{std::array::from_fn(|k| h.post[0]*r[0][k]+h.post[1]*r[1][k]+h.post[2]*r[2][k])};
                     sc.hologram = Some(ScreenMoby { class, position: add3(p0, q), rows: r, anim: None, ambient: lit });
                 }
             }

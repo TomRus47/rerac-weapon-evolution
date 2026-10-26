@@ -248,6 +248,9 @@ pub fn camera_script_unless_script(w: &mut World, pos: [f32; 3], euler: [f32; 3]
 /// The level item-movie player `0x298c68(n)` ([`EngineRequest::ItemMovie`]): with Ratchet's health at 0 the death
 /// sequence instead; the help box closed (`StartPssMovie`).
 pub fn item_movie(w: &mut World, movie: i32) {
+    // The randomized *reward* chooses its acquisition movie after its grant;
+    // playing the source's movie here would show an unrelated gadget twice.
+    if w.svc.bomb_evo.randomizer_mode{return;}
     if movie < 0 { return; }
     if w.hero.health == 0 {
         w.hero_fields_mut().call(HeroCall::Death);
@@ -399,7 +402,11 @@ pub fn enter_menu_mode(w: &mut World, kind: i32) {
 }
 
 /// `0x2a29a0(dest)` from a class ([`EngineRequest::LeaveLevel`]): the main loop leaves after this frame.
-pub fn leave_level(w: &mut World, dest: i32) { w.svc.cinematic.requests.push(EngineRequest::LeaveLevel { dest }); }
+pub fn leave_level(w: &mut World, dest: i32) {
+    if w.svc.bomb_evo.randomizer_mode&&w.svc.level==0&&dest==1{crate::weapon_evo::randomizer::queue(w,65);}
+    let dest=crate::weapon_evo::randomizer::departure(w.svc.bomb_evo.progress().randomizer,w.svc.level,dest,&w.svc.interact.game.planet_unlocked);
+    w.svc.cinematic.requests.push(EngineRequest::LeaveLevel { dest });
+}
 
 /// `memcard_Save(0, −1)`: the engine saves to the native card (`rc-engine` `saves::memcard_save`).
 pub fn save(w: &mut World) { w.svc.cinematic.requests.push(EngineRequest::Save); }
@@ -450,6 +457,7 @@ pub fn text_banner_call(c:&mut Cinematic,text:Vec<u8>,ticks:i32) {
 
 /// `ShowPlanetBanner(p)` 0x277c38.
 pub fn show_planet_banner(w: &mut World, planet: i32) {
+    if w.svc.bomb_evo.randomizer_mode{return;}
     let t = w.ticks(PLANET_BANNER_TICKS);
     show_banner(w, PLANET_BANNERS[planet.clamp(0, 18) as usize], t);
 }
@@ -458,6 +466,7 @@ pub fn show_planet_banner(w: &mut World, planet: i32) {
 /// game), it is unlocked and appended to the galaxy-map order 0x13d510 (`GameState::unlock_planet`, through the
 /// saved-game write channel), and its banner shown unless `p` is the current level.
 pub fn unlock_planet(w: &mut World, planet: i32) {
+    if (2..19).contains(&planet)&&crate::weapon_evo::randomizer::queue(w,64+planet as usize){return;}
     let Ok(p) = usize::try_from(planet) else { return };
     if p >= 20 { return; }
     let u = &mut w.svc.interact.game.planet_unlocked;

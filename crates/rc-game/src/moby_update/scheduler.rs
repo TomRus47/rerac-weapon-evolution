@@ -353,6 +353,7 @@ pub fn run_moby(w: &mut World, id: MobyId) {
 }
 
 fn run_native_moby(w: &mut World, id: MobyId) {
+    if crate::weapon_evo::randomizer::replace_physical(w,id){return;}
     w.evolution_hit = None;
     if w.m(id).state >= 0x80 {
         w.svc.evo_stuns.forget(id);
@@ -450,6 +451,7 @@ impl Scheduler {
         crate::weapon_evo::world::population::tick(w);
         crate::weapon_evo::discovery::tick(w);
         crate::weapon_evo::golden::tick(w);
+        crate::weapon_evo::randomizer::tick(w);
         // The points the moby-riding particles (types 26 / 55) follow in the UpdateParts that comes next.
         w.refresh_particle_anchors();
         // `HudBoltAlertShow` 0x227d90 (the hero's frame, after the moby pass): classes::buried_bolts.

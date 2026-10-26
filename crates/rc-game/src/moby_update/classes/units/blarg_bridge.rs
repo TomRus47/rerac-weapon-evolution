@@ -140,7 +140,7 @@ pub fn update(w: &mut World, id: MobyId) {
     match w.m(id).state {
         0 => {
             let mission = w.m(id).mission as i32;
-            if super::hints::mission_done(w, mission) {
+            if super::hints::mission_done(w, mission) || (w.svc.bomb_evo.randomizer_mode && w.hero.owned.has(6)) {
                 w.mm(id).state = 6;
                 sf(w, DECK_KEY, 20.0);
                 sf(w, SECOND_KEY, 1000.0);

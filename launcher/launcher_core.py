@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.27.1'
+VERSION = '0.28.2'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -106,12 +106,14 @@ def allowed_keys(section):
     if not match or match[1] not in WEAPONS:
         raise ValueError(f'Unsupported configuration section: [{section}]')
     name = match[1]
-    if name == 'bomb_glove': return BOMB
-    if name == 'pyrocitor': return PYRO
+    if name == 'bomb_glove': return BOMB | {'r1_experimental_max'}
+    if name == 'pyrocitor': return PYRO | {'r1_experimental_max'}
     extra = {'damage_per_second'} if name == 'tesla_claw' else {'chicken_damage_hp'} if name == 'morph_ray' else {'damage_hp'}
     return set(EXTRA.get(WEAPONS[name][0], '').split()) | extra | {'max_ammo', 'damage_multiplier', 'gold', 'gold_effects', 'gold_texture'}
 
 def numeric_range(section, key):
+    if key=='r1_experimental_max':
+        return (0,2) if section.startswith('weapon.ryno.level') else (0,1) if section.startswith(('weapon.pyrocitor.level','weapon.mine_glove.level','weapon.visibomb.level')) else (0,0)
     from schema import WORLD_RANGES
     if section=="general" and key in WORLD_RANGES:return WORLD_RANGES[key]
     if section.startswith("weapon.wrench.level") and key in {"hit_radius_multiplier","knockback_multiplier"}: return (0.1,10) if key=="hit_radius_multiplier" else (0,10)
@@ -174,6 +176,8 @@ def validate_value(section, key, value):
         raise ValueError(f'{address}: the value must be positive and representable by the game.')
     if key in INTEGER and not re.fullmatch(r'[+]?[0-9]+', value):
         raise ValueError(f'{address}: use an integer.')
+    if key=='bolt_multiplier_max' and abs(number*10-round(number*10))>0.0001:
+        raise ValueError(f'{address}: use steps of 0.1.')
     if key == 'id':
         weapon = section[7:]
         if number != WEAPONS[weapon][0]: raise ValueError(f'{address}: incorrect game ID for {weapon}.')
@@ -541,3 +545,8 @@ _control_required_config=required_config
 def required_config(doc):
     previous=_control_required_config(doc)
     return max(82,previous) if any(('general',key) in doc.entries for key in ('dpad_quick_select','r1_experimental')) else previous
+
+_required_before_mixed_pool=required_config
+def required_config(doc):
+    previous=_required_before_mixed_pool(doc)
+    return max(86,previous) if any(key=='r1_experimental_max' or (section=='general' and key in {'randomizer_mode','randomizer_bolt_multiplier','bolt_multiplier_max'}) for section,key in doc.entries) else previous

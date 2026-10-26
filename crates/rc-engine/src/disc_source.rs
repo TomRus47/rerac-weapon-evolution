@@ -34,12 +34,12 @@ pub const EXIT_DATA_FORMAT: i32 = 4;
 
 /// The launcher contract's `--version-json` line.
 #[cfg(feature = "weapon-evo-release")]
-const RUNTIME_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "-weapon-evolution.0.1.6.83-fixed");
+const RUNTIME_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "-weapon-evolution.0.1.6.95-fixed");
 #[cfg(not(feature = "weapon-evo-release"))]
 const RUNTIME_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn version_json() -> String {
-    format!(r#"{{"name":"rerac","version":"{}","game":"rac1","data_format":{DATA_FORMAT},"weapon_evolution_config":84,"weapon_evolution_patch":"0.1.6.83","weapon_evolution_audio_diagnostics":false}}"#, RUNTIME_VERSION)
+    format!(r#"{{"name":"rerac","version":"{}","game":"rac1","data_format":{DATA_FORMAT},"weapon_evolution_config":86,"weapon_evolution_patch":"0.1.6.95","weapon_evolution_audio_diagnostics":false,"weapon_evolution_render_probe":true}}"#, RUNTIME_VERSION)
 }
 
 /// Which rule chose the data root.
@@ -227,7 +227,7 @@ mod tests {
     #[test]
     fn version_json_is_the_contract_line() {
         let v = version_json();
-        assert_eq!(v, format!(r#"{{"name":"rerac","version":"{}","game":"rac1","data_format":1,"weapon_evolution_config":84,"weapon_evolution_patch":"0.1.6.83","weapon_evolution_audio_diagnostics":false}}"#, RUNTIME_VERSION));
+        assert_eq!(v, format!(r#"{{"name":"rerac","version":"{}","game":"rac1","data_format":1,"weapon_evolution_config":86,"weapon_evolution_patch":"0.1.6.95","weapon_evolution_audio_diagnostics":false,"weapon_evolution_render_probe":true}}"#, RUNTIME_VERSION));
         assert_eq!(json_uint(&v, "data_format"), Some(1));
         assert_eq!(json_str(&v, "game"), Some("rac1"));
     }

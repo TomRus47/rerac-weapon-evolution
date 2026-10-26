@@ -1,6 +1,6 @@
 # Weapon Evolution source map
 
-Unreleased development snapshot: gameplay 0.1.6.83, launcher 0.27.1, ReRAC 0.3.6-alpha. The complete supplied workspace is included; the 446 reviewed entries below cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
+Unreleased development snapshot: gameplay 0.1.6.95, launcher 0.28.2, ReRAC 0.3.6-alpha. The complete supplied workspace is included; the 478 reviewed entries cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
 
 Start with the [current implementation](docs/mod/CURRENT_IMPLEMENTATION.md), [saved controls](docs/mod/SAVED_CONTROLS.md), [developer guide](docs/mod/DEVELOPER_GUIDE.md) and [credits](docs/mod/CREDITS.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). The historical snapshot patch remains an account of the original export, not a complete current delta.
 
@@ -898,3 +898,40 @@ Start with the [current implementation](docs/mod/CURRENT_IMPLEMENTATION.md), [sa
 | `tools/mod/refresh_source_map.py` | Weapon Evolution implementation or integration |
 
 | `tools/mod/setup_msvc.bat` | Weapon Evolution implementation or integration |
+
+## Additional mixed-randomizer source and audit entries
+
+These files are included in the current reviewed source map:
+
+- `crates/rc-engine/src/display_blend.rs`
+- `crates/rc-engine/src/live_config.rs`
+- `crates/rc-engine/src/movie_render.rs`
+- `crates/rc-engine/src/reward_model.wgsl`
+- `crates/rc-engine/src/reward_model_render.rs`
+- `crates/rc-engine/src/reward_render_probe.rs`
+- `crates/rc-engine/src/vendor_render.rs`
+- `crates/rc-game/examples/randomizer_audit.rs`
+- `crates/rc-game/src/moby_update/classes/infobot.rs`
+- `crates/rc-game/src/moby_update/classes/units/aridia_story.rs`
+- `crates/rc-game/src/moby_update/classes/units/batalia_story.rs`
+- `crates/rc-game/src/moby_update/classes/units/blarg_bridge.rs`
+- `crates/rc-game/src/moby_update/classes/units/clank_section.rs`
+- `crates/rc-game/src/moby_update/classes/units/hoven_story.rs`
+- `crates/rc-game/src/moby_update/classes/units/kerwan_story.rs`
+- `crates/rc-game/src/moby_update/classes/units/pokitaru_story.rs`
+- `crates/rc-game/src/moby_update/classes/units/quartu_story.rs`
+- `crates/rc-game/src/moby_update/classes/units/umbris_story.rs`
+- `crates/rc-game/src/moby_update/story.rs`
+- `crates/rc-game/src/movie_player.rs`
+- `crates/rc-game/src/travel/transition.rs`
+- `crates/rc-game/src/weapon_evo_live.rs`
+- `crates/rc-game/src/weapon_evo_pickup_mesh.rs`
+- `crates/rc-game/src/weapon_evo_pickup_visuals.rs`
+- `crates/rc-game/src/weapon_evo_quick_select.rs`
+- `crates/rc-game/src/weapon_evo_randomizer.rs`
+- `crates/rc-game/src/weapon_evo_randomizer/catalog.rs`
+- `crates/rc-game/tests/randomizer_api.rs`
+- `docs/mod/RANDOMIZER_ROUTE_AUDIT.md`
+- `docs/mod/randomizer_catalog_snapshot.json`
+- `docs/mod/randomizer_locations.csv`
+- `launcher/tests/test_randomizer_schema.py`

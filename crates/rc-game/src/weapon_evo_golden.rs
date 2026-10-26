@@ -69,10 +69,11 @@ pub fn initialize_new_game(gs: &mut GameState, settings: Settings,
         gs.global.owned[8]=1;
         gs.global.equipped[0]=8;
         gs.global.last_hand_item=8;
-        gs.global.quick_select=[8,0,0,0,0,0,0,0];
+        gs.global.quick_select=[0;8];
     }
 }
 pub fn card_root(root: std::path::PathBuf, on: bool) -> std::path::PathBuf {
+    if super::randomizer::enabled(){return root.join("randomizer");}
     if super::gemlik_test::enabled() {return super::gemlik_test::card_root(root);}
     if super::location_test::enabled() {return root.join("weapon_location_test");}
     if on { root.join("golden_bolts_to_weapons") } else { root }
@@ -81,8 +82,8 @@ pub fn card_root(root: std::path::PathBuf, on: bool) -> std::path::PathBuf {
 /// or corrupt companions are never silently regenerated into a different seed.
 pub fn accepts_save(slot: &std::path::Path, native: &[u8], on: bool) -> bool {
     match super::save::load(slot, native) {
-        Ok(p) => p.golden.active() == on,
-        Err(_) => !on,
+        Ok(p) => p.golden.active() == on && super::randomizer::accepts(&p,super::randomizer::enabled()),
+        Err(_) => !on && !super::randomizer::enabled(),
     }
 }
 pub fn notice(item: usize) -> &'static [u8] {
@@ -195,12 +196,11 @@ impl WorldState {
                         position[2] +=
                             1. +
                                 0.15 *
-                                    (self.elapsed as f32 * std::f32::consts::TAU / 180.).sin();
+                                    ((self.elapsed % 180) as f32 * std::f32::consts::TAU / 180.).sin();
                         (r.item,
                             super::discovery::Visual {
                                 position,
-                                yaw: (self.elapsed % 240) as f32 * std::f32::consts::TAU /
-                                    240.,
+                                yaw: super::pickup_visuals::spin_angle(self.elapsed),
                             })
                     }).collect()
     }
@@ -300,11 +300,7 @@ pub fn grant_with_equip(gs:&mut GameState,session:&mut SessionState,items:&ItemT
         gs.global.ammo[item]=gs.global.ammo[item].max(ammo).min(max);
     }
     super::ammo_mode::reconcile_configured(gs,session,gs.weapon_progress.ammo_mode.active,0,false,settings);
-    if !gs.global.quick_select.contains(&(item as i32)) {
-        let i=gs.global.quick_select.iter().position(|&i|i==0)
-            .or_else(||gs.global.quick_select.iter().position(|&i|i!=8)).unwrap_or(0);
-        gs.global.quick_select[i]=item as i32;
-    }
+    super::quick_select::insert_found(gs,item);
     if equip {
         session.temp_hand=item as i32;
         gs.weapon_progress.golden.pending_equip=0;

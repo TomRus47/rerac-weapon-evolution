@@ -429,3 +429,10 @@ _control_convert=convert
 def convert(raw):
     result,warnings=_control_convert(raw)
     return ensure_control_fields(result),warnings
+
+# Wrench sections can be created after the first standard-field pass. Complete
+# their new per-grade controls in the same conversion, so saving once is stable.
+_convert_before_grade_controls=convert
+def convert(raw):
+    result,warnings=_convert_before_grade_controls(raw)
+    return order_profile(ensure_experimental_fields(result)),warnings

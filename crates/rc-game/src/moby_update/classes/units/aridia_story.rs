@@ -123,7 +123,7 @@ pub fn surfer_update(w: &mut World, id: MobyId) {
     crate::moby_update::manip::scene_big_head(w, &[786], 0, 2.75);
     match w.m(id).state {
         0 => {
-            if w.svc.interact.game.acquired.get(5).is_some_and(|&b| b != 0) {
+            if crate::weapon_evo::randomizer::source_owned(w,5,w.svc.interact.game.acquired.get(5).is_some_and(|&b| b != 0)) {
                 w.delete_moby(id);
                 return;
             }
@@ -151,7 +151,7 @@ pub fn surfer_update(w: &mut World, id: MobyId) {
             if interact::talk_update(w, id) {
                 interact::place_after_scene(w, id, f32::from_bits(0x400c_cccd));
                 w.mm(id).state = 2;
-            } else if !w.inventory.owned(5) && c::dist2(c::pos(w, id), story::hero4(w)) < 3.0 {
+            } else if !crate::weapon_evo::randomizer::source_owned(w,5,w.inventory.owned(5)) && c::dist2(c::pos(w, id), story::hero4(w)) < 3.0 {
                 super::hints::arm_or_remind(w, 0xe, 0x7d4, 0xe);
             }
             story_npc::idle_anim(w, id, &SURFER_IDLE);
@@ -319,7 +319,7 @@ pub fn agent_update(w: &mut World, id: MobyId) {
     agent_race(w, id);
     match w.m(id).state {
         0 => {
-            if w.svc.interact.game.acquired.get(30).is_some_and(|&b| b != 0) {
+            if crate::weapon_evo::randomizer::source_owned(w,30,w.svc.interact.game.acquired.get(30).is_some_and(|&b| b != 0)) {
                 w.delete_moby(id);
                 return;
             }

@@ -32,7 +32,7 @@ pub fn separate_motion(hero: &Hero) -> bool {
 }
 
 pub fn configure(hero: &mut Hero, pad: &PadState, yaw: Pf, enabled: bool) {
-    let look_override=!crate::weapon_evo::controls::active() && pad.held&button::L1!=0;
+    let look_override=pad.held&button::L1!=0;
     let on = enabled && eligible(hero) && pad.held & button::L2 != 0 && !look_override;
     if on && !hero.combat_strafe {
         hero.combat_move_yaw = if physics::len2(hero.eff) > Pf::f(0.001) {

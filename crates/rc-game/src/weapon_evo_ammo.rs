@@ -137,6 +137,7 @@ pub fn reconcile_with_guidance(gs: &mut GameState, session: &mut SessionState, o
 pub fn reconcile_configured(gs: &mut GameState, session: &mut SessionState, on: bool, collected: u64, guiding: bool, settings: &Settings) {
     // Physical discoveries are permanent in the randomizer, even at zero ammo.
     // Neither bolt thresholds nor Survival ammo drops can bypass that ownership.
+    if gs.weapon_progress.randomizer.active(){sanitize(gs,session,guiding);return;}
     if gs.weapon_progress.golden.active() {
         let golden = gs.weapon_progress.golden;
         for id in super::golden::ITEMS {

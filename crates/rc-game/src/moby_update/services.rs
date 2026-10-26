@@ -1006,6 +1006,7 @@ pub struct Services {
     pub motion:crate::weapon_evo::world::motion::Motion,
     pub population: crate::weapon_evo::world::population::Population,
     pub golden:crate::weapon_evo::golden::WorldState,
+    pub randomizer:crate::weapon_evo::randomizer::WorldState,
     /// An isolated optional world pickup; contains no actor-table references.
     pub gold_shop:crate::weapon_evo::gold_shop::State,
     pub discovery: crate::weapon_evo::discovery::State,
@@ -1197,6 +1198,7 @@ impl Services {
         self.motion=Default::default();
         self.population=Default::default();
         self.golden.reset_for_reload();
+        self.randomizer.reset_for_reload();
         self.discovery.reset_for_reload();
         self.units.oltanis_arcs.reset_for_reload(&mut self.point_lights);
         // Every owner belongs to the discarded table, including flame mines.
@@ -1208,7 +1210,7 @@ impl Services {
     pub fn new() -> Services {
         Services {
             bomb_evo: crate::weapon_evo::Evolution::from_env(),
-            motion:Default::default(),enemies:Default::default(), population:Default::default(), golden:Default::default(), gold_shop:Default::default(),discovery:Default::default(),
+            motion:Default::default(),enemies:Default::default(), population:Default::default(), randomizer:Default::default(),golden:Default::default(), gold_shop:Default::default(),discovery:Default::default(),
             evo_stuns: EvoStunTracker::default(),
             timing: Timing::NTSC,
             level: 1,

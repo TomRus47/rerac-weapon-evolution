@@ -287,6 +287,7 @@ pub struct SessionState {
     /// Ephemeral D-pad backpack sequence: direction, assigned item, last request.
     /// Native save equipment and the v8 shortcut bindings remain authoritative.
     pub shortcut_back_cycle: Option<(usize, i32, i32)>,
+    pub randomizer_notices:[u16;32],
     /// 0x1415f8: hit points (= max HP at level start).
     pub hp: i32,
     /// 0x141408: hand item to show (GiveItem with equip, slot type 0).
@@ -307,7 +308,7 @@ pub struct SessionState {
 }
 
 impl Default for SessionState {
-    fn default() -> Self { SessionState { shortcut_back_cycle: None, hp: 0, temp_hand: 0, temp_feet: 0, temp_head: 0, temp_back: 0, clank_hidden: 0, tick_scale: 1.0, drone: false } }
+    fn default() -> Self { SessionState { randomizer_notices:[0;32],shortcut_back_cycle: None, hp: 0, temp_hand: 0, temp_feet: 0, temp_head: 0, temp_back: 0, clank_hidden: 0, tick_scale: 1.0, drone: false } }
 }
 
 impl SessionState {
@@ -510,6 +511,14 @@ impl GameState {
 
     /// `GiveItem` L01 0x275760 (help sound not modelled).
     pub fn give_item(&mut self, id: usize, equip: bool, items: &ItemTables, session: &mut SessionState) {
+        if self.weapon_progress.randomizer.active() && crate::weapon_evo::randomizer::item_source(id).is_some() {
+            if let Some(reward)=crate::weapon_evo::randomizer::grant(self,session,items,id,equip){if let Some(slot)=session.randomizer_notices.iter_mut().find(|r|**r==0){*slot=reward;}}
+            return;
+        }
+        self.give_item_native(id,equip,items,session);
+    }
+    pub fn give_item_native(&mut self,id:usize,equip:bool,items:&ItemTables,session:&mut SessionState) {
+        crate::weapon_evo::quick_select::repair(self);
         // Only a collected world reward can unlock a randomized weapon.
         // Gadgets and mission rewards keep the native path unchanged.
         let golden = self.weapon_progress.golden;
@@ -526,7 +535,10 @@ impl GameState {
         g.owned[id] = 1;
         let rec = &items.records[id];
         if rec.has_ammo() { g.ammo[id] = g.ammo[id].max(rec.grant_ammo() as i32); }
-        if id != 0 && items.vendor_items.contains(&(id as u32)) {
+        // Mixed rewards unlock ownership/ammo, not the original weapon's shop
+        // source. Only level entry registers that source; its claim is tracked
+        // independently by the randomizer layout.
+        if !self.weapon_progress.randomizer.active() && id != 0 && items.vendor_items.contains(&(id as u32)) {
             let b = id as u8 | VENDOR_OWNED;
             // First slot holding this item or empty (the game has no bound; 12 slots never fill up).
             if let Some(s) = g.vendor.iter().position(|&v| (v & 0x3f) as usize == id || v == VENDOR_EMPTY) { g.vendor[s] = b; }
@@ -562,7 +574,7 @@ impl GameState {
     /// `FUN_00251da0`: bomb-glove grant, vendor prune, this level's vendor item (debug branch for level ≥ 19).
     fn level_items(&mut self, level: i32, items: &ItemTables, session: &mut SessionState) {
         if level < LEVEL_COUNT {
-            if !self.weapon_progress.golden.active() && self.global.owned[item::BOMB_GLOVE] == 0 {
+            if !self.weapon_progress.randomizer.active() && !self.weapon_progress.golden.active() && self.global.owned[item::BOMB_GLOVE] == 0 {
                 self.give_item(item::BOMB_GLOVE, true, items, session);
                 self.global.vendor[0] = item::BOMB_GLOVE as u8 | VENDOR_OWNED;
                 if !self.weapon_progress.ammo_mode.active {
@@ -596,7 +608,7 @@ impl GameState {
         self.global.elapsed = self.global.elapsed.wrapping_add(LEVEL_LOAD_ELAPSED);
         session.hero_init(self.global.max_hp);
         if self.global.equipped[0] == 0 {
-            self.global.equipped[0] = if self.weapon_progress.golden.active() { 8 } else { item::BOMB_GLOVE as i32 };
+            self.global.equipped[0] = if self.weapon_progress.randomizer.active() || self.weapon_progress.golden.active() { 8 } else { item::BOMB_GLOVE as i32 };
         }
         // `FUN_00226e90` (every level load): the saved head item 0x141668 = 0.
         self.global.equipped[2] = 0;
@@ -696,6 +708,13 @@ impl GameState {
         n.helpdesk_voice = 0;
         n.helpdesk_text = 0;
         n.completes = g.completes.wrapping_add(1);
+        if weapon_progress.randomizer.active(){
+            n.owned=g.owned;n.acquired=g.acquired;
+            n.planet_unlocked=g.planet_unlocked;n.map_order=g.map_order;
+            for flag in [0,1,2]{n.flags[flag]=g.flags[flag];}
+            // The source seed and claimed checks survive NG+. Already obtained
+            // coordinates must remain usable because those checks stay spent.
+        }
     }
 
     /// The options, typed.

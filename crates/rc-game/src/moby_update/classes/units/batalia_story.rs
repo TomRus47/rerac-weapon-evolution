@@ -115,7 +115,7 @@ pub fn commando_update(w: &mut World, id: MobyId) {
         0 => {
             w.mm(id).update_dist = 0xff;
             blend_to(w, id, 1, 10);
-            if story::planet_unlocked(w, 10) && story::mission_done(w, w.m(id).mission as i32) {
+            if crate::weapon_evo::randomizer::source_planet(w,10,story::planet_unlocked(w, 10)) && story::mission_done(w, w.m(id).mission as i32) {
                 w.delete_moby(id);
                 return;
             }
@@ -177,7 +177,7 @@ pub fn deserter_update(w: &mut World, id: MobyId) {
     match w.m(id).state {
         0 => {
             blend_to(w, id, 1, 0x14);
-            if story::planet_unlocked(w, 9) && story::mission_done(w, w.m(id).mission as i32) {
+            if crate::weapon_evo::randomizer::source_planet(w,9,story::planet_unlocked(w, 9)) && story::mission_done(w, w.m(id).mission as i32) {
                 w.delete_moby(id);
                 return;
             }

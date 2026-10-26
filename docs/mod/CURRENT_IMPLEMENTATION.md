@@ -1,13 +1,14 @@
 # Current implementation map
 
-Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.83 and launcher 0.27.1. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
+Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.95 and launcher 0.28.2. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
 
 | Area | Primary source | Responsibilities |
 | --- | --- | --- |
 | Profile/grades | `crates/rc-game/src/weapon_evo.rs` | Eight-grade parameters, effective ammo, XP, NG+ upgrade gates and registry publication |
-| Save lifecycle | `weapon_evo_save.rs`, `game_state.rs`, engine saves | Content-addressed v8 companions, legacy decoding, slot isolation and native equipment |
+| Save lifecycle | `weapon_evo_save.rs`, `game_state.rs`, engine saves | Content-addressed v9 companions, legacy decoding, slot isolation and native equipment |
 | Difficulty/population/health | `weapon_evo_world.rs`, `weapon_evo_world/`, `weapon_evo_motion.rs` | Original-health tiers, enemy tuning, safe duplicates, perception/pursuit, class damage and XP Nanotech |
 | Damage identity | `moby_update/real_hp.rs`, creature/hit services | Per-instance acceptance, actual HP loss, stream clocks, XP routing and reaction separation |
+| Mixed randomizer | `weapon_evo_randomizer.rs`, `weapon_evo_randomizer/catalog.rs`, `examples/randomizer_audit.rs` | Versioned mixed layouts, corrected character gates, conservative route audit and saved-layout inspection |
 | Discovery mode | `weapon_evo_golden.rs`, `weapon_evo_golden/` | Seeded locations, access constraints, underwater pickup and native acquisition flow |
 | NG+ shops/rewards | `weapon_evo_gold_shop.rs`, `weapon_evo_bolt_chain.rs` | V6 purchase, Gold displays, collectible spending and shared reward multiplier |
 | HUD | `hud.rs`, engine `hud_render.rs`, `menus/pause/weapon_xp.rs` | Weapon/health XP bars, grade icons, notices, Nanotech and fades |

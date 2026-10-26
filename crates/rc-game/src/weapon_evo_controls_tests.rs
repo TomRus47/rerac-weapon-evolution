@@ -9,7 +9,7 @@ fn pad(held:u32,prev:u32)->PadState {
         raw_pressed:held&!prev,raw_released:prev&!held,..Default::default()}
 }
 #[test]
-fn fire_alias_is_a_union_and_both_l1_and_r1_crouch() {
+fn fire_alias_is_a_union_while_l1_aims_and_only_r1_crouches() {
     for locked in [false,true] {
         for item in [8,10,16,23] {
             let fire=if item==8{button::SQUARE}else{button::CIRCLE};
@@ -23,6 +23,9 @@ fn fire_alias_is_a_union_and_both_l1_and_r1_crouch() {
             assert_eq!(p.held&button::CROUCH,button::R1);
             let p=gameplay_pad(&pad(button::R1,0),item,true,false,locked);
             assert_eq!(p.held&button::CROUCH,button::R1);
+            let p=gameplay_pad(&pad(button::L1,0),item,true,false,locked);
+            assert_eq!(p.held&button::CROUCH,0);
+            assert_ne!(p.held&button::L1,0);
         }
     }
     let physical=pad(button::R2|button::L1,0);
@@ -37,7 +40,8 @@ fn trigger_pressure_and_physical_direction_edges_do_not_leak() {
     let mapped=gameplay_pad(&p,10,true,true,false);
     assert_eq!(physical_edges(&p,false)&DIRECTION_MASK,button::UP);
     assert_eq!(mapped.raw&DIRECTION_MASK,0);assert_eq!(mapped.held&DIRECTION_MASK,button::UP);
-    assert_eq!(mapped.pressure[5],Pf::f(0.6));assert_eq!(mapped.pressure[9],Pf::f(0.8));
+    assert_eq!(mapped.pressure[5],Pf::f(0.6));assert_eq!(mapped.pressure[8],Pf::f(0.8));
+    assert_eq!(mapped.pressure[9],Pf::ZERO);
     p.raw=0;assert_eq!(physical_edges(&p,false)&DIRECTION_MASK,0);
     assert_eq!(physical_edges(&pad(button::LEFT,0),true),button::RIGHT);
     assert_eq!(direction(button::UP|button::LEFT),None);
@@ -81,12 +85,12 @@ fn manual_modes_override_only_four_switches_and_leave_tuning_unchanged() {
     }
     let original=registry.clone();
     let state=State{modes:[1,1,1,2],..Default::default()};
-    apply_registry(Settings{r1:false,dpad:false},&state,&mut registry);assert_eq!(registry,original);
-    apply_registry(Settings{r1:true,dpad:false},&state,&mut registry);
+    apply_registry(Settings{r1:false,dpad:false},&state,&mut registry,supported_mode_max);assert_eq!(registry,original);
+    apply_registry(Settings{r1:true,dpad:false},&state,&mut registry,supported_mode_max);
     assert_eq!(registry[&(23,"shotgun_enabled".into())],1.);
     assert_eq!(registry[&(23,"continuous_missiles_enabled".into())],0.);
     for (k,v) in original{assert_eq!(registry[&k],v);}
-    apply_registry(Settings{r1:true,dpad:false},&State::default(),&mut registry);
+    apply_registry(Settings{r1:true,dpad:false},&State::default(),&mut registry,supported_mode_max);
     assert_eq!(registry[&(17,"flame_mine_enabled".into())],0.);
 }
 #[test]
@@ -112,7 +116,7 @@ fn companion_v8_keeps_each_slots_choices_and_v7_loads_with_native_modes() {
     assert_eq!(Progress::decode(&bytes,b"native A").unwrap(),a);
     assert!(Progress::decode(&bytes,b"native B").is_err());
     assert_eq!(Progress::decode(&b.encode(b"native B").unwrap(),b"native B").unwrap(),b);
-    let mut old=bytes[..bytes.len()-28].to_vec();old[5]=7;
+    let mut old=bytes[..bytes.len()-28-crate::weapon_evo::randomizer::ENCODED_SIZE].to_vec();old[5]=7;
     let sum=rc_formats::sha1::sha1(&old);old.extend_from_slice(&sum);
     let loaded=Progress::decode(&old,b"native A").unwrap();
     assert_eq!(loaded.controls,State::default());assert_eq!(loaded.tracks,a.tracks);
@@ -210,15 +214,84 @@ fn backpack_cycles_restart_after_external_changes_and_never_mutate_bindings() {
 }
 
 #[test]
-fn crouch_shoulders_form_one_trigger_while_r2_fires() {
-    for (held,previous) in [(button::L1,button::L1|button::R1),(button::R1,button::L1|button::R1)] {
-        let p=gameplay_pad(&pad(held,previous),15,true,false,true);
-        assert_eq!(p.held&button::CROUCH,button::R1);
-        assert_eq!(p.released&button::R1,0);
+fn aim_and_crouch_shoulders_keep_independent_edges_pressure_and_history() {
+    let shoulders=button::L1|button::R1;
+    for locked in [false,true] {
+      for held in [0,button::L1,button::R1,shoulders] {
+       for previous in [0,button::L1,button::R1,shoulders] {
+        let mut physical=pad(held,previous);
+        physical.pressure[8]=Pf::f(0.3);physical.pressure[9]=Pf::f(0.8);
+        physical.analog_copy[12]=Pf::f(0.3);physical.analog_copy[13]=Pf::f(0.8);
+        physical.hist_count=1;physical.hist_index=1;physical.hist_pressed[0]=physical.pressed;
+        let p=gameplay_pad(&physical,15,true,false,locked);
+        assert_eq!(p.held&shoulders,held);assert_eq!(p.prev_held&shoulders,previous);
+        assert_eq!(p.pressed&shoulders,held&!previous);
+        assert_eq!(p.released&shoulders,previous&!held);
+        assert_eq!(p.raw_pressed&shoulders,held&!previous);
+        assert_eq!(p.hist_pressed[0]&shoulders,physical.hist_pressed[0]&shoulders);
+        assert_eq!(&p.pressure[8..10],&physical.pressure[8..10]);
+        assert_eq!(&p.analog_copy[12..14],&physical.analog_copy[12..14]);
+       }
+      }
     }
     let mut physical=pad(button::L1|button::R1|button::R2,0);
     physical.pressure[8]=Pf::f(0.3);physical.pressure[9]=Pf::f(0.8);
     let p=gameplay_pad(&physical,15,true,false,true);
     assert_eq!(p.pressure[9],Pf::f(0.8));
     assert_ne!(p.held&button::CIRCLE,0);assert_eq!(p.held&button::R2,0);
+}
+
+#[test]
+fn grade_ceilings_gate_modes_capacity_and_never_modify_saved_choices() {
+    let mut e=Evolution::default();e.control_settings.r1=true;
+    let mut saved=State::default();saved.modes=[1,1,1,2];e.set_controls(saved);
+    for stats in &mut e.pyro.stats{stats.lava.enabled=true;stats.max_ammo=50;stats.experimental_max_ammo=Some(7);}
+    e.r1_experimental_max[16]=[0,1,0,1,0,1,0,1];
+    for grade in 1..=8 {
+        e.pyro.level=grade;
+        assert_eq!(e.effective_pyro().lava.enabled,grade%2==0);
+        assert_eq!(e.effective_pyro().ammo_capacity(),if grade%2==0{7}else{50});
+    }
+    let track=e.extras.iter_mut().find(|t|t.id==23).unwrap();track.enabled=true;
+    for params in &mut track.params{params.insert("max_ammo".into(),50.);params.insert("experimental_max_ammo".into(),7.);}
+    e.r1_experimental_max[23]=[0,1,2,0,1,2,0,2];
+    for grade in 1..=8 {
+        e.extras.iter_mut().find(|t|t.id==23).unwrap().level=grade;
+        let track=e.extras.iter().find(|t|t.id==23).unwrap();
+        assert_eq!(e.track_ammo_capacity(track),Some(if e.r1_mode_max(23)==2{7}else{50}));
+    }
+    assert_eq!(e.controls(),saved);
+    e.control_settings.r1=false;e.pyro.level=1;
+    assert!(e.effective_pyro().lava.enabled);assert_eq!(e.effective_pyro().ammo_capacity(),7);
+    assert_eq!(e.r1_mode_max(16),0);
+}
+
+#[test]
+fn a_saved_mode_above_the_grade_ceiling_is_native_until_the_next_allowed_press() {
+    let mut state=State{modes:[1,1,1,2],..Default::default()};let original=state;
+    for item in MODE_ITEMS {assert_eq!(state.mode_limited(item,0),None);assert_eq!(state.cycle_limited(item,0),None);}
+    assert_eq!(state,original);assert_eq!(state.mode_limited(23,1),Some(0));
+    assert_eq!(state.cycle_limited(23,1),Some(1));assert_eq!(state.cycle_limited(23,1),Some(0));
+    assert_eq!(state.cycle_limited(23,2),Some(1));assert_eq!(state.cycle_limited(23,2),Some(2));assert_eq!(state.cycle_limited(23,2),Some(0));
+    let mut registry=HashMap::from([((17,"flame_mine_enabled".into()),1.),((23,"shotgun_enabled".into()),1.),((16,"triple_flame_enabled".into()),1.)]);
+    apply_registry(Settings{r1:true,dpad:false},&original,&mut registry,|_|0);
+    assert_eq!(registry[&(17,"flame_mine_enabled".into())],0.);assert_eq!(registry[&(23,"shotgun_enabled".into())],0.);
+    assert_eq!(registry[&(16,"triple_flame_enabled".into())],1.);
+    let before=registry.clone();apply_registry(Settings{r1:false,dpad:false},&original,&mut registry,supported_mode_max);assert_eq!(registry,before);
+}
+
+#[test]
+fn every_weapon_grade_accepts_integer_limits_and_invalid_modes_are_rejected() {
+    let base=include_str!("weapon_evo_release.ini");
+    for (name,item) in [("wrench",8),("bomb_glove",10),("pyrocitor",16),("blaster",15),("glove_of_doom",20),("suck_cannon",9),("taunter",14),("mine_glove",17),("devastator",11),("visibomb",13),("walloper",18),("decoy_glove",25),("drone_device",24),("tesla_claw",19),("morph_ray",21),("ryno",23)] {
+        let max=supported_mode_max(item);
+        for grade in 1..=8 {
+            let e=Evolution::parse(&format!("{base}\n[weapon.{name}.level{grade}]\nr1_experimental_max = {max}\n")).unwrap();
+            assert_eq!(e.r1_experimental_max[item as usize][grade-1],max);
+        }
+        assert!(Evolution::parse(&format!("{base}\n[weapon.{name}.level1]\nr1_experimental_max = {}\n",max+1)).is_err());
+    }
+    for value in ["-1","1.5","true","NaN","256"] {
+        assert!(Evolution::parse(&format!("{base}\n[weapon.ryno.level1]\nr1_experimental_max = {value}\n")).is_err());
+    }
 }

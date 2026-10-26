@@ -96,6 +96,22 @@ pub fn magneboots_update(w: &mut World, id: MobyId) {
 /// One sale: the prompt (or the "not enough bolts" one), and with △ while the prompt is held the purchase.
 fn offer(w: &mut World, id: MobyId, o: (usize, i32, i32, usize, i32, i32)) {
     let (flag, price, hp, scene, msg, short) = o;
+    if w.svc.bomb_evo.randomizer_mode {
+        let source=if flag==4{52}else{53};
+        let state=w.svc.bomb_evo.progress().randomizer;
+        if state.collected(source){return;}
+        let Some(reward)=state.reward(source) else{return;};
+        let mut text=match w.svc.interact.lang{2=>b"Acheter : ".to_vec(),3=>b"Kaufen: ".to_vec(),4=>b"Comprar: ".to_vec(),5=>b"Acquista: ".to_vec(),_=>b"Buy: ".to_vec()};
+        text.extend(crate::weapon_evo::randomizer::reward_name(reward,w.svc.interact.lang,&w.svc.gold_shop.names));
+        text.extend(format!(" - {price} bolts").as_bytes());
+        let can=w.svc.counters.bolts>=price;
+        let held=w.svc.interact.prompt.try_set(owner::VENDOR,if can{msg}else{short},&text);
+        if can&&held!=0&&w.svc.interact.triangle(){
+            crate::weapon_evo::randomizer::queue(w,source);
+            story::add_bolts(w,-price);w.mm(id).state=1;
+        }
+        return;
+    }
     if w.svc.counters.bolts < price + 1 {
         w.svc.interact.try_prompt(owner::VENDOR, short);
         return;
@@ -125,9 +141,9 @@ pub fn nanotech_update(w: &mut World, id: MobyId) {
             let facing = c::diff_rots(c::yaw(w, id), c::atan(h[0] - pos[0], h[1] - pos[1])) < std::f32::consts::FRAC_PI_2;
             if !(facing && c::dist2(pos, h) < 4.0 && p::i32(&w.m(id).pvars, 4) == 0 && w.svc.game_mode != 2) { return; }
             interact::set_talked(w, id, 1);
-            if story::flag(w, PREMIUM.0) == 0 {
+            if crate::weapon_evo::randomizer::source_flag(w,52,story::flag(w,PREMIUM.0)) == 0 {
                 offer(w, id, PREMIUM);
-            } else if story::flag(w, ULTRA.0) == 0 && p::i32(&w.m(id).pvars, 4) == 0 {
+            } else if crate::weapon_evo::randomizer::source_flag(w,53,story::flag(w,ULTRA.0)) == 0 && p::i32(&w.m(id).pvars, 4) == 0 {
                 offer(w, id, ULTRA);
             }
         }
@@ -135,7 +151,7 @@ pub fn nanotech_update(w: &mut World, id: MobyId) {
             if w.svc.game_mode == 2 { return; }
             crate::cinematic::save(w);
             let msg = if story::flag(w, ULTRA.0) != 0 { 0x271d } else { 0x271c };
-            crate::cinematic::show_banner(w, msg, 0xb4);
+            if !w.svc.bomb_evo.randomizer_mode{crate::cinematic::show_banner(w, msg, 0xb4);}
             let t = w.ticks(0xf0);
             p::set_i32(&mut w.mm(id).pvars, 4, t);
             w.mm(id).state = 0;

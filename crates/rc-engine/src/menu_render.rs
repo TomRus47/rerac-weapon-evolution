@@ -709,7 +709,7 @@ fn menu_frame(
                 if control_settings.r1 && qs.open && !qs.command_page && inp.held_u&button::TRIANGLE!=0
                     && raw_edges&button::R1!=0 && !play.death_pending && play.svc.game_mode==0
                     && selected.is_some_and(|item|rc_game::inventory::owns(gs,item)) {
-                    if gs.weapon_progress.controls.cycle(selected.unwrap()).is_some() {
+                    if gs.weapon_progress.controls.cycle_limited(selected.unwrap(),play.svc.bomb_evo.r1_mode_max(selected.unwrap())).is_some() {
                         play.svc.bomb_evo.set_controls(gs.weapon_progress.controls);
                         if let Some(a)=audio.as_deref_mut(){play_menu_sounds(&mut play,a,&[MenuSound::Confirm]);}
                     }
@@ -721,8 +721,9 @@ fn menu_frame(
                     rc_game::weapon_evo::controls::equip(&saved,raw_edges,gs,sess,&play.game.hero,
                         |id|data.and_then(|d|d.defs.get(id as usize)).map(|item|item.slot));
                 }
-                qs.draw_with_controls(&rt.assets, &gs.global, play.game.counter, listeners,
-                    control_settings.r1.then_some(&gs.weapon_progress.controls), &mut rt.draws);
+                qs.draw_with_mode_limit(&rt.assets, &gs.global, play.game.counter, listeners,
+                    control_settings.r1.then_some(&gs.weapon_progress.controls),
+                    selected.map_or(0,|item|play.svc.bomb_evo.r1_mode_max(item)), &mut rt.draws);
             }
             // 0x2abfb0: once the map page has found the level's map (0x184694), move record 9 ("the map was used")
             // is bumped every mode-0 frame (the Novalis director's map hint waits for it).
@@ -1252,7 +1253,7 @@ fn new_game_no_card(play: &mut Play, gs: &mut rc_game::game_state::GameState) {
     let t = crate::saves::with_card(|c| c.lump.as_ref().map(|l| l.template.clone())).flatten();
     rc_game::menus::pause::saves::reset_game(gs, t.as_deref());
     play.svc.travel.reset_trip = true;
-    crate::media_render::request_level_exit(play, 0);
+    crate::media_render::request_level_exit(play, rc_game::weapon_evo::randomizer::new_game_destination(gs));
 }
 
 /// One frame of mode 4 (`UpdateModeFreeze` + its render: the page menu under a kind-3 dialog opened from it, the black
@@ -1505,7 +1506,7 @@ fn front_end_frame(
                     let t = crate::saves::with_card(|c| c.lump.as_ref().map(|l| l.template.clone())).flatten();
                     rc_game::menus::pause::saves::reset_game(gs, t.as_deref());
                     play.svc.travel.reset_trip = true;
-                    exit = Some(0);
+                    exit = Some(rc_game::weapon_evo::randomizer::new_game_destination(gs));
                 }
                 if let Some(m) = rt.menu.as_mut() {
                     saves_in(m, play);

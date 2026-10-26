@@ -157,7 +157,7 @@ pub fn merchant_update(w: &mut World, id: MobyId) {
     crate::moby_update::manip::scene_big_head(w, &[924], 0, 2.75);
     match w.m(id).state {
         0 => {
-            if story::planet_unlocked(w, 15) || gone_for_good(w, id) || p::i32(&w.m(id).pvars, 0x44) == -1 || p::i32(&w.m(id).pvars, 0x48) == -1 {
+            if crate::weapon_evo::randomizer::source_planet(w,15,story::planet_unlocked(w, 15)) || gone_for_good(w, id) || p::i32(&w.m(id).pvars, 0x44) == -1 || p::i32(&w.m(id).pvars, 0x48) == -1 {
                 w.delete_moby(id);
                 return;
             }
@@ -232,7 +232,7 @@ pub fn morph_update(w: &mut World, id: MobyId) {
             if !w.counter.is_multiple_of(10) { return; }
             let (pos, h) = (w.m(id).position, story::hero4(w));
             if 1.0 <= c::dist2(pos, h) || 2.0 <= (pos[2] - h[2]).abs() { return; }
-            let had = w.inventory.owned(21) as i32;
+            let had = crate::weapon_evo::randomizer::source_owned(w,21,w.inventory.owned(21)) as i32;
             p::set_i32(&mut w.mm(id).pvars, 0x18, had);
             interact::give_item(w, 21, true);
             crate::cinematic::start_scene(w, 6, false);

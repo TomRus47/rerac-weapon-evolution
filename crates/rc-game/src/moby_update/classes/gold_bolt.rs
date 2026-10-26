@@ -244,6 +244,7 @@ fn award(w: &mut World, id: MobyId) {
 
 /// `GoldBoltUpdate` (0x307ca0).
 pub fn update(w: &mut World, id: MobyId) {
+    if w.svc.bomb_evo.randomizer_mode{w.mm(id).mode|=1;w.mm(id).has_collision=false;return;}
     if crate::weapon_evo::golden::replace_bolt(w,id) {return;}
     if w.m(id).pvars.len() < pv::LEN { w.mm(id).pvars.resize(pv::LEN, 0); }
     match w.m(id).state {

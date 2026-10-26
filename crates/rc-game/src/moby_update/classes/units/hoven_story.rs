@@ -91,7 +91,7 @@ pub fn merchant_update(w: &mut World, id: MobyId) {
     crate::moby_update::manip::scene_big_head(w, &[282], 1, 2.75);
     match w.m(id).state {
         0 => {
-            if story::flag(w, 1) != 0 {
+            if crate::weapon_evo::randomizer::source_flag(w,49,story::flag(w,1)) != 0 {
                 w.delete_moby(id);
                 return;
             }
@@ -100,7 +100,7 @@ pub fn merchant_update(w: &mut World, id: MobyId) {
             story::shadow_slab(w, id);
         }
         1 => {
-            if story::flag(w, 1) == 0 && interact::talk_update_at(w, id, T) {
+            if crate::weapon_evo::randomizer::source_flag(w,49,story::flag(w,1)) == 0 && interact::talk_update_at(w, id, T) {
                 interact::place_after_scene(w, id, 2.5);
                 w.mm(id).anim.speed = 0.0;
                 w.mm(id).state = 2;
@@ -156,10 +156,10 @@ pub fn hydro_update(w: &mut World, id: MobyId) {
             interact::talk_register_at(w, id, T);
             p::set_ff(&mut w.mm(id).pvars, T + talk::RADIUS, f32::from_bits(0x3fd9_999a));
             story::shadow_slab(w, id);
-            if w.inventory.owned(4) { p::set_i16(&mut w.mm(id).pvars, T + talk::NODE, -1); }
+            if crate::weapon_evo::randomizer::source_owned(w,4,w.inventory.owned(4)) { p::set_i16(&mut w.mm(id).pvars, T + talk::NODE, -1); }
         }
         1 => {
-            if !w.inventory.owned(4) && interact::talk_update_at(w, id, T) {
+            if !crate::weapon_evo::randomizer::source_owned(w,4,w.inventory.owned(4)) && interact::talk_update_at(w, id, T) {
                 interact::place_after_scene(w, id, f32::from_bits(0x4021_47ae));
                 w.mm(id).anim.speed = 0.0;
                 w.mm(id).state = 2;

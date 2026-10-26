@@ -394,6 +394,8 @@ const HELP_COLOUR: u32 = 0x00ff_a888;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Inputs {
     pub bolt_chain:u8,
+    /// Actual shared reward multiplier in tenths (10 means x1.0, hidden).
+    pub bolt_multiplier_tenths:u16,
     /// 0x1415f8.
     pub hp: i32,
     /// 0x15eda0 (4 at start, up to 8).
@@ -471,7 +473,7 @@ pub struct Inputs {
 impl Default for Inputs {
     /// Before the first frame reads the game state: 4 / 4, no bolts, no slot, nothing under way.
     fn default() -> Self {
-        Inputs { bolt_chain:0,
+        Inputs { bolt_chain:0,bolt_multiplier_tenths:10,
             hp: 4,
             max_hp: 4,
             bolts: 0,
@@ -953,7 +955,8 @@ impl HudState {
 
     /// One game tick: the callers that arm elements, `Help_Update`, the slot loop; then the frame's draws.
     pub fn tick(&mut self, inputs: Inputs) -> Vec<Draw> {
-        let chain_advanced=inputs.bolt_chain>self.inputs.bolt_chain;
+        let chain_advanced=inputs.bolt_chain>self.inputs.bolt_chain
+            || inputs.bolt_multiplier_tenths>self.inputs.bolt_multiplier_tenths;
         self.inputs = inputs;
         if chain_advanced {
             let handle = self.queue_req(Request::BOLTS);
@@ -1465,9 +1468,9 @@ impl HudState {
         let (tx, ty) = (x + BOLT_TEXT_D.0, y + BOLT_TEXT_D.1);
         self.text_right(tx + 1, ty + 1, shadow, &number, out);
         self.text_right(tx, ty, colour, &number, out);
-        if self.inputs.bolt_chain>0 {
-            let n=(self.inputs.bolt_chain as u32+1).min(30);
-            let label=format!("x{n}").into_bytes();
+        if self.inputs.bolt_multiplier_tenths>10 {
+            let n=self.inputs.bolt_multiplier_tenths;
+            let label=if n%10==0{format!("x{}",n/10)}else{format!("x{}.{}",n/10,n%10)}.into_bytes();
             let panel_y=y+34;
             for (frame,px,width,rot) in [(cap,x-50,10,Rot::None),(mid,x-40,42,Rot::None),(cap,x+2,10,Rot::R180)] {
                 out.push(Self::sprite(frame,px,panel_y,width,22,bar_a,rot));
@@ -2776,10 +2779,10 @@ fn mid_frame(h:&HudState)->usize {h.assets.icon_frame(icon::BAR,0)}
  #[test]fn chain_appears_below_the_bolt_counter_and_disappears_immediately_when_reset(){
   let assets=HudAssets{icons:vec![],frame_sizes:vec![(32,32)],glyphs:[[rc_formats::font::Glyph::default();rc_formats::font::GLYPHS];3],messages:vec![]};
   let mut h=HudState::new(assets);let mut draws=vec![];
-  for _ in 0..40 {draws=h.tick(Inputs{bolt_chain:1,..Default::default()});}
-  let chain_y=draws.iter().find_map(|d|if let Draw::Text{text,y,..}=d{(text==b"x2").then_some(*y)}else{None}).expect("chain caption");
+  for _ in 0..40 {draws=h.tick(Inputs{bolt_chain:1,bolt_multiplier_tenths:11,..Default::default()});}
+  let chain_y=draws.iter().find_map(|d|if let Draw::Text{text,y,..}=d{(text==b"x1.1").then_some(*y)}else{None}).expect("chain caption");
   let bolt_y=draws.iter().find_map(|d|if let Draw::Text{text,y,..}=d{(text==b"0").then_some(*y)}else{None}).expect("bolt caption");
   assert!(chain_y>bolt_y);
-  draws=h.tick(Inputs::default());assert!(!draws.iter().any(|d|matches!(d,Draw::Text{text,..}if text==b"x2")));
+  draws=h.tick(Inputs::default());assert!(!draws.iter().any(|d|matches!(d,Draw::Text{text,..}if text==b"x1.1")));
  }
 }

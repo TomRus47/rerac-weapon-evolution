@@ -1,0 +1,1708 @@
+[
+  {
+    "source": 2,
+    "level": 3,
+    "name": "Heli-pack",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 3,
+    "level": 11,
+    "name": "Thruster-pack",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 4,
+    "level": 12,
+    "name": "Hydro-pack",
+    "requires": [
+      [
+        22
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 5,
+    "level": 2,
+    "name": "Sonic Summoner",
+    "requires": [
+      [
+        48
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 6,
+    "level": 11,
+    "name": "O2 Mask",
+    "requires": [
+      [
+        7
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 7,
+    "level": 9,
+    "name": "Pilot's Helmet",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 9,
+    "level": 4,
+    "name": "Suck Cannon",
+    "requires": [
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 11,
+    "level": 8,
+    "name": "Devastator",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 12,
+    "level": 3,
+    "name": "Swingshot",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 13,
+    "level": 10,
+    "name": "Visibomb",
+    "requires": [
+      [
+        6
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 14,
+    "level": 6,
+    "name": "Taunter",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 15,
+    "level": 3,
+    "name": "Blaster",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 16,
+    "level": 1,
+    "name": "Pyrocitor",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 17,
+    "level": 5,
+    "name": "Mine Glove",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 18,
+    "level": 9,
+    "name": "Walloper",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 19,
+    "level": 14,
+    "name": "Tesla Claw",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 20,
+    "level": 4,
+    "name": "Glove of Doom",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 21,
+    "level": 14,
+    "name": "Morph-O-Ray",
+    "requires": [
+      [
+        12
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 22,
+    "level": 6,
+    "name": "Hydrodisplacer",
+    "requires": [
+      [
+        26
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 23,
+    "level": 5,
+    "name": "R.Y.N.O.",
+    "requires": [
+      [
+        27,
+        2
+      ],
+      [
+        27,
+        3
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 24,
+    "level": 12,
+    "name": "Drone Device",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 25,
+    "level": 11,
+    "name": "Decoy Glove",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 26,
+    "level": 2,
+    "name": "Trespasser",
+    "requires": [
+      [
+        12
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 27,
+    "level": 8,
+    "name": "MetalDetector",
+    "requires": [
+      [
+        28
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 28,
+    "level": 10,
+    "name": "Magneboots",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 29,
+    "level": 6,
+    "name": "Grindboots",
+    "requires": [
+      [
+        12
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 30,
+    "level": 2,
+    "name": "Hoverboard",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 31,
+    "level": 16,
+    "name": "Hologuise",
+    "requires": [
+      [
+        30,
+        2,
+        12,
+        29
+      ],
+      [
+        30,
+        3,
+        12,
+        29
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 32,
+    "level": 14,
+    "name": "PDA",
+    "requires": [
+      [
+        28
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 33,
+    "level": 16,
+    "name": "Map-O-Matic",
+    "requires": [
+      [
+        29
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 34,
+    "level": 15,
+    "name": "Bolt Grabber",
+    "requires": [
+      [
+        4,
+        6
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 35,
+    "level": 11,
+    "name": "Persuader",
+    "requires": [
+      [
+        26,
+        49,
+        22
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 48,
+    "level": 5,
+    "name": "Zoomerator",
+    "requires": [
+      [
+        30,
+        2
+      ],
+      [
+        30,
+        3
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 49,
+    "level": 12,
+    "name": "Raritanium",
+    "requires": [
+      [
+        12,
+        2
+      ],
+      [
+        12,
+        3
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 50,
+    "level": 17,
+    "name": "Codebot",
+    "requires": [
+      [
+        4,
+        6
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 52,
+    "level": 10,
+    "name": "Premium Nanotech",
+    "requires": [
+      [
+        6,
+        2
+      ],
+      [
+        6,
+        3
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 53,
+    "level": 10,
+    "name": "Ultra Nanotech",
+    "requires": [
+      [
+        6,
+        3,
+        52,
+        27
+      ],
+      [
+        6,
+        2,
+        52,
+        27
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 65,
+    "level": 0,
+    "name": "Planet coordinates 1",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 66,
+    "level": 1,
+    "name": "Planet coordinates 2",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 67,
+    "level": 1,
+    "name": "Planet coordinates 3",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 68,
+    "level": 3,
+    "name": "Planet coordinates 4",
+    "requires": [
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 69,
+    "level": 6,
+    "name": "Planet coordinates 5",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 70,
+    "level": 4,
+    "name": "Planet coordinates 6",
+    "requires": [
+      [
+        26,
+        12,
+        2
+      ],
+      [
+        26,
+        12,
+        3
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 71,
+    "level": 5,
+    "name": "Planet coordinates 7",
+    "requires": [
+      [
+        12,
+        22
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 72,
+    "level": 7,
+    "name": "Planet coordinates 8",
+    "requires": [
+      [
+        12,
+        22
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 73,
+    "level": 8,
+    "name": "Planet coordinates 9",
+    "requires": [
+      [
+        29
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 74,
+    "level": 8,
+    "name": "Planet coordinates 10",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 75,
+    "level": 10,
+    "name": "Planet coordinates 11",
+    "requires": [
+      []
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 76,
+    "level": 10,
+    "name": "Planet coordinates 12",
+    "requires": [
+      [
+        6,
+        12,
+        28,
+        3
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 77,
+    "level": 12,
+    "name": "Planet coordinates 13",
+    "requires": [
+      [
+        11
+      ],
+      [
+        13
+      ],
+      [
+        15
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 78,
+    "level": 13,
+    "name": "Planet coordinates 14",
+    "requires": [
+      [
+        12,
+        28,
+        26,
+        11
+      ],
+      [
+        12,
+        28,
+        26,
+        13
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 79,
+    "level": 14,
+    "name": "Planet coordinates 15",
+    "requires": [
+      [
+        29
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 80,
+    "level": 15,
+    "name": "Planet coordinates 16",
+    "requires": [
+      [
+        12
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 81,
+    "level": 15,
+    "name": "Planet coordinates 17",
+    "requires": [
+      [
+        3,
+        12,
+        31
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 82,
+    "level": 17,
+    "name": "Planet coordinates 18",
+    "requires": [
+      [
+        28,
+        31
+      ]
+    ],
+    "review_basis": "PS3 Casual item/coordinate rules; Orxon vendor adds Ratchet O2 gate"
+  },
+  {
+    "source": 100,
+    "level": 1,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        4,
+        6,
+        10
+      ],
+      [
+        2,
+        4,
+        6,
+        11
+      ],
+      [
+        2,
+        4,
+        6,
+        13
+      ],
+      [
+        3,
+        4,
+        6,
+        10
+      ],
+      [
+        3,
+        4,
+        6,
+        11
+      ],
+      [
+        3,
+        4,
+        6,
+        13
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 101,
+    "level": 1,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        4,
+        6,
+        10
+      ],
+      [
+        2,
+        4,
+        6,
+        11
+      ],
+      [
+        2,
+        4,
+        6,
+        13
+      ],
+      [
+        3,
+        4,
+        6,
+        10
+      ],
+      [
+        3,
+        4,
+        6,
+        11
+      ],
+      [
+        3,
+        4,
+        6,
+        13
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 102,
+    "level": 1,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        4,
+        6,
+        10
+      ],
+      [
+        2,
+        4,
+        6,
+        11
+      ],
+      [
+        2,
+        4,
+        6,
+        13
+      ],
+      [
+        3,
+        4,
+        6,
+        10
+      ],
+      [
+        3,
+        4,
+        6,
+        11
+      ],
+      [
+        3,
+        4,
+        6,
+        13
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 104,
+    "level": 2,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        26,
+        28,
+        10
+      ],
+      [
+        2,
+        12,
+        26,
+        28,
+        11
+      ],
+      [
+        2,
+        12,
+        26,
+        28,
+        13
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        10
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        11
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        13
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 105,
+    "level": 2,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        26,
+        28,
+        10
+      ],
+      [
+        2,
+        12,
+        26,
+        28,
+        11
+      ],
+      [
+        2,
+        12,
+        26,
+        28,
+        13
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        10
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        11
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        13
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 106,
+    "level": 2,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        26,
+        28,
+        10
+      ],
+      [
+        2,
+        12,
+        26,
+        28,
+        11
+      ],
+      [
+        2,
+        12,
+        26,
+        28,
+        13
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        10
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        11
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        13
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 107,
+    "level": 2,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        26,
+        28,
+        10
+      ],
+      [
+        2,
+        12,
+        26,
+        28,
+        11
+      ],
+      [
+        2,
+        12,
+        26,
+        28,
+        13
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        10
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        11
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        13
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 108,
+    "level": 3,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 109,
+    "level": 3,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 110,
+    "level": 3,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 112,
+    "level": 4,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        26
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 116,
+    "level": 5,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        4,
+        6,
+        12,
+        22
+      ],
+      [
+        3,
+        4,
+        6,
+        12,
+        22
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 117,
+    "level": 5,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        4,
+        6,
+        12,
+        22
+      ],
+      [
+        3,
+        4,
+        6,
+        12,
+        22
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 120,
+    "level": 6,
+    "name": "Blarg exterior Gold Bolt (Ratchet, airlock)",
+    "requires": [
+      [
+        6,
+        26
+      ]
+    ],
+    "review_basis": "Pickup/save identity confirmed by author"
+  },
+  {
+    "source": 121,
+    "level": 6,
+    "name": "Blarg interior Gold Bolt (upper cage)",
+    "requires": [
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "review_basis": "Pickup/save identity confirmed by author"
+  },
+  {
+    "source": 124,
+    "level": 7,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        22
+      ],
+      [
+        3,
+        12,
+        22
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 125,
+    "level": 7,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        22
+      ],
+      [
+        3,
+        12,
+        22
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 128,
+    "level": 8,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        26,
+        28,
+        29
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        29
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 129,
+    "level": 8,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        26,
+        28,
+        29
+      ],
+      [
+        3,
+        12,
+        26,
+        28,
+        29
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 132,
+    "level": 9,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12
+      ],
+      [
+        3,
+        12
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 133,
+    "level": 9,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12
+      ],
+      [
+        3,
+        12
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 136,
+    "level": 10,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        6,
+        12,
+        13,
+        28,
+        3
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 137,
+    "level": 10,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        6,
+        12,
+        13,
+        28,
+        3
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 140,
+    "level": 11,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12
+      ],
+      [
+        3,
+        12
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 144,
+    "level": 12,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        4,
+        6,
+        22
+      ],
+      [
+        3,
+        4,
+        6,
+        22
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 145,
+    "level": 12,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        4,
+        6,
+        22
+      ],
+      [
+        3,
+        4,
+        6,
+        22
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 148,
+    "level": 13,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        28,
+        26,
+        11
+      ],
+      [
+        2,
+        12,
+        28,
+        26,
+        13
+      ],
+      [
+        3,
+        12,
+        28,
+        26,
+        11
+      ],
+      [
+        3,
+        12,
+        28,
+        26,
+        13
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 152,
+    "level": 14,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        21,
+        28,
+        29,
+        32
+      ],
+      [
+        3,
+        12,
+        21,
+        28,
+        29,
+        32
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 153,
+    "level": 14,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        21,
+        28,
+        29,
+        32
+      ],
+      [
+        3,
+        12,
+        21,
+        28,
+        29,
+        32
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 154,
+    "level": 14,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        21,
+        28,
+        29,
+        32
+      ],
+      [
+        3,
+        12,
+        21,
+        28,
+        29,
+        32
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 155,
+    "level": 14,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        21,
+        28,
+        29,
+        32
+      ],
+      [
+        3,
+        12,
+        21,
+        28,
+        29,
+        32
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 156,
+    "level": 15,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        50
+      ],
+      [
+        3,
+        12,
+        50
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 157,
+    "level": 15,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        50
+      ],
+      [
+        3,
+        12,
+        50
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 160,
+    "level": 16,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        29,
+        30
+      ],
+      [
+        3,
+        12,
+        29,
+        30
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 161,
+    "level": 16,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        12,
+        29,
+        30
+      ],
+      [
+        3,
+        12,
+        29,
+        30
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 164,
+    "level": 17,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        3,
+        4,
+        6,
+        12,
+        28,
+        31
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 165,
+    "level": 17,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        3,
+        4,
+        6,
+        12,
+        28,
+        31
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 168,
+    "level": 18,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        6,
+        12,
+        14,
+        29,
+        31
+      ],
+      [
+        3,
+        6,
+        12,
+        14,
+        29,
+        31
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 169,
+    "level": 18,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        6,
+        12,
+        14,
+        29,
+        31
+      ],
+      [
+        3,
+        6,
+        12,
+        14,
+        29,
+        31
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 170,
+    "level": 18,
+    "name": "Native Gold Bolt (conservative route requirements)",
+    "requires": [
+      [
+        2,
+        6,
+        12,
+        14,
+        29,
+        31
+      ],
+      [
+        3,
+        6,
+        12,
+        14,
+        29,
+        31
+      ]
+    ],
+    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+  },
+  {
+    "source": 176,
+    "level": 13,
+    "name": "Additional world location",
+    "requires": [
+      [
+        2,
+        12,
+        28,
+        26,
+        11
+      ],
+      [
+        2,
+        12,
+        28,
+        26,
+        13
+      ],
+      [
+        3,
+        12,
+        28,
+        26,
+        11
+      ],
+      [
+        3,
+        12,
+        28,
+        26,
+        13
+      ]
+    ],
+    "review_basis": "Mod-authored route / author corrections"
+  },
+  {
+    "source": 177,
+    "level": 3,
+    "name": "Additional world location",
+    "requires": [
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "review_basis": "Mod-authored route / author corrections"
+  },
+  {
+    "source": 178,
+    "level": 10,
+    "name": "Additional world location",
+    "requires": [
+      [
+        6,
+        2
+      ],
+      [
+        6,
+        3
+      ]
+    ],
+    "review_basis": "Mod-authored route / author corrections"
+  },
+  {
+    "source": 179,
+    "level": 11,
+    "name": "Additional world location",
+    "requires": [
+      []
+    ],
+    "review_basis": "Mod-authored route / author corrections"
+  },
+  {
+    "source": 180,
+    "level": 12,
+    "name": "Additional world location",
+    "requires": [
+      [
+        2
+      ],
+      [
+        3
+      ]
+    ],
+    "review_basis": "Mod-authored route / author corrections"
+  },
+  {
+    "source": 181,
+    "level": 1,
+    "name": "Additional world location",
+    "requires": [
+      [
+        4
+      ]
+    ],
+    "review_basis": "Mod-authored route / author corrections"
+  }
+]

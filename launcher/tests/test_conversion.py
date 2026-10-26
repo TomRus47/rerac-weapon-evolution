@@ -12,9 +12,9 @@ class ProfileTests(unittest.TestCase):
         new_keys={(f'weapon.{weapon}.level{grade}',k) for catalog in [EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS] for weapon,fields in catalog.items() for grade in range(1,6) for k in fields}
         new_keys |= {('general', k) for k in [*GLOBAL_STANDARD_DEFAULTS, *GLOBAL_EXPERIMENTAL_DEFAULTS]}
         # The supplied current profile is the approved development balance; migration must not change it.
-        canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items() if (s,k) not in new_keys and not s.startswith('weapon.wrench')),ensure_ascii=True).encode()
+        canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items() if (s,k) not in new_keys and k!='r1_experimental_max' and not s.startswith('weapon.wrench')),ensure_ascii=True).encode()
         self.assertEqual(hashlib.sha256(canonical).hexdigest(),'fccddb6a42a586800ba7e7b339edefdb98e337780720c8d2e87731ebecd9b97c')
-        self.assertEqual(len(d.entries),2379);self.assertEqual(len(d.sections),146)
+        self.assertEqual(len(d.entries),2510);self.assertEqual(len(d.sections),146)
         self.assertEqual(d.entries['general','xp_per_damage'],'0.12')
     def test_public_profile_has_no_damage_model_or_wrench_and_keeps_functioning_opacity(self):
         d=c.profile_document(self.raw)

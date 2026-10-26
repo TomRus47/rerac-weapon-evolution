@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU8,Ordering};
 
 pub const DPAD_KEY:&str="dpad_quick_select";
 pub const R1_KEY:&str="r1_experimental";
+pub const R1_MAX_KEY:&str="r1_experimental_max";
 pub const DIRECTIONS:[u32;4]=[button::UP,button::RIGHT,button::DOWN,button::LEFT];
 pub const DIRECTION_MASK:u32=button::UP|button::RIGHT|button::DOWN|button::LEFT;
 pub const COLORS:[u32;4]=[0x8000ff00,0x800000ff,0x80ff0000,0x80d050ff];
@@ -14,6 +15,15 @@ pub const COLORS:[u32;4]=[0x8000ff00,0x800000ff,0x80ff0000,0x80d050ff];
 /// companion drones) deliberately remain controlled exclusively by the INI.
 pub const MODE_ITEMS:[i32;4]=[16,17,13,23];
 pub const MODE_MAX:[u8;4]=[1,1,1,2];
+/// The engine's implemented behaviors cap the configurable per-grade ceiling.
+pub fn supported_mode_max(item:i32)->u8 {
+    MODE_ITEMS.iter().position(|&id|id==item).map_or(0,|i|MODE_MAX[i])
+}
+pub const fn default_mode_limits()->[[u8;8];37] {
+    let mut limits=[[0;8];37];let mut i=0;
+    while i<MODE_ITEMS.len(){limits[MODE_ITEMS[i] as usize]=[MODE_MAX[i];8];i+=1;}
+    limits
+}
 /// Native backpack order: Heli-Pack, Thruster-Pack, Hydro-Pack.
 const CLANK_PACKS:[i32;3]=[2,3,4];
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
@@ -27,6 +37,19 @@ impl State {
     }
     pub fn mode(&self,item:i32)->Option<u8>{MODE_ITEMS.iter().position(|&id|id==item).map(|i|self.modes[i])}
     pub fn cycle(&mut self,item:i32)->Option<u8>{let i=MODE_ITEMS.iter().position(|&id|id==item)?;self.modes[i]=(self.modes[i]+1)%(MODE_MAX[i]+1);Some(self.modes[i])}
+    /// An out-of-range saved selection acts as native mode without erasing the
+    /// save. A later grade/profile can make that same saved selection available.
+    pub fn mode_limited(&self,item:i32,max:u8)->Option<u8> {
+        let max=max.min(supported_mode_max(item));
+        if max==0{return None;}
+        self.mode(item).map(|mode|if mode<=max{mode}else{0})
+    }
+    pub fn cycle_limited(&mut self,item:i32,max:u8)->Option<u8> {
+        let mode=self.mode_limited(item,max)?;
+        let i=MODE_ITEMS.iter().position(|&id|id==item)?;
+        self.modes[i]=(mode+1)%(max.min(MODE_MAX[i])+1);
+        Some(self.modes[i])
+    }
     pub fn assign(&mut self,slot:usize,item:i32,owned:bool,item_slot:i32)->bool {
         if slot>=4 || !(1..=32).contains(&item) || !owned || Slot::from_type(item_slot).is_none(){return false;}
         let id=item as u8;
@@ -108,32 +131,32 @@ pub fn equip(state:&State,raw_pressed:u32,gs:&GameState,sess:&mut SessionState,h
 }
 /// Replace exactly four behavior switches. Every tuning parameter and every
 /// excluded weapon enhancement stays at the current grade's original INI value.
-pub(super) fn apply_registry(settings:Settings,state:&State,registry:&mut HashMap<(i32,String),f32>){
+pub(super) fn apply_registry(settings:Settings,state:&State,registry:&mut HashMap<(i32,String),f32>,max:impl Fn(i32)->u8){
     if !settings.r1{return;}
-    for (item,key,on) in [(17,"flame_mine_enabled",state.mode(17)==Some(1)),
-        (13,"grenade_launcher_enabled",state.mode(13)==Some(1)),
-        (23,"continuous_missiles_enabled",state.mode(23)==Some(1)),
-        (23,"shotgun_enabled",state.mode(23)==Some(2))] {
+    for (item,key,on) in [(17,"flame_mine_enabled",state.mode_limited(17,max(17))==Some(1)),
+        (13,"grenade_launcher_enabled",state.mode_limited(13,max(13))==Some(1)),
+        (23,"continuous_missiles_enabled",state.mode_limited(23,max(23))==Some(1)),
+        (23,"shotgun_enabled",state.mode_limited(23,max(23))==Some(2))] {
         registry.insert((item,key.into()),f32::from(u8::from(on)));
     }
 }
 
 /// Gameplay-only semantic pad. Physical R2 and Circle are one logical trigger;
-/// L1 and R1 share native crouch. Menus/cameras keep the physical pad.
+/// L1 retains native first-person aiming; R1 retains native crouch. Menus and
+/// cameras keep the physical pad, including contextual R1 radial switching.
 pub fn gameplay_pad(pad:&PadState,item:i32,enabled:bool,dpad:bool,locked:bool)->PadState {
     if !enabled{return pad.clone();}
     let fire=if item==8{button::SQUARE}else{button::CIRCLE};
-    let consumed=button::L1|button::R1|button::R2|fire|if locked{button::L2}else{0};
+    let consumed=button::R2|fire|if locked{button::L2}else{0};
     let alias=|mask:u32| {
-        let mut out=mask&!(button::L1|button::R1|button::R2|if locked{button::L2}else{0});
-        if mask&(button::L1|button::R1)!=0{out|=button::R1;}
+        let mut out=mask&!(button::R2|if locked{button::L2}else{0});
         if mask&button::R2!=0{out|=fire;}
         out
     };
     let mut out=pad.clone();
     out.held=alias(pad.held);out.prev_held=alias(pad.prev_held);out.held_store=alias(pad.held_store);
     out.raw=alias(pad.raw);out.prev_raw=alias(pad.prev_raw);
-    let logical=fire|button::R1;
+    let logical=fire;
     out.pressed=(pad.pressed&!consumed)|(out.held&!out.prev_held&logical);
     out.released=(pad.released&!consumed)|(out.prev_held&!out.held&logical);
     out.raw_pressed=(pad.raw_pressed&!consumed)|(out.raw&!out.prev_raw&logical);
@@ -149,9 +172,8 @@ pub fn gameplay_pad(pad:&PadState,item:i32,enabled:bool,dpad:bool,locked:bool)->
     let pressure=if item==8{7}else{5};
     out.pressure[pressure]=out.pressure[pressure].max(pad.pressure[11]);
     out.analog_copy[pressure+4]=out.analog_copy[pressure+4].max(pad.analog_copy[15]);
-    out.pressure[9]=pad.pressure[8].max(pad.pressure[9]);out.analog_copy[13]=pad.analog_copy[12].max(pad.analog_copy[13]);
-    out.pressure[8]=Pf::ZERO;out.pressure[11]=Pf::ZERO;
-    out.analog_copy[12]=Pf::ZERO;out.analog_copy[15]=Pf::ZERO;
+    out.pressure[11]=Pf::ZERO;
+    out.analog_copy[15]=Pf::ZERO;
     if dpad {
         let stick=(if pad.lx<Pf::ZERO{button::LEFT}else if pad.lx>Pf::ZERO{button::RIGHT}else{0})
             |(if pad.ly<Pf::ZERO{button::UP}else if pad.ly>Pf::ZERO{button::DOWN}else{0});

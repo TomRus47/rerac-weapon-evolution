@@ -559,7 +559,7 @@ pub fn collect(w: &mut World, id: MobyId) {
             *e = e.wrapping_add(val as i16);
         }
     }
-    let reward=w.svc.bomb_evo.bolt_chain.collect(val,w.svc.counters.times_completed>0);
+    let reward=w.svc.bomb_evo.collect_reward_bolts(val);
     w.svc.counters.bolts = w.svc.counters.bolts.saturating_add(reward);
     w.svc.counters.ammo_mode_bolts = w.svc.counters.ammo_mode_bolts.saturating_add(val.max(0) as u64);
     if challenge != 0 || (w.svc.counters.challenge_on != 0 && id < w.table.first_dynamic) {
@@ -594,7 +594,7 @@ pub fn spawn(w: &mut World, src: MobyId, pos: V4, vel: V4, flags: u32, value: i3
         _ => (13, Pf::b(0x3f26_6666)),
     };
     let Some(b) = w.create_moby(class) else {
-        let reward=w.svc.bomb_evo.bolt_chain.collect(value,w.svc.counters.times_completed>0);
+        let reward=w.svc.bomb_evo.collect_reward_bolts(value);
         w.svc.counters.bolts = w.svc.counters.bolts.saturating_add(reward);
         w.svc.counters.ammo_mode_bolts = w.svc.counters.ammo_mode_bolts.saturating_add(value.max(0) as u64);
         return None;
