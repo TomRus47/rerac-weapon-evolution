@@ -2961,7 +2961,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "3a7307e66ea44aee942a7ee6931193227c402c5b8bb1a17be0f1784ef58e596d"
+      "sha256": "cd69e3243158d4e1fdc7631fdef835545ec6e3b17cc46ebfde23952cc6497748"
     },
     {
       "path": "docs/releases/v0.3.3.md",
