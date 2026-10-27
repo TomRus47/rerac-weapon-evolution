@@ -163,6 +163,17 @@ impl Default for Hud2d {
 }
 
 impl Hud2d {
+    /// Insert a complete draw batch; fine coordinates and additive flags index
+    /// primitives, so they must move together with their associated geometry.
+    fn insert_batch(&mut self, at:usize, batch:Hud2d) {
+        let count=batch.prims.len();
+        for (index,_) in &mut self.fine {if *index>=at {*index+=count;}}
+        for index in &mut self.add {if *index>=at {*index+=count;}}
+        self.prims.splice(at..at,batch.prims);
+        self.fine.extend(batch.fine.into_iter().map(|(i,p)|(at+i,p)));
+        self.add.extend(batch.add.into_iter().map(|i|at+i));
+        self.fine.sort_by_key(|(i,_)|*i);self.add.sort_unstable();
+    }
     pub fn clear(&mut self) {
         self.prims.clear();
         self.fine.clear();
@@ -1136,6 +1147,7 @@ fn tick_and_build(
     }
     rt.hud2d.prims.extend(hook.prims.iter().copied());
     rt.hud2d.prims.extend(scene.prims.iter().copied());
+    let mut weapon_xp_batch=Hud2d {frame_sizes:rt.hud2d.frame_sizes.clone(),..default()};
     // Weapon Evolution v0.1.5 phase A: XP/name even for weapons without an ammo HUD.
     if !hook.replace_hud && !scene.hide_hud && !hud_off {
         if let Some(p) = play.as_deref() {
@@ -1168,7 +1180,7 @@ fn tick_and_build(
                         // keeps its old name position, it cannot misalign the XP bar.
                         let draws=rc_game::hud::xp_bar::draws(left,bottom_y,outer_width,height,
                             evo.weapon_fraction(item).unwrap_or(0.0),alpha_bar,evo.weapon_at_cap(item));
-                        crate::text_render::execute(&mut rt.hud2d,&mut st,&rt.glyphs,&draws);
+                        crate::text_render::execute(&mut weapon_xp_batch,&mut st,&rt.glyphs,&draws);
                     }
                 }
                 let alpha_name = (rc_game::weapon_evo::HudOptions::alpha(ui.name_opacity_percent) as f32 * fade) as u32;
@@ -1212,6 +1224,10 @@ fn tick_and_build(
             }
         }
     }
+    let behind=play.as_deref().is_some_and(|p|p.svc.bomb_evo.hud.weapon_bar_behind_hud);
+    let at=if behind {0}else{rt.hud2d.prims.len()};
+    rt.hud2d.insert_batch(at,weapon_xp_batch);
+
     let dyns = dyn_images.as_deref().map_or([None; crate::hud_images::SLOTS], |d| d.rects());
     let e = rt.extra;
     // Only the meshes whose inputs changed ([`Built`]).
@@ -1391,6 +1407,22 @@ fn apply_fx_cuts(rt: Option<ResMut<HudRuntime>>, level: Res<crate::Level>, play:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inserted_batch_moves_fine_coordinates_and_additive_indices_together() {
+        let mut hud=Hud2d::default();
+        hud.rect_fine(0,0,16,16,0x80112233);
+        hud.rect(1,2,3,4,0x80445566);hud.add.push(1);
+        let original=hud.fine[0].1;
+        let mut bar=Hud2d::default();bar.rect_fine(32,48,64,80,0x80778899);bar.add.push(0);
+        let inserted=bar.fine[0].1;
+        hud.insert_batch(0,bar);
+        assert_eq!(hud.prims.iter().map(|p|p.rgba).collect::<Vec<_>>(),vec![0x80778899,0x80112233,0x80445566]);
+        assert_eq!(hud.fine,vec![(0,inserted),(1,original)]);
+        assert_eq!(hud.add,vec![0,2]);
+        let empty=Hud2d::default();hud.insert_batch(hud.prims.len(),empty);
+        assert_eq!(hud.add,vec![0,2]);assert_eq!(hud.fine[1],(1,original));
+    }
 
     #[test]
     fn sprite_variants_map_uv_like_the_gs_packets() {

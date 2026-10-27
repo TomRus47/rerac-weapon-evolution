@@ -40,7 +40,7 @@ class V51Tests(unittest.TestCase):
         migrated, _ = convert(raw)
         loaded = core.checked_document(runtime_profile(migrated))
         for pair, value in changes.items(): self.assertEqual(loaded.entries[pair], value)
-        self.assertEqual(core.required_config(loaded),88)
+        self.assertEqual(core.required_config(loaded),89)
         for n in range(1, 6):
             keys = loaded.keys(f'weapon.ryno.level{n}')
             standard, experimental = field_groups('ryno', keys)

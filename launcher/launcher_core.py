@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.28.7'
+VERSION = '0.28.9'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -600,3 +600,8 @@ def required_config(doc):
     previous=_feedback_required_config(doc)
     keys={'burn_on_hit','hud_quickselect_only','slam_explosion_enabled','slam_explosion_damage_hp','slam_explosion_radius','slam_explosion_color','weapon_bar_alternative_position'}
     return max(88,previous) if any(key in keys for _,key in doc.entries) else previous
+
+_hud_layer_required_config=required_config
+def required_config(doc):
+    previous=_hud_layer_required_config(doc)
+    return max(89,previous) if ('hud','weapon_bar_behind_hud') in doc.entries else previous

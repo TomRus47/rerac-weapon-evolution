@@ -535,8 +535,16 @@ pub(super) fn volume_pass(sc: &MobyScene, fl: u32, vol: &Volume, h: Option<F>, i
 /// with a hit template, a hit record for every listed moby with `mode & 0x4000` (done by the caller:
 /// `moby_update::services::sphere_mobys_in`). Returns the list (the kernel returns its length).
 pub fn coll_sphere_mobys(sc: &MobyScene, centre: [f32; 3], radius: f32, flags: super::QueryFlags, ignore: Option<usize>) -> Vec<usize> {
-    let fl = flags.0;
-    let Some(vol) = Volume::new(centre, radius, None) else { return Vec::new() };
+    coll_sphere_mobys_volume(sc,centre,radius,flags,ignore,false)
+}
+/// Only ground blasts use clipped traversal. Native query semantics stay intact.
+pub fn coll_sphere_mobys_clipped(sc:&MobyScene,centre:[f32;3],radius:f32,flags:super::QueryFlags,ignore:Option<usize>)->Vec<usize>{
+    coll_sphere_mobys_volume(sc,centre,radius,flags,ignore,true)
+}
+fn coll_sphere_mobys_volume(sc:&MobyScene,centre:[f32;3],radius:f32,flags:super::QueryFlags,ignore:Option<usize>,clipped:bool)->Vec<usize>{
+    let fl=flags.0;
+    let volume=if clipped{Volume::clipped_sphere(centre,radius)}else{Volume::new(centre,radius,None)};
+    let Some(vol)=volume else{return Vec::new()};
     let c = vol.c1024;
     let r = vol.r1024;
     let best = vol.rr; // vf24.x = (r*1024)^2, never updated

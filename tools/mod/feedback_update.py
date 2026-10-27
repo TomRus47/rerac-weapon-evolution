@@ -39,7 +39,7 @@ def verify_launcher(exe,run=subprocess.run):
         report=Path(td)/'self-test.json'
         run([str(exe.resolve()),'--self-test',str(report)],check=True,timeout=120)
         data=json.loads(report.read_text())
-    if not data.get('frozen') or data.get('launcher_version')!='0.28.7' or not data.get('feedback_controls_ui') or data.get('moving_wrench_gui_grades')!=8:
+    if not data.get('frozen') or data.get('launcher_version')!='0.28.9' or not data.get('feedback_controls_ui') or data.get('moving_wrench_gui_grades')!=8:
         raise ValueError('The built EXE does not verify the v102 grade controls. The old launcher is retained.')
 
 def install(source,playable,launcher,target,bundle=HERE,run=subprocess.run,verify=verify_launcher):

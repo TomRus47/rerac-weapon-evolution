@@ -308,7 +308,7 @@ def upgrade_global_settings(raw):
     if lines:blocks.append((section,lines))
     if not any(section=='general' for section,_ in blocks):blocks.insert(0,('general',['[general]'+newline]))
     groups={'general':[list(WORLD_DEFAULTS),['golden_bolts_to_weapons','golden_bolts_early_bias_percent','golden_bolts_one_weapon_per_planet']],
-        'hud':[['name_opacity_percent','nanotech_xp_bar_opacity_percent','show_for_weapons_without_ammo','xp_bar_height_px','xp_bar_horizontal_inset_px','level_up_popup','level_up_popup_duration_seconds','level_up_sound']]}
+        'hud':[['name_opacity_percent','weapon_bar_alternative_position','weapon_bar_behind_hud','nanotech_xp_bar_opacity_percent','show_for_weapons_without_ammo','xp_bar_height_px','xp_bar_horizontal_inset_px','level_up_popup','level_up_popup_duration_seconds','level_up_sound']]}
     result=[]
     for section,lines in blocks:
         if section=='general':
@@ -515,3 +515,17 @@ def convert(raw):
             result=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
         else:result+= (nl+'[hud]'+nl+'weapon_bar_alternative_position = false'+nl).encode()
     return result,warnings
+
+_hud_layer_previous_convert=convert
+def convert(raw):
+    result,warnings=_hud_layer_previous_convert(raw)
+    from launcher_core import IniDocument
+    doc=IniDocument(result)
+    if ('hud','weapon_bar_behind_hud') not in doc.entries:
+        nl='\r\n' if b'\r\n' in result else '\n'
+        lines=list(doc.lines)
+        at=next(i for i,line in enumerate(lines) if re.match(r'\s*\[hud\]',line,re.I))
+        if not lines[at].endswith(('\n','\r')):lines[at]+=nl
+        lines.insert(at+1,'weapon_bar_behind_hud = true'+nl)
+        result=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
+    return order_profile(upgrade_global_settings(result)),warnings

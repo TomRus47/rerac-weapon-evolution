@@ -37,7 +37,7 @@ class NanotechUiTests(unittest.TestCase):
         self.assertEqual(doc.entries['hud',KEY],'100')
         self.assertEqual(doc.entries['hud','name_opacity_percent'],'35')
         self.assertEqual(doc.entries['hud','xp_bar_height_px'],'7')
-        self.assertEqual(core.required_config(doc),88)
+        self.assertEqual(core.required_config(doc),89)
 
     def test_opacity_validation_requires_an_integer_percentage(self):
         self.assertIn(KEY,schema.HUD);self.assertIn(KEY,schema.INTEGER)

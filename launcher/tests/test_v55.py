@@ -71,11 +71,11 @@ class V55Tests(unittest.TestCase):
                 with self.assertRaises(ValueError):core.validate_value(f'weapon.{weapon}.level1','experimental_max_ammo',value)
         with self.assertRaises(ValueError):core.validate_value('weapon.suck_cannon.level1','experimental_max_ammo','11')
         with self.assertRaises(ValueError):core.validate_value('weapon.wrench.level1','experimental_max_ammo','4')
-        self.assertEqual(core.required_config(core.checked_document(self.raw)),88)
+        self.assertEqual(core.required_config(core.checked_document(self.raw)),89)
         doc=core.IniDocument(self.raw)
         removed={index for (section,key),index in doc.addresses.items() if key in MODEL_NEW_KEYS or key=='experimental_max_ammo' or (section.startswith('weapon.wrench.level') and key in {'hit_radius_multiplier','knockback_multiplier'})}
         old=core.checked_document(''.join(line for index,line in enumerate(doc.lines) if index not in removed).encode())
-        self.assertEqual(core.required_config(old),88)
+        self.assertEqual(core.required_config(old),89)
     def test_catalogs_cover_all_public_fields_and_weapon_names_in_all_five_languages(self):
         doc=core.checked_document(self.raw)
         for language in i18n.LANGUAGES:

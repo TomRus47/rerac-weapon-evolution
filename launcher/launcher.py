@@ -503,8 +503,16 @@ class Launcher:
                 return card
             group('Base settings', [('general', key) for key in base_keys])
             excluded = set(base_keys + random_keys + difficulty_keys)
-            group('XP Bars and settings', [(section,key) for section,key in base_fields
-                  if section != 'general' or key not in excluded])
+            hud_keys = ['name_opacity_percent','weapon_bar_alternative_position',
+                        'weapon_bar_behind_hud','nanotech_xp_bar_opacity_percent',
+                        'xp_bar_height_px','xp_bar_horizontal_inset_px',
+                        'show_for_weapons_without_ammo','level_up_popup',
+                        'level_up_popup_duration_seconds','level_up_sound']
+            hud_pairs = [('hud',key) for key in hud_keys]
+            hud_pairs += [(section,key) for section,key in base_fields
+                          if (section,key) not in hud_pairs and
+                          (section != 'general' or key not in excluded)]
+            group('XP Bars and settings', hud_pairs)
             group('Encounter difficulty and Nanotech', [('general',key) for key in difficulty_keys])
             self.render_randomizer_group()
             mode = self.card(self.form, tr('Ammo-Survival Mode'))

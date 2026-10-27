@@ -351,6 +351,7 @@ impl PyroStats {
 pub struct HudOptions {
     pub name_opacity_percent: u8,
     pub weapon_bar_alternative_position:bool,
+    pub weapon_bar_behind_hud:bool,
     /// Independent of weapon-name opacity and the legacy weapon XP setting.
     pub nanotech_xp_bar_opacity_percent: u8,
     pub xp_bar_height_px: i32,
@@ -362,7 +363,7 @@ pub struct HudOptions {
 }
 impl Default for HudOptions {
     fn default() -> Self {
-        Self { name_opacity_percent: 100, weapon_bar_alternative_position:false, nanotech_xp_bar_opacity_percent: 100,
+        Self { name_opacity_percent: 100, weapon_bar_alternative_position:false, weapon_bar_behind_hud:true, nanotech_xp_bar_opacity_percent: 100,
             xp_bar_height_px: 5, xp_bar_horizontal_inset_px: 2,
             show_for_weapons_without_ammo: true, level_up_popup: true,
             level_up_popup_duration_seconds: 3.0, level_up_sound: true }
@@ -933,6 +934,7 @@ impl Evolution {
             if section == "hud" {
                 match key.as_str() {
                     "weapon_bar_alternative_position" => evo.hud.weapon_bar_alternative_position=parse_bool(val)?,
+                    "weapon_bar_behind_hud" => evo.hud.weapon_bar_behind_hud=parse_bool(val)?,
                     "name_opacity_percent" => evo.hud.name_opacity_percent = parse_percent(val, &key)?,
                     "nanotech_xp_bar_opacity_percent" => evo.hud.nanotech_xp_bar_opacity_percent = parse_percent(val, &key)?,
                     // Compatibility only: this obsolete key has no field or effect.

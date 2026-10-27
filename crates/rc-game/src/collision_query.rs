@@ -450,6 +450,19 @@ impl Volume {
         })
     }
 
+    /// Clip candidate-grid bounds without moving or enlarging a blast sphere.
+    /// Ground-centred moby-only effects may legitimately straddle world z=0.
+    fn clipped_sphere(centre:[f32;3],radius:f32)->Option<Self>{
+        if !centre.iter().all(|v|v.is_finite()) || !radius.is_finite(){return None;}
+        let mut out=Self::new([512.;3],radius,None)?;
+        let c=centre.map(f32::to_bits);let r=radius.to_bits();
+        let lo=c.map(|v|sub(v,r));let hi=c.map(|v|add(v,r));
+        if (0..3).any(|i|f32::from_bits(hi[i])<0. || f32::from_bits(lo[i])>=1024.){return None;}
+        let last=1023.99994f32.to_bits();
+        out.c1024=vmuls(c,K1024);out.lo=lo.map(|v|max(v,0));out.hi=hi.map(|v|min(v,last));
+        out.lo1024=vmuls(out.lo,K1024);out.hi1024=vmuls(out.hi,K1024);Some(out)
+    }
+
     /// Every cell of the AABB (`vftoi0(p) >> 2`), z outer, y, x inner, kept when the squared
     /// distance from `c1024` to the cell box is below `r^2`:
     /// `((-r^2 + dx^2) + dy^2) + dz^2 < 0` (unshrunk r^2). For the capsule this is the base sphere

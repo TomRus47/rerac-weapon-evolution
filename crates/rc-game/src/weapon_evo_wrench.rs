@@ -17,6 +17,29 @@ impl SlamBlast {
 }
 
 
+/// Render-only snapshot of one slam. Its maximum visible radius equals the
+/// collision query radius; it cannot create damage, actors, lights or particles.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SlamVisual {
+    pub centre:[f32;3],
+    pub radius:f32,
+    /// BBGGRR, matching the game's packed explosion palette.
+    pub color:u32,
+    pub born:u64,
+}
+impl SlamVisual {
+    pub const LIFE:u64=24;
+    pub fn appearance(self, now:u64)->Option<(f32,u32)> {
+        let age=now.checked_sub(self.born)?;
+        if age>=Self::LIFE || !self.radius.is_finite() || self.radius<=0. {return None;}
+        // Reach the actual hit boundary quickly, hold it, then fade in place.
+        // Never add sprite padding or expand beyond the configured hit radius.
+        let expansion=((age+1) as f32/6.).min(1.);
+        let fade=1.-age as f32/Self::LIFE as f32;
+        Some((self.radius*expansion,((fade*96.).round() as u32)<<24 | (self.color&0xffffff)))
+    }
+}
+
 /// Cosmetic geometry uses native anchors and the attack's captured hit radius.
 /// Color follows the active grade, using the same BBGGRR packing as other FX.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -342,5 +365,36 @@ mod v102_tests {
         let track=e.extras.iter().find(|t|t.id==8).unwrap();
         for grade in 1..=8 {let p=&track.params[grade-1];assert_eq!(p["slam_explosion_damage_hp"],(grade*100)as f32);assert_eq!(p["burn_on_hit"],if grade%2==0{1.}else{0.});}
         assert!(crate::weapon_evo::Evolution::parse(&raw.replace("slam_explosion_radius=0.5","slam_explosion_radius=0")).is_err());
+    }
+}
+
+#[cfg(test)]
+#[path="weapon_evo_slam_damage_tests.rs"]
+mod slam_damage_tests;
+
+#[cfg(test)]
+mod slam_visual_tests {
+    use super::*;
+    #[test]
+    fn visual_reaches_exact_hit_radius_and_never_exceeds_it() {
+        for radius in [0.1,0.5,1.,3.,8.,30.] {
+            let visual=SlamVisual{centre:[10.,20.,0.05],radius,color:0x123456,born:100};
+            assert!(visual.appearance(99).is_none());
+            let mut maximum=0.0f32;
+            for now in 100..100+SlamVisual::LIFE {
+                let (visible,rgba)=visual.appearance(now).unwrap();
+                assert!(visible>0. && visible<=radius);
+                assert_eq!(rgba&0xffffff,0x123456);assert!(rgba>>24<=96);
+                maximum=maximum.max(visible);
+            }
+            assert_eq!(maximum,radius);
+            assert!(visual.appearance(100+SlamVisual::LIFE).is_none());
+        }
+    }
+    #[test]
+    fn invalid_radius_is_never_rendered() {
+        for radius in [0.,-1.,f32::NAN,f32::INFINITY] {
+            assert!(SlamVisual{centre:[0.;3],radius,color:0,born:0}.appearance(0).is_none());
+        }
     }
 }

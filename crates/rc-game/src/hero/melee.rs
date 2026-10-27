@@ -84,6 +84,12 @@ pub struct Melee {
     pub damage_hp: f32,
     pub burn_on_hit:bool,
     pub slam_blast:crate::weapon_evo::wrench::SlamBlast,
+    /// One bounded cosmetic burst, captured from the actual damage sphere.
+    pub slam_visual:Option<crate::weapon_evo::wrench::SlamVisual>,
+    /// Experimental blast is consumed once on the landed downward strike.
+    pub slam_blast_emitted:bool,
+    /// Native world-collision landing estimate, in simulation ticks.
+    pub slam_landing_ticks:i32,
     pub tuning: crate::weapon_evo::wrench::AttackTuning,
     /// 0x13fd40 / 0x13fd50: Ratchet's hand (joint list 0) and the wrench head this tick; 0x13fd60 /
     /// 0x13fd70: last tick's.
@@ -269,6 +275,8 @@ impl Hero {
             self.melee.attack_serial=self.melee.attack_serial.wrapping_add(1);
             self.melee.burn_on_hit=crate::weapon_evo::extra_flag(8,"burn_on_hit",false);
             self.melee.slam_blast=crate::weapon_evo::wrench::SlamBlast::capture();
+            self.melee.slam_blast_emitted=false;
+            self.melee.slam_landing_ticks=i32::MAX;
             self.melee.damage_hp=crate::weapon_evo::extra(8,"damage_hp",100.);
             self.melee.tuning=crate::weapon_evo::wrench::AttackTuning::capture();
         }
@@ -468,6 +476,7 @@ impl Hero {
         let v = c.anim.view();
         if self.state == 0x14 {
             let n = self.land_eta(c, Pf::b(0x4270_0000), DT2 * Pf::b(0x4302_0000), Pf::b(0xbf80_0000)).to_i32();
+            self.melee.slam_landing_ticks=n;
             let frame = Pf::f(v.frame);
             if self.melee.falling == Pf::ZERO {
                 self.anim_speed = Pf::b(0x3ea8_f5c3);
@@ -769,30 +778,49 @@ impl Hero {
 /// The jump attack's shockwave queued by 0x14's physics: `coll_sphere_mobys(0.4, centre, 0x10, Ratchet,
 /// {dir, Ratchet's moby, flags 0x10000, damage 2, class 0x47})`.
 pub fn jump_attack_shockwave(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng:&mut crate::rng::Rng) {
-    let Some((p, dir)) = hero.shockwave.take() else { return };
+    if let Some((p, dir)) = hero.shockwave.take() {
     let dir=hero.melee.tuning.push(dir);
     let tmpl = HitTemplate { dir, attacker: Some(env.hero_moby), flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.melee.damage_hp,2.)), w20: 1 | if hero.melee.burn_on_hit {crate::weapon_evo::wrench::BURN}else{0} };
     crate::weapon_evo::wrench::break_crates(hero,table,env,hits,p);
     hits.sphere(table, hero.melee.tuning.radius(Pf::b(0x3ecc_cccd)), p, 0x10, Some(env.hero_moby), &tmpl);
+    }
     let blast=hero.melee.slam_blast;
-    if blast.enabled {
-        let mut explosion=tmpl.clone();explosion.damage=Pf::f(blast.damage_hp/100.);
-        explosion.w20 |= crate::weapon_evo::wrench::BLAST;
-        explosion.h1a=121;explosion.b18=2;explosion.b19=1;explosion.flags=0x83_0000;
+    if blast.enabled && hero.state==0x14 && (hero.grounded() || (0..=ticks(5)).contains(&hero.melee.slam_landing_ticks)) && hero.melee.falling>Pf::ZERO && !hero.melee.slam_blast_emitted {
+        // Probe the real surface at the early impact point: airborne ground_z
+        // may be stale or zero above elevated terrain.
+        let mut from=hero.pos;from[0]+=fast_cos(hero.rot[2])*Pf::f(0.9);
+        from[1]+=fast_sin(hero.rot[2])*Pf::f(0.9);from[2]+=Pf::f(0.5);
+        let mut to=from;to[2]-=Pf::f(64.);
+        let probe=hits.probe(table,from,to,2,Some(env.hero_moby));
+        let unavailable=probe.is_none() && env.coll.is_none();
+        let contact=probe.unwrap_or_else(||
+            env.coll.and_then(|mesh|crate::collision_query::coll_line(mesh,
+                [from[0].to_f32(),from[1].to_f32(),from[2].to_f32()],
+                [to[0].to_f32(),to[1].to_f32(),to[2].to_f32()],crate::collision_query::QueryFlags(2)).map(|hit|hit.point)));
+        let z=match contact{Some(point)=>Pf::f(point[2]),None if hero.grounded() || unavailable=>hero.ground_z,None=>return};
+        hero.melee.slam_blast_emitted=true;
+        let p=[from[0],from[1],z+Pf::f(0.05),Pf::ONE];
+        let explosion=HitTemplate {dir:[Pf::ZERO,Pf::ZERO,Pf::ONE,Pf::b(0x45af_df66)],attacker:Some(env.hero_moby),flags:0x83_0000,b18:2,b19:1,h1a:121,damage:Pf::f(blast.damage_hp/100.),w20:1 | crate::weapon_evo::wrench::BLAST | if hero.melee.burn_on_hit{crate::weapon_evo::wrench::BURN}else{0}};
         let delivered=hits.world(table,hero,rng,env.frame as u64,&mut|w|{
-            let targets=w.sphere_mobys_list(Pf::f(blast.radius),p,0x10,Some(env.hero_moby),None);
+            let targets=w.ground_blast_targets(Pf::f(blast.radius),p,Some(env.hero_moby));
             for target in targets {
                 let q=w.m(target).position;
                 let angle=(q[1]-p[1].to_f32()).atan2(q[0]-p[0].to_f32());
                 let mut hit=explosion.clone();
                 hit.dir=[Pf::f(angle.cos()),Pf::f(angle.sin()),Pf::ONE,Pf::b(0x45af_df66)];
-                w.deliver_hit(target,&hit);
+                // The native bomb path queues accepted per-instance damage before
+                // falling back to object/crate hit messages.
+                if !w.svc.hits.queue_real(w.table,target,&hit,false,[Pf::ZERO;4],0){w.deliver_hit(target,&hit);}
             }
-            crate::moby_update::classes::bomb::blast_colored(w,&crate::moby_update::classes::bomb::GLOVE_BLAST,
-                env.hero_moby,p.map(Pf::to_f32),[0.;4],[0.,0.,1.,0.],blast.radius*2.,1,true,0,blast.color);
+            // Native bomb sprites/fireballs travel beyond the damage sphere.
+            // The renderer receives its exact centre/radius instead, below.
             w.play_sound_as(0,0,env.hero_moby,121);
         });
         if !delivered {hits.sphere(table,Pf::f(blast.radius),p,0x10,Some(env.hero_moby),&explosion);}
+        hero.melee.slam_visual=Some(crate::weapon_evo::wrench::SlamVisual {
+            centre:[p[0].to_f32(),p[1].to_f32(),p[2].to_f32()],
+            radius:blast.radius, color:blast.color.unwrap_or(0x004080ff), born:env.frame as u64,
+        });
     }
 
 }

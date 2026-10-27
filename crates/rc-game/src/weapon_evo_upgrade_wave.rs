@@ -6,6 +6,8 @@ pub struct Wave {
     pub grade: u8,
     pub born: u64,
 }
+/// Bright sky blue (#00BFFF), in the renderer's BBGGRR packing.
+pub const NANOTECH_RGB:u32=0x00ff_bf00;
 pub const LIFE: u64 = 36;
 pub const RADIUS: f32 = 3.;
 pub fn radius(grade: u8) -> f32 {
@@ -17,6 +19,7 @@ pub fn radius(grade: u8) -> f32 {
 }
 pub fn rgb(grade: u8) -> u32 {
     match grade {
+        0 => NANOTECH_RGB,
         2 => 0xff40b8,
         3 => 0x3030ff,
         4 => 0x0088ff,
@@ -59,13 +62,13 @@ impl State {
             if restored {
                 self.waves.clear();
             } else {
-                for (&before, &after) in old.iter().zip(&levels) {
+                for (item,(&before, &after)) in old.iter().zip(&levels).enumerate() {
                     if before > 0 && after > before {
                         // One earned transition produces one subtle shell, even
                         // if a single attack advances several grades.
                         self.waves.push(Wave {
                             origin: [position[0], position[1], position[2] + 0.8],
-                            grade: after,
+                            grade: if item==0 {0}else{after},
                             born: now,
                         });
                     }
@@ -127,5 +130,25 @@ mod tests {
                 prev = r;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod nanotech_upgrade_tests {
+    use super::*;
+    #[test]
+    fn health_upgrade_is_one_blue_cosmetic_burst_without_load_or_death_replay(){
+        let mut state=State::default();let mut levels=[0;37];levels[0]=1;levels[8]=1;
+        state.update(10,true,levels,[1.,2.,3.]);assert!(state.waves.is_empty());
+        levels[0]=2;state.update(11,true,levels,[1.,2.,3.]);
+        assert_eq!(state.waves.len(),1);let wave=state.waves[0];assert_eq!(wave.grade,0);
+        assert_eq!(wave.appearance(11).unwrap().1&0xffffff,NANOTECH_RGB);
+        assert_eq!(wave.origin,[1.,2.,3.8]);assert_eq!(radius(0),RADIUS);
+        state.update(11,true,levels,[1.,2.,3.]);assert_eq!(state.waves.len(),1);
+        state.update(12,false,levels,[1.,2.,3.]);assert!(state.waves.is_empty());
+        state.update(13,true,levels,[1.,2.,3.]);assert!(state.waves.is_empty());
+        levels[0]=4;levels[8]=2;state.update(14,true,levels,[1.,2.,3.]);
+        assert_eq!(state.waves.iter().map(|w|w.grade).collect::<Vec<_>>(),vec![0,2]);
+        levels[0]=1;state.update(15,true,levels,[1.,2.,3.]);assert!(state.waves.is_empty());
     }
 }

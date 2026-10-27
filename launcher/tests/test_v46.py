@@ -36,7 +36,7 @@ class V46Tests(unittest.TestCase):
         raw=doc.render(edits).replace(b'[weapon.ryno.level1]',b'[weapon.ryno.level1]\nshotgun_spread_degrees = 55')
         after=core.checked_document(convert(raw)[0])
         for pair,value in edits.items():self.assertEqual(after.entries[pair],value)
-        self.assertEqual(core.required_config(after),88)
+        self.assertEqual(core.required_config(after),89)
     def test_both_zero_axes_are_valid_and_experimental_fields_remain_last(self):
         doc=core.profile_document(self.raw);section='weapon.ryno.level1'
         result=core.checked_document(doc.render({(section,'shotgun_horizontal_spread_degrees'):'0',(section,'shotgun_vertical_spread_degrees'):'0'}))

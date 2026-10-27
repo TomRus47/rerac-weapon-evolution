@@ -1,0 +1,61 @@
+{
+  "patch": "0.1.6.106",
+  "edits": [
+    {
+      "path": "crates/rc-game/src/hero/melee.rs",
+      "before": "    pub damage_hp: f32,\n    pub burn_on_hit:bool,\n    pub slam_blast:crate::weapon_evo::wrench::SlamBlast,\n    /// Experimental blast is consumed once on the landed downward strike.\n    pub slam_blast_emitted:bool,\n    /// Native world-collision landing estimate, in simulation ticks.\n",
+      "after": "    pub damage_hp: f32,\n    pub burn_on_hit:bool,\n    pub slam_blast:crate::weapon_evo::wrench::SlamBlast,\n    /// One bounded cosmetic burst, captured from the actual damage sphere.\n    pub slam_visual:Option<crate::weapon_evo::wrench::SlamVisual>,\n    /// Experimental blast is consumed once on the landed downward strike.\n    pub slam_blast_emitted:bool,\n    /// Native world-collision landing estimate, in simulation ticks.\n",
+      "count": 1
+    },
+    {
+      "path": "crates/rc-game/src/hero/melee.rs",
+      "before": "                // falling back to object/crate hit messages.\n                if !w.svc.hits.queue_real(w.table,target,&hit,false,[Pf::ZERO;4],0){w.deliver_hit(target,&hit);}\n            }\n            crate::moby_update::classes::bomb::blast_colored(w,&crate::moby_update::classes::bomb::GLOVE_BLAST,\n                env.hero_moby,p.map(Pf::to_f32),[0.;4],[0.,0.,1.,0.],blast.radius*2.,1,true,0,blast.color);\n            w.play_sound_as(0,0,env.hero_moby,121);\n        });\n        if !delivered {hits.sphere(table,Pf::f(blast.radius),p,0x10,Some(env.hero_moby),&explosion);}\n    }\n\n}\n",
+      "after": "                // falling back to object/crate hit messages.\n                if !w.svc.hits.queue_real(w.table,target,&hit,false,[Pf::ZERO;4],0){w.deliver_hit(target,&hit);}\n            }\n            // Native bomb sprites/fireballs travel beyond the damage sphere.\n            // The renderer receives its exact centre/radius instead, below.\n            w.play_sound_as(0,0,env.hero_moby,121);\n        });\n        if !delivered {hits.sphere(table,Pf::f(blast.radius),p,0x10,Some(env.hero_moby),&explosion);}\n        hero.melee.slam_visual=Some(crate::weapon_evo::wrench::SlamVisual {\n            centre:[p[0].to_f32(),p[1].to_f32(),p[2].to_f32()],\n            radius:blast.radius, color:blast.color.unwrap_or(0x004080ff), born:env.frame as u64,\n        });\n    }\n\n}\n",
+      "count": 1
+    },
+    {
+      "path": "crates/rc-game/src/weapon_evo_wrench.rs",
+      "before": "        color:super::extra_color(8,\"slam_explosion_color\")}}\n}\n\n\n/// Cosmetic geometry uses native anchors and the attack's captured hit radius.\n/// Color follows the active grade, using the same BBGGRR packing as other FX.\n",
+      "after": "        color:super::extra_color(8,\"slam_explosion_color\")}}\n}\n\n\n/// Render-only snapshot of one slam. Its maximum visible radius equals the\n/// collision query radius; it cannot create damage, actors, lights or particles.\n#[derive(Clone, Copy, Debug, PartialEq)]\npub struct SlamVisual {\n    pub centre:[f32;3],\n    pub radius:f32,\n    /// BBGGRR, matching the game's packed explosion palette.\n    pub color:u32,\n    pub born:u64,\n}\nimpl SlamVisual {\n    pub const LIFE:u64=24;\n    pub fn appearance(self, now:u64)->Option<(f32,u32)> {\n        let age=now.checked_sub(self.born)?;\n        if age>=Self::LIFE || !self.radius.is_finite() || self.radius<=0. {return None;}\n        // Reach the actual hit boundary quickly, hold it, then fade in place.\n        // Never add sprite padding or expand beyond the configured hit radius.\n        let expansion=((age+1) as f32/6.).min(1.);\n        let fade=1.-age as f32/Self::LIFE as f32;\n        Some((self.radius*expansion,((fade*96.).round() as u32)<<24 | (self.color&0xffffff)))\n    }\n}\n\n/// Cosmetic geometry uses native anchors and the attack's captured hit radius.\n/// Color follows the active grade, using the same BBGGRR packing as other FX.\n",
+      "count": 1
+    },
+    {
+      "path": "crates/rc-game/src/weapon_evo_wrench.rs",
+      "before": "#[cfg(test)]\n#[path=\"weapon_evo_slam_damage_tests.rs\"]\nmod slam_damage_tests;\n",
+      "after": "#[cfg(test)]\n#[path=\"weapon_evo_slam_damage_tests.rs\"]\nmod slam_damage_tests;\n\n#[cfg(test)]\nmod slam_visual_tests {\n    use super::*;\n    #[test]\n    fn visual_reaches_exact_hit_radius_and_never_exceeds_it() {\n        for radius in [0.1,0.5,1.,3.,8.,30.] {\n            let visual=SlamVisual{centre:[10.,20.,0.05],radius,color:0x123456,born:100};\n            assert!(visual.appearance(99).is_none());\n            let mut maximum=0.0f32;\n            for now in 100..100+SlamVisual::LIFE {\n                let (visible,rgba)=visual.appearance(now).unwrap();\n                assert!(visible>0. && visible<=radius);\n                assert_eq!(rgba&0xffffff,0x123456);assert!(rgba>>24<=96);\n                maximum=maximum.max(visible);\n            }\n            assert_eq!(maximum,radius);\n            assert!(visual.appearance(100+SlamVisual::LIFE).is_none());\n        }\n    }\n    #[test]\n    fn invalid_radius_is_never_rendered() {\n        for radius in [0.,-1.,f32::NAN,f32::INFINITY] {\n            assert!(SlamVisual{centre:[0.;3],radius,color:0,born:0}.appearance(0).is_none());\n        }\n    }\n}\n",
+      "count": 1
+    },
+    {
+      "path": "crates/rc-engine/src/upgrade_wave_render.rs",
+      "before": "//! Filled, translucent bursts for earned weapon and Nanotech upgrades. They use\n//! renderer-owned meshes only: no explosion actors, hitboxes or point lights.\nuse crate::fx_draw::{FxAssets, FxGroup, FxSlots, PrimBuf};\nuse bevy::prelude::*;\nuse rc_game::weapon_evo::upgrade_wave::State;\n",
+      "after": "//! Filled, translucent bursts for earned weapon and Nanotech upgrades. They use\n//! renderer-owned meshes only: no explosion actors, hitboxes or point lights.\n//! Slam bursts use the damage query's captured centre and maximum radius.\nuse crate::fx_draw::{FxAssets, FxGroup, FxSlots, PrimBuf};\nuse bevy::prelude::*;\nuse rc_game::weapon_evo::upgrade_wave::State;\n",
+      "count": 1
+    },
+    {
+      "path": "crates/rc-engine/src/upgrade_wave_render.rs",
+      "before": "        [position[0], position[1], position[2]],\n    );\n    let mut prims = PrimBuf::default();\n    for &wave in &gfx.state.waves {\n        let Some((radius, rgba)) = wave.appearance(now) else {\n            continue;\n        };\n        // Filled, evenly colored spherical surface. A neutral texel preserves\n        // exact grade RGB; regular alpha blending keeps the world visible.\n        let point = |latitude: f32, longitude: f32| {\n            let c = latitude.cos();\n            [\n                wave.origin[0] + radius * c * longitude.cos(),\n                wave.origin[1] + radius * c * longitude.sin(),\n                wave.origin[2] + radius * latitude.sin(),\n            ]\n        };\n        for row in 0..12 {\n",
+      "after": "        [position[0], position[1], position[2]],\n    );\n    let mut prims = PrimBuf::default();\n    let upgrades=gfx.state.waves.iter().filter_map(|&wave|\n        wave.appearance(now).map(|(radius,rgba)|(wave.origin,radius,rgba)));\n    let slam=play.game.hero.melee.slam_visual.filter(|_| !play.death_pending && play.game.hero.health>0)\n        .and_then(|visual|visual.appearance(now).map(|(radius,rgba)|(visual.centre,radius,rgba)));\n    for (origin,radius,rgba) in upgrades.chain(slam) {\n        // Filled, evenly colored spherical surface. A neutral texel preserves\n        // exact grade RGB; regular alpha blending keeps the world visible.\n        let point = |latitude: f32, longitude: f32| {\n            let c = latitude.cos();\n            [\n                origin[0] + radius * c * longitude.cos(),\n                origin[1] + radius * c * longitude.sin(),\n                origin[2] + radius * latitude.sin(),\n            ]\n        };\n        for row in 0..12 {\n",
+      "count": 1
+    },
+    {
+      "path": "crates/rc-engine/src/upgrade_wave_render.rs",
+      "before": "        &mut assets,\n        groups,\n        crate::fx_draw::LIST1_BIAS + 52.,\n        \"Weapon upgrade explosion\",\n    );\n}\n",
+      "after": "        &mut assets,\n        groups,\n        crate::fx_draw::LIST1_BIAS + 52.,\n        \"Upgrade and wrench blast visuals\",\n    );\n}\n",
+      "count": 1
+    },
+    {
+      "path": "crates/rc-engine/src/disc_source.rs",
+      "before": "\"weapon_evolution_patch\":\"0.1.6.105\"",
+      "after": "\"weapon_evolution_patch\":\"0.1.6.106\"",
+      "count": 2
+    }
+  ],
+  "files": [
+    {
+      "path": "crates/rc-game/src/weapon_evo_slam_damage_tests.rs",
+      "file": "weapon_evo_slam_damage_tests.rs",
+      "sha256": "02e40a995a9236e825b3cd15c6ad764b5919157828c3bbc2a5fb124acb935737",
+      "before_sha256": "bd8aa4ef088f309de24e52021e987ff06e2db7503425f61dd1daa5ed2456141e"
+    }
+  ]
+}

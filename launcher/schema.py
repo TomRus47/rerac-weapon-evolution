@@ -670,3 +670,9 @@ HELP.update({'burn_on_hit':'All accepted wrench attacks ignite a finite visual b
     'slam_explosion_radius':'Actual world-space damage radius. Visual blast size follows it.',
     'slam_explosion_color':'Independent bomb-style explosion palette: default or RRGGBB. Does not change other weapons.',
     'weapon_bar_alternative_position':'Place the weapon XP bar between the name and ammo panels. The ammo panel moves down to leave a clear gap; the bar keeps the same outer width. Off uses the original position below ammo.'})
+
+# HUD stacking is independent from bar position and opacity.
+HUD.add('weapon_bar_behind_hud')
+BOOLEANS.add('weapon_bar_behind_hud')
+LABELS['weapon_bar_behind_hud']='Draw weapon XP bar behind HUD'
+HELP['weapon_bar_behind_hud']='On draws the weapon XP bar behind the name, grade and ammo icons. Off draws it in front. Position, damage and progression remain unchanged.'

@@ -1,6 +1,6 @@
 # Weapon Evolution source map
 
-Unreleased development snapshot: gameplay 0.1.6.102, launcher 0.28.7, ReRAC 0.3.6-alpha. The complete supplied workspace is included; the reviewed entries cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
+Unreleased development snapshot: gameplay 0.1.6.106, launcher 0.28.9, ReRAC 0.3.6-alpha. The complete supplied workspace is included; the reviewed entries cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
 
 Start with the [current implementation](docs/mod/CURRENT_IMPLEMENTATION.md), [saved controls](docs/mod/SAVED_CONTROLS.md), [developer guide](docs/mod/DEVELOPER_GUIDE.md) and [credits](docs/mod/CREDITS.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). The historical snapshot patch remains an account of the original export, not a complete current delta.
 
@@ -937,3 +937,13 @@ These files are included in the current reviewed source map:
 - `docs/mod/randomizer_catalog_snapshot.json`
 - `docs/mod/randomizer_locations.csv`
 - `launcher/tests/test_randomizer_schema.py`
+
+## Current wrench blast follow-up
+
+- `crates/rc-game/src/weapon_evo_slam_damage_tests.rs`: collision, HP, object-hit, XP and visible-volume contracts.
+- `hero/melee.rs`, `weapon_evo_wrench.rs`, `collision_query.rs` and `collision_query/mobys.rs`: one captured blast identity, ground probing, render snapshot and safe grid-boundary traversal.
+- `crates/rc-engine/src/upgrade_wave_render.rs`: translucent weapon/Nanotech upgrade bursts and the radius-matched slam visual.
+- `tools/mod/create_slam_visual_test_kit.py`, `slam_visual_update.py`, `v106_slam_manifest.json`, `package_slam_visual.py`: reproducible, exact-block v105-to-v106 Windows test kit with rollback and local ZIP creation.
+- `launcher/tests/test_slam_visual_update.py`: incremental installation, preflight and rollback fixtures.
+
+See [v106 implementation notes](docs/mod/SLAM_VISUAL_V106.md). Historical snapshot patches and v102 tools describe their own original baselines.

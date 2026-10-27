@@ -2131,6 +2131,12 @@ impl<'a> World<'a> {
         sphere_mobys_in(self.table, self.svc, self.classes, r, centre, flags, ignore, tmpl)
     }
 
+    /// Preserve ground-blast geometry when its sphere crosses a world boundary.
+    pub fn ground_blast_targets(&self,r:Pf,centre:V4,ignore:Option<MobyId>)->Vec<MobyId>{
+        let src=self.svc.scene_parts(self.table,self.classes);let scene=self.svc.scene(&src);
+        crate::collision_query::mobys::coll_sphere_mobys_clipped(&scene,ph::to_f32x3(centre),fl(r),QueryFlags(0x10),ignore)
+    }
+
     pub fn class_scale(&self, o_class: i16) -> Pf {
         self.classes.info(o_class).map(|c| pf(c.scale)).unwrap_or(Pf::ZERO)
     }

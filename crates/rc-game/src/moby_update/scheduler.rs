@@ -454,6 +454,7 @@ impl Scheduler {
         crate::weapon_evo::discovery::tick(w);
         crate::weapon_evo::golden::tick(w);
         crate::weapon_evo::randomizer::tick(w);
+        super::feedback::after(w);
         // The points the moby-riding particles (types 26 / 55) follow in the UpdateParts that comes next.
         w.refresh_particle_anchors();
         // `HudBoltAlertShow` 0x227d90 (the hero's frame, after the moby pass): classes::buried_bolts.

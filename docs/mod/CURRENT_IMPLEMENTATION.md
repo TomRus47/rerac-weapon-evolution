@@ -1,6 +1,6 @@
 # Current implementation map
 
-Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.102 and launcher 0.28.7. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
+Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.106 and launcher 0.28.9. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
 
 | Area | Primary source | Responsibilities |
 | --- | --- | --- |
@@ -29,3 +29,7 @@ The complete supplied workspace includes rc-game2 because ReRAC 0.3.6-alpha incl
 See [the implementation and local test guide](FEEDBACK_HUD_V102.md). Accepted HP loss, not native stun entry, feeds `moby_update/feedback.rs`. That module owns temporary tint/burn-cycle state; it does not mutate HP, damage clocks, XP or class AI. Standard wrench visual/HUD settings and experimental slam settings share the ordinary per-grade schema/migration. The independent blast retains native bomb hit identity and wrench XP ownership. HUD geometry lives in `hud.rs` and `hud/xp_bar.rs`, with text drawing in `hud_render.rs`. Randomizer display classes and safe poses are separate from its persisted layout and collection logic.
 
 The supplied v97–v101 changes are synchronized here too: surveyed route rules and legacy seed loading, independent Thruster-Pack moves, discovered-ammo policy, access-only explosive/Gemlik generation checks, moving Comet Strike, and the current live-apply/randomizer launcher UI. New development defaults add controls only; all previous balance values are retained. Published release metadata and assets are not changed.
+
+## v103–v106 follow-up fixes
+
+[Wrench blast geometry and upgrade feedback](SLAM_VISUAL_V106.md) documents the confirmed local fixes now synchronized to main: normal-tick feedback and immediate finite ignition, complete HUD batch/index insertion, once-only grounded slam damage and forward impact probing, bright blue Nanotech XP upgrade bursts, and a bounded slam visual using the exact damage sphere. Source index and tests include the incremental Windows updater; personal profiles and saves are not overwritten.

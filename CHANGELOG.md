@@ -1,3 +1,14 @@
+# Unreleased — v106 follow-up
+
+Gameplay **0.1.6.106**, capability **89**, launcher **0.28.9**, ReRAC **0.3.6-alpha**. Source/main update only; public version remains **0.3**. Existing release/tag/downloads are unchanged.
+
+- Match the experimental wrench slam's maximum visible radius and centre to the actual damage sphere. Replace unbounded decorative bomb particles with a filled, independently colored translucent burst; preserve HP damage, XP, impact sound and once-per-attack behavior.
+- Include the confirmed local slam fixes: forward surface probing, five-tick lead, native bomb object messages, accepted per-instance wrench damage and safe moby-grid queries at ground/world boundaries.
+- Include normal-frame red damage feedback, finite non-stacking burns and immediate fire on accepted hits before one-hit victims disappear.
+- Include complete HUD batch/index preservation and localized, independent bar position/stacking controls. Keep saved values and additive migration stable.
+- Show one bright sky-blue explosion when earned Nanotech XP increases maximum health; retain the established weapon-grade upgrade colors and sizes.
+- Add collision/HP/XP/visual-radius regressions, reproducible transactional Windows delta tools, profile migration coverage and English implementation/build documentation.
+
 # Unreleased — Weapon Evolution 0.3 development snapshot
 
 Gameplay 0.1.6.83; configuration capability 84; launcher 0.27.1; ReRAC 0.3.6-alpha. Main/source update only; previous release tag and assets unchanged.

@@ -34,7 +34,7 @@ class PursuitUiTests(unittest.TestCase):
             self.assertIn(language,i18n.FIELD_LABELS[KEY]);self.assertIn(language,i18n.HELP_TEXT[KEY])
 
     def test_local_test_refuses_the_old_runtime_before_creating_a_session(self):
-        for env,minimum in [({},88),({'RC_WEAPON_LOCATION_TEST':'1'},88)]:
+        for env,minimum in [({},89),({'RC_WEAPON_LOCATION_TEST':'1'},89)]:
             with patch.object(core,'probe_exe',side_effect=ValueError('stop at probe')) as probe:
                 with self.assertRaisesRegex(ValueError,'stop at probe'):
                     core.launch_game(Path('kit'),profile(),'default',Path('runtime/rerac.exe'),Path('data'),env=env)

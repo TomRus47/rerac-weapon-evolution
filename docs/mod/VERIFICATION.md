@@ -1,3 +1,23 @@
+# Current v106 development verification
+
+ReRAC **0.3.6-alpha**, patch **0.1.6.106**, capability **89**, launcher **0.28.9**. Main/source update and local test kit only; no new release or tag.
+
+## Executed checks
+
+- **1,324 rc-game library tests passed**. The wrench regression drives the actual ground-blast query, moby grid and native Novalis enemy update at elevated terrain and world z=0: a configured 200-HP blast removes 200 HP once, awards 24 wrench XP at the fixture's explicit rate, sends nearby crates the native bomb hit and leaves a distant enemy untouched. It also binds the visual's centre/radius to that damage snapshot and rejects unbounded native blast particles.
+- Visual lifetime/radius tests cover configured radii 0.1, 0.5, 1, 3, 8 and 30 units: each reaches the exact query radius, never exceeds it, retains its palette and expires. Invalid/non-finite radii do not draw. The existing Nanotech regression covers one blue XP-upgrade burst and load/death/reset suppression.
+- **178 Python launcher/profile/update tests passed**, including additive/idempotent HUD migration, explicit Off retention, approved balance preservation, five-language labels/help and four v106 exact-block preflight/rollback/installation tests.
+- Complete **rc-engine Rust typecheck, including test targets, passed**. The HUD regression verifies that inserted primitives retain the correct fine-coordinate/additive indices; it is compiled by this check but is not executed as a linked engine test on this host.
+- The reviewed source hash index, generated configuration reference and source-export checks are refreshed. The delta ZIP is recreated from tracked source, verifies its payload hash and passes ZIP integrity checks.
+
+## Environment and limits
+
+Library tests use Linux Rust, the locked dependency graph, no default features and the BFD linker. Native Wayland/ALSA/udev SDK metadata is unavailable; the engine check uses a temporary, typecheck-only pkg-config stub. This proves Rust types, **not native availability, ABI compatibility or a linked Windows/Linux engine**. The stub is not shipped or committed.
+
+The v106 Windows updater requires installed v105 sources and reruns the actual game tests/native release build before replacing the playable runtime. It retains the confirmed **0.28.9** launcher, INI, presets, saves and icon. A full repository checkout is built through the normal root scripts instead. In-game appearance, damage-boundary perception, lighting and native Windows execution still require playtesting. The user confirmed damage, fire and HUD fixes from the previous local build; v106's visual change is newly supplied for testing.
+
+Historical verification records follow; their counts and versions describe their own snapshots.
+
 # Current v102 development verification
 
 ReRAC 0.3.6-alpha, patch 0.1.6.102, capability 88, launcher 0.28.7. Main/source update and local test kit only; no new release or tag.

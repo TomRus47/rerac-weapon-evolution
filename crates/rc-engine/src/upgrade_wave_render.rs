@@ -1,5 +1,6 @@
-//! Filled, translucent spherical bursts for earned weapon upgrades. They use
+//! Filled, translucent bursts for earned weapon and Nanotech upgrades. They use
 //! renderer-owned meshes only: no explosion actors, hitboxes or point lights.
+//! Slam bursts use the damage query's captured centre and maximum radius.
 use crate::fx_draw::{FxAssets, FxGroup, FxSlots, PrimBuf};
 use bevy::prelude::*;
 use rc_game::weapon_evo::upgrade_wave::State;
@@ -42,8 +43,11 @@ fn draw(
         return;
     };
     let now = play.game.counter;
-    let levels =
+    let mut levels =
         std::array::from_fn(|i| play.svc.bomb_evo.weapon_level(i as i32).unwrap_or(0) as u8);
+    if play.svc.bomb_evo.world_settings.enemy_damage_by_health {
+        levels[0]=(play.svc.bomb_evo.nanotech.bonus+1).min(255) as u8;
+    }
     let position = play.game.hero.pos.map(|n| n.to_f32());
     gfx.state.update(
         now,
@@ -52,18 +56,19 @@ fn draw(
         [position[0], position[1], position[2]],
     );
     let mut prims = PrimBuf::default();
-    for &wave in &gfx.state.waves {
-        let Some((radius, rgba)) = wave.appearance(now) else {
-            continue;
-        };
+    let upgrades=gfx.state.waves.iter().filter_map(|&wave|
+        wave.appearance(now).map(|(radius,rgba)|(wave.origin,radius,rgba)));
+    let slam=play.game.hero.melee.slam_visual.filter(|_| !play.death_pending && play.game.hero.health>0)
+        .and_then(|visual|visual.appearance(now).map(|(radius,rgba)|(visual.centre,radius,rgba)));
+    for (origin,radius,rgba) in upgrades.chain(slam) {
         // Filled, evenly colored spherical surface. A neutral texel preserves
         // exact grade RGB; regular alpha blending keeps the world visible.
         let point = |latitude: f32, longitude: f32| {
             let c = latitude.cos();
             [
-                wave.origin[0] + radius * c * longitude.cos(),
-                wave.origin[1] + radius * c * longitude.sin(),
-                wave.origin[2] + radius * latitude.sin(),
+                origin[0] + radius * c * longitude.cos(),
+                origin[1] + radius * c * longitude.sin(),
+                origin[2] + radius * latitude.sin(),
             ]
         };
         for row in 0..12 {
@@ -115,6 +120,6 @@ fn draw(
         &mut assets,
         groups,
         crate::fx_draw::LIST1_BIAS + 52.,
-        "Weapon upgrade explosion",
+        "Upgrade and wrench blast visuals",
     );
 }

@@ -44,6 +44,16 @@ pub fn accepted(w:&mut World,hit:HitRecord){
     }
     let fade=w.ticks(15).max(1)as u64;
     w.svc.hits.real_hp.feedback.accept(hit.target,class,uid,w.counter,fade,fire);
+    // Emit immediately: a lethal accepted hit may delete the actor before the
+    // scheduler's post-update visual pass can observe it.
+    if fire {
+        let due=w.svc.hits.real_hp.feedback.victims.get(&hit.target)
+            .is_some_and(|v|w.counter>=v.next_burn);
+        if due {
+            let life=super::creature::knock::burn_sparks_cycle(w,hit.target,[0.;4],u32::MAX).max(1);
+            if let Some(v)=w.svc.hits.real_hp.feedback.victims.get_mut(&hit.target){v.next_burn=w.counter+life as u64;}
+        }
+    }
 }
 pub fn before(w:&mut World){w.svc.hits.real_hp.feedback.restore(w.table);}
 pub fn after(w:&mut World){
