@@ -158,9 +158,8 @@ fn setup(
             } else {
                 -1
             }));
-        // Flag-only rewards have no inventory mesh. The explicit Gold Bolt
-        // proxy is imported with its textures, never left invisible.
-        let native_class=if key>=1000 && native_class<=0{1134}else{native_class};
+        // Flag-only rewards use a textured ammo-crate display, not a native actor.
+        let native_class=if key>=1000 && native_class<=0{511}else{native_class};
         // Drone Device's inventory definition names the Hologuise model. Its
         // actual shield drone is a resident level class, also used by the native
         // pause-menu preview. Never substitute the unrelated inventory mesh.

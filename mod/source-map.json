@@ -1,6 +1,6 @@
 {
-  "gameplay_version": "0.1.6.95",
-  "launcher_version": "0.28.2",
+  "gameplay_version": "0.1.6.102",
+  "launcher_version": "0.28.7",
   "files": [
     {
       "path": ".github/workflows/windows-release.yml",
@@ -21,7 +21,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "623a3265889bfb3ea2520a682f7b45032f9ae1de49cb1c3ae2535e68529fffcb"
+      "sha256": "cce2c3479bfcf6b6f4c434c1b195628ca914a9d6e67ac6f13192359bc02c4e18"
     },
     {
       "path": "Cargo.lock",
@@ -42,14 +42,14 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "ffe394d61c678dc7fa7f411fe939db584f35c147caee7070935284cd235131a1"
+      "sha256": "ddadee42eb999e0fdeaf25f95cb823e54a5dd3ef6575249e52b736aa71bd4d4a"
     },
     {
       "path": "README.md",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "137a27bb3c521f00164843c90d1c2e6ff047a9a432969d6dd147f95835fdfbba"
+      "sha256": "7590b6847242e890b6d41821c4aa644ea61a2a790a668b3a4a10effe0592f18e"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -102,14 +102,14 @@
     },
     {
       "path": "crates/rc-engine/src/companion_assets.rs",
-      "sha256": "cb1025f0a7be41eb7c720a81bc952a1538ec3cccac578e5853f877aed22d3e6a",
+      "sha256": "349b06858b77a7fa9bd89e05c29156f3b902ca9ddffbdb3ca5c3edf3a2aa1c3f",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "crates/rc-engine/src/disc_source.rs",
-      "sha256": "fdd9c8a305f8f51704d57400ea102968a4b7e074cbdf7cadbcf8a47911ba0de8",
+      "sha256": "c6745ae485800286079040c2cbbd249ee86daa0b2ab27cbb1af4f0a8302e2166",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -120,7 +120,7 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "486138082aeb8ae940d434c88fa5aba9aa62d3585c10a7c634dbe9b31b28880f"
+      "sha256": "62440107a5aea0917bb6b9de718f7fb100e188ae72d6e747ce7d2f9de22260b8"
     },
     {
       "path": "crates/rc-engine/src/display_blend.rs",
@@ -189,7 +189,7 @@
     },
     {
       "path": "crates/rc-engine/src/hud_render.rs",
-      "sha256": "abdd11e6dc9f87d78ee8862a6557743f0010aabffd8d1e236f230f717ca15c95",
+      "sha256": "353ad81b8929efc87e078ef5a48883738cb40c6b58282f9fd263ace994f88f45",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -791,7 +791,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "311a0a57279bd7b6cf0951d215cf9327e49f6b861bde139b365f66c1249c2d05"
+      "sha256": "22725693729e6c008d81a4f56263dcd9fc62b5880649975b7437c813af30ca34"
     },
     {
       "path": "crates/rc-game/src/hero/damage.rs",
@@ -855,7 +855,7 @@
     },
     {
       "path": "crates/rc-game/src/hero/items.rs",
-      "sha256": "547d03640f071e37063678454dfcc84960628951f418679e0a11bd91612ba805",
+      "sha256": "68dba905e91a2944d8f0ecbd20705c63d2b88b5f2590c12a1a003d96f8b0fd8a",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -863,7 +863,7 @@
     },
     {
       "path": "crates/rc-game/src/hero/jump.rs",
-      "sha256": "01e50a0c6e06e246590fb8632480f3f61ec1809ab5911a6b8e31a8ad06fba2e5",
+      "sha256": "7f76f57569cb7637747cfc5eb00000b9fb525cc97c8a6b63c81ca448fde8aadf",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -871,7 +871,7 @@
     },
     {
       "path": "crates/rc-game/src/hero/melee.rs",
-      "sha256": "8a830161816d5a94dc749eb87c7406b647dcf480d26a5734ea9bcc8e8b979150",
+      "sha256": "f2f7c59b023c09db1cdcecd9e18dfc82006af1b20564456446879fa38f8613c8",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -1001,7 +1001,7 @@
     },
     {
       "path": "crates/rc-game/src/hud.rs",
-      "sha256": "ac64349e1e464a97b620caa8707c4886db829074dcb2e2375ee1478db8c6d929",
+      "sha256": "692029bd95399200fb16f404078e5fd2b011d1d46990d4d75b51c7d047594722",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -1026,7 +1026,7 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "945671695f5adad458b27ce6fafa42cfbe1339fee018064f043423e22bedfc09"
+      "sha256": "76d8afd3623eddfef10788df24fd3bfb52d5f55093201c3ac8ef2d158f2d9433"
     },
     {
       "path": "crates/rc-game/src/lib.rs",
@@ -1172,7 +1172,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update.rs",
-      "sha256": "159e9d0b1ccbe86588c675bbabd4618e18d3bb6342984acfd4e7023620bb2fc9",
+      "sha256": "155ddbd878b06495290e8ccdce90fe50e3396a97207801e9e0d4991330796417",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -1202,7 +1202,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/bomb.rs",
-      "sha256": "84683cf661f6e6777912eec5478efd675a5838fcd6f70d70ba4cac1e94cd41d1",
+      "sha256": "217667d08a212ef89ed0f1e8e213e9bdfafb3ecbc06154d7994f9155e5b2d618",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -1363,7 +1363,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/pickup.rs",
-      "sha256": "a6ecf5969c628e3d7690f464d2fff533adc598d87ac5876ab2b8180ff378872d",
+      "sha256": "e75bbc229b3bec9332badcf3bb445b45ee768454eda9226c54eebcaf10bc7fa0",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -2160,7 +2160,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/creature/damage.rs",
-      "sha256": "b6ff013f83b9a70c9cfdb60e3446f44daf07dd22349b0582de20846a73d39fa8",
+      "sha256": "18b80acc52306f3ca4a763165f10e98cbffb8a10ceb5ad1e8ead65935c2724f3",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -2189,7 +2189,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/creature/knock.rs",
-      "sha256": "31eac1dc03eb6a9da6cd6db6e8089d29a1f85c0d64ff3f4b637a9d78ae24ba8d",
+      "sha256": "3673b798cab170b36572c56f7cfbdd5add143f605d437b315db5925c5487ef74",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -2219,6 +2219,13 @@
       ]
     },
     {
+      "path": "crates/rc-game/src/moby_update/feedback.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "5ac06706e9043029c3a0aab5b7a2f0e99c33ef40e88fff4a6c7bacd5b5ab4df0"
+    },
+    {
       "path": "crates/rc-game/src/moby_update/interact.rs",
       "sha256": "01e32a5ff8dfc85e6758f96649b91278a55b543f41c025ea15326d00d0343909",
       "reasons": [
@@ -2227,14 +2234,14 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/real_hp.rs",
-      "sha256": "3baf41e503211edbd8440062e191f936d5fd2c0f474bf823e6ddbc7adb69e05a",
+      "sha256": "932eb1caa077c6330ca1d5755cfc19adb7912281e648d716b09af38fa89e9697",
       "reasons": [
         "added since supplied snapshot"
       ]
     },
     {
       "path": "crates/rc-game/src/moby_update/scheduler.rs",
-      "sha256": "c3cd52050209af2382f7ba83c3e445d23fd2225836df163f2a3a51ca0fd52b59",
+      "sha256": "8ccda3bfdfbf1877159c217ee5350d7ecb3259cd7f00570b8d83da09356cb2bd",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -2364,7 +2371,7 @@
     },
     {
       "path": "crates/rc-game/src/weapon_evo.rs",
-      "sha256": "1f9577f7606878285b25decfeb712c0e588c4089faf58c86230b97792a608a42",
+      "sha256": "6df427d74ef7fe673a705064768a24b9a2b4884f0cd3deead39d70b6f294ffeb",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -2425,14 +2432,14 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "e10b4f6c191929f90a8d086182c7439a606996f0bebede3c0c14c3938645f281"
+      "sha256": "5ca04f41bcfa472580cb01d64107c98d9a385273d781df9c86f30cde684c939e"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_golden/layout.rs",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "0bdae530857f1c5644d3e550fd76614cf1574cd2496aeee3005c7fb04368b34c"
+      "sha256": "dafdbcf40c25206fa7a1dea4bc8284e5ecd7319f0bac40fe9a1c70aa932b5520"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_golden/locations.rs",
@@ -2495,14 +2502,14 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "246862db72408ef4079e073e59c564f7ef1a98091845219b23acdabdb2523711"
+      "sha256": "04693fd5be4dd08cb77ab9296f8f7d104e322d90cfc925981c6c2d1912222819"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_population.rs",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "b5611e89090ffa19f1b0a22f04b27d9a1a97a7e141d3aa27dc0e717993f97c72"
+      "sha256": "642f8daf8c8e31d3a34efd75c1008963fd86d86946a9c45e80115cac894817db"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_quick_select.rs",
@@ -2516,18 +2523,18 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "793a4c1a03437cf859d00a9cec718aac62a173c4c557f9856a4b8e03e753202d"
+      "sha256": "794b7da610fcc7229fca2ccdfcea4432046a26e00bcfbf6a5faf4a5e20c4ea03"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_randomizer/catalog.rs",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "c48ccf315ff48b2a2c37e6232e3aeed3391cb87cc0dd49d59a16652ab2cd8cb0"
+      "sha256": "889f791a45f49d191236b639acb4368af345f0138ad1c6d1262e2723f518d1d7"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_release.ini",
-      "sha256": "8a38ab217e270bd5fd690ee663079eeac9c9cb363985e75649eeff9a94613694",
+      "sha256": "98c6c51a207d8d4a7ab04774cf39d7077b5f31e75cae16279ed72669186983b7",
       "reasons": [
         "added since supplied snapshot",
         "Weapon Evolution configuration or module"
@@ -2582,7 +2589,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "e5a2348b5f0b443e64f53a4a67ac9b44b7aa046be13a4036e4752cd66bb0eea4"
+      "sha256": "4aa27de056358cad214c870d763f5e8ed00eb6cd3a4c2576ce62469e1f7e8f16"
     },
     {
       "path": "crates/rc-game/src/weapon_reach.rs",
@@ -2625,7 +2632,7 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "a0ed2ceee07342d771c736192dc68447b12557e2a2551f25384635855e318350"
+      "sha256": "942e9ad0f6d3d524e05fe7a1717a8cdc4e79da1607a44124d6cd34effd204fa5"
     },
     {
       "path": "crates/rc-game/tests/hero/hero_surfaces.rs",
@@ -2667,7 +2674,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "3421742c0c7b42bea8c0aefad739dbcf95fd4494774f6bb32bb1628ebdc8b7db"
+      "sha256": "daa56d53c0dc5623c2a37bd04926f94a0175c6eeb59441bef8aaac5b6939e279"
     },
     {
       "path": "crates/rc-game/tests/ui/gemlik_generalisation.rs",
@@ -2821,7 +2828,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "a5c1801fc7a96ccc68d7c2f6a42e4ec8600088c51c49457cb389b88e28eae0ed"
+      "sha256": "a1bda313a7197294efa4df9d60928a03569fded73da1650429da06567d4b9ecc"
     },
     {
       "path": "docs/mod/CREDITS.md",
@@ -2835,7 +2842,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "f6cebe781887c3854a31eda6088890cbd0f852d8502ea94cfda0ed52d4132c43"
+      "sha256": "d607afa2972aa49242751783b645bf0fbcacd52b05a977d9250348af6c8094d1"
     },
     {
       "path": "docs/mod/DEVELOPER_GUIDE.md",
@@ -2843,6 +2850,13 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "1e5c2ae044274527d6ab78812d27a3dafb98f55304d65d8698d39bf8c47e7c38"
+    },
+    {
+      "path": "docs/mod/FEEDBACK_HUD_V102.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "9bb632d86d41039456cfc1100007da905b68ee39af6ff080a065321c9e3cb8b9"
     },
     {
       "path": "docs/mod/FLAME_MINE_MODEL_SCALE.md",
@@ -2898,7 +2912,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "28f771981b3c58a4a5296da06a4a6c2f01cb21b96402c46436eb3554489b8843"
+      "sha256": "632c3dfccd084fdc9c90697fd5af7f2ad78483c702c7b493c40ea2dd6745a646"
     },
     {
       "path": "docs/mod/SAVED_CONTROLS.md",
@@ -2912,7 +2926,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "54b0909a373f108ba1d4d7359b1e0f2ca85c3c041ef8d142e0a38acfbac8235a"
+      "sha256": "a549a72ad11cf1d91bfbbd338c5afa2f531b3371ba4d9a52c79e9fda42d1b0c4"
     },
     {
       "path": "docs/mod/VISIBOMB_GRENADES_V53.md",
@@ -2940,14 +2954,14 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "09d5534cd5b00197da81016c0073706093b34e466d006202f62416afdf2156e1"
+      "sha256": "2d3566a0352acba6579aca67411e37899181a77331ecc949ac659d03693b1719"
     },
     {
       "path": "docs/mod/randomizer_locations.csv",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "e55abd6a6c6d63923df87decd5de36ccaa00b31ca292eeeb6dafa97efb5652df"
+      "sha256": "3a7307e66ea44aee942a7ee6931193227c402c5b8bb1a17be0f1784ef58e596d"
     },
     {
       "path": "docs/releases/v0.3.3.md",
@@ -3014,7 +3028,7 @@
     },
     {
       "path": "launcher/editabile.py",
-      "sha256": "badf37efbb59a0707a2a64813ef36f2100d4e73783715327bd8c8ddaa07e9328",
+      "sha256": "4bd4ac360f2f7df321e5a275ae800f6e97f25443b798ec843ea2aa0229169389",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -3031,7 +3045,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "3715bc93851c8a0c1ad5cf3d97af1ec7dbdbb43afaa0725e310222816acc8ea2"
+      "sha256": "1027cbe5d68ffaa1a53e3736b131931bbcc1c2c44fb1f785f7dde521abf033f7"
     },
     {
       "path": "launcher/icon_assets.py",
@@ -3049,28 +3063,28 @@
     },
     {
       "path": "launcher/launcher.py",
-      "sha256": "4bf221bd2a2358ad30a2d1be752f58f20e37ca902a4162bf7accf375ba308870",
+      "sha256": "48967da3b97c4a318671ad2e1ae5aace1fbb9ee2b6298826455fc9c1d2d2f827",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/launcher_core.py",
-      "sha256": "9cd62fe288a1323e6d41b8a67a707091b91b3931368fe9e90a78193c96a3cd47",
+      "sha256": "8965465c42035a971109fe894b1684fb1b654907d92ccffe066ec2f92e42cbd7",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/migrate_ini.py",
-      "sha256": "d02a9a71807bcf21124107aaabeda1025b29ebdfa67e1cfa5ce5e4a9659d7556",
+      "sha256": "d916d9561684ce1a62451952dbaec6d3c291637a346f5b864010675b97aef9df",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/schema.py",
-      "sha256": "43049ade54e50cb1c7f4732adb418006199c986ef6f9fc5459a82262874536be",
+      "sha256": "85e5f1631a93ae212fa06b415de01e9cd60df64bdfb59f0c719a6121e44e9df8",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -3080,11 +3094,11 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "5f2c364023b3308e0cd6d8647126bc8ad76209e0ff3d76755980963084686f78"
+      "sha256": "076fdbdc7ba37c7c7bba7093424f6ad3a5b12a28806d4248bf9f952992155b28"
     },
     {
       "path": "launcher/tests/test_conversion.py",
-      "sha256": "7b612f41a801dc3d6c2b35a2b61a7332b1b70be34f2b64deb4d921991e1d68e1",
+      "sha256": "1d35dc2fa71eae36b5aff3ecb420eaa4f8697212a57bac807f3ab440779ed692",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -3094,32 +3108,46 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "9c1dc3db4a7cea64ed4912189ef63cf6e16bf58bb9685e62599ffc41fe6414a5"
+      "sha256": "ddada4d7361c56b15781494022d92c52be9166b62f57f5e15e79b8039831ff6a"
     },
     {
       "path": "launcher/tests/test_encounter_ui.py",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "a5b9a137f7da607ae9ffded0d8d0952052ad1d60d03c162f579802f879927145"
+      "sha256": "8fd0c25dfa65b815505030941549da0e5ae65c5f808cb663821f3e0a4a5d2bef"
     },
     {
       "path": "launcher/tests/test_experimental.py",
-      "sha256": "32b90501af2e20ba38688f6f1c990d154f767c3a45ef78409ff2972a8d451914",
+      "sha256": "75cf127b26740d2c4e8b9a5e890c681be9c88b1bfbf0c828a1b95eb5f75307e5",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
+      "path": "launcher/tests/test_feedback_hud.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "4fdfb27af6ca24c4283a88957fbef0a9c23390453a26337ec85004dca4cfa4d5"
+    },
+    {
+      "path": "launcher/tests/test_feedback_update.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "fc7929d5e5ae17e75e48762cbd3778d966d4e2c941c5b338fff64d9b1d85bcbc"
+    },
+    {
       "path": "launcher/tests/test_intervals.py",
-      "sha256": "28d23ff5fe36f63b08b3e268cb5c37b42f39748cb6803f5b3b2c82601f4e0823",
+      "sha256": "c898b8d2a001367ba0c6bbc4701da863725fc222a8c63890c4d22edb07bac4d5",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/tests/test_launcher.py",
-      "sha256": "1707bb7caadc68911c9929b977e3ed03bcd29d24ece70578b5233d6ad13955ad",
+      "sha256": "40e32dc4b433acbabb7058ba4f327ac48cad5cf92fa19685803cd934ecca3484",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -3129,28 +3157,28 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "2a2944a870204488e63ae7624b65ac952fbea35ae465e4ee156981d4fb7dd9ee"
+      "sha256": "0c0057805af1522206cdc8f32e796d703063a6b2c3e9b512a48dedc3d862d77d"
     },
     {
       "path": "launcher/tests/test_ngplus_ui.py",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "ed850c4931e51214001e7e2df0f21c29bb2338365e8cad0ef201269b0ac5cafe"
+      "sha256": "df662e970695351c5355cc1096410bcd46435f41fc20a1fe35e9b3500735f9cd"
     },
     {
       "path": "launcher/tests/test_pursuit_ui.py",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "a1ccb924988093e93c3cb919109f1f4c6592a2bb236a45ec5afc92edb7c2e42c"
+      "sha256": "2ff86b92079d1e529c14e51e45a78b8cf2e5b747ab4830afc4222e8bde66c933"
     },
     {
       "path": "launcher/tests/test_randomizer_schema.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "2bb755633deb16f34ed8572e354ae57f5937db59e47aa41db58bc537b158f826"
+      "sha256": "341ea36b2200324680f4839580d8609e519ff840519877878e871f857cebae43"
     },
     {
       "path": "launcher/tests/test_release_behaviour.py",
@@ -3178,7 +3206,7 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "9775661571d1116bada59f97db14b8c52910cb110aa747f3e1f1bbc5902da15f"
+      "sha256": "56a0a2320a095f363b1fe8d7a34e9d02816edf17ba07dd1fbaf934dd8a0ff4de"
     },
     {
       "path": "launcher/tests/test_standalone.py",
@@ -3189,28 +3217,28 @@
     },
     {
       "path": "launcher/tests/test_v44.py",
-      "sha256": "4e2ea8a1992c51b944633712f21edea6a1fdf766ce7552b7227998d7b762afd5",
+      "sha256": "4f2028392e82ef807fd26d8589dec9b6672b89bd6bb38144454e3477400c0593",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/tests/test_v45.py",
-      "sha256": "0ce7a3798775a939dfa5cf686cf05a03c81dd1d57bc0a32c937850144f9f0a6b",
+      "sha256": "188133e6be9eefd815ca815e211bf5d950a4ad9de7bcb9b6d3d25fc1566ad725",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/tests/test_v46.py",
-      "sha256": "52d8dbef543f353046183334259831b83103da42e304f6ca32f9dfaf283b63fb",
+      "sha256": "e37b34effc8c11dca912be0f32a8d720743507c1fb479f66eec02a9870d7794f",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/tests/test_v48.py",
-      "sha256": "d1db592b51897f0a0e54174287d2245ac1da72353cdcbc88bacda32a1dbd1261",
+      "sha256": "6ab0521dcc00af18e5cf28cf7a9cea35baafd251d94c55220ba3129f15e924ee",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -3220,42 +3248,42 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "749eaa457ed677c5d24abf266403b2a120ab1619bccd3c976ead68cc7fde44dd"
+      "sha256": "03dcbf0d662c9894e2a886f19251e0a50301cdde9c0eb139a140b9fc94b01a0d"
     },
     {
       "path": "launcher/tests/test_v52.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "282c9e19f3b20cc2403ff0c2c0c396d6e40a1694c185a81db96a5ea359668451"
+      "sha256": "4cf598159d672ebc641ad1745517874ea9d28cad617ad25c9b4b2a0fe4faa500"
     },
     {
       "path": "launcher/tests/test_v53.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "aa20109a0da86dc1f4a0bc8956926b3f381e7f8a93d61b35fab3cc078dbb6cb1"
+      "sha256": "4193a3b9060b02b94c75f96e992b9be116cba0f86ba1d6a9baeab74a289c88e8"
     },
     {
       "path": "launcher/tests/test_v54.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "05f05c9972c5cc7d7c4401a9ce697c14ad548d12af716bf1e9a988b5e34bacaa"
+      "sha256": "12549ce5142d2fb2e9d7f2f594a13ee0dbc398ff64c294be6f538383e4c4d385"
     },
     {
       "path": "launcher/tests/test_v55.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "8c85ec1d7b8dc07d9755f9c3eb156db79598262a2158f62bcc7a9b87bf7ee8b3"
+      "sha256": "d022438b6fe231cc32354bd99759915bb6721709f668c3bc94a3b487b9c1f72c"
     },
     {
       "path": "launcher/tests/test_v56.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "dc32363f524919f284fa2eb07a08c4d6044bd743a312e603b4d84eafc97162f8"
+      "sha256": "14c19196cc80abf3185ae40f399c755d398cc4b9e0605fc5e588088cc164b27a"
     },
     {
       "path": "launcher/tests/test_v57.py",
@@ -3269,7 +3297,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "ba20f310db3ce2e295e3f3f6bb88f4491a15c64b5cb587f680cb717ef3acb439"
+      "sha256": "cceebb24cca12c5e5c3b14da7796ff73ceb2f4fb4e82cdef435e934ac045fd0c"
     },
     {
       "path": "launcher/tests/test_v58_1.py",
@@ -3283,18 +3311,18 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "20895f49ca098b6c4206cb9b7dc9094bf3e06bd11569ca8933ce377e884564f8"
+      "sha256": "0d58340aebf4e1a89fb462725d845764328801229a19364416b8ebc4a25889b0"
     },
     {
       "path": "launcher/weapons.default.ini",
-      "sha256": "31f212299492c9bc29cd29fa18ef843ec12e2854dfbb45ba245c78936bafda36",
+      "sha256": "99506f41488dbe74836c9465975bada6b2d3f4bb9709d5f634ec1933eb82db03",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
     },
     {
       "path": "launcher/weapons.example.ini",
-      "sha256": "31f212299492c9bc29cd29fa18ef843ec12e2854dfbb45ba245c78936bafda36",
+      "sha256": "99506f41488dbe74836c9465975bada6b2d3f4bb9709d5f634ec1933eb82db03",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -3304,21 +3332,21 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "6de588173c19f6b516fdba3dec829f29cd056c4145a883a9f15cef77e0241b61"
+      "sha256": "8fd2f87e911d4535c0a754a92d0505d4a10b088086a8bb77dbe628793315ae72"
     },
     {
       "path": "mod/development.json",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "2e704998e199d89358827f41e17b38b5012510891fc5acefc52a9ea4f1d9f77d"
+      "sha256": "ea019cde0d6cc3d35ea1fe9810ac74d14b47824f2f2edd314c222e48f702ba1c"
     },
     {
       "path": "mod/provenance.json",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "76f3647ae1972e15f87c3f74820eb4d79e28a66b4820b092c44cc628954664b4"
+      "sha256": "dc4eda1be13722e787b1acce6df6deb0367a258a5cff52710c2aee7689e3fea9"
     },
     {
       "path": "mod/release.json",
@@ -3370,11 +3398,25 @@
       ]
     },
     {
+      "path": "tools/mod/create_feedback_test_kit.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "d14fe62f3b24ce7915c608ea5d4c57043826196327441527eaad092e7161a387"
+    },
+    {
       "path": "tools/mod/create_local_test_kit.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "f0956671e7edf190c89b4784cdb8c5ab40fa8ae8206ef353f82d6a47c541f27f"
+    },
+    {
+      "path": "tools/mod/feedback_update.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "0dfde2ff9760e7ba808e694e1cd06570f02484e79d32bf6f96cd25fb1fad4e7e"
     },
     {
       "path": "tools/mod/generate_config_reference.py",
@@ -3389,6 +3431,13 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "cc86f29f4422e3ad03a0a2ee81d219c278c77dcaac2fcfcd206e037a59bd8fa3"
+    },
+    {
+      "path": "tools/mod/package_feedback_test.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "cd043369836f9eb6ab4d6aa283863f859031bed6b936a8acd1fdc7b44458d7ba"
     },
     {
       "path": "tools/mod/package_release.py",
@@ -3417,6 +3466,20 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
+    },
+    {
+      "path": "tools/mod/stage_feedback_profiles.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "7ee785e1fb33bf858102834b96889446d94b3d7808c78ae1ae668e0501cdd150"
+    },
+    {
+      "path": "tools/mod/windows_build_env.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "05e1a3c7e9269a85872e673910c41b5b4f62c244e17e2777c30758b5bdb8aa54"
     }
   ],
   "runtime_base": "0.3.6-alpha",

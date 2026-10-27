@@ -1,3 +1,25 @@
+# Current v102 development verification
+
+ReRAC 0.3.6-alpha, patch 0.1.6.102, capability 88, launcher 0.28.7. Main/source update and local test kit only; no new release or tag.
+
+## Executed checks
+
+- **1,319 rc-game library tests passed**. They cover accepted-loss tint, bounded fire cycles independent of stagger, native creatures without XP adapters, identity reuse, independent wrench slam/explosion attribution, eight-grade parsing, HUD row geometry/visibility and exact five-medium-enemy NG+ duplication with doubled difficulty.
+- **14 public API tests passed**: controls (2), golden reward/ammo contracts (4), encounter rendering (1), lava rendering (2), randomizer displays/live configuration (5). Legacy fixture assumptions about guaranteed early power weapons and Survival bypassing randomized heavy-ammo rarity were updated to the supplied v100/v101 contracts.
+- **173 Python launcher/update tests passed**: 168 launcher/profile/build checks and five local-update checks. These exercise additive/idempotent profile migration, existing-value retention, localization, field ordering, successful installation to the actual EXE, runtime-file retention, rollback after compilation or installed-GUI verification failure, and unknown/escaping payload rejection.
+- The machine-readable route snapshot and CSV were regenerated from the current production catalog via `randomizer_audit --catalog`. No saved layout or personal profile is regenerated.
+- The configuration reference, reviewed source hashes and source-export checks are refreshed for this snapshot. The public default retains all prior approved values; new optional controls default Off.
+
+## Environment and limits
+
+The library and API checks use Linux Rust, the locked dependency graph, no default features and the host-compatible BFD linker. The complete rc-engine Rust typecheck passes. Native Wayland/ALSA/udev development packages are unavailable on this host, so the typecheck uses a temporary pkg-config metadata shim; it verifies Rust types, **not native library availability, ABI compatibility or a linked Linux/Windows executable**. The shim is not included in source or the test kit.
+
+The Windows updater runs the actual game tests and native Windows release build, then rebuilds and checks the frozen launcher before replacing the selected playable EXEs. The frozen self-test renders and toggles all eight grades' four new wrench Off/On controls. That native build/GUI proof and in-game rendering, sound and controller checks must run on Windows; they have not been executed on this Linux host.
+
+Before release, playtest continuous fire and feedback on several enemy types, independent wrench slam damage/XP, death/reload cleanup, both HUD positions and Triangle-only wrench display, swimming, NG+ duplication, and crate/Infobot/Gold Bolt models. Test the existing personal INI/presets and approve the next default profile. Route-model reachability is not universal physical/script validation.
+
+## Historical records
+
 # v95 route audit verification
 
 Current checks and remaining limitations are documented in [RANDOMIZER_ROUTE_AUDIT.md](RANDOMIZER_ROUTE_AUDIT.md). This main update is not a release.

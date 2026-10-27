@@ -70,7 +70,7 @@ impl State {
             for &id in optional.iter().take(optional_count){active[id]=true;}
             let eligible=|id:usize|active[id];
             let initial:Vec<_>=catalog.iter().filter(|l|eligible(l.id)&&l.id!=65&&l.accessible(&starting_inventory)).map(|l|l.id).collect();
-            let mut state=Self{seed,version:6,..Default::default()};
+            let mut state=Self{seed,version:8,..Default::default()};
             state.placements[65]=(64+start) as u16;
             let mut have=[false;SLOTS];have[64]=true;have[64+start]=true;
             let mut remaining:Vec<_>=pool().into_iter().filter(|&r|r!=82&&r!=64+start as u16).collect();
@@ -142,12 +142,25 @@ impl State {
             if free.len()!=remaining.len(){continue;}
             for i in (1..free.len()).rev(){let j=next(&mut rng) as usize%(i+1);free.swap(i,j);}
             for r in remaining{state.placements[free.pop().unwrap()]=r;}
-            if state.solvable()&&state.planet_discovery_balanced(){return state;}
+            if state.solvable()&&state.planet_discovery_balanced()&&state.weapon_progression_safe(){return state;}
         }
         // This is a programming/data error: never silently write a softlocked
         // layout or substitute another seed into the player's save.
         panic!("randomizer: no valid layout for seed {seed}");
     }
+    /// Check discovery spheres, rather than promising an early strong weapon.
+    /// A tool available in the same sphere as Gemlik can be collected first.
+    pub fn weapon_progression_safe(self)->bool {
+        if [102,104,136].into_iter().any(|source|matches!(self.placements[source],10|11|13|23)){return false;}
+        let catalog=catalog::locations();let mut have=[false;SLOTS];have[64]=true;
+        loop {
+            let before=have;
+            for l in &catalog {if l.accessible(&before) {if let Some(r)=self.reward(l.id){have[r as usize]=true;}}}
+            if !before[77] && have[77] {return have[11]||have[13];}
+            if have==before {return false;}
+        }
+    }
+
     pub fn solvable(self)->bool {
         let mut have=[false;SLOTS];have[64]=true;
         loop {
@@ -189,7 +202,7 @@ impl State {
         true
     }
     pub fn valid(self)->bool {
-        if !self.active(){return self==Self::default();}if !matches!(self.version,1..=6){return false;}
+        if !self.active(){return self==Self::default();}if !matches!(self.version,1..=8){return false;}
         if !matches!(self.placements[65],65..=81){return false;}
         if self.pending_equip!=0 && (!super::golden::ITEMS.contains(&(self.pending_equip as usize))||!self.owns(self.pending_equip as u16)){return false;}
         let catalog=catalog::locations();
@@ -276,8 +289,8 @@ pub fn source_flag(w:&World,item:usize,native:u8)->u8{
 }
 /// One presentation policy for world rewards and Gadgetron merchandise.
 pub fn display_class(reward:u16,native:i32)->i32{
-    match reward {24=>479,65..=82=>750,96.. =>1134,49=>287,50=>1428,48|52|53=>1134,
-        _ if native>0=>native,_=>1134}
+    match reward {24=>479,65..=82=>750,96.. =>1134,49=>287,50=>1428,48|52|53=>511,
+        _ if native>0=>native,_=>511}
 }
 pub fn acquisition_movie(item:usize)->Option<i32>{match item{31=>Some(0),27=>Some(1),5=>Some(2),_=>None}}
 pub fn talk_source(level:u32,item:usize)->Option<usize>{
@@ -394,12 +407,28 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
 #[cfg(test)]mod tests{
     use super::*;
     #[test]
+    fn surveyed_layouts_preserve_version_six_saves_without_rerolling() {
+        let mut state=State::generate(9701);assert_eq!(state.version,8);
+        state.version=6;state.collect(65);
+        let mut progress=Progress::default();progress.randomizer=state;
+        let bytes=progress.encode(b"v6 native card fixture").unwrap();
+        let restored=Progress::decode(&bytes,b"v6 native card fixture").unwrap();
+        assert_eq!(restored.randomizer,state);
+    }
+    #[test]
+    fn surveyed_routes_accept_a_thousand_distinct_complete_seed_layouts() {
+        for seed in (1..=1000).chain([14461498566715420534,u64::MAX]) {
+            let state=State::generate(seed);
+            assert!(state.valid()&&state.solvable()&&state.planet_discovery_balanced(),"seed {seed}");
+        }
+    }
+    #[test]
     fn early_checks_sample_the_mixed_pool_instead_of_greedily_forcing_coordinates() {
         let mut hist=[[0usize;5];4];
         let mut unique:[std::collections::HashSet<u16>;4]=Default::default();
         for seed in 1..=256 {
             let state=State::generate(seed);
-            assert_eq!(state.version,6);assert!(state.valid()&&state.solvable()&&state.planet_discovery_balanced());
+            assert_eq!(state.version,8);assert!(state.valid()&&state.solvable()&&state.planet_discovery_balanced());
             for (i,source) in [16,100,101,102].into_iter().enumerate() {
                 let Some(reward)=state.reward(source)else{continue;};unique[i].insert(reward);
                 let category=if super::super::golden::ITEMS.contains(&(reward as usize)){0}
@@ -495,7 +524,8 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
         have[74]=true;
         let orxon=catalog.iter().find(|l|l.id==178).unwrap();
         assert!(!orxon.accessible(&have));have[6]=true;assert!(!orxon.accessible(&have));
-        have[2]=true;assert!(orxon.accessible(&have));
+        have[2]=true;assert!(!orxon.accessible(&have));
+        for item in [12,28,3]{have[item]=true;}assert!(orxon.accessible(&have));
     }
     #[test]
     fn selected_and_empty_sites_survive_save_reload_and_challenge_reset() {
@@ -649,5 +679,33 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
         assert!(w.svc.randomizer.visuals(w.svc.bomb_evo.progress().randomizer,false).is_empty());
         w.svc.bomb_evo.state_progress.randomizer.collect(source);
         assert!(w.svc.randomizer.visuals(w.svc.bomb_evo.progress().randomizer,true).is_empty());
+    }
+}
+
+#[cfg(test)]
+mod v101_access_tests {
+    use super::*;
+    #[test]
+    fn gemlik_coordinates_require_an_already_reachable_tool() {
+        let mut state=State{seed:1,version:8,..Default::default()};
+        state.placements[65]=65;
+        state.placements[16]=77; // Unconditional Novalis source.
+        assert!(!state.weapon_progression_safe());
+        state.placements[66]=11; // Same sphere; collect this before the coordinates.
+        assert!(state.weapon_progression_safe());
+        state.placements[66]=13;
+        assert!(state.weapon_progression_safe());
+        for source in [102,104,136] {for weapon in [10,11,13,23] {
+            state.placements[source]=weapon;
+            assert!(!state.weapon_progression_safe());
+            state.placements[source]=0;
+        }}
+    }
+    #[test]
+    fn generated_mixed_seeds_obey_access_without_early_weapon_weights() {
+        for seed in 1..=64 {
+            let state=State::generate(seed);
+            assert!(state.solvable());assert!(state.weapon_progression_safe());
+        }
     }
 }

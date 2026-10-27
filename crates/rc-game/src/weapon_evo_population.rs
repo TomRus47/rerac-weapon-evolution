@@ -351,6 +351,21 @@ mod tests {
         }
     }
     #[test]
+    fn ng_plus_keeps_the_exact_additional_enemy_budget_and_native_categories() {
+        let (mut b,_,templates)=fixture(427);
+        let s=&mut b.svc.bomb_evo.world_settings;
+        s.extra_enemies_per_level=5;s.extra_enemy_prefer_small=false;s.extra_enemy_prefer_large=false;
+        s.ngplus_multiplier=2.;
+        b.svc.bomb_evo.configure_ng_plus(true);
+        assert_eq!(b.svc.bomb_evo.world_settings.extra_enemies_per_level,5);
+        assert_eq!(b.svc.bomb_evo.world_settings.enemy_health_multiplier,2.);
+        with_world(&mut b,|w|begin(w,templates));
+        for _ in 0..120 {b.counter+=1;b.table.free_slot_pass(b.counter);with_world(&mut b,tick);}
+        assert_eq!(b.svc.population.spawned,5);
+        assert_eq!(b.table.mobys.iter().filter(|m|m.o_class==427&&m.state<128).count(),6);
+        assert!(b.svc.enemies.records.values().all(|e|e.base_hp==2.));
+    }
+    #[test]
     fn medium_only_duplicates_native_two_hp_gunners() {
         let (mut b,_,templates) = fixture(427);
         let s = &mut b.svc.bomb_evo.world_settings;

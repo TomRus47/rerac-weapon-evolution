@@ -29,6 +29,44 @@ def self_test(destination):
                   'pursuit_ui': 'enemy_chase_range_multiplier' in schema.WORLD_DEFAULTS and core.numeric_range('general','enemy_chase_range_multiplier') == (0.1,10),
                   'encounter_motion_ui': all(key in schema.WORLD_DEFAULTS for key in schema.MOTION_DEFAULTS) and 'golden_bolts_one_weapon_per_planet' in schema.BOOLEANS,
                   'tcl_version': root.tk.call('info','patchlevel'), 'tk_version': str(tk.TkVersion)}
+        # Exercise the actual frozen launcher field renderer, not just its schema.
+        import launcher as editor
+        import i18n
+        key = 'move_while_thrown'
+        test_keys=(key,'burn_on_hit','hud_quickselect_only','slam_explosion_enabled')
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+        for grade in range(1, 9):
+            section = f'weapon.wrench.level{grade}'
+            frame = ttk.Frame(root)
+            app = editor.Launcher.__new__(editor.Launcher)
+            app.page = 'wrench'
+            standard, experimental = app.weapon_field_groups([*test_keys, 'r1_experimental_max'])
+            assert key in standard and key not in experimental
+            assert 'r1_experimental_max' not in standard + experimental
+            app.root, app.tk, app.ttk = root, tk, ttk
+            app.variables = {(section, field): tk.StringVar(master=root, value='false') for field in test_keys}
+            app.matches = lambda *_: True
+            app.randomizer_field_label = lambda name: i18n.label(name)
+            app.show_help = lambda *_: None
+            app.fields(frame, section, standard)
+            app.fields(frame, section, experimental)
+            root.update_idletasks()
+            controls = [w for w in descendants(frame) if isinstance(w, ttk.Combobox)]
+            assert len(controls) == len(test_keys) and all(tuple(c['values'])==('Off','On') for c in controls)
+            for control in controls:
+                control.set('On'); control.event_generate('<<ComboboxSelected>>'); root.update()
+            assert all(v.get()=='true' for v in app.variables.values())
+            for control in controls:
+                control.set('Off'); control.event_generate('<<ComboboxSelected>>'); root.update()
+            assert all(v.get()=='false' for v in app.variables.values())
+            frame.destroy()
+        result['feedback_controls_ui'] = True
+        result['moving_wrench_gui_grades'] = 8
+        result['moving_wrench_gui_options'] = ['Off', 'On']
+
     finally:
         root.destroy()
     core.atomic_write(Path(destination), (json.dumps(result,indent=2)+'\n').encode('utf-8'))

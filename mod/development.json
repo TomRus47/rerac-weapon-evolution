@@ -2,9 +2,9 @@
   "public_mod_version": "0.3",
   "status": "development; not released",
   "runtime_base": "0.3.6-alpha",
-  "patch": "0.1.6.95",
-  "config_capability": 86,
-  "launcher": "0.28.2",
+  "patch": "0.1.6.102",
+  "config_capability": 88,
+  "launcher": "0.28.7",
   "release_created": false,
-  "notes": "docs/mod/RANDOMIZER_ROUTE_AUDIT.md"
+  "notes": "docs/mod/FEEDBACK_HUD_V102.md"
 }

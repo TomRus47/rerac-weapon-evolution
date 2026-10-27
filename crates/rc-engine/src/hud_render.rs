@@ -1157,8 +1157,8 @@ fn tick_and_build(
             if let (Some((name_x, y, _)), Some(label)) =
                 (rt.state.weapon_evo_anchor(item, without_ammo), label) {
                 let height = ui.xp_bar_height_px;
-                let bottom_y = y + 34;
-                let fade = rt.state.weapon_evo_fade(item, without_ammo);
+                let (panel_top,bottom_y)=rc_game::hud::xp_bar::weapon_rows(y,height,ui.weapon_bar_alternative_position);
+                let fade = if item==8 && evo.wrench_quickselect_only(){rt.state.weapon_evo_quickselect_fade()}else{rt.state.weapon_evo_fade(item, without_ammo)};
                 let alpha_bar = (128.0 * fade) as u32;
                 if alpha_bar > 0 {
                     if let Some((left, _, outer_width)) = rt.state.weapon_evo_xp_anchor(
@@ -1181,7 +1181,7 @@ fn tick_and_build(
                         // Equal 12px caps/padding surround the full native name + Vn.
                         let padding = 12;
                         let text_x = (name_x + ui.xp_bar_horizontal_inset_px + 12).max(-rt.extra + 4 + padding);
-                        let panel_top = y - 18;
+
                         let panel_height = 16;
                         let panel_alpha = (alpha_name * 7 / 10) as i32;
                         let cap = rt.state.assets.icon_frame(rc_game::hud::icon::BAR, 1);
@@ -1190,7 +1190,7 @@ fn tick_and_build(
                         rt.hud2d.sprite(middle, text_x, panel_top, text_width, panel_height, panel_alpha, Rot::None);
                         rt.hud2d.sprite(cap, text_x + text_width, panel_top, padding, panel_height, panel_alpha, Rot::R180);
                         crate::text_render::font_print(&mut rt.hud2d, &mut st, &rt.glyphs[font as usize],
-                            font, text_x, panel_top, (alpha_name << 24) | 0x00ff_ffff,
+                            font, text_x, panel_top, (alpha_name << 24) | rc_game::hud::xp_bar::weapon_name_rgb(evo.weapon_level(item).unwrap_or(1)),
                             &label, label.len() as i32);
                     }
                 }
@@ -1226,6 +1226,8 @@ fn tick_and_build(
 /// The HUD inputs the hero and the classes hold (rc_game::hud::Inputs: the callers the HUD sees through the state).
 fn hero_inputs(g: &mut Inputs, p: &crate::gameplay::Play) {
     let h = &p.game.hero;
+    g.weapon_bar_alternative_position=p.svc.bomb_evo.hud.weapon_bar_alternative_position;
+    g.weapon_bar_height=p.svc.bomb_evo.hud.xp_bar_height_px;
     let react = &p.svc.creatures.react;
     let morph = &h.weapons.reactive.morph;
     g.bolt_chain=if p.svc.bomb_evo.reward_multiplier_active(){p.svc.bomb_evo.bolt_chain.kills}else{0};

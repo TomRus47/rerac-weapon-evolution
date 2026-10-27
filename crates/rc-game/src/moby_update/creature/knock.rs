@@ -128,9 +128,19 @@ pub fn start(w: &mut World, id: MobyId, kr: usize, angle: f32, seq: u8, ticks: i
 /// 0x7000a0ff / 0xff (the gold Pyrocitor 0x13e530: 0x7000ffa0 / 0xff00), life `ticks(rand_range(20, 35))`, size 0x1e
 /// growing by `rand_range(40, 60)`, additive.
 pub fn burn_sparks(w: &mut World, id: MobyId, vel: super::V, prims: u32) {
-    let pts = crate::moby_update::classes::breakables::volume_points(w, id, 14.0, 20, prims);
+    if !w.svc.hits.real_hp.feedback.manages_fire(id) {let _=emit_burn_sparks(w,id,vel,prims,false);}
+}
+
+/// One finite native puff batch; the caller waits for its longest life before repeating.
+pub(crate) fn burn_sparks_cycle(w:&mut World,id:MobyId,vel:super::V,prims:u32)->i32 {
+    emit_burn_sparks(w,id,vel,prims,true)
+}
+fn emit_burn_sparks(w:&mut World,id:MobyId,vel:super::V,prims:u32,fallback:bool)->i32 {
+    let mut pts = crate::moby_update::classes::breakables::volume_points(w, id, 14.0, 20, prims);
+    if fallback && pts.is_empty(){let mut p=super::pos(w,id);p[2]+=0.5;pts.push(p);}
+    let mut longest=0;
     let owner = w.svc.hits.real_hp.burn_colors.get(&id).copied();
-    let gold = owner.is_none_or(|(item,_)|item!=17) && w.hero.weapons.gold[crate::hero::pyrocitor::PYROCITOR as usize] != 0;
+    let gold = owner.is_none_or(|(item,_)|item==16) && w.hero.weapons.gold[crate::hero::pyrocitor::PYROCITOR as usize] != 0;
     let (mut c1, mut c2) = if gold { (0x7000_ffa0, 0xff00) } else { (0x7000_a0ff, 0xff) };
     // This is the victim's burning/death animation, separate from the weapon nozzle.
     // Per-level colour overrides the gold variant too; original behaviour when unset.
@@ -145,10 +155,12 @@ pub fn burn_sparks(w: &mut World, id: MobyId, vel: super::V, prims: u32) {
         v[2] += super::DT * 0.9;
         let n = w.rng.rand_range(20, 35);
         let life = w.ticks(n);
+        longest=longest.max(life);
         let growth = w.rng.rand_range(40, 60) as i16;
         let s = crate::particles::type04::Spawn { pos: p, vel: v, c1, c2, life, base: 0x1e, growth, additive: true };
         super::fx::part04(w, &s);
     }
+    longest
 }
 
 /// `0x271558(moby, K)`: one tick of the flight (module doc). Returns the result bits ([`res`]).

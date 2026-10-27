@@ -504,11 +504,12 @@ impl Hero {
             }
         } else {
             let mut v = DT * Pf::b(0x40e0_0000);
-            // The Heli-Pack owned with the Thruster-Pack on the back (0x13d4c2, `GetClankModule(3)` = 3, Clank
-            // shown) keeps more of the boost higher up; the Thruster-Pack adds a quarter.
+            // An owned Thruster-Pack keeps the native higher double-jump boost even
+            // when randomized acquisition has not granted the Heli-Pack.
+            // Preserve the legacy Heli-owned path and the extra quarter boost.
             let thruster = self.back_module() == 3 && self.back_slot.clank_hidden == 0;
             let above = vsub(self.pos, self.jump.takeoff_pos)[2];
-            if thruster && self.owned.has(2) {
+            if thruster && (self.owned.has(2) || self.owned.has(3)) {
                 if Pf::b(0x402c_cccd) < above {
                     v = v * Pf::b(0x3ef0_a3d7);
                 } else if Pf::b(0x4006_6666) < above {

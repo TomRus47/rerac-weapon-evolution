@@ -128,3 +128,25 @@ mod tests {
         assert!(h.nanotech_xp_anchor(10,5).is_none());
     }
 }
+
+/// Full-opacity BBGGRR colors, shared with the native ammunition text palette.
+pub fn weapon_name_rgb(grade:usize)->u32 {if grade>=8{0x00ff_ffff}else if grade>=5{0x0000_ffff}else{0x00e0_8060}}
+/// Keep the name at its original top edge; alternative ammo has moved down.
+pub fn weapon_rows(ammo_y:i32,height:i32,alternative:bool)->(i32,i32){
+    if alternative {(ammo_y-18-height.clamp(2,16)-4,ammo_y-height.clamp(2,16)-2)}
+    else {(ammo_y-18,ammo_y+34)}
+}
+#[cfg(test)]
+mod v102_tests {
+    use super::*;
+    #[test]fn alternate_bar_is_between_name_and_ammo_at_all_heights(){
+        for h in 2..=16 {let ammo=18+h+4;let(name,bar)=weapon_rows(ammo,h,true);
+            assert_eq!(name,0);assert!(name+16<bar);assert!(bar+h<ammo);
+            assert_eq!(weapon_rows(18,h,false),(0,52));}
+    }
+    #[test]fn native_indigo_then_gold_then_white(){
+        for n in 1..=4{assert_eq!(weapon_name_rgb(n),0x00e08060);}
+        for n in 5..=7{assert_eq!(weapon_name_rgb(n),0x0000ffff);}
+        assert_eq!(weapon_name_rgb(8),0x00ffffff);
+    }
+}

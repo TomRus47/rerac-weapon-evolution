@@ -82,6 +82,8 @@ pub struct Melee {
     /// One accepted hit per enemy per swing/throw, with damage captured at entry.
     pub attack_serial: u64,
     pub damage_hp: f32,
+    pub burn_on_hit:bool,
+    pub slam_blast:crate::weapon_evo::wrench::SlamBlast,
     pub tuning: crate::weapon_evo::wrench::AttackTuning,
     /// 0x13fd40 / 0x13fd50: Ratchet's hand (joint list 0) and the wrench head this tick; 0x13fd60 /
     /// 0x13fd70: last tick's.
@@ -265,6 +267,8 @@ impl Hero {
         self.group = 6;
         if matches!(id,0x13|0x14|0x15|0x70) {
             self.melee.attack_serial=self.melee.attack_serial.wrapping_add(1);
+            self.melee.burn_on_hit=crate::weapon_evo::extra_flag(8,"burn_on_hit",false);
+            self.melee.slam_blast=crate::weapon_evo::wrench::SlamBlast::capture();
             self.melee.damage_hp=crate::weapon_evo::extra(8,"damage_hp",100.);
             self.melee.tuning=crate::weapon_evo::wrench::AttackTuning::capture();
         }
@@ -633,7 +637,7 @@ pub fn wrench_update(hero: &mut Hero, table: &mut MobyTable, anim: &dyn AnimCtl,
     dir[3] = Pf::b(0x45af_df66);
     let tuning=hero.melee.tuning;
     let dir=tuning.push(dir);
-    let tmpl = HitTemplate { dir, attacker: crate::weapon_evo::weapon_menu_level(8).map(|_|env.hero_moby), flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.melee.damage_hp,dmg as f32)), w20: 1 };
+    let tmpl = HitTemplate { dir, attacker: crate::weapon_evo::weapon_menu_level(8).map(|_|env.hero_moby), flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.melee.damage_hp,dmg as f32)), w20: 1 | if hero.melee.burn_on_hit {crate::weapon_evo::wrench::BURN}else{0} };
     let ignore = Some(env.hero_moby);
     // FUN_0026ebe8: five lines between last tick's and this tick's hand → head.
     let k = Pf::ONE / Pf::from_i32(5);
@@ -764,12 +768,33 @@ impl Hero {
 
 /// The jump attack's shockwave queued by 0x14's physics: `coll_sphere_mobys(0.4, centre, 0x10, Ratchet,
 /// {dir, Ratchet's moby, flags 0x10000, damage 2, class 0x47})`.
-pub fn jump_attack_shockwave(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink) {
+pub fn jump_attack_shockwave(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn HitSink, rng:&mut crate::rng::Rng) {
     let Some((p, dir)) = hero.shockwave.take() else { return };
     let dir=hero.melee.tuning.push(dir);
-    let tmpl = HitTemplate { dir, attacker: Some(env.hero_moby), flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.melee.damage_hp,2.)), w20: 1 };
+    let tmpl = HitTemplate { dir, attacker: Some(env.hero_moby), flags: 0x1_0000, b18: 0, b19: 1, h1a: WRENCH_CLASS as u16, damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.melee.damage_hp,2.)), w20: 1 | if hero.melee.burn_on_hit {crate::weapon_evo::wrench::BURN}else{0} };
     crate::weapon_evo::wrench::break_crates(hero,table,env,hits,p);
     hits.sphere(table, hero.melee.tuning.radius(Pf::b(0x3ecc_cccd)), p, 0x10, Some(env.hero_moby), &tmpl);
+    let blast=hero.melee.slam_blast;
+    if blast.enabled {
+        let mut explosion=tmpl.clone();explosion.damage=Pf::f(blast.damage_hp/100.);
+        explosion.w20 |= crate::weapon_evo::wrench::BLAST;
+        explosion.h1a=121;explosion.b18=2;explosion.b19=1;explosion.flags=0x83_0000;
+        let delivered=hits.world(table,hero,rng,env.frame as u64,&mut|w|{
+            let targets=w.sphere_mobys_list(Pf::f(blast.radius),p,0x10,Some(env.hero_moby),None);
+            for target in targets {
+                let q=w.m(target).position;
+                let angle=(q[1]-p[1].to_f32()).atan2(q[0]-p[0].to_f32());
+                let mut hit=explosion.clone();
+                hit.dir=[Pf::f(angle.cos()),Pf::f(angle.sin()),Pf::ONE,Pf::b(0x45af_df66)];
+                w.deliver_hit(target,&hit);
+            }
+            crate::moby_update::classes::bomb::blast_colored(w,&crate::moby_update::classes::bomb::GLOVE_BLAST,
+                env.hero_moby,p.map(Pf::to_f32),[0.;4],[0.,0.,1.,0.],blast.radius*2.,1,true,0,blast.color);
+            w.play_sound_as(0,0,env.hero_moby,121);
+        });
+        if !delivered {hits.sphere(table,Pf::f(blast.radius),p,0x10,Some(env.hero_moby),&explosion);}
+    }
+
 }
 
 /// One moby of the target list 0x1abe80 as the melee aim search `0x22e238` reads it: its position (+0x10), its record's

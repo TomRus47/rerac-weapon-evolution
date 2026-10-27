@@ -500,3 +500,57 @@ fn double_jump_boost_by_pack() {
     assert!(thruster > plain + 0.1, "{thruster} vs {plain}");
     assert!(both >= thruster, "{both} vs {thruster}");
 }
+
+
+#[test]
+fn thruster_only_glides_after_jump_without_unlocking_heli() {
+    let coll=field();
+    let mut s=Sim::new(START,&[3],3);
+    assert!(!s.hero.owned.has(HELI));
+    double_jump_into_glide(&mut s,&coll).expect("Thruster-Pack alone must glide");
+    s.run(&coll,n().press(button::CROSS),10);
+    let before=s.pos()[2];
+    s.run(&coll,n().press(button::CROSS),10);
+    assert!(((before-s.pos()[2])*6.0-3.6).abs()<0.02);
+    // Retain the native minimum glide time before testing the release.
+    s.run(&coll,n().press(button::CROSS),12);
+    s.tick(&coll,n());assert_eq!(s.hero.state,6);
+    assert!(!s.hero.owned.has(HELI));
+}
+
+#[test]
+fn thruster_only_can_start_gliding_from_free_fall() {
+    let coll=field();
+    let mut s=Sim::new([360.,420.,120.],&[3],3);
+    s.hero.state=6;s.hero.group=2;
+    s.until(&coll,n().press(button::CROSS),10,8).expect("free-fall glide");
+    assert!(!s.hero.owned.has(HELI));
+}
+
+#[test]
+fn thruster_glide_still_requires_owned_equipped_and_visible_pack() {
+    let coll=field();
+    for (items,back,hidden) in [(&[][..],3,0),(&[3][..],4,0),(&[3][..],2,0),(&[3][..],3,1)] {
+        let mut s=Sim::new(START,items,back);s.hero.back_slot.clank_hidden=hidden;
+        assert!(double_jump_into_glide(&mut s,&coll).is_none());
+        assert!(!s.hero.owned.has(HELI));
+    }
+}
+
+#[test]
+fn thruster_double_jump_height_does_not_require_heli_ownership() {
+    let coll=field();
+    let apex=|items:&[usize]| {
+        let mut s=Sim::new(START,items,3);
+        s.run(&coll,n(),2);
+        s.tick(&coll,n().press(button::CROSS));
+        s.run(&coll,n().press(button::CROSS),16);
+        s.tick(&coll,n());s.tick(&coll,n().press(button::CROSS));
+        assert_eq!(s.hero.state,0xe);
+        s.run(&coll,n(),60);
+        assert_eq!(s.hero.owned.has(HELI),items.contains(&HELI));
+        s.zs.iter().copied().fold(0.0f32,f32::max)
+    };
+    let independent=apex(&[3]);let legacy=apex(&[2,3]);
+    assert!((independent-legacy).abs()<0.00001,"{independent} vs {legacy}");
+}

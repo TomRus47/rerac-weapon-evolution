@@ -393,6 +393,8 @@ const HELP_COLOUR: u32 = 0x00ff_a888;
 /// Per-tick game values the HUD elements read.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Inputs {
+    pub weapon_bar_alternative_position:bool,
+    pub weapon_bar_height:i32,
     pub bolt_chain:u8,
     /// Actual shared reward multiplier in tenths (10 means x1.0, hidden).
     pub bolt_multiplier_tenths:u16,
@@ -473,7 +475,7 @@ pub struct Inputs {
 impl Default for Inputs {
     /// Before the first frame reads the game state: 4 / 4, no bolts, no slot, nothing under way.
     fn default() -> Self {
-        Inputs { bolt_chain:0,bolt_multiplier_tenths:10,
+        Inputs { weapon_bar_alternative_position:false,weapon_bar_height:5,bolt_chain:0,bolt_multiplier_tenths:10,
             hp: 4,
             max_hp: 4,
             bolts: 0,
@@ -1567,10 +1569,17 @@ impl HudState {
         }
     }
 
+    fn weapon_evo_swimming(&self)->bool {matches!(self.inputs.group,0x11|0x12)||matches!(self.inputs.hero_state,0x33..=0x38)}
+    fn weapon_evo_ammo_y(&self)->i32 {ELEMENT_Y+if self.inputs.weapon_bar_alternative_position {self.inputs.weapon_bar_height.clamp(2,16)+4}else{0}}
+    /// Reuse the Triangle-only Nanotech visibility lease, including its final fade.
+    pub fn weapon_evo_quickselect_fade(&self)->f32 {
+        if !self.nanotech_xp_armed||self.inputs.hp<=0||self.weapon_evo_swimming(){return 0.;}
+        Self::fractions(&self.slots[1],HEALTH_STEPS,HEALTH_STEPS).0
+    }
     /// Evolution HUD anchor: use the ammo HUD when available; otherwise
     /// keep the same top-left position for ammo-less weapons (Taunter, Wrench...).
     pub fn weapon_evo_anchor(&self, weapon: i32, without_ammo: bool) -> Option<(i32, i32, i32)> {
-        if self.inputs.body != 0 || self.inputs.mode != 0 { return None; }
+        if self.inputs.body != 0 || self.inputs.mode != 0 || self.weapon_evo_swimming() { return None; }
         if let Some(panel) = self.weapon_evo_panel(weapon) { return Some(panel); }
         // A hidden ammo panel must not fall through to the always-on fallback.
         let fading_no_ammo = self.evo_no_ammo_item == weapon && self.evo_no_ammo_slide > 0;
@@ -1580,21 +1589,21 @@ impl HudState {
         let (x, _) = self.anchor(0);
         let left = x - 0x1c;
         let width = 0x1c + 4 + ANCHORS[0].0 + WEAPON_LEN[0] + 32;
-        Some((left, ELEMENT_Y, width))
+        Some((left, self.weapon_evo_ammo_y(), width))
     }
 
     /// Weapon Evolution v0.1.2: actual slot-0 ammo HUD geometry, respecting widescreen.
     /// Follow the visible slot through its exit, including the empty-hand swap gap.
     pub fn weapon_evo_panel(&self, weapon: i32) -> Option<(i32, i32, i32)> {
         let s = &self.slots[0];
-        if s.slide == 0 || self.inputs.body != 0 || self.inputs.mode != 0 { return None; }
+        if s.slide == 0 || self.inputs.body != 0 || self.inputs.mode != 0 || self.weapon_evo_swimming() { return None; }
         if !matches!(&s.element, Element::Weapon { item } if *item as i32 == weapon) { return None; }
         let (x, _) = self.anchor(0);
         let left = x - 0x1c;
         let (sf, _) = Self::fractions(s, WEAPON_STEPS, WEAPON_STEPS);
         let lw = (WEAPON_LEN[(s.max > 99) as usize] as f32 * sf) as i32;
         let width = 0x1c + 4 + ANCHORS[0].0 + lw + 32;
-        Some((left, ELEMENT_Y, width))
+        Some((left, self.weapon_evo_ammo_y(), width))
     }
 
     /// Outer XP frame edges match the visible ammo caps, not their transparent
@@ -1635,7 +1644,7 @@ impl HudState {
 
     /// Keep the outgoing name/XP attached to its real panel until it fades away.
     pub fn weapon_evo_display_item(&self, without_ammo: bool) -> Option<i32> {
-        if self.inputs.body != 0 || self.inputs.mode != 0 { return None; }
+        if self.inputs.body != 0 || self.inputs.mode != 0 || self.weapon_evo_swimming() { return None; }
         if self.slots[0].slide > 0 {
             if let Element::Weapon { item } = self.slots[0].element {
                 if crate::weapon_evo::WEAPON_IDS.contains(&(item as i32)) { return Some(item as i32); }
@@ -1653,7 +1662,7 @@ impl HudState {
     fn draw_weapon(&self, i: usize, out: &mut Vec<Draw>) {
         let s = &self.slots[i];
         if s.slide == 0 { return; }
-        let y = ELEMENT_Y;
+        let y = self.weapon_evo_ammo_y();
         let x = self.anchor(i).0;
         let x0 = ANCHORS[i].0;
         let (sf, _) = Self::fractions(s, WEAPON_STEPS, WEAPON_STEPS);
@@ -2098,6 +2107,24 @@ mod tests {
 
     fn inputs(hp: i32, bolts: i32) -> Inputs { Inputs { hp, bolts, ..Default::default() } }
 
+    #[test]
+    fn swimming_hides_all_weapon_hud_and_triangle_is_the_only_wrench_lease(){
+        let mut h=HudState::new(assets());
+        let mut held=Inputs{held_item:8,..inputs(4,0)};
+        for _ in 0..20{h.tick(held);}
+        assert_eq!(h.weapon_evo_quickselect_fade(),0.);
+        h.apply_calls(&[Call::ShowHealthBolts(60)]);h.tick(held);
+        assert_eq!(h.weapon_evo_quickselect_fade(),0.,"damage/healing must not arm the lease");
+        h.apply_calls(&[Call::QuickSelectHealth(60)]);
+        for _ in 0..20{h.tick(held);}
+        assert!(h.weapon_evo_quickselect_fade()>0.);
+        for state in 0x33..=0x38 {
+            held.hero_state=state;h.tick(held);
+            assert!(h.weapon_evo_display_item(true).is_none());assert!(h.weapon_evo_anchor(8,true).is_none());
+            assert_eq!(h.weapon_evo_quickselect_fade(),0.);
+        }
+        held.hero_state=0;held.group=0x12;h.tick(held);assert!(h.weapon_evo_display_item(true).is_none());
+    }
     #[test]
     fn weapon_panel_and_evolution_return_after_a_death_style_hud_reset() {
         for item in [10u16, 11, 15, 16, 19, 20, 23, 25] {

@@ -351,7 +351,7 @@ mod tests {
                 for (slot, &item) in s.placements.iter().enumerate() {
                     assert!(layout::placement_allowed(slot,item as usize));
                 }
-                assert!(s.placements.iter().enumerate().any(|(slot,&i)|[10,11,13,23].contains(&i)&&matches!(layout::level(slot),Some(3|4))));
+                assert!(s.progression_safe(),"Gemlik access must have an available tool; no early category is reserved");
             }
         }
         assert_ne!(State::generate(1,0).placements,State::generate(2,0).placements);

@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.28.2'
+VERSION = '0.28.7'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -106,14 +106,15 @@ def allowed_keys(section):
     if not match or match[1] not in WEAPONS:
         raise ValueError(f'Unsupported configuration section: [{section}]')
     name = match[1]
-    if name == 'bomb_glove': return BOMB | {'r1_experimental_max'}
-    if name == 'pyrocitor': return PYRO | {'r1_experimental_max'}
+    if name == 'bomb_glove': return BOMB
+    if name == 'pyrocitor': return PYRO
     extra = {'damage_per_second'} if name == 'tesla_claw' else {'chicken_damage_hp'} if name == 'morph_ray' else {'damage_hp'}
     return set(EXTRA.get(WEAPONS[name][0], '').split()) | extra | {'max_ammo', 'damage_multiplier', 'gold', 'gold_effects', 'gold_texture'}
 
 def numeric_range(section, key):
-    if key=='r1_experimental_max':
-        return (0,2) if section.startswith('weapon.ryno.level') else (0,1) if section.startswith(('weapon.pyrocitor.level','weapon.mine_glove.level','weapon.visibomb.level')) else (0,0)
+    if key=="r1_experimental_max":
+        from schema import r1_mode_options
+        return 0,int(r1_mode_options(section)[-1])
     from schema import WORLD_RANGES
     if section=="general" and key in WORLD_RANGES:return WORLD_RANGES[key]
     if section.startswith("weapon.wrench.level") and key in {"hit_radius_multiplier","knockback_multiplier"}: return (0.1,10) if key=="hit_radius_multiplier" else (0,10)
@@ -169,6 +170,8 @@ def validate_value(section, key, value):
     if not NUMBER.fullmatch(value): raise ValueError(f'{address}: invalid number. Use a decimal point and no thousands separators.')
     try: number = float(value)
     except ValueError: raise ValueError(f'{address}: invalid number. Use a decimal point.') from None
+    if key=='bolt_multiplier_max' and abs(number*10-round(number*10))>0.00001:
+        raise ValueError(f'{address}: use steps of 0.1.')
     low, high = numeric_range(section, key)
     if not math.isfinite(number) or not low <= number <= high:
         raise ValueError(f'{address}: allowed range {low:g} … {high:g}.')
@@ -176,8 +179,6 @@ def validate_value(section, key, value):
         raise ValueError(f'{address}: the value must be positive and representable by the game.')
     if key in INTEGER and not re.fullmatch(r'[+]?[0-9]+', value):
         raise ValueError(f'{address}: use an integer.')
-    if key=='bolt_multiplier_max' and abs(number*10-round(number*10))>0.0001:
-        raise ValueError(f'{address}: use steps of 0.1.')
     if key == 'id':
         weapon = section[7:]
         if number != WEAPONS[weapon][0]: raise ValueError(f'{address}: incorrect game ID for {weapon}.')
@@ -368,8 +369,43 @@ class LaunchSession:
     ini: Path
     log: Path
     preset: str
+    live_id: int = 0
+    live_pending: int = 0
+
+def live_restart_fields(before, after):
+    cold = {'ngplus_multiplier','enemy_health_multiplier','enemy_health_include_bosses',
+            'extra_enemies_per_level','extra_enemy_prefer_small','extra_enemy_prefer_medium',
+            'extra_enemy_prefer_large','enemy_damage_by_health','nanotech_xp_per_upgrade','nanotech_max_health',
+            'experimental_ammo_unlock_mode', 'golden_bolts_to_weapons',
+            'golden_bolts_early_bias_percent', 'golden_bolts_one_weapon_per_planet',
+            'hide_ryno', 'randomizer_mode', 'damage_mode'}
+    cold.update(key for section,key in after.entries if section=='general' and key.startswith('ammo_'))
+    return sorted(key for section,key in after.entries if section=='general' and key in cold
+                  and after.entries[section,key]!=before.entries.get((section,key)))
+
+def apply_live(session, raw):
+    """The immutable startup INI retains restart-only mode/save policies."""
+    if session.process.poll() is not None: raise ValueError('The game is no longer running.')
+    if session.live_pending: raise ValueError('Wait for the previous live update to finish.')
+    doc=profile_document(raw)
+    deferred=live_restart_fields(IniDocument(session.ini.read_bytes()),doc)
+    from migrate_ini import runtime_profile
+    session.live_id+=1
+    atomic_write(session.folder/f'live-{session.live_id}.ini',runtime_profile(doc.raw))
+    atomic_write(session.folder/f'live-{session.live_id}.request',str(session.live_id).encode('ascii'))
+    session.live_pending=session.live_id
+    return deferred
+
+def live_reply(session):
+    if not session.live_pending:return None
+    try:parts=(session.folder/f'live-{session.live_pending}.ack').read_text(encoding='utf-8').splitlines()
+    except FileNotFoundError:return None
+    if len(parts)<2 or parts[0]!=str(session.live_pending):return None
+    session.live_pending=0
+    return parts[1]=='ok', '\n'.join(parts[2:])
 
 def required_config(doc):
+    if doc.entries.get(('general','randomizer_mode'),'false').lower() in {'true','on','1'}:return 85
     if any(sec.startswith('weapon.wrench.level') and key=='trail_color' for sec,key in doc.entries):return 78
     if ('general','ngplus_multiplier') in doc.entries:return 77
     if any(sec.endswith(('.level6','.level7','.level8')) or key=='hide_ryno' for sec,key in doc.entries):return 76
@@ -397,7 +433,7 @@ def launch_game(kit, raw, preset, exe, data, save=None, env=None):
     runtime_raw = runtime_profile(doc.raw)
     launch_env=os.environ if env is None else env
     local_test=launch_env.get('RC_WEAPON_LOCATION_TEST','').strip().lower() in {'1','true','on'}
-    probe_exe(exe, max(required_config(doc),78 if local_test else 0))
+    probe_exe(exe, max(required_config(doc),86))
     if not valid_data(data): raise ValueError('Choose your extracted game data folder. It must contain toc.bin and extract-info.json.')
     ensure_closed()
     directory = kit/'runs'/stamp(); directory.mkdir(parents=True)
@@ -409,9 +445,11 @@ def launch_game(kit, raw, preset, exe, data, save=None, env=None):
                 'sha256': hashlib.sha256(ini.read_bytes()).hexdigest()}
     atomic_write(directory/'session.json', (json.dumps(metadata, ensure_ascii=False, indent=2)+'\n').encode('utf-8'))
     flags = {'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}
+    child_env=game_environment(ini, data, save, env)
+    child_env['RC_WEAPON_LIVE_DIR']=str(directory.resolve())
     with log.open('wb') as stream, native_process_context():
         process = subprocess.Popen([str(exe.resolve()), '--data-dir', str(data.resolve())],
-            cwd=exe.parent, env=game_environment(ini, data, save, env), stdout=stream, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, **flags)
+            cwd=exe.parent, env=child_env, stdout=stream, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, **flags)
     return LaunchSession(process, directory, ini, log, preset)
 
 def log_confirmation(text, ini):
@@ -546,7 +584,19 @@ def required_config(doc):
     previous=_control_required_config(doc)
     return max(82,previous) if any(('general',key) in doc.entries for key in ('dpad_quick_select','r1_experimental')) else previous
 
-_required_before_mixed_pool=required_config
+_r1_limit_required_config=required_config
 def required_config(doc):
-    previous=_required_before_mixed_pool(doc)
-    return max(86,previous) if any(key=='r1_experimental_max' or (section=='general' and key in {'randomizer_mode','randomizer_bolt_multiplier','bolt_multiplier_max'}) for section,key in doc.entries) else previous
+    previous=_r1_limit_required_config(doc)
+    return max(86,previous) if any(key=='r1_experimental_max' for _,key in doc.entries) else previous
+
+# The runtime must understand this key even when every grade has it Off.
+_before_moving_comet_required_config = required_config
+def required_config(doc):
+    previous = _before_moving_comet_required_config(doc)
+    return max(87, previous) if any(key == 'move_while_thrown' for section, key in doc.entries) else previous
+
+_feedback_required_config=required_config
+def required_config(doc):
+    previous=_feedback_required_config(doc)
+    keys={'burn_on_hit','hud_quickselect_only','slam_explosion_enabled','slam_explosion_damage_hp','slam_explosion_radius','slam_explosion_color','weapon_bar_alternative_position'}
+    return max(88,previous) if any(key in keys for _,key in doc.entries) else previous

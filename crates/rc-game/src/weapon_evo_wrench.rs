@@ -5,6 +5,17 @@ use crate::moby_runtime::MobyTable;
 use crate::moby_update::services::HitTemplate;
 use crate::ps2v::Pf;
 pub const THROWN:u32=0x4000_0000;
+pub const BLAST:u32=0x1000_0000;
+pub const BURN:u32=0x0800_0000;
+#[derive(Clone,Copy,Debug,PartialEq)]
+pub struct SlamBlast {pub enabled:bool,pub damage_hp:f32,pub radius:f32,pub color:Option<u32>}
+impl Default for SlamBlast {fn default()->Self{Self{enabled:false,damage_hp:200.,radius:0.5,color:None}}}
+impl SlamBlast {
+    pub fn capture()->Self{Self{enabled:super::extra_flag(8,"slam_explosion_enabled",false),
+        damage_hp:super::extra(8,"slam_explosion_damage_hp",200.),radius:super::extra(8,"slam_explosion_radius",0.5),
+        color:super::extra_color(8,"slam_explosion_color")}}
+}
+
 
 /// Cosmetic geometry uses native anchors and the attack's captured hit radius.
 /// Color follows the active grade, using the same BBGGRR packing as other FX.
@@ -231,8 +242,8 @@ mod tuning_tests {
         let env=ItemEnv{ mobys: None,data:&d,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
         let (mut h,mut table)=fixture();h.melee.tuning=AttackTuning{hit_radius_multiplier:2.,knockback_multiplier:3.};
         h.shockwave=Some((h.pos,[Pf::f(2.),Pf::ZERO,Pf::ZERO,Pf::b(0x45af_df66)]));
-        let mut hits=Hits::default();hero::melee::jump_attack_shockwave(&mut h,&mut table,&env,&mut hits);
-        hero::melee::jump_attack_shockwave(&mut h,&mut table,&env,&mut hits);
+        let mut hits=Hits::default();hero::melee::jump_attack_shockwave(&mut h,&mut table,&env,&mut hits,&mut Rng::new());
+        hero::melee::jump_attack_shockwave(&mut h,&mut table,&env,&mut hits,&mut Rng::new());
         assert_eq!(hits.spheres.len(),1);let (r,_,t)=&hits.spheres[0];near(r.to_f32(),0.8);near(t.dir[0].to_f32(),6.);
         assert_eq!((t.damage,t.dir[2],t.dir[3]),(Pf::f(2.),Pf::ZERO,Pf::b(0x45af_df66)));
         let mut speed=2.;let mut up=3.;crate::moby_update::creature::knock::aim(t.dir.map(Pf::to_f32),&mut speed,&mut up);
@@ -299,5 +310,37 @@ mod trail_tests {
         assert_eq!(style.color,TrailStyle::DEFAULT_COLOR);
         let tip=[1.,-0.,3.];
         assert_eq!(style.edge([10.,20.,30.],tip).map(f32::to_bits),tip.map(f32::to_bits));
+    }
+}
+
+#[cfg(test)]
+mod v102_tests {
+    use super::*;
+    #[test]
+    fn slam_and_blast_are_distinct_once_per_target_and_both_award_wrench_damage(){
+        use crate::{moby_runtime::{Moby,MobyTable},moby_update::real_hp::Events};
+        let table=MobyTable::new(vec![Moby::default(),Moby{o_class:577,state:1,..Default::default()}],0);
+        let mut events=Events::default();events.enabled=true;events.hero=Some(0);events.wrench_serial=1;events.values.insert(8,100.);
+        let mut hit=HitTemplate{attacker:Some(0),h1a:0x47,damage:Pf::ONE,flags:0x10000,w20:BURN,..Default::default()};
+        events.queue(&table,1,&hit,false,[Pf::ZERO;4],0);
+        hit.w20|=BLAST;hit.h1a=121;hit.b18=2;hit.damage=Pf::f(2.);
+        for _ in 0..10{events.queue(&table,1,&hit,false,[Pf::ZERO;4],0);}
+        let direct=events.take(1,u32::MAX).unwrap();let blast=events.take(1,u32::MAX).unwrap();
+        assert_eq!(direct.damage,Pf::ONE);assert_eq!(blast.damage,Pf::f(2.));
+        let a=direct.evolution.unwrap();let b=blast.evolution.unwrap();assert_ne!(a.instance,b.instance);
+        assert_eq!(b.origin.unwrap().class,121);assert_eq!(b.weapon,8);assert_eq!(b.burn_color,Some(None));assert_eq!(blast.w30&(BLAST|BURN),0);
+        events.resolve_once(1,a);events.resolve_once(1,b);events.begin_frame(2);
+        events.queue(&table,1,&hit,false,[Pf::ZERO;4],0);assert!(events.take(1,u32::MAX).is_none());
+        events.wrench_serial=2;events.queue(&table,1,&hit,false,[Pf::ZERO;4],0);assert!(events.take(1,u32::MAX).is_some());
+    }
+    #[test]
+    fn every_grade_parses_independent_visual_and_explosion_options(){
+        let mut raw=include_str!("weapon_evo_release.ini").to_string();
+        for grade in 1..=8 {raw+=&format!("\n[weapon.wrench.level{grade}]\nburn_on_hit={}\nhud_quickselect_only={}\nslam_explosion_enabled={}\nslam_explosion_damage_hp={}\nslam_explosion_radius={}\nslam_explosion_color=1234AB\n",grade%2==0,grade%2==1,grade>4,grade*100,grade as f32/2.);}
+        raw+="\n[hud]\nweapon_bar_alternative_position=true\n";
+        let e=crate::weapon_evo::Evolution::parse(&raw).unwrap();assert!(e.hud.weapon_bar_alternative_position);
+        let track=e.extras.iter().find(|t|t.id==8).unwrap();
+        for grade in 1..=8 {let p=&track.params[grade-1];assert_eq!(p["slam_explosion_damage_hp"],(grade*100)as f32);assert_eq!(p["burn_on_hit"],if grade%2==0{1.}else{0.});}
+        assert!(crate::weapon_evo::Evolution::parse(&raw.replace("slam_explosion_radius=0.5","slam_explosion_radius=0")).is_err());
     }
 }

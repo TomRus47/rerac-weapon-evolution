@@ -572,18 +572,101 @@ HELP.update({
     'lava_impact_color':'Lava contact effect color for this grade: default or RRGGBB.',
     'lava_light_color':'Lava light color for this grade: default or RRGGBB.'})
 
+GLOBAL_STANDARD_DEFAULTS['randomizer_mode']='false'
+BOOLEANS.add('randomizer_mode')
+LABELS['randomizer_mode']='Randomizer Mode'
+HELP['randomizer_mode']=('New games shuffle weapons, gadgets, Gold Bolts, planet coordinates and special rewards '
+    'across native pickups, purchases, NPC rewards and additional locations. Uses its own save folder. '
+    'Overrides Golden Bolts_to_Weapons, Ammo-Survival Mode and Hide_Ryno. Seeds belong to saves; NG+ retains the layout. '
+    'A change takes effect after restarting the game. Gold weapons are excluded.')
+_randomizer_global_groups=global_field_groups
+def global_field_groups(doc):
+    base,mode=_randomizer_global_groups(doc)
+    field=('general','randomizer_mode')
+    base=[p for p in base if p!=field]
+    if field in doc.entries:
+        at=next((i for i,p in enumerate(base) if p[1]=='golden_bolts_to_weapons'),len(base))
+        base.insert(at,field)
+    return base,mode
 
-# Mixed-pool controls are standard globals, kept together in their own card.
-RANDOMIZER_DEFAULTS={'randomizer_mode':'false','randomizer_bolt_multiplier':'false','bolt_multiplier_max':'3'}
-GLOBAL_STANDARD_DEFAULTS.update(RANDOMIZER_DEFAULTS)
-BOOLEANS.update({'randomizer_mode','randomizer_bolt_multiplier'})
-LABELS.update({'randomizer_mode':'Randomizer','randomizer_bolt_multiplier':'Enable multiplier in normal randomizer games','bolt_multiplier_max':'Maximum reward multiplier','r1_experimental_max':'R1_Experimental max'})
-HELP.update({'randomizer_mode':'New games start on Novalis with mixed weapon, gadget, Gold Bolt and coordinate rewards. Uses a separate memory card; existing layouts never reroll. Overrides weapon-only and Ammo-Survival modes.',
-'randomizer_bolt_multiplier':'Allow the shared bolt, weapon XP and Nanotech XP streak in normal randomizer games. NG+ already enables it. Damage or death resets the streak.',
-'bolt_multiplier_max':'Maximum actual reward coefficient in NG+ and enabled randomizer games. Default 3 means x3.0. Range: 1-100.',
-'r1_experimental_max':'Only with global R1_Experimental On: maximum selectable alternate mode for this grade. 0 hides and disables switching. R.Y.N.O. supports 0-2; Pyrocitor, Mine Glove and Visibomb Gun support 0-1. Other weapons support 0.'})
+# R1 gates are per grade. They never enable launcher-only enhancements.
+R1_MAX_KEY='r1_experimental_max'
+R1_MODE_MAX={'pyrocitor':1,'mine_glove':1,'visibomb':1,'ryno':2}
+def r1_mode_options(section):
+    weapon=section.split('.')[1] if section.startswith('weapon.') else ''
+    return tuple(str(n) for n in range(R1_MODE_MAX.get(weapon,0)+1))
+for _weapon,(_item,_) in WEAPONS.items():
+    EXPERIMENTAL_DEFAULTS.setdefault(_weapon,{})[R1_MAX_KEY]=str(R1_MODE_MAX.get(_weapon,0))
+    if _weapon=='bomb_glove':BOMB.add(R1_MAX_KEY)
+    elif _weapon=='pyrocitor':PYRO.add(R1_MAX_KEY)
+    else:EXTRA[_item]+=' '+R1_MAX_KEY
+INTEGER.add(R1_MAX_KEY)
+LABELS[R1_MAX_KEY]='R1_Experimental max'
+HELP[R1_MAX_KEY]=('Highest experimental mode selectable with R1 for this weapon grade. '
+    'Only applies when global R1_Experimental is On. 0 disables switching and hides the R1 indicator; '
+    '1 allows modes 0–1; 2 allows modes 0–2. The dropdown lists only implemented modes for this weapon. '
+    'Does not change the launcher/INI behavior when global R1_Experimental is Off.')
+_r1_field_order=field_order
+def field_order(key):
+    return (-1,key) if key==R1_MAX_KEY else _r1_field_order(key)
+
+GLOBAL_STANDARD_DEFAULTS.update(randomizer_bolt_multiplier='false',bolt_multiplier_max='3')
+BOOLEANS.add('randomizer_bolt_multiplier')
 WORLD_RANGES['bolt_multiplier_max']=(1,100)
-INTEGER.add('r1_experimental_max')
-for _weapon,(_id,_) in WEAPONS.items():
-    STANDARD_DEFAULTS.setdefault(_weapon,{})['r1_experimental_max']=str(2 if _id==23 else 1 if _id in (13,16,17) else 0)
-    EXTRA[_id]=(EXTRA.get(_id,'')+' r1_experimental_max').strip()
+LABELS.update(randomizer_bolt_multiplier='Bolt multiplier in normal Randomizer games',bolt_multiplier_max='Maximum reward multiplier')
+HELP.update(randomizer_bolt_multiplier='Enable the bolt/weapon XP/Nanotech XP chain from the first playthrough, only in Randomizer Mode. NG+ has this chain independently of this option. Only actual Nanotech loss resets it.',
+    bolt_multiplier_max='Maximum shared multiplier for bolts, weapon XP and enabled Nanotech XP progression. Applies in NG+ and opted-in normal Randomizer games. 1–100, in steps of 0.1; default 3. Thirty kills reach the cap. HUD and all rewards use the same actual factor in tenths.')
+_reward_global_groups=global_field_groups
+def global_field_groups(doc):
+    base,mode=_reward_global_groups(doc)
+    keys=('randomizer_bolt_multiplier','bolt_multiplier_max')
+    base=[field for field in base if field[1] not in keys]
+    at=next((i+1 for i,field in enumerate(base) if field[1]=='randomizer_mode'),len(base))
+    base[at:at]=[('general',key) for key in keys if ('general',key) in doc.entries]
+    return base,mode
+
+# Per-grade Comet Strike movement; standard setting, default native behavior.
+EXTRA[8] += ' move_while_thrown'
+BOOLEANS.add('move_while_thrown')
+STANDARD_DEFAULTS.setdefault('wrench', {}).setdefault('move_while_thrown', 'false')
+LABELS['move_while_thrown'] = 'Move while the wrench is thrown'
+HELP['move_while_thrown'] = 'After Comet Strike leaves Ratchet’s hand, allow normal movement before it returns. Off keeps the native waiting pose. Captured per throw; does not change range, speed, damage or allow a second thrown wrench.'
+
+
+# Movement is a standard option; serialized R1 values remain untouched.
+_wrench_groups_before_v101_ui_fix = field_groups
+def field_groups(weapon, keys):
+    standard, experimental = _wrench_groups_before_v101_ui_fix(weapon, keys)
+    if weapon == 'wrench':
+        experimental = [key for key in experimental if key != 'move_while_thrown']
+        if 'move_while_thrown' in keys and 'move_while_thrown' not in standard:
+            standard.append('move_while_thrown')
+            standard.sort(key=field_order)
+    return standard, experimental
+
+# v102: visual feedback, independent wrench slam experiment and HUD placement.
+WRENCH_FEEDBACK_STANDARD={'burn_on_hit':'false','hud_quickselect_only':'false'}
+WRENCH_SLAM_DEFAULTS={'slam_explosion_enabled':'false','slam_explosion_damage_hp':'200',
+    'slam_explosion_radius':'0.5','slam_explosion_color':'default'}
+STANDARD_DEFAULTS['wrench'].update(WRENCH_FEEDBACK_STANDARD)
+EXPERIMENTAL_DEFAULTS['wrench'].update(WRENCH_SLAM_DEFAULTS)
+EXPERIMENTAL_ENABLERS['wrench']=('slam_explosion_enabled',)
+EXTRA[8]+=' '+' '.join((*WRENCH_FEEDBACK_STANDARD,*WRENCH_SLAM_DEFAULTS))
+HUD.add('weapon_bar_alternative_position')
+BOOLEANS.update({'burn_on_hit','hud_quickselect_only','slam_explosion_enabled','weapon_bar_alternative_position'})
+COLORS.add('slam_explosion_color')
+EXPERIMENTAL_RANGES.update({'slam_explosion_damage_hp':(0,9999),'slam_explosion_radius':(0.1,30)})
+LABELS.update({'burn_on_hit':'Ignite struck enemies (visual only)',
+    'hud_quickselect_only':'Show wrench name and XP only after Triangle',
+    'slam_explosion_enabled':'Experimental ground-slam explosion',
+    'slam_explosion_damage_hp':'Slam explosion damage (HP)',
+    'slam_explosion_radius':'Slam explosion radius (units)',
+    'slam_explosion_color':'Slam explosion color',
+    'weapon_bar_alternative_position':'Weapon Bar Alternative Position'})
+HELP.update({'burn_on_hit':'All accepted wrench attacks ignite a finite visual burn. No burn damage is added; independent from enemy stun.',
+    'hud_quickselect_only':'For this grade, show the wrench name and XP after opening the Triangle weapon ring, with the Nanotech HUD fade. Show HUD must also be On. Swimming always hides the weapon HUD.',
+    'slam_explosion_enabled':'At ground impact, add one independent bomb-style explosion to the normal wrench slam. Captured when the attack starts. Does not expose an R1 mode.',
+    'slam_explosion_damage_hp':'Additional HP removed by the slam explosion. Each target can be hit once per explosion; the normal slam keeps its own damage.',
+    'slam_explosion_radius':'Actual world-space damage radius. Visual blast size follows it.',
+    'slam_explosion_color':'Independent bomb-style explosion palette: default or RRGGBB. Does not change other weapons.',
+    'weapon_bar_alternative_position':'Place the weapon XP bar between the name and ammo panels. The ammo panel moves down to leave a clear gap; the bar keeps the same outer width. Off uses the original position below ammo.'})

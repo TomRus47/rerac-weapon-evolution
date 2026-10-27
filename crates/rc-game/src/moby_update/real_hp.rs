@@ -49,6 +49,7 @@ pub struct StreamSnapshot {
 
 #[derive(Clone, Debug, Default)]
 pub struct Events {
+    pub feedback:super::feedback::Tracker,
     pub difficulty:crate::weapon_evo::world::Settings,
     pub enabled: bool,
     pub epoch: u64,
@@ -92,6 +93,7 @@ pub fn donor(m: &Moby) -> bool {
 }
 
 pub fn weapon(t: &HitTemplate, hero: Option<MobyId>) -> Option<i32> {
+    if t.h1a==121 && t.w20 & crate::weapon_evo::wrench::BLAST!=0 && hero.is_some() && t.attacker==hero {return Some(8);}
     Some(match t.h1a {
         0x47 if t.attacker==hero && hero.is_some() => 8,
         1 | 2 if t.attacker==hero && hero.is_some() && t.w20 & crate::weapon_evo::wrench::THROWN!=0 => 8,
@@ -146,7 +148,7 @@ impl Events {
         let Some(attacker) = t.attacker else { return false; };
         let stream = item == 16 || item == 19 || (item == 17 && t.b18 == 5);
         let channel = u8::from(item == 19 && t.w20 & TESLA_SECONDARY != 0);
-        let phase = if item==8 {self.wrench_serial} else if item == 18 { self.melee_serial } else if stream || item == 14 || t.h1a == 168 { self.frame.saturating_mul(2) + channel as u64 } else { u64::MAX };
+        let phase = if item==8 {self.wrench_serial.saturating_mul(2)+u64::from(t.w20 & crate::weapon_evo::wrench::BLAST!=0)} else if item == 18 { self.melee_serial } else if stream || item == 14 || t.h1a == 168 { self.frame.saturating_mul(2) + channel as u64 } else { u64::MAX };
         let key = (attacker, item, phase);
         let instance = match self.sources.get(&key).copied() {
             Some(id) => id,
@@ -175,6 +177,7 @@ impl Events {
         damage /= self.difficulty.health_scale(table.mobys[target].o_class);
         if !damage.is_finite() || damage <= 0.0 { return true; }
         if stream {
+            if item==16 || item==17 {self.feedback.contact(target,self.frame);}
             let interval = if item == 17 { 1 } else { snapshot.map(|s| s.interval).unwrap_or(self.stream_intervals[usize::from(item == 19)]).clamp(1, 600) };
             let pulse = self.streams.entry((target, attacker, item, channel)).or_default();
             pulse.damage += damage;
@@ -190,12 +193,13 @@ impl Events {
         // enemy filters: otherwise fire/electricity is mistaken for the wrench.
         let stream_class = match item { 17 if stream => Some(176), 16 => Some(176), 19 => Some(177), _ => None };
         let r = HitRecord { wrench: false, pos, dir: t.dir, attacker: t.attacker, flags: t.flags,
-            b28: t.b18, b29: t.b19, h2a: stream_class.unwrap_or(t.h1a as i16) as u16, damage: Pf::f(damage), w30: t.w20 & !TESLA_OVERLAP & if item==8 {!crate::weapon_evo::wrench::THROWN} else {u32::MAX},
+            b28: t.b18, b29: t.b19, h2a: stream_class.unwrap_or(t.h1a as i16) as u16, damage: Pf::f(damage), w30: t.w20 & !TESLA_OVERLAP & if item==8 {!(crate::weapon_evo::wrench::THROWN|crate::weapon_evo::wrench::BURN|crate::weapon_evo::wrench::BLAST)} else {u32::MAX},
             target, prim, doom_explosion: 0,
             evolution: Some(Attack { burn_color: if item == 16 { Some(snapshot.map_or_else(crate::weapon_evo::pyro_burn_color, |s| s.burn_color)) }
                 else if item == 17 { Some(table.mobys.get(attacker).and_then(super::classes::mine::experimental::burn_color)) }
+                else if item==8 && t.w20 & crate::weapon_evo::wrench::BURN!=0 {Some(None)}
                 else { None }, instance, weapon: item, damage, damage_only: false,
-                origin: table.mobys.get(attacker).map(|m| Origin { class: if item==8 {0x47} else {stream_class.unwrap_or(m.o_class)}, position: m.position }) }) };
+                origin: table.mobys.get(attacker).map(|m| Origin { class: if item==8 {if t.w20 & crate::weapon_evo::wrench::BLAST!=0 {121}else{0x47}} else {stream_class.unwrap_or(m.o_class)}, position: m.position }) }) };
         if stream {
             if let Some(old) = self.pending.get_mut(&target).and_then(|q| q.iter_mut().find(|h|
                 h.attacker == Some(attacker) && h.w30 == r.w30 && h.evolution.is_some_and(|a|
@@ -255,6 +259,7 @@ impl Events {
         (loss, *hp <= 0.000_001)
     }
     pub fn forget(&mut self, id: MobyId) {
+        self.feedback.forget(id);
         self.pending.remove(&id); self.logical.remove(&id); self.burn_colors.remove(&id);
         self.stream_reactions.remove(&id);
         self.source_damage_hp.retain(|(source, _), _| *source != id);
@@ -273,7 +278,7 @@ impl Events {
     pub fn begin_frame(&mut self, frame: u64) {
         if self.frame != frame {
             // Per-frame flow identities need not survive after their records were copied.
-            self.sources.retain(|(_, item, phase), _| *phase == u64::MAX || (*item == 18 && *phase == self.melee_serial) || (*item==8 && *phase==self.wrench_serial));
+            self.sources.retain(|(_, item, phase), _| *phase == u64::MAX || (*item == 18 && *phase == self.melee_serial) || (*item==8 && *phase/2==self.wrench_serial));
             self.frame = frame;
             self.stream_snapshot = None;
             self.muzzle_bound=false;

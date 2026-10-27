@@ -100,7 +100,7 @@ pub fn install(
 ) -> Result<()> {
     let live=std::env::var_os("RC_WEAPON_LIVE_DIR").is_some();
     if rc_game::weapon_evo::randomizer::enabled() || rc_game::weapon_evo::location_test::enabled() {
-        import_models(root,1,&[1134,750,479],mobys,textures)?;
+        import_models(root,1,&[1134,750,479,511],mobys,textures)?;
         if rc_game::weapon_evo::randomizer::enabled(){
             import_models(root,17,&[1428],mobys,textures)?;
             import_models(root,12,&[287],mobys,textures)?;
@@ -108,10 +108,14 @@ pub fn install(
     }
     let companion = live || *ENABLED.get_or_init(|| rc_game::weapon_evo::profile_uses_extra(24, "sand_mouse_enabled"));
     let ammo_mode = *AMMO_MODE.get_or_init(|| rc_game::weapon_evo::profile_uses_extra(-1, rc_game::weapon_evo::ammo_mode::KEY));
-    let mut requested: Vec<i32> = if ammo_mode {
+    // Any discovered weapon may now need ammo on any randomized planet.
+    // Import missing models on this worker, never while a crate is breaking.
+    let randomized = rc_game::weapon_evo::randomizer::enabled() || rc_game::weapon_evo::golden::enabled();
+    let mut requested: Vec<i32> = if ammo_mode || randomized {
         rc_game::moby_update::classes::pickup::AMMO_CLASSES.iter().map(|&c| c as i32).collect()
     } else { vec![1438] }; // R.Y.N.O. ammo is now eligible in ordinary play too.
     if companion { requested.extend([1818, 1633]); }
+    if rc_game::weapon_evo::profile_uses_extra(8,"slam_explosion_enabled"){requested.extend([121,122,1192]);}
     if live {requested.extend([121,122,1192,74,172,230]);}
     if *GRENADE.get_or_init(||rc_game::weapon_evo::profile_uses_extra(13,"grenade_launcher_enabled")) {requested.extend([121,122,1192,74,172]);}
     if *FLAME_MINE.get_or_init(||rc_game::weapon_evo::profile_uses_extra(17,"flame_mine_enabled")) {requested.extend([121,74,230]);}

@@ -72,6 +72,9 @@ const DT: f32 = 1.0 / 60.0;
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Flight {
     pub configured: bool,
+    /// Grade option captured once at launch; never grants another thrown instance.
+    pub move_while_thrown: bool,
+    pub burn_on_hit:bool,
     pub range_left: f32,
     pub damage_hp: f32,
     pub tuning: crate::weapon_evo::wrench::AttackTuning,
@@ -208,7 +211,17 @@ pub fn passed(v: &AnimView, f: f32) -> bool { f < v.frame && v.frame - f <= v.fr
 
 /// The 0x15 part of the transitions after the combo row's jump / idle tests (`0x242930`, case 0x13..0x15 tail):
 /// the wrench held → after 100 ticks the loop exit (once: 0x13fe04 ≤ 0x19); another hand item → idle.
+fn can_leave_throw_pose(h: &Hero) -> bool {
+    h.state == 0x15 && h.items.slot.detached != 0 && h.items.slot.item.as_ref()
+        .is_some_and(|it| it.flight.move_while_thrown && matches!(it.mstate, OUT | BACK))
+}
+
 pub(super) fn transitions_tail(h: &mut Hero, c: &mut super::states::Ctx) {
+    if can_leave_throw_pose(h) {
+        h.comet.catch_exit=false;
+        h.set_state(c,0,true);
+        return;
+    }
     if h.items.slot.id == super::items::item::WRENCH {
         let (_, end) = c.anim.loop_state();
         if !(ticks(100) < h.timer) || 0x19 < end { return; }
@@ -226,6 +239,7 @@ pub(super) fn before_advance(h: &mut Hero, anim: &mut dyn AnimCtl) {
 /// `0x236da0`: the throw. `look`: called from the look stance by the weapon check (the stance's own test of
 /// state 1 / 0x1e after 20 ticks is repeated here, as the game does).
 pub fn throw_wrench(h: &mut Hero, env: &Env, _from_check: bool) {
+    if h.items.slot.detached != 0 { return; }
     let look = (h.state == 1 || h.state == 0x1e) && ticks(20) < h.timer;
     let cam = env.world.and_then(|w| w.camera());
     let (mut yaw, mut pitch) = (0.0f32, 0.0f32);
@@ -283,7 +297,9 @@ pub fn throw_wrench(h: &mut Hero, env: &Env, _from_check: bool) {
         f.euler = launch_euler(&moby_rows);
     }
     f.accel = 0.0;
+    f.burn_on_hit=crate::weapon_evo::extra_flag(8,"burn_on_hit",false);
     f.configured=crate::weapon_evo::weapon_menu_level(8).is_some();
+    f.move_while_thrown=crate::weapon_evo::extra_flag(8,"move_while_thrown",false);
     f.range_left=wrench_settings.0;f.damage_hp=wrench_settings.2;f.tuning=h.melee.tuning;
     f.speed=DT*wrench_settings.1;
     // fun_00212f90(wrench, 6, 0, 5): the spin sequence (applied at the start of the item update).
@@ -381,8 +397,9 @@ pub fn thrown_update(hero: &mut Hero, table: &mut MobyTable, anim: &dyn AnimCtl,
     let rows = euler_rows(from_f32x3(f.euler));
     it.rows = [0, 1, 2].map(|i| rows[i].map(|x| x.0));
     let (dir, mstate) = (f.dir, it.mstate);
+    let leave_pose = !f.move_while_thrown || hero.state == 0x15;
     if catch_exit {
-        hero.comet.catch_exit = true;
+        if leave_pose { hero.comet.catch_exit = true; }
         release_whoosh(hero);
     }
     if arrived {
@@ -427,7 +444,7 @@ pub fn thrown_update(hero: &mut Hero, table: &mut MobyTable, anim: &dyn AnimCtl,
         b19: 1,
         h1a: (hero.melee.comet_side + 1) as u16,
         damage: Pf::f(crate::weapon_evo::wrench::native_damage(hero.items.slot.item.as_ref().unwrap().flight.damage_hp,1.)),
-        w20: 1 | if hero.items.slot.item.as_ref().unwrap().flight.configured {crate::weapon_evo::wrench::THROWN} else {0},
+        w20: 1 | if hero.items.slot.item.as_ref().unwrap().flight.burn_on_hit {crate::weapon_evo::wrench::BURN}else{0} | if hero.items.slot.item.as_ref().unwrap().flight.configured {crate::weapon_evo::wrench::THROWN} else {0},
     };
     let ignore = Some(env.hero_moby);
     let it = hero.items.slot.item.as_ref().unwrap();
@@ -588,6 +605,58 @@ mod tests {
         let mut v = Voices::default();
         super::super::hero_update_with_sounds(&mut r.hero, &mut r.moby, &env, a, &mut r.rng, &mut v);
         v.0
+    }
+
+    #[test]
+    fn released_comet_pose_allows_running_while_the_same_wrench_is_out() {
+        let (mut r,coll,mut anim)=runner();
+        r.hero.state=0x15;r.hero.group=6;r.hero.items.slot.detached=1;
+        let it=r.hero.items.slot.item.as_mut().unwrap();it.mstate=OUT;it.flight.move_while_thrown=true;
+        anim.v.seq_a=0x1a;anim.v.seq_b=0x1a;anim.v.frame=40.;
+        let before=r.hero.position();
+        for _ in 0..12 {tick(&mut r,&coll,&mut anim,PadInput::neutral().stick(0.,-1.));}
+        assert_ne!(r.hero.state,0x15);
+        let after=r.hero.position();
+        assert!((after[0]-before[0]).hypot(after[1]-before[1])>0.01);
+        assert_eq!(r.hero.items.slot.detached,1);
+        assert_eq!(r.hero.items.slot.item.as_ref().unwrap().mstate,OUT);
+    }
+    #[test]
+    fn free_throw_waits_for_launch_and_defaults_to_native_waiting() {
+        let mut h=Hero::new();h.state=0x15;h.items.slot.item=Some(wrench());
+        h.items.slot.item.as_mut().unwrap().flight.move_while_thrown=true;
+        assert!(!can_leave_throw_pose(&h));
+        h.items.slot.detached=1;h.items.slot.item.as_mut().unwrap().mstate=OUT;
+        assert!(can_leave_throw_pose(&h));
+        h.items.slot.item.as_mut().unwrap().flight.move_while_thrown=false;
+        assert!(!can_leave_throw_pose(&h));
+    }
+    #[test]
+    fn moving_throw_returns_to_the_moving_hand_without_interrupting_other_loops() {
+        let mut h=Hero::spawn([410.,410.,100.],0.);h.state=2;
+        let mut it=wrench();it.mstate=OUT;
+        it.flight=Flight{move_while_thrown:true,dir:[1.,0.,0.],speed:23./60.,..Default::default()};
+        h.items.slot=items::HandSlot{item:Some(it),state:2,id:8,detached:1,hand_point:[410.,410.,101.],..Default::default()};
+        let data=data();let pad=crate::pad::PadState::default();
+        let env=ItemEnv{data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,mobys:None,camera:None,camera_up:None,targets:&[]};
+        let mut table=MobyTable::default();let anim=KeyAnim{looped:Some((0,9)),..Default::default()};
+        let mut rng=Rng::new();let mut arrived=false;
+        for _ in 0..400 {
+            h.items.slot.hand_point[0]+=0.02;
+            thrown_update(&mut h,&mut table,&anim,&env,&mut NoHits,&mut rng);
+            assert!(!h.comet.catch_exit);
+            if h.items.slot.detached==0 {arrived=true;break;}
+        }
+        assert!(arrived);assert_eq!(h.state,2);
+    }
+    #[test]
+    fn every_grade_accepts_its_own_moving_throw_flag() {
+        let mut raw=include_str!("../weapon_evo_release.ini").to_string();
+        for n in 1..=8 {raw+=&format!("\n[weapon.wrench.level{n}]\nmove_while_thrown={}\n",n%2==0);}
+        let e=crate::weapon_evo::Evolution::parse(&raw).unwrap();
+        let track=e.extras.iter().find(|t|t.id==8).unwrap();
+        for n in 1..=8 {assert_eq!(track.params[n-1]["move_while_thrown"],if n%2==0{1.}else{0.});}
+        assert!(crate::weapon_evo::Evolution::parse(&raw.replace("move_while_thrown=false","move_while_thrown=perhaps")).is_err());
     }
 
     /// Crouch + □ with the wrench: 0x15 (entry anim 0x1a, the loop 6..0x15), the throw when the key time passes 33

@@ -48,6 +48,11 @@ def ensure_experimental_fields(raw):
         if weapon not in EXPERIMENTAL_DEFAULTS and weapon not in STANDARD_DEFAULTS:
             result.extend(block); continue
         defaults = EXPERIMENTAL_DEFAULTS.get(weapon, {})
+        # An R1-only footer does not enable historical experimental rewrites.
+        if set(defaults)=={'r1_experimental_max'}:
+            if all((section,key) in doc.entries for key in STANDARD_DEFAULTS.get(weapon,{})):
+                result.extend(block);continue
+            defaults={}
         values = {key: doc.entries[section,key] for sec,key in doc.entries if sec == section}
         original = dict(values)
         if 'experimental_max_ammo' in defaults:
@@ -430,9 +435,83 @@ def convert(raw):
     result,warnings=_control_convert(raw)
     return ensure_control_fields(result),warnings
 
-# Wrench sections can be created after the first standard-field pass. Complete
-# their new per-grade controls in the same conversion, so saving once is stable.
-_convert_before_grade_controls=convert
+def ensure_r1_limit_fields(raw):
+    """Add only missing grade gates; retain every existing value and comment."""
+    from launcher_core import IniDocument
+    from schema import WEAPONS, EXPERIMENTAL_DEFAULTS, EXPERIMENTAL_ENABLERS, R1_MAX_KEY, R1_MODE_MAX
+    doc=IniDocument(raw);nl='\r\n' if b'\r\n' in raw else '\n'
+    blocks=[];block=[]
+    for line in doc.lines:
+        if re.fullmatch(r'\s*\[[^]]+\]\s*',line.split(';',1)[0].strip()) and block:
+            blocks.append(block);block=[]
+        block.append(line)
+    if block:blocks.append(block)
+    output=[]
+    for block in blocks:
+        header=re.fullmatch(r'\s*\[weapon\.([a-z_]+)\.level([1-8])\]\s*',block[0].split(';',1)[0].strip())
+        if not header or header[1] not in WEAPONS:
+            output.extend(block);continue
+        weapon=header[1];section=f'weapon.{weapon}.level{header[2]}'
+        if (section,R1_MAX_KEY) in doc.entries:
+            output.extend(block);continue
+        keys=[]
+        for i,line in enumerate(block):
+            match=re.match(r'\s*([a-zA-Z0-9_]+)\s*=',line)
+            if match:keys.append((i,match[1].lower()))
+        enablers=[i for i,key in keys if key in EXPERIMENTAL_ENABLERS.get(weapon,())]
+        options=[i for i,key in keys if key in EXPERIMENTAL_DEFAULTS.get(weapon,{})]
+        end=len(block)
+        while end>0 and not block[end-1].strip():end-=1
+        at=max(enablers)+1 if enablers else min(options) if options else max((i for i,_ in keys),default=end-1)+1
+        if at>0 and not block[at-1].endswith(('\n','\r')):block[at-1]+=nl
+        additions=[] if enablers or options else [nl,'; Experimental settings (on/off and options)'+nl]
+        additions.append(R1_MAX_KEY+' = '+str(R1_MODE_MAX.get(weapon,0))+nl)
+        output.extend(block[:at]+additions+block[at:])
+    return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(output).encode('utf-8')
+
+_r1_limit_convert=convert
 def convert(raw):
-    result,warnings=_convert_before_grade_controls(raw)
-    return order_profile(ensure_experimental_fields(result)),warnings
+    result,warnings=_r1_limit_convert(raw)
+    return ensure_r1_limit_fields(result),warnings
+
+def ensure_reward_multiplier_fields(raw):
+    """Group only the three Randomizer/reward rows, preserving their values."""
+    from launcher_core import IniDocument
+    doc=IniDocument(raw);nl='\r\n' if b'\r\n' in raw else '\n'
+    keys=('randomizer_mode','randomizer_bolt_multiplier','bolt_multiplier_max')
+    defaults=('false','false','3');found={};lines=[];inside=False;insert=None
+    for line in doc.lines:
+        header=re.fullmatch(r'\s*\[([^]]+)\]\s*',line.split(';',1)[0].strip())
+        if header:
+            inside=header[1].strip().lower()=='general'
+            if inside:insert=len(lines)+1
+        match=re.match(r'\s*([a-zA-Z0-9_]+)\s*=',line) if inside else None
+        if match and match[1].lower() in keys:
+            key=match[1].lower();found[key]=line
+            if key==keys[0]:insert=len(lines)
+        else:lines.append(line)
+    rows=[found.get(key,key+' = '+value+nl) for key,value in zip(keys,defaults)]
+    if insert is None:lines=['[general]'+nl,*rows,nl,*lines]
+    else:lines[insert:insert]=rows
+    return (b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
+_reward_multiplier_convert=convert
+def convert(raw):
+    result,warnings=_reward_multiplier_convert(raw)
+    return ensure_reward_multiplier_fields(result),warnings
+
+_feedback_previous_convert=convert
+def convert(raw):
+    result,warnings=_feedback_previous_convert(raw)
+    result=order_profile(ensure_experimental_fields(result))
+    from launcher_core import IniDocument
+    doc=IniDocument(result)
+    if ('hud','weapon_bar_alternative_position') not in doc.entries:
+        nl='\r\n' if b'\r\n' in result else '\n'
+        if 'hud' in doc.sections:
+            lines=list(doc.lines)
+            at=next(i for i,line in enumerate(lines) if re.match(r'\s*\[hud\]',line,re.I))
+            if not lines[at].endswith(('\n','\r')):lines[at]+=nl
+            lines.insert(at+1,'weapon_bar_alternative_position = false'+nl)
+            result=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
+        else:result+= (nl+'[hud]'+nl+'weapon_bar_alternative_position = false'+nl).encode()
+    return result,warnings

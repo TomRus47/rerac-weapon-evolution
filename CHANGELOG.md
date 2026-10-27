@@ -279,3 +279,12 @@ The first test build of ReRAC. It's an early alpha: every planet is in, from Vel
 - Veldin, Novalis, Aridia and Kerwan are complete. The other planets have all their enemies, machines and bosses, and are waiting for a full play-through.
 - The main menu, saving and loading, flying between planets, the Gadgetron vendor, and cutscenes with their sound and music all work.
 - If something goes wrong, please report it with the log the launcher keeps.
+
+## Unreleased development: v102 / launcher 0.28.7
+
+- Refresh enemy red damage feedback and finite body-fire cycles independently of stun/reaction clocks; include native creature classes without XP adapters.
+- Add per-grade wrench visual ignition, Triangle-only name/XP visibility and an optional bomb-style ground-slam explosion with damage/radius/palette controls and wrench XP attribution.
+- Hide custom weapon name/XP while swimming; add an alternative bar position between name and ammunition, and indigo/yellow/white weapon-name grades.
+- Use the native ammo-crate mesh for model-free randomized rewards while retaining real Gold Bolts, Infobots and modeled objects.
+- Verify exact extra-enemy counts in NG+ with difficulty scaling and unscaled native HP categories.
+- Synchronize the supplied v97–v101 runtime/launcher fixes, add a checked local update kit and standalone ZIP helper, and retain current balance and release assets pending author playtests.

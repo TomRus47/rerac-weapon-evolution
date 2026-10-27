@@ -60,9 +60,12 @@ fn pickup_visual_contracts_do_not_require_native_particle_textures_or_inventory_
 fn gold_bolt_rewards_and_flag_only_proxies_use_the_real_registered_class() {
     let native=i32::from(rc_game::moby_update::classes::gold_bolt::CLASSES[0]);
     assert_eq!(native,1134);
-    for reward in [48,52,53,96,100,132,169] {
+    for reward in [96,100,132,169] {
         assert_eq!(randomizer::display_class(reward,-1),native);
     }
+    for reward in [48,52,53]{assert_eq!(randomizer::display_class(reward,-1),511);}
+    assert_eq!(randomizer::display_class(999,-1),1134);
+    assert_eq!(randomizer::display_class(34,-1),511);
     assert_eq!(randomizer::display_class(70,-1),750);
 }
 

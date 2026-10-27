@@ -16,7 +16,8 @@ class V44Tests(unittest.TestCase):
                 standard,experimental=field_groups(weapon,keys)
                 self.assertEqual(keys,standard+experimental)
                 self.assertEqual(set(experimental),set(fields))
-                self.assertEqual(fields[next(iter(fields))],'false')
+                from schema import EXPERIMENTAL_ENABLERS
+                for key in EXPERIMENTAL_ENABLERS.get(weapon,()): self.assertEqual(fields[key],'false')
         for weapon,fields in STANDARD_DEFAULTS.items():
             for key in fields:
                 self.assertNotIn(key,EXPERIMENTAL_DEFAULTS.get(weapon,{}))
@@ -56,13 +57,16 @@ class V44Tests(unittest.TestCase):
         for pair,value in edits.items():self.assertEqual(after.entries[pair],value)
         self.assertEqual(after.entries['weapon.suck_cannon.level1','suck_steel_crates'],'true')
         self.assertEqual(after.entries['weapon.tesla_claw.level2','dual_beam_enabled'],'false')
-        self.assertEqual(core.required_config(after),86)
+        self.assertEqual(core.required_config(after),88)
     def test_future_experiments_automatically_follow_existing_standard_fields(self):
-        fields=EXPERIMENTAL_DEFAULTS.setdefault('blaster',{})
+        previous=EXPERIMENTAL_DEFAULTS.get('blaster')
+        fields=dict(previous or {});EXPERIMENTAL_DEFAULTS['blaster']=fields
         try:
             fields['future_experiment_enabled']='false';fields['future_setting']='1'
             self.assertEqual(field_groups('blaster',['future_setting','damage_hp','max_ammo','future_experiment_enabled']),
                 (['max_ammo','damage_hp'],['future_experiment_enabled','future_setting']))
-        finally:EXPERIMENTAL_DEFAULTS.pop('blaster',None)
+        finally:
+            if previous is None:EXPERIMENTAL_DEFAULTS.pop('blaster',None)
+            else:EXPERIMENTAL_DEFAULTS['blaster']=previous
 
 if __name__=='__main__':unittest.main()

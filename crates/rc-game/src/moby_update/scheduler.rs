@@ -417,6 +417,7 @@ impl Scheduler {
         for &id in &list { run_moby(w, id); }
         crate::weapon_evo::world::population::begin(w,templates);
         // The points the moby-riding particles (types 26 / 55) follow in the UpdateParts that comes next.
+        super::feedback::after(w);
         w.refresh_particle_anchors();
         let n = list.len();
         self.last_list = list;
@@ -427,6 +428,7 @@ impl Scheduler {
     /// number of mobys in the list. The free-slot pass 0x263300 (`MobyTable::free_slot_pass`) is the tick's
     /// first call and belongs to the caller (`rc_game::tick::Game::tick`).
     pub fn tick(&mut self, w: &mut World) -> usize {
+        super::feedback::before(w);
         // The race cameras' stores of the last camera update (its `rand` draw before the frame's draw callbacks'):
         // classes::units::oltanis_rail_bot.
         classes::units::oltanis_rail_bot::camera_stores(w);

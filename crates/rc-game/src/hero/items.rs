@@ -295,7 +295,7 @@ pub fn items_update(hero: &mut Hero, g: &mut ItemGlobals, table: &mut MobyTable,
     } else { super::combat_strafe::gameplay_pad_for_weapon(env.pad, super::combat_strafe::active(hero), hero.items.slot.id) };
     let env = &ItemEnv { mobys: None, pad: &gameplay_pad, ..*env };
     items_flags(hero);
-    super::melee::jump_attack_shockwave(hero, table, env, hits);
+    super::melee::jump_attack_shockwave(hero, table, env, hits, rng);
     super::walloper::deliver_hits(hero, table, env, hits, rng);
     // 0x22f390 in HeroItemsUpdate, before the slots: the glove-holding layers 0x22e660, then the weapon arm's
     // upkeep 0x22f068.

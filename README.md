@@ -1,6 +1,6 @@
 # ReRAC Weapon Evolution
 
-Weapon Evolution **0.3**, current **development snapshot**: gameplay **0.1.6.95**, configuration capability **86**, launcher **0.28.2**, based on **ReRAC 0.3.6-alpha**. This main-branch update is not a new release. The previously published Windows/source assets and their release tag remain unchanged.
+Weapon Evolution **0.3**, current **development snapshot**: gameplay **0.1.6.102**, configuration capability **88**, launcher **0.28.7**, based on **ReRAC 0.3.6-alpha**. This main-branch update is not a new release. The previously published Windows/source assets and their release tag remain unchanged.
 
 **Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to their games, characters, trademarks or game assets, and is not affiliated with their rights holders. Upstream licenses and contributor credits remain applicable. See [credits](docs/mod/CREDITS.md) and [LICENSE](LICENSE).
 
@@ -8,8 +8,12 @@ This repository includes the complete supplied Rust workspace, mod integrations,
 
 See the [v95 route audit](docs/mod/RANDOMIZER_ROUTE_AUDIT.md) for corrected Blarg/Orxon access, conservative Gold Bolt gates and the saved-layout inspector. These are modeled access checks; physical gameplay verification remains necessary.
 
+See [v102 combat feedback and HUD](docs/mod/FEEDBACK_HUD_V102.md) for the new controls, local test/update workflow and verification boundaries.
+
 ## Current development features
 
+- Accepted-hit red feedback and finite repeating body-fire cycles independent of stun; per-grade wrench visual ignition and an optional independent ground-slam explosion.
+- Swimming-safe weapon HUD, per-grade Triangle-only wrench HUD, alternative weapon-bar positioning and model-free randomizer rewards represented by a Gadgetron ammo crate.
 - Independent weapon XP, eight configurable grades, localized game names and bright grade icons. Weapons reach V5 through XP, require their NG+ Gold purchase for V6, then progress to V8. The wrench uses XP for its upper grades in NG+.
 - Real HP, per-attack projectile/explosion identity, actual accepted health-loss XP, independent damage/ammo clocks and separate enemy reaction cooldowns.
 - Per-grade ammo, damage, targeting, ranges, colors, Gold appearance and optional weapon replacements/enhancements, including lava streams, flame mines, grenade Visibomb and RYNO shotgun.

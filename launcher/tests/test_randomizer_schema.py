@@ -8,7 +8,7 @@ class RandomizerSchemaTests(unittest.TestCase):
     def test_current_ini_keeps_all_new_controls_and_requires_capability_86(self):
         raw=(Path(__file__).resolve().parents[1]/'weapons.default.ini').read_bytes()
         doc=core.profile_document(raw)
-        self.assertEqual(core.required_config(doc),86)
+        self.assertEqual(core.required_config(doc),88)
         self.assertEqual(convert(raw)[0],raw)
         for key in ['randomizer_mode','randomizer_bolt_multiplier','bolt_multiplier_max']:
             self.assertIn(('general',key),doc.entries)

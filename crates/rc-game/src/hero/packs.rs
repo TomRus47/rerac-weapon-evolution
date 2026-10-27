@@ -162,6 +162,13 @@ impl Default for Packs {
 fn shown(h: &Hero) -> bool { h.back_slot.clank_hidden == 0 }
 fn heli_owned(h: &Hero) -> bool { h.owned.has(item::HELI_PACK as usize) }
 
+/// Randomized acquisition may grant the Thruster-Pack before the Heli-Pack.
+/// Authorize its native glide without granting another gadget or changing saves.
+fn glide_owned(h: &Hero) -> bool {
+    heli_owned(h) || (h.back_module() == item::THRUSTER_PACK
+        && h.owned.has(item::THRUSTER_PACK as usize))
+}
+
 // ------------------------------------------------------------------------------------------------
 // Sounds.
 
@@ -659,10 +666,10 @@ pub(super) fn hover_latched(h: &Hero) -> bool {
     h.packs.hover_latch != 0 && !(h.f658 != 0 && h.owned.has(item::MAGNEBOOTS))
 }
 
-/// The fall 6's glide test (✕ held, Heli-Pack owned, the back module not the Hydro-Pack, Clank shown, no
+/// The fall 6's glide test (✕ held, a glide-capable pack owned, the back module not the Hydro-Pack, Clank shown, no
 /// lockout, height > 0.6 → 8). True when it changed the state.
 pub(super) fn fall_to_glide(h: &mut Hero, c: &mut Ctx) -> bool {
-    if c.env.pad.held & button::CROSS == 0 || !heli_owned(h) || h.back_module() == item::HYDRO_PACK || !shown(h) { return false; }
+    if c.env.pad.held & button::CROSS == 0 || !glide_owned(h) || h.back_module() == item::HYDRO_PACK || !shown(h) { return false; }
     if h.lockout != 0 || !(p(0.6) < h.height) { return false; }
     h.set_state(c, id::GLIDE, true);
     true
@@ -742,11 +749,11 @@ pub(super) fn long_jump_glide_holdoff(h: &mut Hero) {
     if matches!(h.state, 10 | 0x10) && ticks(25) < h.timer && h.f65a != 0 { h.jump.f7f6 = ticks(20) as i16; }
 }
 
-/// The jumps' glide test when no double jump was taken: Heli-Pack owned, not the Hydro-Pack on the back, Clank
+/// The jumps' glide test when no double jump was taken: a glide-capable pack owned, not the Hydro-Pack, Clank
 /// shown, ✕ held, past `min_timer` (20; 8 in 0x10; 17 in 0xe above 4) and 0x13f7f6, above 0.6 (1.0 in 7 / 9, 1.5
 /// in 0xe) → 8.
 pub(super) fn jump_to_glide(h: &mut Hero, c: &mut Ctx, min_timer: i32) {
-    if !heli_owned(h) || h.back_module() == item::HYDRO_PACK || !shown(h) || c.env.pad.held & button::CROSS == 0 { return; }
+    if !glide_owned(h) || h.back_module() == item::HYDRO_PACK || !shown(h) || c.env.pad.held & button::CROSS == 0 { return; }
     if !(min_timer < h.timer) || !((h.jump.f7f6 as i32) < h.timer) { return; }
     let above = match h.state {
         7 | 9 => 1.0,

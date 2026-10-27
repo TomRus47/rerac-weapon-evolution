@@ -75,44 +75,102 @@ out.sort_by_key(|l|l.id);out}
 // Extra-site requirements are independent of the native Gold Bolt index order.
 fn extra_requirements(i:usize)->&'static [&'static [u16]] {match i {
 0=>&[&[2,12,28,26,11],&[2,12,28,26,13],&[3,12,28,26,11],&[3,12,28,26,13]],
-1=>&[&[2],&[3]],2=>&[&[6,2],&[6,3]],3=>&[&[]],
+1=>&[&[2],&[3]],2=>&[&[6,12,28,3]],3=>&[&[]],
 4=>&[&[2],&[3]],5=>&[&[4]],_=>panic!("unknown extra location")}}
 
+/// Matched to native pvar IDs through the author's original-data survey and
+/// annotated maps. Names describe positions, not a walkthrough's entry order.
 fn gold_name(p:usize,i:usize)->&'static str {match (p,i) {
+(1,0)=>"Novalis wall-jump room",
+(1,1)=>"Novalis upstream cave",
+(1,2)=>"Novalis explosive cave",
+(2,0)=>"Aridia explosive wall",
+(2,1)=>"Aridia mud-truck ledge",
+(2,2)=>"Aridia Magneboots rail",
+(2,3)=>"Aridia tower underside (conservative unsurveyed route)",
+(3,0)=>"Kerwan station luggage ledge",
+(3,1)=>"Kerwan fitness-course tower",
+(3,2)=>"Kerwan train station rear",
+(4,0)=>"Eudora high ledge",
+(5,0)=>"Rilgar maze upper wall",
+(5,1)=>"Rilgar flooded sewer",
 (6,0)=>"Blarg exterior Gold Bolt (Ratchet, airlock)",
 (6,1)=>"Blarg interior Gold Bolt (upper cage)",
-_=>"Native Gold Bolt (conservative route requirements)",
+(7,0)=>"Umbris pressure-switch room",
+(7,1)=>"Umbris sharkigator pool ledge",
+(8,0)=>"Batalia bridge-side plateau",
+(8,1)=>"Batalia roof near landing area",
+(9,0)=>"Gaspar helmet-route ledge",
+(9,1)=>"Gaspar island fuel structure",
+(10,0)=>"Orxon Visibomb wall tunnel",
+(10,1)=>"Orxon laboratory wall-jump room",
+(11,0)=>"Pokitaru hidden river route",
+(12,0)=>"Hoven wall-jump area near landing",
+(12,1)=>"Hoven water puzzle ledge",
+(13,0)=>"Gemlik Visibomb generator route",
+(14,0)=>"Oltanis statue Swingshot route",
+(14,1)=>"Oltanis grind-route Swingshot alcove",
+(14,2)=>"Oltanis Magneboots route lower bolt",
+(14,3)=>"Oltanis Magneboots route upper bolt",
+(15,0)=>"Quartu ceiling route",
+(15,1)=>"Quartu Codebot vault",
+(16,0)=>"Kalebo III break-room teleporter",
+(16,1)=>"Kalebo III grind-rail pickup",
+(17,0)=>"Drek fleet water rings",
+(17,1)=>"Drek fleet ceiling backtrack",
+(18,0)=>"Veldin II Taunter barrier",
+(18,1)=>"Veldin II high platforms",
+(18,2)=>"Veldin II hidden grind rail",
+_=>panic!("unknown native Gold Bolt identity"),
 }}
 
-/// Never infer the native pvar index from the order in a walkthrough. Blarg's
-/// two identities are verified by the reported pickup/save pair. For remaining
-/// unsurveyed indices use a shared, conservative route envelope on that planet.
-/// This deliberately over-gates some easy checks instead of putting mandatory
-/// progression behind a harder sibling with the wrong requirements.
+/// Alternatives contain BOTH traversal and local pickup requirements. A local
+/// "no requirements" annotation never overrides a preceding route gadget gate.
+/// Aridia index 3 remains conservative: it was not marked in the supplied map.
 fn gold_requirements(p:usize,i:usize)->&'static [&'static [u16]] {
 assert!(i<super::super::golden::COUNTS[p] as usize,"unknown native Gold Bolt index");
 match (p,i) {
-(6,0)=>&[&[6,26]],(6,1)=>&[&[2],&[3]],
-(1,_)=>&[&[2,4,6,10],&[2,4,6,11],&[2,4,6,13],&[3,4,6,10],&[3,4,6,11],&[3,4,6,13]],
-(2,_)=>&[&[2,12,26,28,10],&[2,12,26,28,11],&[2,12,26,28,13],&[3,12,26,28,10],&[3,12,26,28,11],&[3,12,26,28,13]],
-(3,_)=>&[&[2],&[3]],
-(4,_)=>&[&[2,12,26]],
-(5,_)=>&[&[2,4,6,12,22],&[3,4,6,12,22]],
-(7,_)=>&[&[2,12,22],&[3,12,22]],
-(8,_)=>&[&[2,12,26,28,29],&[3,12,26,28,29]],
-(9,_)=>&[&[2,12],&[3,12]],
-(10,_)=>&[&[6,12,13,28,3]],
-// This native route has a Versa-target and high ledge; the added seabed does not.
-// Neither location needs the O2 Mask or Hydro-Pack.
-(11,_)=>&[&[2,12],&[3,12]],
-(12,_)=>&[&[2,4,6,22],&[3,4,6,22]],
-(13,_)=>&[&[2,12,28,26,11],&[2,12,28,26,13],&[3,12,28,26,11],&[3,12,28,26,13]],
-(14,_)=>&[&[2,12,21,28,29,32],&[3,12,21,28,29,32]],
-(15,_)=>&[&[2,12,50],&[3,12,50]],
-(16,_)=>&[&[2,12,29,30],&[3,12,29,30]],
-(17,_)=>&[&[3,4,6,12,28,31]],
-(18,_)=>&[&[2,6,12,14,29,31],&[3,6,12,14,29,31]],
-_=>panic!("unknown native Gold Bolt planet"),
+(1,0)=>&[&[]],
+(1,1)=>&[&[4]],
+(1,2)=>&[&[10],&[11],&[13]],
+(2,0)=>&[&[10],&[11],&[13]],
+(2,1)=>&[&[2],&[3]],
+(2,2)=>&[&[12,26,28]],
+(2,3)=>&[&[2,12,26,28,10],&[2,12,26,28,11],&[2,12,26,28,13],&[3,12,26,28,10],&[3,12,26,28,11],&[3,12,26,28,13]],
+(3,0)=>&[&[2],&[3]],
+(3,1)=>&[&[2],&[3]],
+(3,2)=>&[&[2],&[3]],
+(4,0)=>&[&[2,12,26]],
+(5,0)=>&[&[2],&[3]],
+(5,1)=>&[&[2,6,12,22],&[3,6,12,22]],
+(6,0)=>&[&[6,26]],
+(6,1)=>&[&[2],&[3]],
+(7,0)=>&[&[12,22]],
+(7,1)=>&[&[2,12,22],&[3,12,22]],
+(8,0)=>&[&[2],&[3]],
+(8,1)=>&[&[]],
+(9,0)=>&[&[2],&[3]],
+(9,1)=>&[&[2,12],&[3,12]],
+(10,0)=>&[&[6,12,13,28,3]],
+(10,1)=>&[&[6,12,28,3]],
+(11,0)=>&[&[2,3,12]],
+(12,0)=>&[&[]],
+(12,1)=>&[&[2,22],&[3,22]],
+(13,0)=>&[&[2,12,28,26,13],&[3,12,28,26,13]],
+(14,0)=>&[&[2,12,28,29],&[3,12,28,29]],
+(14,1)=>&[&[12,29]],
+(14,2)=>&[&[28]],
+(14,3)=>&[&[28]],
+(15,0)=>&[&[3,12,31]],
+(15,1)=>&[&[12,50]],
+(16,0)=>&[&[29]],
+(16,1)=>&[&[29]],
+(17,0)=>&[&[4,6]],
+(17,1)=>&[&[3,12,28,31]],
+(18,0)=>&[&[2,6,12,14,31],&[3,6,12,14,31]],
+(18,1)=>&[&[2,6,12,31],&[3,6,12,31]],
+(18,2)=>&[&[2,6,12,29,31],&[3,6,12,29,31]],
+_=>panic!("unknown native Gold Bolt identity"),
 }}
 
 #[cfg(test)]
@@ -138,13 +196,44 @@ mod route_tests {
             assert!(!can(source,&all),"source {source} needs a real O2 Mask");
         }
         assert!(can(28,&[]));assert!(can(75,&[]));
-        assert!(can(178,&[6,2]));assert!(!can(178,&[2]));
+        assert!(can(178,&[6,12,28,3]));assert!(!can(178,&[6,2]));
     }
     #[test]
     fn extra_and_native_water_routes_remain_distinct() {
         assert!(can(181,&[4]));assert!(!can(181,&[]));
         assert!(can(179,&[]));
-        assert!(!can(140,&[]));assert!(can(140,&[2,12]));
+        assert!(!can(140,&[2,12]));assert!(!can(140,&[3,12]));assert!(can(140,&[2,3,12]));
+    }
+    #[test]
+    fn surveyed_novalis_ids_do_not_share_sibling_requirements() {
+        assert!(can(100,&[]));
+        assert!(!can(101,&[]));assert!(can(101,&[4]));
+        assert!(!can(102,&[4]));
+        for explosive in [10,11,13]{assert!(can(102,&[explosive]));}
+    }
+    #[test]
+    fn gemlik_tower_and_native_bolt_have_distinct_explosive_gates() {
+        let path=[2,12,28,26,11];
+        assert!(can(176,&path));assert!(!can(148,&path));
+        assert!(!can(176,&[11]));assert!(!can(148,&[13]));
+        assert!(can(176,&[2,12,28,26,13]));assert!(can(148,&[2,12,28,26,13]));
+    }
+    #[test]
+    fn local_free_pickups_keep_traversal_and_character_gates() {
+        assert!(can(129,&[]));assert!(can(144,&[]));
+        assert!(!can(124,&[]));assert!(can(124,&[12,22]));
+        assert!(!can(137,&[6]));assert!(can(137,&[6,12,28,3]));
+        assert!(!can(137,&[12,28,3]));
+        assert!(!can(156,&[12]));assert!(can(156,&[3,12,31]));
+        assert!(!can(157,&[50]));assert!(can(157,&[12,50]));
+    }
+    #[test]
+    fn oltanis_statue_gate_uses_route_equipment_not_randomized_rewards() {
+        assert!(!can(152,&[12]));
+        assert!(can(152,&[2,12,28,29]));
+        assert!(!can(152,&[2,12,28]));
+        assert!(can(154,&[28]));assert!(can(155,&[28]));
+        assert!(!can(153,&[28]));assert!(can(153,&[12,29]));
     }
     #[test]
     fn catalogue_is_complete_and_has_no_unknown_or_impossible_requirement() {

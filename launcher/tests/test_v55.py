@@ -8,7 +8,7 @@ sys.path.insert(0,str(ROOT/'launcher'))
 import launcher as gui
 import launcher_core as core
 import i18n
-from schema import WEAPON_ORDER,EXPERIMENTAL_ENABLERS,EXPERIMENTAL_DEFAULTS,COLORS,BOOLEANS,field_groups,MODEL_NEW_KEYS
+from schema import WEAPON_ORDER,EXPERIMENTAL_ENABLERS,EXPERIMENTAL_DEFAULTS,COLORS,BOOLEANS,field_groups,MODEL_NEW_KEYS,EXPERIMENTAL_AMMO_DEFAULTS
 from migrate_ini import convert
 
 class Var:
@@ -42,9 +42,11 @@ class V55Tests(unittest.TestCase):
                         if key in COLORS:color_seen=True
                         elif color_seen:self.fail(f'{weapon}: {key} after colors')
                 if experimental:
-                    switches=EXPERIMENTAL_ENABLERS[weapon]
+                    switches=EXPERIMENTAL_ENABLERS.get(weapon,())
                     self.assertEqual(experimental[:len(switches)],list(switches))
-                    self.assertEqual(experimental[len(switches)],'experimental_max_ammo')
+                    if weapon in EXPERIMENTAL_AMMO_DEFAULTS:
+                        options=[k for k in experimental[len(switches):] if k!='r1_experimental_max']
+                        self.assertEqual(options[0],'experimental_max_ammo')
                 gold=[k for k in standard if k.startswith('gold')]
                 if gold:self.assertEqual([k for k in standard if k not in COLORS][-len(gold):],gold)
         standard,experimental=field_groups('mine_glove',doc.keys('weapon.mine_glove.level1'))
@@ -56,7 +58,7 @@ class V55Tests(unittest.TestCase):
         before=core.checked_document(old);after_raw=convert(old)[0];after=core.checked_document(after_raw)
         self.assertEqual(len(after.entries)-len(before.entries),64)
         for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value)
-        for weapon in EXPERIMENTAL_ENABLERS:
+        for weapon in EXPERIMENTAL_AMMO_DEFAULTS:
             for grade in range(1,6):
                 sec=f'weapon.{weapon}.level{grade}'
                 self.assertEqual(after.entries[sec,'experimental_max_ammo'],before.entries[sec,'capacity' if weapon=='suck_cannon' else 'max_ammo'])
@@ -69,11 +71,11 @@ class V55Tests(unittest.TestCase):
                 with self.assertRaises(ValueError):core.validate_value(f'weapon.{weapon}.level1','experimental_max_ammo',value)
         with self.assertRaises(ValueError):core.validate_value('weapon.suck_cannon.level1','experimental_max_ammo','11')
         with self.assertRaises(ValueError):core.validate_value('weapon.wrench.level1','experimental_max_ammo','4')
-        self.assertEqual(core.required_config(core.checked_document(self.raw)),86)
+        self.assertEqual(core.required_config(core.checked_document(self.raw)),88)
         doc=core.IniDocument(self.raw)
         removed={index for (section,key),index in doc.addresses.items() if key in MODEL_NEW_KEYS or key=='experimental_max_ammo' or (section.startswith('weapon.wrench.level') and key in {'hit_radius_multiplier','knockback_multiplier'})}
         old=core.checked_document(''.join(line for index,line in enumerate(doc.lines) if index not in removed).encode())
-        self.assertEqual(core.required_config(old),86)
+        self.assertEqual(core.required_config(old),88)
     def test_catalogs_cover_all_public_fields_and_weapon_names_in_all_five_languages(self):
         doc=core.checked_document(self.raw)
         for language in i18n.LANGUAGES:

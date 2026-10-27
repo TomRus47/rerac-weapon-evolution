@@ -1,8 +1,10 @@
 # Weapon Evolution source map
 
-Unreleased development snapshot: gameplay 0.1.6.95, launcher 0.28.2, ReRAC 0.3.6-alpha. The complete supplied workspace is included; the 478 reviewed entries cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
+Unreleased development snapshot: gameplay 0.1.6.102, launcher 0.28.7, ReRAC 0.3.6-alpha. The complete supplied workspace is included; the reviewed entries cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
 
 Start with the [current implementation](docs/mod/CURRENT_IMPLEMENTATION.md), [saved controls](docs/mod/SAVED_CONTROLS.md), [developer guide](docs/mod/DEVELOPER_GUIDE.md) and [credits](docs/mod/CREDITS.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). The historical snapshot patch remains an account of the original export, not a complete current delta.
+
+The current feedback module is `crates/rc-game/src/moby_update/feedback.rs`. Wrench hooks, shared HUD helpers and independent reward display meshes are described in [v102 integration](docs/mod/FEEDBACK_HUD_V102.md). Local delta generation, transactional installation/profile staging and ZIP packaging live in `tools/mod/*feedback*.py`; their regression fixtures are in `launcher/tests/test_feedback_update.py`.
 
 | Path | Role |
 | --- | --- |

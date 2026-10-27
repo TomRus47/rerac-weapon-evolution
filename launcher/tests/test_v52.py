@@ -34,7 +34,7 @@ class ModeSettingsTests(unittest.TestCase):
         self.assertTrue(all(key not in GLOBAL_EXPERIMENTAL_DEFAULTS for _,key in base))
         self.assertIn(('hud','xp_bar_height_px'), base)
         self.assertNotIn(('general','wrench_gold_texture'), base)
-        self.assertEqual(core.required_config(doc),86)
+        self.assertEqual(core.required_config(doc),88)
 
     def test_probabilities_normalize_without_implicitly_reenabling_zero_types(self):
         values = dict.fromkeys(AMMO_DROP_DEFAULTS, '0')
@@ -65,20 +65,20 @@ class ModeSettingsTests(unittest.TestCase):
         for pair,value in original.entries.items(): self.assertEqual(loaded.entries[pair],value)
         self.assertEqual(convert(migrated)[0],migrated)
 
-    def test_real_global_renderer_creates_exactly_two_cards_with_enabler_first(self):
+    def test_real_global_renderer_keeps_current_cards_and_survival_enabler_first(self):
         app=gui.Launcher.__new__(gui.Launcher)
         app.form=Mock();app.form.winfo_children.return_value=[]
         app.page='global';app.nav_buttons={};app.page_title=Mock();app.context=Mock()
         app.doc=core.checked_document(self.raw);app.ttk=Mock()
         app.tk=SimpleNamespace(StringVar=Mock)
-        app.card=Mock(side_effect=[Mock(),Mock(),Mock()]);app.fields=Mock()
+        app.card=Mock(side_effect=lambda *_:Mock());app.fields=Mock();app.matches=lambda *_:True
         app.variables={pair:SimpleNamespace(get=lambda value=value:value) for pair,value in app.doc.entries.items()}
         app.render_page()
-        self.assertEqual([call.args[1] for call in app.card.call_args_list],['Base settings','Encounter difficulty and Nanotech','Ammo-Survival Mode'])
+        self.assertEqual([call.args[1] for call in app.card.call_args_list],['Base settings','XP Bars and settings','Encounter difficulty and Nanotech','Randomizer','Ammo-Survival Mode'])
         calls=app.fields.call_args_list
-        self.assertEqual(calls[4].args[2],['experimental_ammo_unlock_mode'])
-        self.assertEqual(calls[5].args[2],list(AMMO_UNLOCK_DEFAULTS))
-        self.assertEqual(calls[6].args[2],list(AMMO_DROP_DEFAULTS))
+        start=next(i for i,c in enumerate(calls) if c.args[2]==['experimental_ammo_unlock_mode'])
+        self.assertEqual(calls[start+1].args[2],[list(AMMO_UNLOCK_DEFAULTS)[0]])
+        self.assertEqual([c.args[2][0] for c in calls[start+1:]],[*AMMO_UNLOCK_DEFAULTS,*AMMO_DROP_DEFAULTS])
 
 
 class LocalUpdaterTests(unittest.TestCase):

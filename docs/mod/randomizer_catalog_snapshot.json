@@ -641,289 +641,88 @@
   {
     "source": 100,
     "level": 1,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Novalis wall-jump room",
     "requires": [
-      [
-        2,
-        4,
-        6,
-        10
-      ],
-      [
-        2,
-        4,
-        6,
-        11
-      ],
-      [
-        2,
-        4,
-        6,
-        13
-      ],
-      [
-        3,
-        4,
-        6,
-        10
-      ],
-      [
-        3,
-        4,
-        6,
-        11
-      ],
-      [
-        3,
-        4,
-        6,
-        13
-      ]
+      []
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 101,
     "level": 1,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Novalis upstream cave",
     "requires": [
       [
-        2,
-        4,
-        6,
-        10
-      ],
-      [
-        2,
-        4,
-        6,
-        11
-      ],
-      [
-        2,
-        4,
-        6,
-        13
-      ],
-      [
-        3,
-        4,
-        6,
-        10
-      ],
-      [
-        3,
-        4,
-        6,
-        11
-      ],
-      [
-        3,
-        4,
-        6,
-        13
+        4
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 102,
     "level": 1,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Novalis explosive cave",
     "requires": [
       [
-        2,
-        4,
-        6,
         10
       ],
       [
-        2,
-        4,
-        6,
         11
       ],
       [
-        2,
-        4,
-        6,
-        13
-      ],
-      [
-        3,
-        4,
-        6,
-        10
-      ],
-      [
-        3,
-        4,
-        6,
-        11
-      ],
-      [
-        3,
-        4,
-        6,
         13
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 104,
     "level": 2,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Aridia explosive wall",
     "requires": [
       [
-        2,
-        12,
-        26,
-        28,
         10
       ],
       [
-        2,
-        12,
-        26,
-        28,
         11
       ],
       [
-        2,
-        12,
-        26,
-        28,
-        13
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        10
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        11
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
         13
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 105,
     "level": 2,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Aridia mud-truck ledge",
     "requires": [
       [
-        2,
-        12,
-        26,
-        28,
-        10
+        2
       ],
       [
-        2,
-        12,
-        26,
-        28,
-        11
-      ],
-      [
-        2,
-        12,
-        26,
-        28,
-        13
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        10
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        11
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        13
+        3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 106,
     "level": 2,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Aridia Magneboots rail",
     "requires": [
       [
-        2,
         12,
         26,
-        28,
-        10
-      ],
-      [
-        2,
-        12,
-        26,
-        28,
-        11
-      ],
-      [
-        2,
-        12,
-        26,
-        28,
-        13
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        10
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        11
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        13
+        28
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 107,
     "level": 2,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Aridia tower underside (conservative unsurveyed route)",
     "requires": [
       [
         2,
@@ -968,12 +767,12 @@
         13
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 108,
     "level": 3,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Kerwan station luggage ledge",
     "requires": [
       [
         2
@@ -982,12 +781,12 @@
         3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 109,
     "level": 3,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Kerwan fitness-course tower",
     "requires": [
       [
         2
@@ -996,12 +795,12 @@
         3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 110,
     "level": 3,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Kerwan train station rear",
     "requires": [
       [
         2
@@ -1010,12 +809,12 @@
         3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 112,
     "level": 4,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Eudora high ledge",
     "requires": [
       [
         2,
@@ -1023,51 +822,41 @@
         26
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 116,
     "level": 5,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Rilgar maze upper wall",
     "requires": [
       [
-        2,
-        4,
-        6,
-        12,
-        22
+        2
       ],
       [
-        3,
-        4,
-        6,
-        12,
-        22
+        3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 117,
     "level": 5,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Rilgar flooded sewer",
     "requires": [
       [
         2,
-        4,
         6,
         12,
         22
       ],
       [
         3,
-        4,
         6,
         12,
         22
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 120,
@@ -1098,25 +887,19 @@
   {
     "source": 124,
     "level": 7,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Umbris pressure-switch room",
     "requires": [
       [
-        2,
-        12,
-        22
-      ],
-      [
-        3,
         12,
         22
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 125,
     "level": 7,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Umbris sharkigator pool ledge",
     "requires": [
       [
         2,
@@ -1129,72 +912,49 @@
         22
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 128,
     "level": 8,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Batalia bridge-side plateau",
     "requires": [
       [
-        2,
-        12,
-        26,
-        28,
-        29
+        2
       ],
       [
-        3,
-        12,
-        26,
-        28,
-        29
+        3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 129,
     "level": 8,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Batalia roof near landing area",
     "requires": [
-      [
-        2,
-        12,
-        26,
-        28,
-        29
-      ],
-      [
-        3,
-        12,
-        26,
-        28,
-        29
-      ]
+      []
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 132,
     "level": 9,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Gaspar helmet-route ledge",
     "requires": [
       [
-        2,
-        12
+        2
       ],
       [
-        3,
-        12
+        3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 133,
     "level": 9,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Gaspar island fuel structure",
     "requires": [
       [
         2,
@@ -1205,12 +965,12 @@
         12
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 136,
     "level": 10,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Orxon Visibomb wall tunnel",
     "requires": [
       [
         6,
@@ -1220,104 +980,71 @@
         3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 137,
     "level": 10,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Orxon laboratory wall-jump room",
     "requires": [
       [
         6,
         12,
-        13,
         28,
         3
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 140,
     "level": 11,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Pokitaru hidden river route",
     "requires": [
       [
         2,
-        12
-      ],
-      [
         3,
         12
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 144,
     "level": 12,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Hoven wall-jump area near landing",
     "requires": [
-      [
-        2,
-        4,
-        6,
-        22
-      ],
-      [
-        3,
-        4,
-        6,
-        22
-      ]
+      []
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 145,
     "level": 12,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Hoven water puzzle ledge",
     "requires": [
       [
         2,
-        4,
-        6,
         22
       ],
       [
         3,
-        4,
-        6,
         22
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 148,
     "level": 13,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Gemlik Visibomb generator route",
     "requires": [
       [
         2,
         12,
         28,
         26,
-        11
-      ],
-      [
-        2,
-        12,
-        28,
-        26,
         13
-      ],
-      [
-        3,
-        12,
-        28,
-        26,
-        11
       ],
       [
         3,
@@ -1327,223 +1054,145 @@
         13
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 152,
     "level": 14,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Oltanis statue Swingshot route",
     "requires": [
       [
         2,
         12,
-        21,
         28,
-        29,
-        32
+        29
       ],
       [
         3,
         12,
-        21,
         28,
-        29,
-        32
+        29
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 153,
     "level": 14,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Oltanis grind-route Swingshot alcove",
     "requires": [
       [
-        2,
         12,
-        21,
-        28,
-        29,
-        32
-      ],
-      [
-        3,
-        12,
-        21,
-        28,
-        29,
-        32
+        29
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 154,
     "level": 14,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Oltanis Magneboots route lower bolt",
     "requires": [
       [
-        2,
-        12,
-        21,
-        28,
-        29,
-        32
-      ],
-      [
-        3,
-        12,
-        21,
-        28,
-        29,
-        32
+        28
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 155,
     "level": 14,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Oltanis Magneboots route upper bolt",
     "requires": [
       [
-        2,
-        12,
-        21,
-        28,
-        29,
-        32
-      ],
-      [
-        3,
-        12,
-        21,
-        28,
-        29,
-        32
+        28
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 156,
     "level": 15,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Quartu ceiling route",
     "requires": [
-      [
-        2,
-        12,
-        50
-      ],
       [
         3,
         12,
-        50
+        31
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 157,
     "level": 15,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Quartu Codebot vault",
     "requires": [
       [
-        2,
-        12,
-        50
-      ],
-      [
-        3,
         12,
         50
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 160,
     "level": 16,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Kalebo III break-room teleporter",
     "requires": [
       [
-        2,
-        12,
-        29,
-        30
-      ],
-      [
-        3,
-        12,
-        29,
-        30
+        29
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 161,
     "level": 16,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Kalebo III grind-rail pickup",
     "requires": [
       [
-        2,
-        12,
-        29,
-        30
-      ],
-      [
-        3,
-        12,
-        29,
-        30
+        29
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 164,
     "level": 17,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Drek fleet water rings",
     "requires": [
       [
-        3,
         4,
-        6,
-        12,
-        28,
-        31
+        6
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 165,
     "level": 17,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Drek fleet ceiling backtrack",
     "requires": [
       [
         3,
-        4,
-        6,
         12,
         28,
         31
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 168,
     "level": 18,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Veldin II Taunter barrier",
     "requires": [
       [
         2,
         6,
         12,
         14,
-        29,
         31
       ],
       [
@@ -1551,46 +1200,40 @@
         6,
         12,
         14,
-        29,
         31
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 169,
     "level": 18,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Veldin II high platforms",
     "requires": [
       [
         2,
         6,
         12,
-        14,
-        29,
         31
       ],
       [
         3,
         6,
         12,
-        14,
-        29,
         31
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 170,
     "level": 18,
-    "name": "Native Gold Bolt (conservative route requirements)",
+    "name": "Veldin II hidden grind rail",
     "requires": [
       [
         2,
         6,
         12,
-        14,
         29,
         31
       ],
@@ -1598,12 +1241,11 @@
         3,
         6,
         12,
-        14,
         29,
         31
       ]
     ],
-    "review_basis": "Conservative shared envelope; physical pvar identity not independently confirmed"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 176,
@@ -1662,14 +1304,12 @@
     "requires": [
       [
         6,
-        2
-      ],
-      [
-        6,
+        12,
+        28,
         3
       ]
     ],
-    "review_basis": "Mod-authored route / author corrections"
+    "review_basis": "Supplied v101 route catalog: surveyed identity/access requirements; modeled reachability"
   },
   {
     "source": 179,

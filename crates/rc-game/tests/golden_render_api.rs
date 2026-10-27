@@ -46,12 +46,14 @@ fn ammo_crates_and_forced_packs_never_offer_an_unfound_randomized_weapon() {
     world.svc.bomb_evo.ammo_mode_settings.drop_chances.fill(0.0);
     let ryno=rc_game::weapon_evo::ammo_mode::AMMO_IDS.iter().position(|&i|i==23).unwrap();
     world.svc.bomb_evo.ammo_mode_settings.drop_chances[ryno]=1.;
-    let mut sizes=std::collections::HashSet::new();
+    let mut sizes=std::collections::HashSet::new();let mut heavy_count=0;
     for _ in 0..4000 {
         let mut ty=16;let count=pickup::ammo_pick(&mut world,None,&mut ty);
-        assert_eq!(ty,23);assert!((1..=4).contains(&count));sizes.insert(count);
+        assert!([16,23].contains(&ty));heavy_count+=usize::from(ty==23);
+        assert!((1..=4).contains(&count));sizes.insert(count);
     }
     assert_eq!(sizes,std::collections::HashSet::from([1,2,3,4]));
+    assert!((800..1200).contains(&heavy_count),"shared 25% heavy-ammo branch remains active in randomized Survival");
 }
 
 #[test]
@@ -67,10 +69,18 @@ fn authored_reward_sites_are_registered_before_render_setup_and_survive_reload()
 }
 
 #[test]
-fn early_wall_breaker_guarantee_never_depends_on_ryno_shotgun_explosions() {
+fn weapons_only_layout_does_not_reserve_an_early_power_weapon() {
+    let mut unrestricted_early=0;
     for seed in 1..=500 {
         let state=State::generate(seed,0);
-        assert!(state.placements.iter().enumerate().any(|(slot,&item)|
-            [11,13].contains(&item) && ((slot<80 && matches!(slot/4,3|4)) || matches!(slot,81|86))));
+        assert!(state.valid());
+        assert_eq!(state.placements.iter().filter(|&&i|i!=0).count(),15);
+        if !state.placements.iter().enumerate().any(|(slot,&item)|
+            [11,13].contains(&item) && ((slot<80 && matches!(slot/4,3|4)) || matches!(slot,81|86))) {
+            unrestricted_early+=1;
+        }
     }
+    // Native route reachability is verified by the generator's library tests;
+    // no fixed early Devastator/Visibomb slot is part of the public contract.
+    assert!(unrestricted_early>0);
 }

@@ -227,9 +227,12 @@ pub fn pickup_spawn(w: &mut World, pos: V4, ty: i32, amount: i32, a3: i32) -> Op
     w.svc.fx.pickups += 1;
     let amt = if amount != -1 { amount } else {
         let native = w.inventory.pickup_amount(ty.max(0) as usize) as i32;
-        // Some disc tables omit a R.Y.N.O. pickup quantity because ordinary
-        // US ammo crates never selected it. Such a pack still contains one shot.
-        if ty == 23 { native.max(1) } else { native }
+        // Foreign-planet or R.Y.N.O. pickup quantities may be absent from the
+        // native table. An eligible discovered pack must contain at least one shot.
+        if ty == 23 || (randomized_ammo_mode(w)
+            && usize::try_from(ty).ok().is_some_and(|item|discovered_ammo(w,item))) {
+            native.max(1)
+        } else { native }
     };
     let t16 = w.ticks(0x10);
     let hero_light = w.hero_moby.map(|h| (w.m(h).light, w.m(h).ambient));
@@ -258,6 +261,36 @@ pub fn pickup_spawn(w: &mut World, pos: V4, ty: i32, amount: i32, a3: i32) -> Op
     Some(m)
 }
 
+/// Randomized discoveries may come from any planet; the native vendor's list
+/// is not an ownership catalog. Keep this rule out of ordinary/Survival play.
+fn randomized_ammo_mode(w: &World) -> bool {
+    w.svc.bomb_evo.randomizer_mode || w.svc.bomb_evo.golden_progress().active()
+}
+
+fn discovered_ammo(w: &World, id: usize) -> bool {
+    if !crate::weapon_evo::ammo_mode::AMMO_IDS.contains(&id) || w.inventory.max_ammo(id)==0 { return false; }
+    let golden=w.svc.bomb_evo.golden_progress();
+    if golden.active() { golden.collected(id) } else { w.inventory.owned(id) }
+}
+
+/// Visibomb and R.Y.N.O. share one 25% branch, not one branch each. The other
+/// 75% prefers useful ordinary ammo. Bomb Glove fallback never grants a locked
+/// weapon: when it has not been found, that branch yields an empty crate.
+fn randomized_ammo_item(w: &mut World) -> Option<i32> {
+    let needed:Vec<_>=crate::weapon_evo::ammo_mode::AMMO_IDS.into_iter().filter(|&id|
+        discovered_ammo(w,id) && item_ammo(w,id)<i32::from(w.inventory.max_ammo(id))).collect();
+    let heavy:Vec<_>=needed.iter().copied().filter(|id|matches!(id,13|23)).collect();
+    let ordinary:Vec<_>=needed.into_iter().filter(|id|!matches!(id,13|23)).collect();
+    if !heavy.is_empty() && w.rng.randi(4)==0 {
+        return Some(heavy[w.rng.randi(heavy.len() as i32) as usize] as i32);
+    }
+    if !ordinary.is_empty() {
+        return Some(ordinary[w.rng.randi(ordinary.len() as i32) as usize] as i32);
+    }
+    if !heavy.is_empty() && discovered_ammo(w,10) { return Some(10); }
+    None
+}
+
 /// `0x26bff8(m, &type)`: keeps `type` unless it is ≤ 0 or the dropper's death bit is set; else picks an owned
 /// ammo item of the vendor list, weighted to those below max (none: one with a max; nothing owned: 10). Returns
 /// the pickup count, `randi(5) ≠ 0 ? 1 : 2`.
@@ -265,12 +298,9 @@ pub fn pickup_spawn(w: &mut World, pos: V4, ty: i32, amount: i32, a3: i32) -> Op
 /// participate; ordinary play keeps the native owned/low-ammo preference and
 /// also admits the otherwise omitted R.Y.N.O. with a small relative weight.
 pub fn random_ammo_item(w: &mut World, unrestricted: bool) -> Option<i32> {
+    if randomized_ammo_mode(w) { return randomized_ammo_item(w); }
     use crate::weapon_evo::ammo_mode;
-    let golden = w.svc.bomb_evo.golden_progress();
-    let candidates: Vec<usize> = if golden.active() {
-        ammo_mode::AMMO_IDS.into_iter().filter(|&id|
-            golden.collected(id) && w.inventory.max_ammo(id) > 0).collect()
-    } else if unrestricted {
+    let candidates: Vec<usize> = if unrestricted {
         ammo_mode::AMMO_IDS.into_iter().filter(|&id| w.inventory.max_ammo(id) > 0).collect()
     } else {
         let mut items = Vec::new();
@@ -304,19 +334,12 @@ fn offer_ryno_in_authored_crate(w:&mut World,ty:&mut i32) {
 }
 
 pub fn ammo_pick(w: &mut World, id: Option<MobyId>, ty: &mut i32) -> i32 {
-    let golden=w.svc.bomb_evo.golden_progress();
-    if golden.active() {
-        let survival=w.svc.bomb_evo.ammo_unlock_mode;
-        // Revalidate authored/forced packs too. No Bomb Glove fallback before
-        // the first discovery, even when Survival mode is also selected.
-        let allowed=usize::try_from(*ty).ok().is_some_and(|item|
-            crate::weapon_evo::ammo_mode::AMMO_IDS.contains(&item)
-                && golden.collected(item) && w.inventory.max_ammo(item)>0);
-        if !allowed || survival {
-            let Some(item)=random_ammo_item(w,survival) else { *ty=0; return 0; };
-            *ty=item;
-        } else { offer_ryno_in_authored_crate(w,ty); }
-        if survival {
+    if randomized_ammo_mode(w) {
+        // Re-pick even authored first-visit contents: their old type must not
+        // bypass ownership checks or the shared heavy-ammo probability.
+        let Some(item)=randomized_ammo_item(w) else { *ty=0;return 0; };
+        *ty=item;
+        if w.svc.bomb_evo.ammo_unlock_mode {
             let gold=w.svc.interact.game.gold_bolts.max(0) as u32;
             return crate::weapon_evo::ammo_mode::pack_count(gold,w.rng.randi(4000));
         }
@@ -427,9 +450,7 @@ fn alpha_toward(w: &mut World, id: MobyId, target: f32) {
 pub fn collect(w: &mut World, id: MobyId) -> bool {
     if w.m(id).state == 2 { return false; }
     let item = p::i32(&w.m(id).pvars, 8);
-    let golden=w.svc.bomb_evo.golden_progress();
-    if golden.active() && !usize::try_from(item).ok().is_some_and(|i|
-        crate::weapon_evo::ammo_mode::AMMO_IDS.contains(&i) && golden.collected(i)) { return false; }
+    if randomized_ammo_mode(w) && !usize::try_from(item).ok().is_some_and(|i|discovered_ammo(w,i)) { return false; }
     let i = item.clamp(0, N as i32 - 1) as usize;
     let old = item_ammo(w, i);
     let amount = p::i32(&w.m(id).pvars, 0);
@@ -1193,5 +1214,109 @@ mod v80_crate_tests {
             let found=(0..5000).filter(|_|{let mut ty=10;assert!((1..=2).contains(&ammo_pick(&mut w,Some(0),&mut ty)));ty==23}).count();
             assert_eq!(found>0,owned);
         }
+    }
+}
+
+#[cfg(test)]
+mod v100_discovery_ammo_tests {
+    use super::*;
+    use crate::{hero::Hero,moby_runtime::{Moby,MobyTable},rng::Rng,moby_update::{Services,ClassTable}};
+
+    fn world_test(owned:&[usize],full:&[usize],weapons:bool,test:impl FnOnce(&mut World)) {
+        let mut hero=Hero::new();
+        for &id in owned {hero.owned.0[id]=1;}
+        for &id in full {hero.weapons.ammo[id]=50;}
+        let mut inventory=ItemTables::default();
+        for id in crate::weapon_evo::ammo_mode::AMMO_IDS {inventory.max[id]=50;inventory.amount[id]=3;}
+        // Empty native vendor list reproduces a weapon found on another planet.
+        let inventory=inventory.with_hero(&hero);
+        let mut table=MobyTable::new(vec![Moby::zeroed()],0);let mut rng=Rng::new();let classes=ClassTable::default();let mut svc=Services::new();
+        svc.bomb_evo.randomizer_mode=!weapons;
+        if weapons {
+            let mut progress=crate::weapon_evo::save::Progress::default();
+            progress.golden=crate::weapon_evo::golden::State::generate(10001,0);
+            for &id in owned {progress.golden.collect(id);}
+            svc.bomb_evo.restore_progress(&progress);
+        }
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);w.inventory=&inventory;
+        test(&mut w);
+    }
+    #[test]
+    fn discovered_weapons_drop_ammo_without_the_native_vendor_list() {
+        for weapons in [false,true] {
+            world_test(&[15,16],&[],weapons,|w| {
+                let mut seen=std::collections::HashSet::new();
+                for _ in 0..200 {
+                    let mut authored=23;assert!((1..=2).contains(&ammo_pick(w,None,&mut authored)));
+                    assert!(matches!(authored,15|16));seen.insert(authored);
+                }
+                assert_eq!(seen.len(),2);
+            });
+        }
+    }
+    #[test]
+    fn no_discovery_or_no_missing_ammo_gives_an_empty_crate() {
+        for weapons in [false,true] {
+            for (owned,full) in [(&[][..],&[][..]),(&[15][..],&[15][..])] {
+                world_test(owned,full,weapons,|w| {
+                    let mut ty=10;assert_eq!(ammo_pick(w,None,&mut ty),0);assert_eq!(ty,0);
+                });
+            }
+        }
+    }
+    #[test]
+    fn heavy_weapons_share_one_quarter_and_useful_ordinary_ammo_gets_the_rest() {
+        for weapons in [false,true] {
+            world_test(&[10,13,15,23],&[10],weapons,|w| {
+                let mut heavy=0;let mut normal=0;let mut types=std::collections::HashSet::new();
+                for _ in 0..20_000 {
+                    let id=random_ammo_item(w,false).unwrap();types.insert(id);
+                    match id {13|23=>heavy+=1,15=>normal+=1,_=>panic!("unexpected pack {id}")}
+                }
+                assert!((4700..5300).contains(&heavy),"heavy={heavy}, normal={normal}");
+                assert_eq!(heavy+normal,20_000);assert_eq!(types.len(),3);
+            });
+        }
+    }
+    #[test]
+    fn heavy_only_shortage_uses_bombs_or_empty_when_bombs_are_locked() {
+        for weapons in [false,true] {
+            for bombs in [false,true] {
+                let owned=if bombs{vec![10,13,23]}else{vec![13,23]};
+                world_test(&owned,&[10],weapons,|w| {
+                    let(mut heavy,mut fallback)=(0,0);
+                    for _ in 0..20_000 {
+                        match random_ammo_item(w,false) {
+                            Some(13|23)=>heavy+=1,
+                            Some(10)=>{assert!(bombs);fallback+=1;},
+                            None=>{assert!(!bombs);fallback+=1;},
+                            other=>panic!("unexpected {other:?}")
+                        }
+                    }
+                    assert!((4700..5300).contains(&heavy));assert_eq!(heavy+fallback,20_000);
+                });
+            }
+        }
+    }
+    #[test]
+    fn authored_heavy_crates_do_not_bypass_the_quarter_branch() {
+        world_test(&[13,15],&[],false,|w| {
+            let mut heavy=0;
+            for _ in 0..8000 {
+                let mut ty=13;
+                assert!((1..=2).contains(&ammo_pick(w,None,&mut ty)));
+                match ty {13=>heavy+=1,15=>{},_=>panic!("unexpected ammo {ty}")}
+            }
+            assert!((1800..2200).contains(&heavy),"heavy={heavy}");
+        });
+    }
+    #[test]
+    fn locked_authored_pickups_cannot_add_ammo_or_unlock_weapons() {
+        world_test(&[15],&[],false,|w| {
+            w.mm(0).pvars.resize(0x30,0);w.mm(0).state=1;
+            p::set_i32(&mut w.mm(0).pvars,0,3);p::set_i32(&mut w.mm(0).pvars,8,23);
+            assert!(!collect(w,0));assert_eq!(item_ammo(w,23),0);
+            assert!(!w.inventory.owned(23));
+        });
     }
 }

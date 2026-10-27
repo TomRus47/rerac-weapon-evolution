@@ -11,10 +11,12 @@ class ProfileTests(unittest.TestCase):
         d=c.profile_document(self.raw)
         new_keys={(f'weapon.{weapon}.level{grade}',k) for catalog in [EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS] for weapon,fields in catalog.items() for grade in range(1,6) for k in fields}
         new_keys |= {('general', k) for k in [*GLOBAL_STANDARD_DEFAULTS, *GLOBAL_EXPERIMENTAL_DEFAULTS]}
+        new_keys |= {('hud','weapon_bar_alternative_position')}
+        new_keys |= {(f'weapon.wrench.level{n}',key) for n in range(1,9) for key in ('move_while_thrown','burn_on_hit','hud_quickselect_only','slam_explosion_enabled','slam_explosion_damage_hp','slam_explosion_radius','slam_explosion_color')}
         # The supplied current profile is the approved development balance; migration must not change it.
         canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items() if (s,k) not in new_keys and k!='r1_experimental_max' and not s.startswith('weapon.wrench')),ensure_ascii=True).encode()
         self.assertEqual(hashlib.sha256(canonical).hexdigest(),'fccddb6a42a586800ba7e7b339edefdb98e337780720c8d2e87731ebecd9b97c')
-        self.assertEqual(len(d.entries),2510);self.assertEqual(len(d.sections),146)
+        self.assertEqual(len(d.entries),2567);self.assertEqual(len(d.sections),146)
         self.assertEqual(d.entries['general','xp_per_damage'],'0.12')
     def test_public_profile_has_no_damage_model_or_wrench_and_keeps_functioning_opacity(self):
         d=c.profile_document(self.raw)

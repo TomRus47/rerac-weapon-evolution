@@ -1,3 +1,7 @@
+# Current route snapshot
+
+The machine-readable snapshot/CSV are refreshed from the supplied v101 catalog in the v102 development update. They include the v97 location survey and the v101 access-only Gemlik/explosive rules. Existing layouts are still loaded verbatim. This is modeled reachability, not a guarantee of every physical collision or script path. The historical v95 audit below explains the earlier conservative baseline.
+
 # Mixed-randomizer route audit: v95
 
 This is the unreleased Weapon Evolution 0.3 development snapshot for ReRAC

@@ -86,7 +86,7 @@ fn supported_extra_stat(item: i32, key: &str) -> bool {
     if matches!(key, "max_ammo" | "damage_multiplier" | "gold" | "gold_texture" | "gold_effects") { return true; }
     if key == "experimental_max_ammo" { return matches!(item, 9|13|17|19|23|24); }
     let fields: &[&str] = match item {
-        8 => &["trail_color", "hit_radius_multiplier", "knockback_multiplier", "throw_range", "throw_speed", "show_hud", "crate_breaker_enabled", "crate_breaker_radius", "moving_attacks_enabled", "bolt_attraction_bonus"],
+        8 => &["trail_color", "hit_radius_multiplier", "knockback_multiplier", "throw_range", "throw_speed", "show_hud", "crate_breaker_enabled", "crate_breaker_radius", "moving_attacks_enabled", "move_while_thrown", "burn_on_hit", "hud_quickselect_only", "slam_explosion_enabled", "slam_explosion_damage_hp", "slam_explosion_radius", "slam_explosion_color", "bolt_attraction_bonus"],
         9 => &["capacity", "suck_range_multiplier", "shot_damage_multiplier", "crate_suction_enabled", "suck_wooden_crates", "suck_explosive_crates", "suck_steel_crates", "suck_ammo_crates", "suck_nanotech_crates"],
         11 => &["fire_interval_ticks", "homing_strength_multiplier", "missile_speed_multiplier", "missile_range_multiplier", "explosion_radius_multiplier", "explosion_visual_size_multiplier", "explosion_color", "trail_color"],
         13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding", "explosion_damage_radius", "grenade_launcher_enabled", "grenade_size_percent", "grenade_arc_height", "grenade_max_range", "grenade_fire_interval_ticks", "grenade_damage_hp", "grenade_explosion_radius", "grenade_explosion_color", "grenade_color", "grenade_model", "grenade_mine_color", "grenade_mine_explosion_color", "grenade_missile_color", "grenade_missile_explosion_color"],
@@ -350,6 +350,7 @@ impl PyroStats {
 #[derive(Clone, Copy, Debug)]
 pub struct HudOptions {
     pub name_opacity_percent: u8,
+    pub weapon_bar_alternative_position:bool,
     /// Independent of weapon-name opacity and the legacy weapon XP setting.
     pub nanotech_xp_bar_opacity_percent: u8,
     pub xp_bar_height_px: i32,
@@ -361,7 +362,7 @@ pub struct HudOptions {
 }
 impl Default for HudOptions {
     fn default() -> Self {
-        Self { name_opacity_percent: 100, nanotech_xp_bar_opacity_percent: 100,
+        Self { name_opacity_percent: 100, weapon_bar_alternative_position:false, nanotech_xp_bar_opacity_percent: 100,
             xp_bar_height_px: 5, xp_bar_horizontal_inset_px: 2,
             show_for_weapons_without_ammo: true, level_up_popup: true,
             level_up_popup_duration_seconds: 3.0, level_up_sound: true }
@@ -757,6 +758,10 @@ impl Evolution {
         weapon!=8 || self.extras.iter().find(|t|t.id==8 && t.enabled).is_some_and(|t|
             t.params[t.level.saturating_sub(1).min(7)].get("show_hud").copied().unwrap_or(1.)!=0.)
     }
+    pub fn wrench_quickselect_only(&self)->bool {
+        self.extras.iter().find(|t|t.id==8&&t.enabled).is_some_and(|t|
+            t.params[t.level.saturating_sub(1).min(7)].get("hud_quickselect_only").copied().unwrap_or(0.)!=0.)
+    }
     pub fn weapon_level(&self, weapon: i32) -> Option<usize> {
         match weapon { 10 if self.enabled => Some(self.level), 16 if self.pyro.enabled => Some(self.pyro.level),
             _ => self.extras.iter().find(|t| t.id == weapon && t.enabled).map(|t| t.level) }
@@ -927,6 +932,7 @@ impl Evolution {
             }
             if section == "hud" {
                 match key.as_str() {
+                    "weapon_bar_alternative_position" => evo.hud.weapon_bar_alternative_position=parse_bool(val)?,
                     "name_opacity_percent" => evo.hud.name_opacity_percent = parse_percent(val, &key)?,
                     "nanotech_xp_bar_opacity_percent" => evo.hud.nanotech_xp_bar_opacity_percent = parse_percent(val, &key)?,
                     // Compatibility only: this obsolete key has no field or effect.
@@ -994,7 +1000,7 @@ impl Evolution {
                         t.enabled = true;
                         continue;
                     }
-                    let v = if matches!(key.as_str(), "show_hud" | "crate_breaker_enabled" | "moving_attacks_enabled" | "grenade_launcher_enabled" | "continuous_missiles_enabled" | "shotgun_enabled" | "flame_mine_enabled" | "sand_mouse_enabled" | "crate_suction_enabled" | "suck_wooden_crates" | "suck_explosive_crates" | "suck_steel_crates" | "suck_ammo_crates" | "suck_nanotech_crates" | "dual_beam_enabled" | "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
+                    let v = if matches!(key.as_str(), "show_hud" | "crate_breaker_enabled" | "moving_attacks_enabled" | "move_while_thrown" | "burn_on_hit" | "hud_quickselect_only" | "slam_explosion_enabled" | "grenade_launcher_enabled" | "continuous_missiles_enabled" | "shotgun_enabled" | "flame_mine_enabled" | "sand_mouse_enabled" | "crate_suction_enabled" | "suck_wooden_crates" | "suck_explosive_crates" | "suck_steel_crates" | "suck_ammo_crates" | "suck_nanotech_crates" | "dual_beam_enabled" | "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
                         if parse_bool(val)? { 1.0 } else { 0.0 }
                     } else { parse_number(val, &key)? };
                     validate_v45_extra(t.id, &key, v).map_err(|e| format!("{e} in [{section}]"))?;
@@ -1840,6 +1846,8 @@ fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
         "sand_mouse_shot_damage_hp" => Some((0.0, 9999.0)),
         "secondary_beam_damage_percent" => Some((0.0, 100.0)),
         "throw_range" if item==8 => Some((0.5,100.)),
+        "slam_explosion_radius" if item==8 => Some((0.1,30.)),
+        "slam_explosion_damage_hp" if item==8 => Some((0.,9999.)),
         "throw_speed" if item==8 => Some((1.,200.)),
         "crate_breaker_radius" if item==8 => Some((0.,100.)),
         "bolt_attraction_bonus" if item==8 => Some((0.,100.)),

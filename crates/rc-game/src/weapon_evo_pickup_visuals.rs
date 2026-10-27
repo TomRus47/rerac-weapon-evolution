@@ -2,6 +2,7 @@
 //! No source completion, inventory, damage or progression changes live here.
 
 pub const INFOBOT_CLASS: i32 = 750;
+pub const AMMO_CRATE_CLASS:i32=511;
 pub const GOLD_BOLT_CLASS: i32 = 1134;
 pub const HALO_SEGMENTS: usize = 24;
 pub const HALO_CENTRE_RGBA: u32 = 0x2840_ffff;
@@ -36,6 +37,7 @@ pub fn is_coordinate(reward: usize) -> bool { (65..=82).contains(&reward) }
 /// for a vertical world prop: head +Z, shaft down, then spin about world Z.
 pub fn world_euler(class: i32, native: [f32; 3], spin: f32) -> [f32; 3] {
     if class == GOLD_BOLT_CLASS { [0., -std::f32::consts::FRAC_PI_2, spin] }
+    else if class == AMMO_CRATE_CLASS { [0.,0.,spin] }
     else if class == INFOBOT_CLASS { [0., 0., spin] }
     else { native }
 }
@@ -44,14 +46,15 @@ pub fn world_euler(class: i32, native: [f32; 3], spin: f32) -> [f32; 3] {
 /// weapon's display tilt. Other rewards retain their authored orientation.
 pub fn preview_euler(reward: usize, native: [f32; 3], spin: f32) -> [f32; 3] {
     if is_coordinate(reward) { world_euler(INFOBOT_CLASS, native, spin) }
-    else if matches!(reward,48|52|53|96..) { world_euler(GOLD_BOLT_CLASS,native,spin) }
+    else if matches!(reward,48|52|53) { world_euler(AMMO_CRATE_CLASS,native,spin) }
+    else if reward>=96 { world_euler(GOLD_BOLT_CLASS,native,spin) }
     else { native }
 }
 
 /// Native Infobots and standalone reward props start in sequence 0. Gold
 /// Bolts use sequence 1 for acquisition, not for their idle world display.
 pub fn pose_sequence(class: i32, native: u8) -> u8 {
-    if matches!(class,INFOBOT_CLASS|1134|287|1428) { 0 } else { native }
+    if matches!(class,INFOBOT_CLASS|1134|287|1428|511) { 0 } else { native }
 }
 
 /// Persistent mod effects must start on a fresh background. Keep the original
@@ -163,10 +166,14 @@ mod tests {
             assert!(rows[0][0].abs()<0.00002&&rows[0][1].abs()<0.00002);
             assert!((rows[0][2]-1.).abs()<0.00002);
             assert_rotation(rows);
-            for reward in [48,52,53,96,100,169] {
+            for reward in [96,100,169] {
                 assert_eq!(preview_euler(reward,[0.8,0.4,spin],spin),euler);
             }
         }
+        for reward in [48,52,53]{
+            for tick in 0..240 {let spin=spin_angle(tick);assert_eq!(preview_euler(reward,[0.8,0.4,spin],spin),[0.,0.,spin]);}
+        }
+        assert_eq!(pose_sequence(AMMO_CRATE_CLASS,1),0);
         assert_eq!(world_euler(121,[0.2,0.3,0.4],1.),[0.2,0.3,0.4]);
     }
     #[test]

@@ -1,6 +1,6 @@
 # Current implementation map
 
-Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.95 and launcher 0.28.2. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
+Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.102 and launcher 0.28.7. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
 
 | Area | Primary source | Responsibilities |
 | --- | --- | --- |
@@ -23,3 +23,9 @@ Read [saved controls](SAVED_CONTROLS.md), [configuration reference](CONFIG_REFER
 Damage acceptance must remain independent of reaction cooldowns and respect native phase shields. XP follows actual accepted HP loss and explicit non-damage weapon policies. Never make clones inherit dead/terminal events from a reused dynamic slot. Keep immutable level-table recognition in the loader, and discard/remap table-owned IDs during reload. Do not reintroduce the removed arena experiment or temporary audio probes.
 
 The complete supplied workspace includes rc-game2 because ReRAC 0.3.6-alpha includes that separate module. Weapon Evolution remains a Ratchet & Clank 1 mod; including the upstream module does not claim a second-game mod or new ownership of port code.
+
+## v102 combat feedback and HUD integration
+
+See [the implementation and local test guide](FEEDBACK_HUD_V102.md). Accepted HP loss, not native stun entry, feeds `moby_update/feedback.rs`. That module owns temporary tint/burn-cycle state; it does not mutate HP, damage clocks, XP or class AI. Standard wrench visual/HUD settings and experimental slam settings share the ordinary per-grade schema/migration. The independent blast retains native bomb hit identity and wrench XP ownership. HUD geometry lives in `hud.rs` and `hud/xp_bar.rs`, with text drawing in `hud_render.rs`. Randomizer display classes and safe poses are separate from its persisted layout and collection logic.
+
+The supplied v97–v101 changes are synchronized here too: surveyed route rules and legacy seed loading, independent Thruster-Pack moves, discovered-ammo policy, access-only explosive/Gemlik generation checks, moving Comet Strike, and the current live-apply/randomizer launcher UI. New development defaults add controls only; all previous balance values are retained. Published release metadata and assets are not changed.

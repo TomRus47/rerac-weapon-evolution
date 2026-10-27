@@ -664,6 +664,11 @@ pub const GLOVE_BLAST: BlastRow = BlastRow {
 /// 7; sprite `k·400000`), the flashes.
 #[allow(clippy::too_many_arguments)]
 pub fn blast(w: &mut World, row: &BlastRow, id: MobyId, pos: [f32; 4], base: [f32; 4], normal: [f32; 4], k: f32, n: i32, dry: bool, shift: u8) {
+    blast_colored(w,row,id,pos,base,normal,k,n,dry,shift,None);
+}
+/// Explicit override for an independent weapon; never mutates Bomb Glove settings.
+#[allow(clippy::too_many_arguments)]
+pub fn blast_colored(w: &mut World, row: &BlastRow, id: MobyId, pos: [f32; 4], base: [f32; 4], normal: [f32; 4], k: f32, n: i32, dry: bool, shift: u8, override_color:Option<u32>) {
     use crate::moby_update::creature::{add, clamp_len3, len3, set_len3, sub};
     use crate::moby_update::creature::fx::colour_shift;
     let cam = w.camera.map(|x| x.to_f32());
@@ -675,6 +680,7 @@ pub fn blast(w: &mut World, row: &BlastRow, id: MobyId, pos: [f32; 4], base: [f3
     } else if w.m(id).o_class == BOMB_CLASS && w.svc.bomb_evo.enabled {
         w.svc.bomb_evo.current().explosion_color
     } else { None };
+    let recolor=override_color.or(recolor);
     let mut fireball_row = row.fireball;
     if let Some(rgb) = recolor {
         let c = crate::weapon_evo::rgb_float(rgb);

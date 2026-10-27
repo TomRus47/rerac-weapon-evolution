@@ -101,6 +101,7 @@ pub(crate) fn award_health_write(w: &mut World, id: MobyId, offset: usize, befor
 }
 
 fn award_effective(w: &mut World, hit: HitRecord, actual: f32) {
+    if actual>0. {super::super::feedback::accepted(w,hit);}
     let actual=actual*w.svc.bomb_evo.world_settings.health_scale(w.m(hit.target).o_class);
     // A robot touching a creature only triggers detonation. Only a marked blast
     // whose HP loss has been committed can credit the Glove of Doom.
