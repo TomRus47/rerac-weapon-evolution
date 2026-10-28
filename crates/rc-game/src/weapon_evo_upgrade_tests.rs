@@ -46,7 +46,11 @@ fn disabled_unowned_and_ammo_free_tracks_never_gain_ammo() {
     e.apply_upgrade_refills(&mut w,&[0;37]);assert_eq!(w.ammo[15],0);
     for item in [8,9,14,18,21] {e.award_extra_damage(item,10.);}
     e.apply_upgrade_refills(&mut w,&[1;37]);assert!(w.ammo.iter().all(|&v|v==0));
-    let e=Evolution::parse(include_str!("weapon_evo_release.ini")).unwrap();assert!(!e.refill_ammo_on_upgrade);
-    assert!(Evolution::parse(&include_str!("weapon_evo_release.ini").replace("refill_ammo_on_upgrade = false","refill_ammo_on_upgrade = on")).unwrap().refill_ammo_on_upgrade);
-    assert!(Evolution::parse(&include_str!("weapon_evo_release.ini").replace("refill_ammo_on_upgrade = false","refill_ammo_on_upgrade = invalid")).is_err());
+    // Parsing rules must not depend on the author's approved release toggle.
+    for (value, expected) in [("false",false),("on",true)] {
+        let raw=format!("{}\n[general]\nrefill_ammo_on_upgrade={value}\n",include_str!("weapon_evo_release.ini"));
+        assert_eq!(Evolution::parse(&raw).unwrap().refill_ammo_on_upgrade,expected);
+    }
+    let invalid=format!("{}\n[general]\nrefill_ammo_on_upgrade=invalid\n",include_str!("weapon_evo_release.ini"));
+    assert!(Evolution::parse(&invalid).is_err());
 }

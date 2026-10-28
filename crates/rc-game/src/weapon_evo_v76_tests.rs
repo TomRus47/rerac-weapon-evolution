@@ -237,6 +237,7 @@ fn gold_bolt_summary_uses_the_actual_prices_and_keeps_native_counts_without_the_
 fn randomizer_bonus_is_opt_in_and_shares_its_custom_cap_with_all_reward_sources() {
     for id in [10,16,15,19,17,24] {
         let mut normal=profile();normal.world_settings.enemy_damage_by_health=true;
+        normal.randomizer_bolt_multiplier=false;
         normal.world_settings.nanotech_xp_per_upgrade=100000.;
         let mut mixed=normal.clone();mixed.randomizer_mode=true;
         mixed.state_progress.randomizer=super::randomizer::State::generate(8501);

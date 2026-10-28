@@ -2378,7 +2378,7 @@
     },
     {
       "path": "crates/rc-game/src/weapon_evo.rs",
-      "sha256": "2ce943139b8053613d80bdd1ded5186777b45bcbd0c3d36c48c002db36c47294",
+      "sha256": "2ada5edfc052205fff82f29c051c312b93fb2fd77af988d61d73eee55273b7d4",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -2411,7 +2411,7 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "d444a8b87a22ac4f12858b5990bd51c51bd73374403e53d94713ce9dfbaa49c9"
+      "sha256": "4c1629f4d40d25baf18bfa15e9fecca74d1353a20511c657f199afba9f949a47"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_discovery.rs",
@@ -2568,7 +2568,7 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "c0e2ad9fddd1bbf1001c18f574b972204a49d565fd5281f7b9316a4fa6e67b0e"
+      "sha256": "f7cecb4895fe4fd8fe91e6d620180ad1acbf9cac704dc894b81835e9e1beb136"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_upgrade_wave.rs",
@@ -2582,7 +2582,7 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "efc964490cf53d20424d7c147d56fa092a08002b06d3f2a255b8ec7de1233260"
+      "sha256": "79276f92e634ab6c625a948e0eeae3430ae97f849aa23f92b6bfc8efdeb327a8"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_v77_tests.rs",
@@ -2968,7 +2968,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "c2681c97503bc3f1d83d8cecd12917ae4dbc3fea909f3d6051262711a12e26d1"
+      "sha256": "4052959100bd37b215b0f61a8d58b2ef7a4b740033de99b80ef8f364ae96539c"
     },
     {
       "path": "docs/mod/VISIBOMB_GRENADES_V53.md",
@@ -3451,7 +3451,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "10ba8b076f65dbb4e9c1416cc1236bd54d7f97861568df8827750f5495e09189"
+      "sha256": "fd57dd395c6e7e9c3596a70288bf1d7ec9c40d7067711adaf4fcd699079c4f54"
     },
     {
       "path": "mod/provenance.json",

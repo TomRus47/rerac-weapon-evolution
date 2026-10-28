@@ -95,7 +95,9 @@ fn manual_modes_override_only_four_switches_and_leave_tuning_unchanged() {
 }
 #[test]
 fn saved_modes_choose_grade_ammo_without_mutating_the_ini() {
-    let raw="[general]\nenabled=true\nr1_experimental=on\ndpad_quick_select=on\n[weapon.ryno]\nid=23\n[weapon.ryno.level1]\nmax_ammo=50\nexperimental_max_ammo=7\nshotgun_enabled=true\n[weapon.pyrocitor]\nid=16\n[weapon.pyrocitor.level1]\nlava_stream_enabled=true\n";
+    // Set the complete mode fixture explicitly: public player balance may
+    // enable another alternate or keep early-grade manual switching locked.
+    let raw="[general]\nenabled=true\nr1_experimental=on\ndpad_quick_select=on\n[weapon.ryno]\nid=23\n[weapon.ryno.level1]\nmax_ammo=50\nexperimental_max_ammo=7\nshotgun_enabled=true\ncontinuous_missiles_enabled=false\nr1_experimental_max=2\n[weapon.pyrocitor]\nid=16\n[weapon.pyrocitor.level1]\nlava_stream_enabled=true\nr1_experimental_max=1\n";
     let raw=format!("{}\n{}",include_str!("weapon_evo_release.ini"),raw);
     let mut e=Evolution::parse(&raw).unwrap();assert!(e.control_settings.r1 && e.control_settings.dpad);
     assert!(!e.effective_pyro().lava.enabled);

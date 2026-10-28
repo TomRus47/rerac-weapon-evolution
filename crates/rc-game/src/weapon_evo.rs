@@ -2116,6 +2116,9 @@ mod v57_inventory_tests {
     #[test]
     fn all_experimental_ammo_counters_match_the_active_capacity_and_keep_consuming() {
         let mut e=Evolution::parse(include_str!("weapon_evo_release.ini")).unwrap();
+        // Exercise configured alternates, independently of saved manual modes
+        // and whichever switches are enabled in the public balance profile.
+        e.control_settings.r1=false;
         let counters=[10,16,13,17,19,23,24];
         let mut w=crate::hero::weapons::Weapons::default();
         for id in counters {w.uses_ammo[id]=true;}
@@ -2125,6 +2128,7 @@ mod v57_inventory_tests {
             e.stats[grade-1].cluster.enabled=true;
             e.pyro.stats[grade-1].max_ammo=40;e.pyro.stats[grade-1].experimental_max_ammo=Some(5);
             e.pyro.stats[grade-1].triple_flame_enabled=true;
+            e.pyro.stats[grade-1].lava.enabled=false;
             for track in &mut e.extras {
                 track.level=grade;
                 if !matches!(track.id,13|17|19|23|24) {continue;}
