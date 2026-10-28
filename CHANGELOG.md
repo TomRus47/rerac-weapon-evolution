@@ -1,3 +1,13 @@
+# Draft preparation — Weapon Evolution 0.3 / ReRAC 0.3.6-alpha
+
+Gameplay **0.1.6.109**, capability **90**, launcher **0.29.3**. The existing published 0.3 package is unchanged. [Complete changes since that package](docs/releases/v0.3-rerac-0.3.6-alpha.md).
+
+- Adopt the author's supplied GBtW profile as the public/default/example/embedded configuration without changing any of its 2,592 values.
+- Integrate all v107–v109 launcher and weapon changes: preload every page before showing the window; retain each page's widgets; coalesce wheel/scrollbar work; keep frozen-build reports and meaningful failure diagnostics.
+- Add a per-grade Lavagun damage bonus (25% by default), and separate flame-mine active-count/lifetime overrides. Resolve INI and saved R1 modes before capturing launch parameters.
+- Document the runtime/save/configuration boundaries, current launcher lifecycle, exact source/player packaging and unpublished release workflow. Keep the previous v0.3 tag/downloads unchanged.
+- Retain the v109.1 installer recognition repair: patch the exact editable capability/version pair rather than depending on an unrelated historical fixed-build suffix.
+
 # Unreleased — v106 follow-up
 
 Gameplay **0.1.6.106**, capability **89**, launcher **0.28.9**, ReRAC **0.3.6-alpha**. Source/main update only; public version remains **0.3**. Existing release/tag/downloads are unchanged.

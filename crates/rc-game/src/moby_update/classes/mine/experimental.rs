@@ -20,7 +20,8 @@ const SIZE_PERCENT: usize = 0xbc;
 const BASE_SCALE: usize = 0xc0;
 const MODEL: usize = 0xc4;
 const BODY_COLOR: usize = 0xc8;
-const LEN: usize = 0xcc;
+const MAX_ACTIVE: usize = 0xcc;
+const LEN: usize = 0xd0;
 
 pub fn snapshot(m: &mut crate::moby_runtime::Moby) {
     snapshot_configured(m, |key,native|crate::weapon_evo::extra(17,key,native), |key|crate::weapon_evo::extra_color(17,key));
@@ -35,10 +36,20 @@ fn snapshot_configured(m:&mut crate::moby_runtime::Moby,value:impl Fn(&str,f32)-
     let body=match model {1=>"mine_bomb_color",2=>"mine_sphere_color",_=>"mine_model_color"};
     p::set_i32(&mut m.pvars,BODY_COLOR,color(body).map_or(-1,|v|v as i32));
     p::set_i32(&mut m.pvars, LIGHT_SLOT, -1);
+    let fire_enabled=value("flame_mine_enabled",0.)!=0.;
+    let standard_max=value("max_active_mines",8.);
+    let standard_lifetime=value("mine_lifetime_seconds",30.);
+    // The registry already reflects the saved R1 mode, including per-grade
+    // switch limits. Missing overrides preserve old profiles' standard values.
+    let (maximum,lifetime)=if fire_enabled {
+        (value("flame_mine_max_active_mines",standard_max),
+         value("flame_mine_lifetime_seconds",standard_lifetime))
+    } else {(standard_max,standard_lifetime)};
+    p::set_i32(&mut m.pvars,MAX_ACTIVE,maximum.round().clamp(1.,32.) as i32);
     p::set_u32(
         &mut m.pvars,
         FLAGS,
-        u32::from(value("flame_mine_enabled",0.)!=0.),
+        u32::from(fire_enabled),
     );
     let size=if p::u32(&m.pvars,FLAGS)!=0 {value("flame_mine_size_percent",150.)} else {100.};
     p::set_ff(&mut m.pvars,SIZE_PERCENT,size);
@@ -46,7 +57,7 @@ fn snapshot_configured(m:&mut crate::moby_runtime::Moby,value:impl Fn(&str,f32)-
     p::set_i32(
         &mut m.pvars,
         LIFE,
-        crate::hero::physics::ticks((value("mine_lifetime_seconds", 30.0) * 60.0).round() as i32),
+        crate::hero::physics::ticks((lifetime * 60.0).round() as i32),
     );
     p::set_ff(&mut m.pvars, RANGE, value("mine_flame_range", 8.0));
     p::set_ff(
@@ -81,6 +92,10 @@ fn snapshot_configured(m:&mut crate::moby_runtime::Moby,value:impl Fn(&str,f32)-
             }).map_or(-1, |rgb| rgb as i32),
         );
     }
+}
+/// The incoming mine's launch-time mode chooses the existing shared mine budget.
+pub(super) fn max_active(m:&crate::moby_runtime::Moby)->usize {
+    if valid(m) {p::i32(&m.pvars,MAX_ACTIVE).clamp(1,32) as usize} else {8}
 }
 fn valid(m: &crate::moby_runtime::Moby) -> bool {
     m.pvars.len() >= LEN && p::u32(&m.pvars, TAG_AT) == TAG
@@ -361,6 +376,38 @@ fn owned_light(w: &World, id: MobyId) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn flame_limits_override_only_active_mode_and_are_captured_for_every_grade() {
+        for grade in 1..=8 {
+            for fire in [false,true] {
+                let (mut b,id)=dropped_mine(12.,0.02);
+                let standard_max=grade as f32;let alternate_max=grade as f32+12.;
+                let standard_life=30.+grade as f32;let alternate_life=2.+grade as f32;
+                snapshot_configured(&mut b.table.mobys[id],|key,native|match key {
+                    "flame_mine_enabled"=>f32::from(u8::from(fire)),
+                    "max_active_mines"=>standard_max,"mine_lifetime_seconds"=>standard_life,
+                    "flame_mine_max_active_mines"=>{assert!(fire);alternate_max},
+                    "flame_mine_lifetime_seconds"=>{assert!(fire);alternate_life},_=>native,
+                },|_|None);
+                let lifetime=crate::hero::physics::ticks(((if fire {alternate_life}else{standard_life})*60.) as i32);
+                assert_eq!(max_active(&b.table.mobys[id]),if fire {alternate_max}else{standard_max} as usize);
+                assert_eq!(p::i32(&b.table.mobys[id].pvars,LIFE),lifetime);
+                b.tick(None);
+                // The live registry may now be native again: no recapture occurs.
+                assert_eq!(p::i32(&b.table.mobys[id].pvars,LIFE),lifetime-1);
+                assert_eq!(max_active(&b.table.mobys[id]),if fire {alternate_max}else{standard_max} as usize);
+            }
+        }
+    }
+    #[test]
+    fn missing_flame_overrides_inherit_the_standard_profile() {
+        let (mut b,id)=dropped_mine(12.,0.02);
+        snapshot_configured(&mut b.table.mobys[id],|key,native|match key {
+            "flame_mine_enabled"=>1.,"max_active_mines"=>3.,"mine_lifetime_seconds"=>17.,_=>native,
+        },|_|None);
+        assert_eq!(max_active(&b.table.mobys[id]),3);
+        assert_eq!(p::i32(&b.table.mobys[id].pvars,LIFE),crate::hero::physics::ticks(17*60));
+    }
     #[test]
     fn every_flame_mine_model_uses_its_own_scale_and_the_captured_percentage_for_all_grades() {
         for model in 0..=2 {

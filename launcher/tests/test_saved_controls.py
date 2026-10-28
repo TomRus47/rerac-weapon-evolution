@@ -15,7 +15,10 @@ class SavedControlsTests(unittest.TestCase):
         base,survival=schema.global_field_groups(doc)
         self.assertEqual(base[-2:],[('general','dpad_quick_select'),('general','r1_experimental')])
         for key in schema.CONTROL_DEFAULTS:
-            self.assertEqual(doc.entries['general',key],'false')
+            # Public balance enables these controls; missing legacy keys remain
+            # opt-in independently of the approved player profile.
+            self.assertEqual(schema.CONTROL_DEFAULTS[key],'false')
+            self.assertEqual(doc.entries['general',key],'true')
             self.assertIn(key,schema.BOOLEANS)
             self.assertNotIn(('general',key),survival)
             self.assertNotIn(key,schema.WORLD_DEFAULTS)
@@ -23,7 +26,7 @@ class SavedControlsTests(unittest.TestCase):
                 core.validate_value('general',key,value)
             for value in ['2','invalid']:
                 with self.assertRaises(ValueError):core.validate_value('general',key,value)
-        self.assertEqual(core.required_config(doc),89)
+        self.assertEqual(core.required_config(doc),90)
 
     def test_migration_keeps_balance_unknown_fields_comments_bom_and_crlf(self):
         raw=(Path(__file__).resolve().parents[1]/'weapons.default.ini').read_bytes()

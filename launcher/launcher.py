@@ -36,8 +36,10 @@ def main():
         print(str(error), file=sys.stderr)
         return 2
     root = tk.Tk()
+    root.withdraw()
     apply_window_icon(root,tk,args.folder.resolve())
     Launcher(root, args.folder.resolve(), tk, ttk, filedialog, messagebox, simpledialog, colorchooser)
+    root.deiconify()
     root.mainloop()
     return 0
 
@@ -47,7 +49,7 @@ RANDOMIZER_WEAPONS_DESCRIPTION = 'Weapons: scatters all 15 weapons across eligib
 RANDOMIZER_RESTART_DESCRIPTION = 'Off disables both modes. Choose a mode before starting a new run. Existing saves keep their seed and placements; changing mode or seed requires restarting the game and starting a compatible run.'
 
 class Launcher:
-    def __init__(self, root, kit, tk, ttk, filedialog, messagebox, simpledialog, colorchooser):
+    def __init__(self, root, kit, tk, ttk, filedialog, messagebox, simpledialog, colorchooser, *, test_mode=False):
         global BASE_LABEL
         self.root, self.kit, self.tk, self.ttk = root, kit, tk, ttk
         self.files, self.messages, self.dialogs, self.colors = filedialog, messagebox, simpledialog, colorchooser
@@ -88,10 +90,10 @@ class Launcher:
             self.doc = None; self.variables = {}; self.base_values = {}
             self.render_page(); self.error(error)
         self.refresh_presets()
-        self.search.trace_add('write', lambda *_: self.render_page())
+        self.search.trace_add('write', lambda *_: None if getattr(self,'_selecting_page',False) else self.render_page())
         self.root.bind('<Control-s>', lambda _: self.save_preset())
-        self.root.after(200, self.poll)
-        if getattr(sys,'frozen',False) and not core.valid_data(data):
+        if not test_mode: self.root.after(200, self.poll)
+        if not test_mode and getattr(sys,'frozen',False) and not core.valid_data(data):
             self.status.set(tr('First launch: choose your extracted game data folder.'))
             self.root.after(300, self.launch_options)
         if startup_warning: self.messages.showwarning(tr('Launcher settings'), startup_warning, parent=root)
@@ -167,14 +169,14 @@ class Launcher:
         ttk.Entry(top, textvariable=self.search, width=24).pack(side='right')
         ttk.Label(top, text=tr('Find setting:')).pack(side='right', padx=6)
         ttk.Label(content, textvariable=self.document_info, style='Small.TLabel').pack(anchor='w', pady=(0, 5))
-        frame = ttk.Frame(content); frame.pack(fill='both', expand=True)
-        self.canvas = tk.Canvas(frame, highlightthickness=0, bg='#edf0f5')
-        scroll = ttk.Scrollbar(frame, orient='vertical', command=self.canvas.yview)
-        scroll.pack(side='right', fill='y'); self.canvas.pack(side='left', fill='both', expand=True)
-        self.canvas.configure(yscrollcommand=scroll.set)
-        self.form = ttk.Frame(self.canvas); self.form_window = self.canvas.create_window(0, 0, window=self.form, anchor='nw')
-        self.form.bind('<Configure>', lambda _: self.canvas.configure(scrollregion=self.canvas.bbox('all')))
-        self.canvas.bind('<Configure>', self.resize_content)
+        self.pages_host = ttk.Frame(content)
+        self.pages_host.pack(fill='both', expand=True)
+        self.pages_host.rowconfigure(0, weight=1)
+        self.pages_host.columnconfigure(0, weight=1)
+        self._page_views = {}
+        self._active_view = None
+        self._building_view = None
+        self._view_keys = None
         self.bind_mousewheel()
         footer = ttk.Frame(self.root, padding=(14, 8)); footer.pack(fill='x')
         help_frame = ttk.Frame(footer); help_frame.pack(side='left', fill='both', expand=True)
@@ -195,6 +197,10 @@ class Launcher:
             self.columns = columns; self.arrange_cards()
 
     def arrange_cards(self):
+        view=getattr(self, '_building_view', None) or getattr(self, '_active_view', None)
+        if view is not None:
+            view.cards=self.cards;view.area=self.card_area;view.arrange()
+            return
         if not hasattr(self, 'card_area'): return
         for i in range(5): self.card_area.columnconfigure(i, weight=0, uniform='')
         columns = self.columns or 2
@@ -227,7 +233,11 @@ class Launcher:
             units = -int(delta/120) if abs(delta) >= 120 else (-1 if delta > 0 else 1)
         else:
             return 'break'
-        self.canvas.yview_scroll(units, 'units')
+        view=getattr(self,'_active_view',None)
+        if view is not None and view.canvas is self.canvas:
+            view.scroll('scroll',units,'units')
+        else:
+            self.canvas.yview_scroll(units, 'units')
         return 'break'
 
     def dropdown_mousewheel(self, event):
@@ -242,8 +252,11 @@ class Launcher:
             path=self.kit/'weapons.ini'
             self.base_file_raw=path.read_bytes() if path.is_file() else doc.raw
         self.base_values = dict(doc.entries)
-        self.variables = {pair: self.tk.StringVar(value=value) for pair, value in doc.entries.items()}
-        for variable in self.variables.values(): variable.trace_add('write', self.changed)
+        if set(getattr(self, 'variables', {})) == set(doc.entries):
+            for pair,value in doc.entries.items(): self.variables[pair].set(value)
+        else:
+            self.variables = {pair: self.tk.StringVar(value=value) for pair, value in doc.entries.items()}
+            for variable in self.variables.values(): variable.trace_add('write', self.changed)
         self.preset_var.set(name or BASE_LABEL); self.loading = False
         self.render_page(); self.changed()
 
@@ -349,9 +362,15 @@ class Launcher:
         except (ValueError, OSError, UnicodeError) as error: self.error(error)
 
     def select_page(self, page):
-        self.page = page; self.search.set(''); self.render_page(); self.canvas.yview_moveto(0)
+        self.page = page
+        self._selecting_page = True
+        try: self.search.set('')
+        finally: self._selecting_page = False
+        self.render_page()
+        if not hasattr(self, 'pages_host'): self.canvas.yview_moveto(0)
 
     def matches(self, section, key):
+        if getattr(self, '_preparing_pages', False): return True
         search = self.search.get().strip().casefold()
         return not search or search in (key+' '+i18n.label(key)+' '+section).casefold()
 
@@ -376,12 +395,20 @@ class Launcher:
             weapon = section.split('.')[1] if section.startswith('weapon.') else ''
             selector = 'grenade_model' if weapon == 'visibomb' else 'flame_mine_model'
             selected = self.variables.get((section, selector))
-            if not visible_model_field(weapon, key, selected.get() if selected else '0'): continue
+            view=getattr(self, '_building_view', None)
+            if view is None and not visible_model_field(weapon, key, selected.get() if selected else '0'): continue
             pair = section, key
-            row = self.ttk.Frame(card, style='Card.TFrame'); row.pack(fill='x', pady=5)
-            label = self.ttk.Label(row, text=self.randomizer_field_label(key), style='Card.TLabel', wraplength=185)
-            label.grid(row=0, column=0, sticky='w', padx=(0, 8)); row.columnconfigure(0, weight=1)
-            cell = self.ttk.Frame(row, style='Card.TFrame'); cell.grid(row=0, column=1, sticky='e')
+            compact = None
+            if view is not None:
+                from page_views import FieldRow
+                compact=FieldRow(self,card,section,key,self.randomizer_field_label(key))
+                view.rows.append(compact)
+                row=label=cell=compact.canvas
+            else:
+                row = self.ttk.Frame(card, style='Card.TFrame'); row.pack(fill='x', pady=5)
+                label = self.ttk.Label(row, text=self.randomizer_field_label(key), style='Card.TLabel', wraplength=185)
+                label.grid(row=0, column=0, sticky='w', padx=(0, 8)); row.columnconfigure(0, weight=1)
+                cell = self.ttk.Frame(row, style='Card.TFrame'); cell.grid(row=0, column=1, sticky='e')
             variable = self.variables[pair]
             if key in BOOLEANS or key in ('level_up_sound','sand_mouse_mode') or key in MODEL_OPTIONS or key=='r1_experimental_max':
                 if key=='r1_experimental_max':
@@ -402,21 +429,40 @@ class Launcher:
                 widget.bind('<<ComboboxSelected>>',lambda _,v=variable,d=display,o=options,c=codes,k=key:self.select_option(v,c[o.index(d.get())],k))
             else:
                 widget = self.ttk.Entry(cell, textvariable=variable, width=12, state='readonly' if key == 'id' else 'normal')
-            widget.pack(side='left')
-            if key=='r1_experimental_max':
+            if compact is not None:
+                hint=tr('Highest R1 mode available at this grade; 0 hides the switch. Requires global R1_Experimental On.') if key=='r1_experimental_max' else None
+                compact.attach(widget,hint)
+            else: widget.pack(side='left')
+            if compact is None and key=='r1_experimental_max':
                 self.ttk.Label(row,text=tr('Highest R1 mode available at this grade; 0 hides the switch. Requires global R1_Experimental On.'),
                     style='CardSmall.TLabel',wraplength=290).grid(row=1,column=0,columnspan=2,sticky='w',pady=(3,0))
             if key in COLORS:
-                swatch = self.tk.Button(cell, width=2, height=1, relief='flat', bd=1,
-                    command=lambda p=pair: self.pick_color(p))
-                swatch.pack(side='left', padx=(3, 0))
-                def paint(*_, var=variable, button=swatch):
-                    if not button.winfo_exists(): return
-                    text = var.get().lstrip('#'); button.configure(bg='#'+text if core.COLOR.fullmatch(text) else '#b4bdcc')
+                if compact is not None:
+                    compact.color_action(lambda p=pair:self.pick_color(p))
+                    def paint(*_, var=variable, field=compact):
+                        text=var.get().lstrip('#')
+                        field.paint('#'+text if core.COLOR.fullmatch(text) else '#b4bdcc')
+                else:
+                    swatch = self.tk.Button(cell, width=2, height=1, relief='flat', bd=1,
+                        command=lambda p=pair: self.pick_color(p))
+                    swatch.pack(side='left', padx=(3, 0))
+                    def paint(*_, var=variable, button=swatch):
+                        if not button.winfo_exists(): return
+                        text = var.get().lstrip('#'); button.configure(bg='#'+text if core.COLOR.fullmatch(text) else '#b4bdcc')
+                    swatch.bind('<Enter>', paint)
                 paint()
-                # Widget-level binding avoids accumulating StringVar traces on each page switch.
                 widget.bind('<KeyRelease>', paint)
-                swatch.bind('<Enter>', paint)
+            if compact is not None:
+                if key in COLORS:
+                    compact.sync=paint
+                elif key in BOOLEANS or key in ('level_up_sound','sand_mouse_mode') or key in MODEL_OPTIONS or key=='r1_experimental_max':
+                    def sync(var=variable,d=display,o=options,c=codes,k=key):
+                        value=var.get()
+                        if k in BOOLEANS: value='true' if i18n.boolean_display(value)=='On' else 'false'
+                        elif k=='level_up_sound': value='off' if value.lower() in ('off','false','0','no') else 'help_notice'
+                        elif k in MODEL_OPTIONS: value=str(int(float(value)))
+                        d.set(o[c.index(value)])
+                    compact.sync=sync
             for target in (widget, label):
                 target.bind('<FocusIn>', lambda _, s=section, k=key: self.show_help(s, k))
                 target.bind('<Enter>', lambda _, s=section, k=key: self.show_help(s, k))
@@ -476,6 +522,66 @@ class Launcher:
         self.canvas.yview_moveto(position)
 
     def render_page(self):
+        if not hasattr(self,'pages_host'):
+            self.build_page_contents()
+            return
+        keys=tuple(getattr(self,'variables',{}))
+        if not self._page_views or keys!=self._view_keys:
+            self.preload_pages()
+        else:
+            self.show_page_view(self._page_views[self.page])
+
+    def use_page_view(self,view):
+        self.form,self.canvas,self.form_window=view.form,view.canvas,view.window
+        self.cards,self.card_area,self.columns=view.cards,view.area,view.columns
+
+    def preload_pages(self):
+        from page_views import PageView
+        selected=self.page
+        for view in self._page_views.values(): view.frame.destroy()
+        self._page_views={};self._active_view=None
+        self._preparing_pages=True
+        try:
+            pages=['global',*EDITOR_WEAPONS] if getattr(self,'doc',None) else ['global']
+            for key in pages:
+                self.page=key
+                view=PageView(self,key,self.pages_host)
+                self._page_views[key]=view;self._building_view=view
+                self.use_page_view(view)
+                self.build_page_contents()
+                view.cards,view.area=self.cards,self.card_area
+            # Resolve every fixed Canvas/row at the real host width before any
+            # page can be selected. Never pump input callbacks during this pass.
+            self.root.update_idletasks()
+        finally:
+            self._preparing_pages=False;self._building_view=None
+            self.page=selected if selected in self._page_views else 'global'
+        self._view_keys=tuple(getattr(self,'variables',{}))
+        for view in self._page_views.values(): view.refresh(self)
+        self.root.update_idletasks()
+        self.show_page_view(self._page_views[self.page])
+
+    def show_page_view(self,view):
+        previous=self._active_view
+        if previous is not None and previous is not view:
+            previous.scrolling.flush()
+        self._active_view=view
+        self.use_page_view(view)
+        view.refresh(self)
+        if self.page=='global' and hasattr(self,'randomizer_mode_choice'):
+            self.randomizer_mode_choice.set(self.current_randomizer_choice())
+        view.frame.grid()
+        for other in self._page_views.values():
+            if other is not view: other.frame.grid_remove()
+        self.root.update_idletasks()
+        view.update_region()
+        view.painter.paint()
+        for key,button in self.nav_buttons.items():
+            button.configure(bg='#405784' if key==self.page else '#242d40')
+        self.page_title.configure(text=tr('Global Settings') if self.page=='global' else i18n.weapon_name(self.page))
+        self.context.set(tr('All eight grades are on this page. Scroll to see them all. Right-click a value to copy it to the other grades.') if self.page!='global' else tr('Global XP, HUD and level-up settings. In-game weapon names follow the game language.'))
+
+    def build_page_contents(self):
         if not hasattr(self, 'form'): return
         for child in self.form.winfo_children(): child.destroy()
         self.cards = []; self.card_area = self.ttk.Frame(self.form)
@@ -550,6 +656,8 @@ class Launcher:
                     entry = self.ttk.Entry(cell, textvariable=self.variables[(section, key)], width=12); entry.pack(pady=3)
                     entry.bind('<FocusIn>', lambda _, s=section, k=key: self.show_help(s, k))
                     entry.bind('<Enter>', lambda _, s=section, k=key: self.show_help(s, k))
+                    view=getattr(self,'_building_view',None)
+                    if view is not None: view.filtered_cells.append((cell,(section,key)))
             self.card_area.pack(fill='x')
             for n in range(1, 9):
                 card = self.card(self.card_area, tr('V{grade}  /  Grade {grade}',grade=n), GRADE_COLORS[n-1]); self.cards.append(card)

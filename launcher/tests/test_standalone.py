@@ -84,12 +84,15 @@ class StandaloneTests(unittest.TestCase):
         make.assert_not_called()
     def test_smoke_test_requires_frozen_python_tk_and_the_correct_folder(self):
         def report(args,**kwargs):
-            Path(args[2]).write_text(json.dumps({'saved_controls_ui':True,'wrench_trail_ui':True,'ngplus_difficulty_ui':True,'eight_grade_ui':True,'additive_nanotech_ui':True,'nanotech_xp_bar_ui':True,'encounter_motion_ui':True,'pursuit_ui':True,'location_test_ui':True,'frozen':True,'gui_ok':True,'launcher_version':c.VERSION,
+            Path(args[2]).write_text(json.dumps({'experimental_overrides_ui':True,'scroll_repaint_ui':True,'preloaded_pages_ui':True,'saved_controls_ui':True,'wrench_trail_ui':True,'ngplus_difficulty_ui':True,'eight_grade_ui':True,'additive_nanotech_ui':True,'nanotech_xp_bar_ui':True,'encounter_motion_ui':True,'pursuit_ui':True,'location_test_ui':True,'frozen':True,'gui_ok':True,'launcher_version':c.VERSION,
                 'application_folder':str(self.launcher.parent),'tcl_version':'8.6','tk_version':'8.6'}))
-        with patch.object(build.subprocess,'run',side_effect=report):self.assertTrue(build.smoke_test(self.launcher)['frozen'])
+        def successful(exe,destination):
+            report([str(exe),'--self-test',str(destination)])
+            return json.loads(destination.read_text())
+        with patch.object(build,'run_self_test',side_effect=successful):self.assertTrue(build.smoke_test(self.launcher)['frozen'])
         def bad(args,**kwargs):
             Path(args[2]).write_text(json.dumps({'frozen':False,'gui_ok':True}))
-        with patch.object(build.subprocess,'run',side_effect=bad):
+        with patch.object(build,'run_self_test',return_value={'frozen':False,'gui_ok':True}):
             with self.assertRaises(ValueError):build.smoke_test(self.launcher)
         self.launcher.write_bytes(b'not a Windows binary')
         with self.assertRaises(ValueError):build.windows_x64(self.launcher)
@@ -114,7 +117,7 @@ class StandaloneTests(unittest.TestCase):
         (self.launcher.parent/'launcher-build.json').write_text(json.dumps(metadata))
         with patch.object(sys,'platform','win32'),patch.object(build,'smoke_test') as smoke,patch.object(build,'ensure_tools') as tools:
             self.assertEqual(build.build(self.kit),self.launcher)
-        tools.assert_not_called();smoke.assert_called_once_with(self.launcher)
+        tools.assert_not_called();smoke.assert_called_once();self.assertEqual(smoke.call_args.args[0],self.launcher)
     def test_failed_compilation_keeps_the_existing_exe_untouched(self):
         self.prepare_sources();before=self.launcher.read_bytes()
         with patch.object(sys,'platform','win32'),patch.object(build,'ensure_tools',return_value=self.parent/'python.exe'),patch.object(build.subprocess,'run',side_effect=subprocess.CalledProcessError(1,['freeze'])):

@@ -15,6 +15,8 @@ const MAX_AGE: u16 = 120;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Settings {
     pub enabled: bool,
+    /// Additional DPS percentage, applied only when firing the lava replacement.
+    pub damage_bonus_percent: f32,
     pub speed: f32,
     /// Elevation relative to the weapon aim, clamped at vertical.
     pub launch_angle_degrees: f32,
@@ -28,14 +30,14 @@ pub struct Settings {
 }
 impl Default for Settings {
     fn default() -> Self {
-        Self { enabled: false, speed: 24.0, launch_angle_degrees: 10.0, gravity: 18.0, range: 18.0,
+        Self { enabled: false, damage_bonus_percent: 25.0, speed: 24.0, launch_angle_degrees: 10.0, gravity: 18.0, range: 18.0,
             size_percent: 100.0, core_color: None, outer_color: None,
             impact_color: None, light_color: None }
     }
 }
 impl Settings {
     pub fn valid(self) -> bool {
-        [(self.speed, 1.0, 120.0), (self.launch_angle_degrees, -45.0, 45.0), (self.gravity, 0.0, 120.0),
+        [(self.damage_bonus_percent, 0.0, 1000.0), (self.speed, 1.0, 120.0), (self.launch_angle_degrees, -45.0, 45.0), (self.gravity, 0.0, 120.0),
          (self.range, 0.5, 100.0), (self.size_percent, 10.0, 500.0)]
             .into_iter().all(|(v, lo, hi)| v.is_finite() && (lo..=hi).contains(&v))
     }

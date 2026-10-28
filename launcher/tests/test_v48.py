@@ -16,7 +16,7 @@ class V48Tests(unittest.TestCase):
             standard, experimental = field_groups('drone_device', after.keys(pair[0]))
             self.assertIn('drone_count', standard)
             self.assertEqual(after.keys(pair[0]), standard+experimental)
-        self.assertEqual(core.required_config(after),89)
+        self.assertEqual(core.required_config(after),90)
     def test_invalid_counts_are_rejected_at_every_grade(self):
         for grade in range(1, 6):
             section = f'weapon.drone_device.level{grade}'

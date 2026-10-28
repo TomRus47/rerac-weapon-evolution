@@ -40,7 +40,7 @@ class UpdateTests(unittest.TestCase):
                 if fail_build:raise subprocess.CalledProcessError(1,args)
                 exe=source/'target/release/rerac.exe';exe.parent.mkdir(parents=True);exe.write_bytes(b'new game')
             elif len(args)>1 and args[1]=='--version-json':
-                return subprocess.CompletedProcess(args,0,json.dumps({'weapon_evolution_patch':update.PATCH,'weapon_evolution_config':89,'version':'0.3.6'}))
+                return subprocess.CompletedProcess(args,0,json.dumps({'weapon_evolution_patch':update.PATCH,'weapon_evolution_config':90,'version':'0.3.6'}))
             elif len(args)>1 and str(args[1]).endswith('build_launcher_exe.py'):
                 exe=launcher/'launcher-bin/ReRAC_Weapon_Evolution.exe';exe.parent.mkdir();exe.write_bytes(b'new launcher')
             return subprocess.CompletedProcess(args,0,'')

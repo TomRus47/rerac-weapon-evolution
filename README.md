@@ -1,6 +1,6 @@
 # ReRAC Weapon Evolution
 
-Weapon Evolution **0.3**, current **development snapshot**: gameplay **0.1.6.106**, configuration capability **89**, launcher **0.28.9**, based on **ReRAC 0.3.6-alpha**. This main-branch update is not a new release. The previously published Windows/source assets and their release tag remain unchanged.
+Weapon Evolution **0.3**, current **development snapshot**: gameplay **0.1.6.109**, configuration capability **90**, launcher **0.29.3**, based on **ReRAC 0.3.6-alpha**. The next Windows/source package is prepared as an unpublished draft. The existing public 0.3 release and tag are unchanged. See [draft notes](docs/releases/v0.3-rerac-0.3.6-alpha.md) for changes since that package.
 
 **Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to their games, characters, trademarks or game assets, and is not affiliated with their rights holders. Upstream licenses and contributor credits remain applicable. See [credits](docs/mod/CREDITS.md) and [LICENSE](LICENSE).
 
@@ -52,11 +52,11 @@ The tracked custom `launcher/launcher.ico` is included in the EXE build fingerpr
 
 ## Configuration and saves
 
-`launcher/weapons.default.ini` and `launcher/weapons.example.ini` are identical public defaults. Personal `weapons.ini`, presets, runtime, logs and launcher settings are ignored by Git. With no preset selected the launcher uses the current `weapons.ini`; named presets are optional and an explicitly selected preset is remembered. The internal real-HP marker is injected only into private runtime profiles.
+`launcher/weapons.default.ini` and `launcher/weapons.example.ini` are identical public defaults. The approved default is the supplied GBtW profile; `mod/default-profile.json` records its source and all-value fingerprint. Personal `weapons.ini`, presets, runtime, logs and launcher settings are ignored by Git. With no preset selected the launcher uses the current `weapons.ini`; named presets are optional and an explicitly selected preset is remembered. The internal real-HP marker is injected only into private runtime profiles.
 
 The optional embedded-profile feature uses the same reviewed default, with its internal session marker. Normal builds remain editable with `--no-default-features`.
 
-Weapon/health/randomizer progression and shortcut bindings/modes are stored in the existing content-addressed `.wev` save companions. Format v8 reads previous formats 1–7 without replacing their progression. Normal equipped items remain in native saves. See [saved controls](docs/mod/SAVED_CONTROLS.md) for slot isolation, repeat actions and input restrictions.
+Weapon/health/randomizer progression and shortcut bindings/modes are stored in the existing content-addressed `.wev` save companions. Format v9 reads previous formats 1–8 without replacing their progression. Normal equipped items remain in native saves. See [saved controls](docs/mod/SAVED_CONTROLS.md) for slot isolation, repeat actions and input restrictions.
 
 ## Verification and maintenance
 
@@ -70,7 +70,7 @@ cargo build --release --locked --no-default-features -p rc-engine --bin rerac
 
 See [verification](docs/mod/VERIFICATION.md) for completed checks and remaining Windows/gameplay validation. Start extensions with the [developer guide](docs/mod/DEVELOPER_GUIDE.md), [configuration reference](docs/mod/CONFIG_REFERENCE.md) and [module index](MOD_FILES.md). Preserve damage/XP attribution, native phase shields, loader ownership and per-save boundaries when rebasing onto newer runtimes.
 
-`mod/development.json` describes this main-branch snapshot. `mod/release.json` still describes the previous published release; it has deliberately not been advanced. Release packaging/publication scripts reject a runtime that does not match an explicitly prepared release descriptor. Source pushes never publish releases; manual release preparation and authorization are separate.
+`mod/development.json` describes this main-branch snapshot. `mod/release.json` still describes the previous published release; it has deliberately not been advanced. Release packaging/publication scripts reject a runtime that does not match an explicitly prepared release descriptor. Ordinary source pushes never publish releases. An explicitly requested change to `mod/draft.json` starts a checked Windows build and saves an unpublished draft only; that workflow cannot publish it. See [draft preparation](docs/mod/DRAFT_RELEASE.md).
 
 ## Source provenance
 

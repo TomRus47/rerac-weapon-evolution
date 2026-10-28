@@ -34,7 +34,7 @@ class ModeSettingsTests(unittest.TestCase):
         self.assertTrue(all(key not in GLOBAL_EXPERIMENTAL_DEFAULTS for _,key in base))
         self.assertIn(('hud','xp_bar_height_px'), base)
         self.assertNotIn(('general','wrench_gold_texture'), base)
-        self.assertEqual(core.required_config(doc),89)
+        self.assertEqual(core.required_config(doc),90)
 
     def test_probabilities_normalize_without_implicitly_reenabling_zero_types(self):
         values = dict.fromkeys(AMMO_DROP_DEFAULTS, '0')

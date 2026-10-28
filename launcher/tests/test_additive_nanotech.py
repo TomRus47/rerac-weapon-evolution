@@ -22,7 +22,7 @@ class AdditiveNanotechTests(unittest.TestCase):
             raw=(Path(__file__).resolve().parents[1]/('weapons.default.ini' if name=='weapons.ini' else name)).read_bytes()
             before=core.IniDocument(raw);after=core.profile_document(raw)
             for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value,pair)
-            self.assertEqual(core.required_config(after),89)
+            self.assertEqual(core.required_config(after),90)
 
     def test_all_languages_explain_independent_purchases(self):
         try:

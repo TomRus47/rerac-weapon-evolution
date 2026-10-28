@@ -1,6 +1,6 @@
 # Saved shortcuts, equipment repeat actions and weapon modes
 
-Runtime patch 0.1.6.95 on ReRAC 0.3.6-alpha; launcher 0.28.2. This is unreleased development work. Existing v81/v82 bindings and mode choices remain compatible.
+Runtime patch 0.1.6.109 on ReRAC 0.3.6-alpha; launcher 0.29.3. This is an unpublished draft candidate. Existing v81/v82 bindings and mode choices remain compatible.
 
 ## User behavior
 
@@ -21,7 +21,7 @@ With **R1_Experimental** On, selecting Pyrocitor, Mine Glove, Visibomb or RYNO i
 - `menus/pause/gadgets.rs`: real grid callbacks and borders accept Weapons kind 3 and Gadgets kind 4; Help/other grids are excluded. `pause/shortcuts.rs` owns the Weapons-only caption.
 - `menus/quick_select.rs` and engine `menu_render.rs`: mode rendering, physical-edge cycling and normal confirmation audio.
 - `weapon_evo.rs`: effective mode flags and ammo capacities; raw per-grade INI tuning remains unchanged.
-- `weapon_evo_save.rs`: v8 appends four direction item IDs and four mode bytes to the existing content-hash/slot-bound companion, before its checksum. v1–v7 initialize empty bindings/native modes and preserve older state.
+- `weapon_evo_save.rs`: the historical v8 format appends four direction item IDs and four mode bytes to the existing content-hash/slot-bound companion, before its checksum. v1–v7 initialize empty bindings/native modes and preserve older state.
 
 Native `global.owned` validates gadgets, including NG+ saves whose acquisition flags were reset. Native `global.equipped` stores actual equipment. Pending session requests take precedence when deciding a toggle or cycle, including `inventory::NOTHING`; this prevents rapid presses during equip/unequip animations from acting on stale equipment.
 
@@ -36,3 +36,5 @@ Tests exercise all fourteen gadget entries through actual page callbacks, both e
 On Windows, compile the engine and test visual borders/caption, native equipment animations, native first-person/crouch shoulders, repeated shortcuts, R1 radial modes, audio, death, travel and independent save slots. Passing host-side tests does not replace these gameplay checks.
 
 Weapon Evolution is an unofficial independent mod by TomRus47; the mod author does not develop ReRAC or the original games and owns no rights to their games, characters, trademarks or assets. Upstream licenses and contributor credits remain applicable.
+
+Current WEVO v9 appends the mixed-randomizer state after the v8 fields. It decodes v1–v8 without discarding weapon, Nanotech or equipment progression. Preserve the native `saveN.bin` together with its entire matching content-addressed companion folder when backing up or reporting a run; never pair companions from a different native save.

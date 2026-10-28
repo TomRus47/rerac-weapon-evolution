@@ -1,7 +1,7 @@
 {
   "base_workspace_version": "0.3.6",
-  "gameplay_version": "0.1.6.106",
-  "launcher_version": "0.28.9",
+  "gameplay_version": "0.1.6.109",
+  "launcher_version": "0.29.3",
   "supplied_source_archive_sha256": "691ec727930a62463c6bdb9e3161e77f4ce906ec9209a5274cf31bddd4400592",
   "upstream_git_revision": null,
   "baseline": "User-supplied source archive; already contains an earlier Weapon Evolution version.",
@@ -157,5 +157,6 @@
     "runtime": "Supplied v101 ReRAC 0.3.6-alpha workspace",
     "launcher": "Supplied launcher 0.28.6 source",
     "scope": "Development main update; published release descriptor/assets unchanged."
-  }
+  },
+  "latest_mod_delta": "v109.1 test kit supplied by the mod author; SOURCE_CHANGES.patch applied to main 69aadb075942a5dfd923758ad300c26c30a5a7c8. Original supplied upstream baseline hash remains historical."
 }

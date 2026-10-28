@@ -14,15 +14,18 @@ class GrenadeMineTests(unittest.TestCase):
         for n in range(1,6):
             for weapon,key,value in [('visibomb','grenade_size_percent','250'),('mine_glove','flame_mine_size_percent','150')]:
                 section=f'weapon.{weapon}.level{n}';keys=self.doc.keys(section)
-                self.assertEqual(self.doc.entries[section,key],value)
+                # Migration fallback and the approved release balance are
+                # independent. Existing personal sizes must remain unchanged.
+                self.assertEqual(EXPERIMENTAL_DEFAULTS[weapon][key],value)
+                self.assertEqual(core.profile_document(self.raw).entries[section,key],self.doc.entries[section,key])
                 base,experimental=field_groups(weapon,keys);self.assertEqual(keys,base+experimental)
                 self.assertEqual(experimental[0],next(iter(EXPERIMENTAL_DEFAULTS[weapon])))
             section=f'weapon.visibomb.level{n}';changes[section,'grenade_damage_hp']=str(145*n)
             self.assertIn('explosion_damage_radius',field_groups('visibomb',self.doc.keys(section))[0])
-            self.assertEqual(self.doc.entries[section,'grenade_launcher_enabled'],'false')
+            self.assertEqual(EXPERIMENTAL_DEFAULTS['visibomb']['grenade_launcher_enabled'],'false')
         doc=core.checked_document(self.doc.render(changes))
         for p,v in changes.items():self.assertEqual(doc.entries[p],v)
-        self.assertEqual(core.required_config(doc),89)
+        self.assertEqual(core.required_config(doc),90)
     def test_migration_adds_55_fields_without_changing_old_values(self):
         new={p for p in self.doc.entries if p[1] not in MODEL_NEW_KEYS and (p[1].startswith('grenade_') or p[1]=='flame_mine_size_percent' or (p[0].startswith('weapon.visibomb.level') and p[1]=='explosion_damage_radius'))}
         self.assertEqual(len(new),88);indexes={self.doc.addresses[p] for p in new}

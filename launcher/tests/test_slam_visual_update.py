@@ -13,7 +13,7 @@ class SlamUpdateTests(unittest.TestCase):
         # Reverse the exact-block edits against this checkout to obtain the
         # supported previous interface, preserving unrelated source comments.
         for name in {row['path'] for row in data['edits']}:
-            text=(ROOT/name).read_text()
+            text=(ROOT/name).read_text().replace('\"weapon_evolution_config\":90','\"weapon_evolution_config\":89').replace('0.1.6.109','0.1.6.106')
             for row in reversed(data['edits']):
                 if row['path']==name:
                     self.assertEqual(text.count(row['after']),row['count'])
@@ -52,7 +52,7 @@ class SlamUpdateTests(unittest.TestCase):
             def run(args,**kwargs):
                 if args[:2]==['cargo','build']:
                     exe=source/'target/release/rerac.exe';exe.parent.mkdir(parents=True);exe.write_bytes(b'new runtime')
-                return subprocess.CompletedProcess(args,0,json.dumps({'weapon_evolution_patch':update.PATCH,'weapon_evolution_config':89,'version':'0.3.6'}))
+                return subprocess.CompletedProcess(args,0,json.dumps({'weapon_evolution_patch':update.PATCH,'weapon_evolution_config':90,'version':'0.3.6'}))
             update.install(source,play,launcher,bundle,run)
             self.assertEqual((play/'runtime/rerac.exe').read_bytes(),b'new runtime')
             self.assertEqual((play/'weapons.ini').read_bytes(),b'personal settings')

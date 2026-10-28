@@ -162,7 +162,7 @@ pub fn release(table: &mut MobyTable, id: MobyId, rng: &mut crate::rng::Rng, poi
         p::set_i16(&mut m.pvars, pv::TIMER, 120);
     }
     experimental::snapshot(&mut table.mobys[id]);
-    let limit = crate::weapon_evo::extra(17,"max_active_mines",8.0).round().clamp(1.0,32.0) as usize;
+    let limit = experimental::max_active(&table.mobys[id]);
     let mut others: Vec<_> = table.mobys.iter().enumerate().filter(|(i,m)|
         *i!=id && m.o_class==CLASS && m.state!=0 && !m.is_deleted() && p::i32(&m.pvars,pv::BORN)>=0)
         .map(|(i,m)|(i,p::i32(&m.pvars,pv::BORN))).collect();

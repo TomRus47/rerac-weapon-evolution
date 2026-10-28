@@ -57,6 +57,12 @@ def ensure_experimental_fields(raw):
         original = dict(values)
         if 'experimental_max_ammo' in defaults:
             values.setdefault('experimental_max_ammo', values.get('capacity' if weapon == 'suck_cannon' else 'max_ammo', defaults['experimental_max_ammo']))
+        if weapon == 'mine_glove':
+            # Seed only missing overrides from this grade's personal balance.
+            # Explicit experimental values must survive imports and live edits.
+            for alternate, standard in [('flame_mine_max_active_mines','max_active_mines'),
+                                        ('flame_mine_lifetime_seconds','mine_lifetime_seconds')]:
+                values.setdefault(alternate,values.get(standard,STANDARD_DEFAULTS['mine_glove'][standard]))
         legacy = set()
         if weapon == 'bomb_glove' and 'cluster_jump_height' in values:
             legacy.add('cluster_jump_height')

@@ -27,7 +27,7 @@ class EightGradeTests(unittest.TestCase):
    for grade in range(1,9):self.assertIn(f'weapon.{weapon}.level{grade}',after.sections)
    for key in ['xp_v6_to_v7','xp_v7_to_v8']:self.assertIn(('weapon.'+weapon,key),after.entries)
   self.assertEqual(after.entries['general','hide_ryno'],'false')
-  self.assertEqual(core.required_config(after),89)
+  self.assertEqual(core.required_config(after),90)
   self.assertEqual(core.profile_document(after.raw).raw,after.raw)
  def test_upper_grades_are_independent_and_preset_round_trip_keeps_custom_fields(self):
   doc=core.profile_document((Path(__file__).resolve().parents[1]/'weapons.default.ini').read_bytes())

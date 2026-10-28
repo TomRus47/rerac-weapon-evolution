@@ -1,0 +1,9 @@
+{
+  "source": "User-approved GBtW_All_Custom(1).ini",
+  "source_sha256": "230318f30d2e353f4266e992ca5d0468de360b01e44cfe5224963fde64c0f7a5",
+  "public_sha256": "5ec617c923a25022d843eb012e0758ba14fcd9fc4b3fa653a7e0442f3d7d883b",
+  "values_sha256": "f9baac4366920cb2d5406af584c41f885f3f8f0d189dade29813046d83d8a3cd",
+  "values": 2592,
+  "sections": 146,
+  "changes": "Only English compatibility and obsolete boss-rule comments were updated. Every supplied setting is unchanged."
+}

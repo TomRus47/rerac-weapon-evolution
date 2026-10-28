@@ -92,7 +92,7 @@ fn supported_extra_stat(item: i32, key: &str) -> bool {
         13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding", "explosion_damage_radius", "grenade_launcher_enabled", "grenade_size_percent", "grenade_arc_height", "grenade_max_range", "grenade_fire_interval_ticks", "grenade_damage_hp", "grenade_explosion_radius", "grenade_explosion_color", "grenade_color", "grenade_model", "grenade_mine_color", "grenade_mine_explosion_color", "grenade_missile_color", "grenade_missile_explosion_color"],
         14 => &["lure_range", "lure_cone_degrees", "xp_attract_fraction", "stun_range", "stun_duration_ticks", "stun_efficiency_percent", "damage_range", "damage_per_second", "wave_speed_multiplier", "wave_size_multiplier", "wave_range_multiplier", "wave_interval_ticks", "wave_alpha", "wave_color", "stun_launch_distance"],
         15 => &["fire_interval_ticks", "projectile_speed_multiplier", "projectile_range_multiplier", "projectile_color", "trail_color", "impact_color"],
-        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier", "max_active_mines", "mine_lifetime_seconds", "flame_core_color", "flame_outer_color", "burn_flame_color", "explosion_color", "light_color", "flame_mine_enabled", "mine_flame_range", "mine_flame_rotation_degrees_per_second", "mine_flame_damage_per_second", "flame_mine_size_percent", "flame_mine_model", "mine_model_color", "mine_bomb_color", "mine_bomb_core_color", "mine_bomb_outer_color", "mine_bomb_burn_color", "mine_sphere_color", "mine_sphere_core_color", "mine_sphere_outer_color", "mine_sphere_burn_color"],
+        17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier", "max_active_mines", "mine_lifetime_seconds", "flame_mine_max_active_mines", "flame_mine_lifetime_seconds", "flame_core_color", "flame_outer_color", "burn_flame_color", "explosion_color", "light_color", "flame_mine_enabled", "mine_flame_range", "mine_flame_rotation_degrees_per_second", "mine_flame_damage_per_second", "flame_mine_size_percent", "flame_mine_model", "mine_model_color", "mine_bomb_color", "mine_bomb_core_color", "mine_bomb_outer_color", "mine_bomb_burn_color", "mine_sphere_color", "mine_sphere_core_color", "mine_sphere_outer_color", "mine_sphere_burn_color"],
         18 => &["held_lunge_duration_percent", "knockback_multiplier", "hit_radius_multiplier", "electric_fx_size_multiplier", "gold_electric_fx", "air_dash_enabled", "electric_core_color", "electric_glow_color", "fist_glow_color", "impact_color"],
         19 => &["beam_size_percent", "beam_range_multiplier", "dual_beam_enabled", "target_range_multiplier", "ammo_interval_ticks", "damage_interval_ticks", "lock_cone_multiplier", "beam_core_color", "beam_glow_color", "secondary_core_color", "secondary_glow_color", "arc_core_color", "arc_glow_color", "claw_core_color", "claw_glow_color", "spark_color", "spark_core_color", "impact_color", "light_color", "weapon_glow_color", "secondary_beam_damage_percent"],
         20 => &["robot_count", "robot_max_alive", "robot_detection_range", "explosion_radius_multiplier"],
@@ -1133,6 +1133,7 @@ impl Evolution {
                     "xp_to_next" => {},
                     "triple_flame_enabled" => stat.triple_flame_enabled = parse_bool(val)?,
                     "lava_stream_enabled" => stat.lava.enabled = parse_bool(val)?,
+                    "lava_damage_bonus_percent" => stat.lava.damage_bonus_percent = parse_number(val, &key)?,
                     "lava_launch_speed" => stat.lava.speed = parse_number(val, &key)?,
                     "lava_launch_angle_degrees" => stat.lava.launch_angle_degrees = parse_number(val, &key)?,
                     "lava_gravity" => stat.lava.gravity = parse_number(val, &key)?,
@@ -1829,8 +1830,8 @@ fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
         "missile_max_range" => Some((0.0, 500.0)),
         "explosion_damage_radius" => Some((0.0, 100.0)),
         "explosion_visual_size_multiplier" => Some((0.1, 8.0)),
-        "max_active_mines" => Some((1.0, 32.0)),
-        "mine_lifetime_seconds" => Some((0.5, 600.0)),
+        "max_active_mines" | "flame_mine_max_active_mines" => Some((1.0, 32.0)),
+        "mine_lifetime_seconds" | "flame_mine_lifetime_seconds" => Some((0.5, 600.0)),
         "stun_launch_distance" => Some((0.0, 50.0)),
         "shotgun_damage_hp" => Some((0.0, 9999.0)),
         "shotgun_speed" => Some((1.0, 200.0)),
@@ -1865,7 +1866,7 @@ fn validate_v45_extra(item:i32, key: &str, v: f32) -> Result<(), String> {
     if let Some((lo, hi)) = bounds {
         if !(lo..=hi).contains(&v) { return Err(format!("{key} must be {lo}..{hi}")); }
     }
-    if matches!(key, "grenade_fire_interval_ticks" | "max_active_mines" | "sand_mouse_mode" | "sand_mouse_max_shots" | "sand_mouse_fire_interval_ticks") && v.fract() != 0.0 {
+    if matches!(key, "grenade_fire_interval_ticks" | "max_active_mines" | "flame_mine_max_active_mines" | "sand_mouse_mode" | "sand_mouse_max_shots" | "sand_mouse_fire_interval_ticks") && v.fract() != 0.0 {
         return Err(format!("{key} must be an integer"));
     }
     Ok(())
@@ -2369,3 +2370,59 @@ mod v76_tests;
 #[cfg(test)]
 #[path = "weapon_evo_v77_tests.rs"]
 mod v77_tests;
+
+#[cfg(test)]
+mod alternate_override_tests {
+    use super::*;
+    fn profile() -> String {
+        let mut text=String::from("[general]\ndamage_mode=real_hp\nr1_experimental=true\n");
+        for n in 1..=8 {
+            text+=&format!("[weapon.bomb_glove.level{n}]\nmax_ammo=40\n");
+            text+=&format!("[weapon.pyrocitor.level{n}]\ndamage_per_second={}\nlava_stream_enabled=true\nlava_damage_bonus_percent={}\n",n*100,n*10);
+            text+=&format!("[weapon.mine_glove.level{n}]\ndamage_hp=300\nflame_mine_enabled=true\nmax_active_mines=2\nmine_lifetime_seconds=40\nflame_mine_max_active_mines={}\nflame_mine_lifetime_seconds={}\n",n+8,n+2);
+        }
+        text
+    }
+    #[test]
+    fn all_grade_overrides_survive_parsing_and_r1_changes_only_mode_enablers() {
+        let mut evo=Evolution::parse(&profile()).unwrap();
+        for n in 1..=8 {
+            evo.pyro.level=n;
+            assert_eq!(evo.effective_pyro().lava.damage_bonus_percent,(n*10) as f32);
+            assert!(!evo.effective_pyro().lava.enabled,"R1 native mode ignores the INI enabler");
+            evo.state_progress.controls.cycle(16);
+            assert!(evo.effective_pyro().lava.enabled);
+            evo.state_progress.controls.cycle(16);
+            let mine=evo.extras.iter().find(|t|t.id==17).unwrap();
+            let params=&mine.params[n-1];
+            for active in [false,true] {
+                let mut registry:HashMap<_,_>=params.iter().map(|(k,&v)|((17,k.clone()),v)).collect();
+                let mut state=controls::State::default();
+                if active {state.cycle(17);}
+                controls::apply_registry(evo.control_settings,&state,&mut registry,|_|1);
+                assert_eq!(registry[&(17,"flame_mine_enabled".into())],if active {1.}else{0.});
+                assert_eq!(registry[&(17,"flame_mine_max_active_mines".into())],(n+8) as f32);
+                assert_eq!(registry[&(17,"flame_mine_lifetime_seconds".into())],(n+2) as f32);
+                assert_eq!(registry[&(17,"max_active_mines".into())],2.);
+            }
+        }
+        evo.control_settings.r1=false;
+        assert!(evo.effective_pyro().lava.enabled,"INI activation still works without R1 switching");
+    }
+    #[test]
+    fn override_ranges_are_validated_even_with_the_mode_disabled() {
+        for (weapon,key,value) in [("pyrocitor","lava_damage_bonus_percent","-1"),
+            ("pyrocitor","lava_damage_bonus_percent","1001"),("pyrocitor","lava_damage_bonus_percent","NaN"),
+            ("mine_glove","flame_mine_max_active_mines","0"),("mine_glove","flame_mine_max_active_mines","33"),
+            ("mine_glove","flame_mine_max_active_mines","2.5"),("mine_glove","flame_mine_lifetime_seconds","0.4"),
+            ("mine_glove","flame_mine_lifetime_seconds","601")] {
+            let original=match weapon {"pyrocitor"=>"10",_=>if key=="flame_mine_max_active_mines" {"9"} else {"3"}};
+            let invalid=profile().replacen(&format!("{key}={original}"),&format!("{key}={value}"),1)
+                .replace("enabled=true","enabled=false");
+            assert!(Evolution::parse(&invalid).is_err(),"{key}={value}");
+        }
+        let text=profile().lines().filter(|line|!line.starts_with("lava_damage_bonus_percent=")).collect::<Vec<_>>().join("\n");
+        let evo=Evolution::parse(&text).unwrap();
+        assert_eq!(evo.effective_pyro().lava.damage_bonus_percent,25.);
+    }
+}

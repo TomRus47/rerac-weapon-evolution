@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.28.9'
+VERSION = '0.29.3'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -464,7 +464,7 @@ def log_confirmation(text, ini):
 PLAYER_README = 'ReRAC Weapon Evolution - Windows x64\n\n1. Extract the entire ZIP into a folder.\n2. Open ReRAC_Weapon_Evolution.exe.\n3. On first launch, choose your extracted Ratchet & Clank game data folder.\n   It must contain toc.bin and extract-info.json.\n4. Press Save and launch. No preset is required.\n\nWith no named preset selected, the launcher opens weapons.ini. Edit it manually\nwhile the launcher is closed, then open the launcher and start immediately.\nChanges made in the default editor are saved to weapons.ini with a backup.\nSave as creates an optional named preset; select one explicitly to use it.\nThe next startup restores the last selected preset. Select Default configuration to return to weapons.ini.\n\nOnly the real-HP damage system is supported. There is no damage model switch.\nWeapon name opacity affects the HUD name, grade and their background only.\n100 = normal; 50 = semi-transparent; 0 = hidden. The 3D weapon is unaffected.\n\nPython and Tcl/Tk are included. Players do not need to install them.\nRust, compilation and earlier patches are not required.\nThe modded game is included in runtime; copyrighted game data is not included.\nKeep the EXE, INI files and runtime folder together when moving the mod.\nExisting game saves use the default save location unless you choose another.\nOpen the included EXE directly; do not import this ZIP into the official launcher.\n'
 PLAYER_README += '\nAuthorship and rights\n'+'Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only and does not develop the original Ratchet & Clank games or the ReRAC project. TomRus47 does not own the original games, characters, trademarks or game assets and is not affiliated with Sony Interactive Entertainment or Insomniac Games. Original-game rights remain with their respective rights holders. ReRAC retains its existing license and contributor credits.\n'
 
-DISTRIBUTED_FILES = ('i18n.py', 'icon_assets.py', 'final_release.py', 'weapons.default.ini', 'frozen_support.py', 'build_launcher_exe.py', 'windows_entry.py', 'CREA_LAUNCHER_EXE.bat', 'launcher.py', 'launcher_core.py', 'schema.py', 'Editor.bat', 'LEGGIMI.txt',
+DISTRIBUTED_FILES = ('page_views.py','page_smoke.py','scroll_paint.py','build_lifecycle.py','i18n.py', 'icon_assets.py', 'final_release.py', 'weapons.default.ini', 'frozen_support.py', 'build_launcher_exe.py', 'windows_entry.py', 'CREA_LAUNCHER_EXE.bat', 'launcher.py', 'launcher_core.py', 'schema.py', 'Editor.bat', 'LEGGIMI.txt',
                      'CREA_PACCHETTO.bat', 'package_launcher.py', 'migrate_ini.py', 'LICENSE')
 
 def package_distribution(kit, destination, raw, exe, include_presets=True, launcher_exe=None):
@@ -605,3 +605,10 @@ _hud_layer_required_config=required_config
 def required_config(doc):
     previous=_hud_layer_required_config(doc)
     return max(89,previous) if ('hud','weapon_bar_behind_hud') in doc.entries else previous
+
+# Alternate-only balance controls must never be sent to older parsers.
+_before_experimental_overrides_required_config = required_config
+def required_config(doc):
+    previous = _before_experimental_overrides_required_config(doc)
+    keys = {'lava_damage_bonus_percent','flame_mine_max_active_mines','flame_mine_lifetime_seconds'}
+    return max(90,previous) if any(key in keys for _,key in doc.entries) else previous

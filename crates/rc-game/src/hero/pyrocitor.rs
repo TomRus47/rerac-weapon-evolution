@@ -352,7 +352,8 @@ fn firing(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn 
         // side rays widen coverage without multiplying damage at the nozzle.
         hero.weapons.pyro.hits = [None; 45];
         let damage = crate::moby_update::real_hp::StreamSnapshot {
-            damage_hp_per_second: (1.0 + gold as f32) * stats.damage_multiplier * 100.0,
+            damage_hp_per_second: (1.0 + gold as f32) * stats.damage_multiplier * 100.0
+                * (1.0 + stats.lava.damage_bonus_percent / 100.0),
             interval: stats.damage_interval_ticks as u32,
             burn_color: Some(stats.lava.outer_color.unwrap_or(0x0444F0)),
         };
@@ -532,6 +533,49 @@ pub fn item_gone(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &m
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lavagun_bonus_is_captured_in_real_firing_without_changing_native_flames() {
+        #[derive(Default)]
+        struct Recorded {
+            snapshots: Vec<crate::moby_update::real_hp::StreamSnapshot>,
+            native: Vec<f32>,
+        }
+        impl HitSink for Recorded {
+            fn stream_snapshot(&mut self,s:Option<crate::moby_update::real_hp::StreamSnapshot>) {
+                if let Some(s)=s {self.snapshots.push(s);}
+            }
+            fn sphere(&mut self,_:&mut MobyTable,_:Pf,_:[Pf;4],_:u32,_:Option<usize>,t:&HitTemplate)->Option<usize> {
+                self.native.push(t.damage.to_f32());None
+            }
+            fn line(&mut self,_:&mut MobyTable,_:[Pf;4],_:[Pf;4],_:u32,_:Option<usize>,_:&HitTemplate)->Option<Option<usize>> {None}
+        }
+        for grade in 1..=8 {
+            for lava in [false,true] {
+                let mut hero=Hero::new();hero.moby_rows=hero.rows;
+                hero.weapons.ammo[16]=50;hero.weapons.uses_ammo[16]=true;
+                let base=grade as f32*100.;
+                let mut stats=crate::weapon_evo::PyroStats::default();
+                stats.damage_multiplier=base/100.;stats.lava.enabled=lava;
+                stats.lava.damage_bonus_percent=25.;stats.triple_flame_enabled=true;
+                hero.weapons.pyro_evo=Some(stats);
+                let data=super::super::items::ItemData::default();let pad=crate::pad::PadState::default();
+                let env=ItemEnv{mobys:None,data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,camera:None,camera_up:None,targets:&[]};
+                let mut table=MobyTable::default();let mut sink=Recorded::default();let mut rng=Rng::new();
+                firing(&mut hero,&mut table,&env,&mut sink,&mut rng,[0.;3],true,16,0);
+                // Edits after launch must not change the damage of existing lava.
+                hero.weapons.pyro_evo.as_mut().unwrap().lava.damage_bonus_percent=900.;
+                hero.weapons.pyro.lava.step(&mut table,&env,&mut sink,&mut hero.fx.parts);
+                if lava {
+                    assert!(!sink.snapshots.is_empty());
+                    assert!(sink.snapshots.iter().all(|s|(s.damage_hp_per_second-base*1.25).abs()<0.001));
+                } else {
+                    assert!(sink.snapshots.is_empty());assert!(!sink.native.is_empty());
+                    assert!(sink.native.iter().all(|&v|(v-base/100.).abs()<0.001));
+                }
+            }
+        }
+    }
 
     #[test]
     fn triple_lava_replaces_native_flames_preserves_one_ammo_and_audio_clock_and_cleans_up_on_swap() {

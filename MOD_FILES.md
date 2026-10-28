@@ -947,3 +947,12 @@ These files are included in the current reviewed source map:
 - `launcher/tests/test_slam_visual_update.py`: incremental installation, preflight and rollback fixtures.
 
 See [v106 implementation notes](docs/mod/SLAM_VISUAL_V106.md). Historical snapshot patches and v102 tools describe their own original baselines.
+
+## v109 launcher, mode overrides and draft preparation
+
+- `hero/pyro_lava.rs`, `hero/pyrocitor.rs`: launch-owned Lavagun damage bonus, standard streams unaffected.
+- `moby_update/classes/mine/experimental.rs`: resolved mode chooses independent fire-mine count/lifetime snapshots.
+- `launcher/page_views.py`, `page_smoke.py`, `scroll_paint.py`, `build_lifecycle.py`: preloaded page ownership, queued repaint and persistent frozen verification.
+- `mod/default-profile.json`: approved input and all-value fingerprint, synchronized public and embedded profiles.
+- `mod/draft.json`, `.github/workflows/draft-release.yml`, `tools/mod/draft_release.py`: exact-commit Windows/source archives in an unpublished draft, without replacing public v0.3.
+- `docs/mod/EXPERIMENTAL_OVERRIDES_V109.md`, `LAUNCHER_LIFECYCLE.md`, `DRAFT_RELEASE.md`: ownership, extension and packaging contracts.

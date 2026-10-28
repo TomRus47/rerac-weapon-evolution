@@ -1,6 +1,6 @@
 # Current implementation map
 
-Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.106 and launcher 0.28.9. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
+Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.109 and launcher 0.29.3. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
 
 | Area | Primary source | Responsibilities |
 | --- | --- | --- |
@@ -33,3 +33,11 @@ The supplied v97–v101 changes are synchronized here too: surveyed route rules 
 ## v103–v106 follow-up fixes
 
 [Wrench blast geometry and upgrade feedback](SLAM_VISUAL_V106.md) documents the confirmed local fixes now synchronized to main: normal-tick feedback and immediate finite ignition, complete HUD batch/index insertion, once-only grounded slam damage and forward impact probing, bright blue Nanotech XP upgrade bursts, and a bounded slam visual using the exact damage sphere. Source index and tests include the incremental Windows updater; personal profiles and saves are not overwritten.
+
+## Local v109 experimental tuning
+
+[Mode-only damage and mine overrides](EXPERIMENTAL_OVERRIDES_V109.md) describes the new per-grade Lavagun DPS bonus and flame-mine limit/lifetime overrides. The current local launcher also includes the v107/v108 complete preloading, scroll repaint and durable build diagnostics work. These local changes have not been published or pushed to GitHub.
+
+## Release and launcher lifecycle
+
+[Launcher lifecycle](LAUNCHER_LIFECYCLE.md) maps page ownership, preloading, scrolling and frozen verification. [Draft preparation](DRAFT_RELEASE.md) explains the separate unpublished descriptor and same-commit Windows/source assets. The approved default is fingerprinted in `mod/default-profile.json`; changing comments must not change any supplied value. The local v109.1 installer repair recognizes two exact editable identity pairs instead of depending on the inactive fixed-build suffix. Full source checkouts use the root build scripts and do not require that incremental installer.

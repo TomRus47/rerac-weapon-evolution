@@ -9,14 +9,20 @@ import shutil
 import struct
 import subprocess
 import sys
-import tempfile
+import time
+import traceback
 import venv
 import launcher_core as core
 from icon_assets import preserve_icon
+from build_lifecycle import retained_build_stage, retry_file_access, run_self_test
 
 PYINSTALLER_VERSION = '6.22.3'
 EXE_NAME = 'ReRAC_Weapon_Evolution.exe'
-SOURCES = ('windows_entry.py','launcher.py','launcher_core.py','schema.py','migrate_ini.py','frozen_support.py','icon_assets.py','i18n.py')
+# Source inventories must include the build entry point itself, not only files
+# imported by the GUI. Otherwise a staged kit cannot invoke this builder.
+SOURCES = ('windows_entry.py','launcher.py','launcher_core.py','schema.py','migrate_ini.py',
+    'frozen_support.py','icon_assets.py','i18n.py','page_views.py','page_smoke.py',
+    'weapons.default.ini','build_launcher_exe.py','build_lifecycle.py','scroll_paint.py')
 
 def source_digest(kit):
     h=hashlib.sha256()
@@ -26,7 +32,6 @@ def source_digest(kit):
     h.update(b'launcher.ico\0')
     h.update(icon.read_bytes() if icon.is_file() else b'<default icon>')
     h.update(PYINSTALLER_VERSION.encode())
-    h.update(Path(__file__).read_bytes())
     return h.hexdigest()
 
 def icon_file(kit):
@@ -52,17 +57,25 @@ def windows_x64(path):
     if len(pe)!=6 or pe[:4]!=b'PE\0\0' or struct.unpack_from('<H',pe,4)[0]!=0x8664:
         raise ValueError('The launcher must be a Windows x64 executable.')
 
-def smoke_test(exe):
-    windows_x64(exe)
-    with tempfile.TemporaryDirectory(prefix='rerac_exe_check_') as temporary:
-        report=Path(temporary)/'check.json'
-        subprocess.run([str(exe.resolve()),'--self-test',str(report)],check=True,timeout=120)
-        value=json.loads(report.read_text(encoding='utf-8'))
-    if (not value.get('saved_controls_ui') or not value.get('wrench_trail_ui') or not value.get('ngplus_difficulty_ui') or not value.get('eight_grade_ui') or not value.get('additive_nanotech_ui') or not value.get('frozen') or not value.get('gui_ok') or value.get('launcher_version')!=core.VERSION
+def smoke_test(exe, report=None):
+    exe=Path(exe)
+    if report is None:
+        report=exe.parent/'logs'/('self-test-'+str(time.time_ns())+'.json')
+    report=Path(report)
+    report.parent.mkdir(parents=True,exist_ok=True)
+    try:
+        retry_file_access(lambda: windows_x64(exe), 'Reading the standalone launcher EXE')
+        value=run_self_test(exe,report)
+    except BaseException as error:
+        if not report.exists():
+            report.write_text(json.dumps({'ok':False,'phase':'EXE verification','error':str(error),
+                'traceback':traceback.format_exc()},indent=2)+'\n',encoding='utf-8')
+        raise
+    if (not value.get('experimental_overrides_ui') or not value.get('scroll_repaint_ui') or not value.get('preloaded_pages_ui') or not value.get('saved_controls_ui') or not value.get('wrench_trail_ui') or not value.get('ngplus_difficulty_ui') or not value.get('eight_grade_ui') or not value.get('additive_nanotech_ui') or not value.get('frozen') or not value.get('gui_ok') or value.get('launcher_version')!=core.VERSION
             or Path(value.get('application_folder','')).resolve()!=exe.parent.resolve()
             or not value.get('tcl_version') or not value.get('tk_version')
             or not value.get('nanotech_xp_bar_ui') or not value.get('encounter_motion_ui') or not value.get('pursuit_ui') or not value.get('location_test_ui')):
-        raise ValueError('Standalone launcher verification failed: invalid Python/Tk resources or application folder.')
+        raise ValueError('Standalone launcher verification failed: invalid Python/Tk resources or application folder. Report: '+str(report))
     return value
 
 def ensure_tools(kit):
@@ -113,28 +126,31 @@ def build(kit):
     fingerprint=source_digest(kit)
     output=kit/'launcher-bin'/EXE_NAME
     metadata=output.parent/'launcher-build.json'
+    cache_matches=False
     if output.is_file() and metadata.is_file():
         try:
             saved=json.loads(metadata.read_text(encoding='utf-8'))
-            if (saved.get('sources_sha256')==fingerprint
-                    and saved.get('exe_sha256')==hashlib.sha256(output.read_bytes()).hexdigest()):
-                smoke_test(output)
-                print('Launcher EXE is already up to date and verified.',flush=True)
-                return output
-        except (ValueError,OSError,subprocess.SubprocessError):pass
+            cache_matches=(saved.get('sources_sha256')==fingerprint
+                and saved.get('exe_sha256')==hashlib.sha256(output.read_bytes()).hexdigest())
+        except (ValueError,OSError):pass
+    if cache_matches:
+        # An unchanged EXE that fails verification needs a report, not an
+        # automatic second build which repeats the same expensive GUI check.
+        smoke_test(output,kit/'logs'/('cached-'+str(time.time_ns())+'-self-test.json'))
+        print('Launcher EXE is already up to date and verified.',flush=True)
+        return output
     python=ensure_tools(kit)
-    build_root=kit/'.launcher-build';build_root.mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='build_',dir=build_root) as temporary:
-        stage=Path(temporary)
+    build_root=kit/'.launcher-build'
+    with retained_build_stage(build_root) as stage:
         print('Building the standalone Windows launcher…',flush=True)
         subprocess.run([str(python),'-m','PyInstaller','--noconfirm','--clean','--onefile','--windowed','--noupx',*icon_args,
-            '--name',Path(EXE_NAME).stem,'--distpath',str(stage/'dist'),'--workpath',str(stage/'work'),
+            '--add-data',str(kit/'weapons.default.ini')+':.','--name',Path(EXE_NAME).stem,'--distpath',str(stage/'dist'),'--workpath',str(stage/'work'),
             '--specpath',str(stage),'--paths',str(kit),str(kit/'windows_entry.py')],check=True,cwd=kit)
         built=stage/'dist'/EXE_NAME
-        info=smoke_test(built)
+        info=smoke_test(built,kit/'logs'/(stage.name+'-self-test.json'))
         licenses=stage/'licenses';collect_licenses(python,licenses)
         output.parent.mkdir(exist_ok=True)
-        core.atomic_write(output,built.read_bytes())
+        retry_file_access(lambda: core.atomic_write(output,built.read_bytes()), 'Saving the verified launcher EXE')
         shutil.copytree(licenses,output.parent/'licenses',dirs_exist_ok=True)
         core.atomic_write(metadata,(json.dumps({'launcher_version':core.VERSION,'sources_sha256':fingerprint,
             'exe_sha256':hashlib.sha256(output.read_bytes()).hexdigest(),'self_test':info},indent=2)+'\n').encode('utf-8'))
@@ -147,6 +163,12 @@ def main():
     args=parser.parse_args()
     try:build(args.folder);return 0
     except (OSError,ValueError,subprocess.SubprocessError) as error:
-        print('ERROR: '+str(error),file=sys.stderr);return 2
+        log=args.folder.resolve()/'logs'/'launcher-build-error.log'
+        try:
+            log.parent.mkdir(parents=True,exist_ok=True)
+            log.write_text(traceback.format_exc(),encoding='utf-8')
+        except OSError:
+            pass
+        print('ERROR: '+str(error)+'\nBuild error log: '+str(log),file=sys.stderr);return 2
 
 if __name__=='__main__':raise SystemExit(main())

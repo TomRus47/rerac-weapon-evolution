@@ -1,3 +1,25 @@
+# v109 draft preparation verification
+
+ReRAC **0.3.6-alpha**, gameplay **0.1.6.109**, capability **90**, launcher **0.29.3**. The existing public release and tag remain unchanged; the new candidate is an unpublished draft.
+
+- Re-ran **1,329 rc-game library tests**, all passed, on the restored v109 gameplay sources with the supplied default embedded profile synchronized. Linux, locked dependencies, no default features and BFD linker; no native Windows game is executed here.
+- **185 launcher/profile/tool tests passed**, including default-value fingerprints and draft-only release guards. **Four public API tests passed** for saved controls and lava rendering. Historical fixture assumptions about old public balance were replaced with explicit fixtures or current approved values; no gameplay settings were adjusted to satisfy tests.
+- The user-supplied Windows build transcript reports **1,333 Windows game-library tests passed** and completes the v109 release build and frozen launcher check. Its SHA256-matching 0.29.3 EXE proof has all preload, repaint, eight-grade and alternate-override flags true, 17 pages, 6,208 widgets, 6,229 USER objects and 52 GDI objects. This is evidence from that supplied build, not a newly executed Windows build on this host.
+- The draft workflow reruns native Windows validation and rebuilds the runtime/launcher from the exact main commit before creating and attaching player/source archives. It excludes author paths, presets and saves. Build/upload state is recorded in GitHub Actions and the attached identity report, not inferred from these preparation notes.
+- Every one of the supplied profile's **2,592 values** is unchanged; `mod/default-profile.json` records the original and corrected-comment hashes plus the complete value fingerprint. Default/example/embedded reference agree.
+
+Randomizer remains experimental and may produce blocked seeds. Model-based reachability tests are not universal physical/script/collision validation. Native rendering/scroll quality, gameplay balance and disc-specific scenarios still need playtesting. A build passing is not a claim of universal correctness.
+
+Historical verification follows and describes its own snapshot.
+
+# Current local v109 verification
+
+ReRAC **0.3.6-alpha**, patch **0.1.6.109**, capability **90**, launcher **0.29.3**. Local test only; no GitHub update, release or tag. See [experimental override contracts and checks](EXPERIMENTAL_OVERRIDES_V109.md).
+
+1,329 game library tests, four public API tests, 181 launcher/profile/tool tests and six installer tests passed. The real Tk source self-test passed for all 17 preloaded pages, all grades and five languages, including the three new controls and queued scrolling. Native Windows compilation, frozen GUI checks and in-game behavior remain author-PC verification. Personal balance, saves and presets are retained; missing experimental mine limits/durations inherit their grade's standard values.
+
+Historical verification follows and describes its own snapshot.
+
 # Current v106 development verification
 
 ReRAC **0.3.6-alpha**, patch **0.1.6.106**, capability **89**, launcher **0.28.9**. Main/source update and local test kit only; no new release or tag.

@@ -6,6 +6,13 @@ import sys
 import traceback
 
 def self_test(destination):
+    def progress(stage):
+        path = Path(destination).with_suffix('.progress.json')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix('.tmp')
+        temporary.write_text(json.dumps({'stage': stage}), encoding='utf-8')
+        os.replace(temporary, path)
+    progress('loading Python/Tk resources')
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox, simpledialog, colorchooser
     import launcher_core as core
@@ -66,10 +73,16 @@ def self_test(destination):
         result['feedback_controls_ui'] = True
         result['moving_wrench_gui_grades'] = 8
         result['moving_wrench_gui_options'] = ['Off', 'On']
+        progress('checking all preloaded pages')
+        from page_smoke import verify
+        profile=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))/'weapons.default.ini'
+        result.update(verify(root,profile.read_bytes(),progress=progress))
+        result['ok'] = True
 
     finally:
         root.destroy()
     core.atomic_write(Path(destination), (json.dumps(result,indent=2)+'\n').encode('utf-8'))
+    progress('all preloaded-page checks passed')
     return 0
 
 def entry():
@@ -80,16 +93,29 @@ def entry():
     import launcher
     return launcher.main()
 
-if __name__ == '__main__':
+def main():
     try:
-        raise SystemExit(entry())
-    except Exception:
+        return entry()
+    except Exception as error:
+        message = traceback.format_exc()
+        if len(sys.argv) == 3 and sys.argv[1] == '--self-test':
+            # A failed build must never wait for a hidden modal dialog. Reports
+            # live outside the disposable EXE directory and survive cleanup.
+            destination = Path(sys.argv[2])
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(json.dumps({'ok': False, 'error': str(error),
+                'traceback': message}, indent=2)+'\n', encoding='utf-8')
+            destination.with_suffix('.error.log').write_text(message, encoding='utf-8')
+            return 2
         from frozen_support import application_folder
         folder = application_folder(__file__)
-        message = traceback.format_exc()
         try: (folder/'launcher-error.log').write_text(message,encoding='utf-8')
         except OSError: pass
         if sys.platform=='win32':
             import ctypes
             ctypes.windll.user32.MessageBoxW(None,'Unable to open the launcher.\nSee launcher-error.log beside the executable for details.','ReRAC Weapon Evolution',0x10)
-        raise SystemExit(2)
+        return 2
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -20,10 +20,13 @@ class ExperimentalTests(unittest.TestCase):
             for grade in range(1,9):
                 for key,value in fields.items():
                     expected=before.entries[f'weapon.{weapon}.level{grade}','capacity' if weapon=='suck_cannon' else 'max_ammo'] if key=='experimental_max_ammo' else value
+                    if key in {'flame_mine_max_active_mines','flame_mine_lifetime_seconds'}:
+                        standard='max_active_mines' if key=='flame_mine_max_active_mines' else 'mine_lifetime_seconds'
+                        expected=before.entries[f'weapon.{weapon}.level{grade}',standard]
                     self.assertEqual(after.entries[f'weapon.{weapon}.level{grade}',key],expected)
         self.assertEqual(convert(result)[0],result)
         self.assertEqual(core.required_config(before),89)
-        self.assertEqual(core.required_config(after),89)
+        self.assertEqual(core.required_config(after),90)
     def test_custom_behavior_and_balance_survive_bom_crlf_and_preset_round_trip(self):
         doc=core.checked_document(self.raw)
         changed=doc.render({('weapon.bomb_glove.level3','cluster_bombs_enabled'):'true',
@@ -52,7 +55,7 @@ class ExperimentalTests(unittest.TestCase):
             info=dict(name='rerac',game='rac1',version='0.3.4',data_format=1,weapon_evolution_config=40)
             with patch.object(core.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(info))):
                 with self.assertRaises(ValueError):core.probe_exe(exe,core.required_config(doc))
-            info['weapon_evolution_config']=89
+            info['weapon_evolution_config']=90
             with patch.object(core.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(info))):
                 self.assertEqual(core.probe_exe(exe,core.required_config(doc)),info)
 

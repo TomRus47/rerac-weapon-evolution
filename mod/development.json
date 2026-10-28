@@ -2,9 +2,9 @@
   "public_mod_version": "0.3",
   "status": "development; not released",
   "runtime_base": "0.3.6-alpha",
-  "patch": "0.1.6.106",
-  "config_capability": 89,
-  "launcher": "0.28.9",
+  "patch": "0.1.6.109",
+  "config_capability": 90,
+  "launcher": "0.29.3",
   "release_created": false,
-  "notes": "docs/mod/SLAM_VISUAL_V106.md"
+  "notes": "docs/mod/EXPERIMENTAL_OVERRIDES_V109.md"
 }

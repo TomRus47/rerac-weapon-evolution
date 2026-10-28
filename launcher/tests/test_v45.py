@@ -14,7 +14,8 @@ class V45Tests(unittest.TestCase):
         doc=core.profile_document(self.raw)
         first=('weapon.ryno.level1','continuous_missiles_enabled')
         second=('weapon.ryno.level1','shotgun_enabled')
-        valid=doc.render({first:'true',('weapon.ryno.level2','shotgun_enabled'):'true'})
+        valid=doc.render({first:'true',second:'false',('weapon.ryno.level2','shotgun_enabled'):'true',
+                          ('weapon.ryno.level2','continuous_missiles_enabled'):'false'})
         core.checked_document(valid)
         with self.assertRaisesRegex(ValueError,'either continuous missiles or shotgun'):
             core.checked_document(doc.render({first:'true',second:'true'}))
@@ -33,7 +34,7 @@ class V45Tests(unittest.TestCase):
             for grade in range(1,6):
                 keys=loaded.keys(f'weapon.{weapon}.level{grade}')
                 a,b=field_groups(weapon,keys);self.assertEqual(keys,a+b)
-        self.assertEqual(core.required_config(loaded),89)
+        self.assertEqual(core.required_config(loaded),90)
     def test_missing_new_keys_are_added_without_touching_user_values(self):
         keys={key for group in (EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS) for weapon,fields in group.items() if weapon in {'ryno','mine_glove','drone_device','taunter','tesla_claw'} for key in fields}
         old=b''.join(line for line in self.raw.splitlines(True) if line.split(b'=',1)[0].strip().decode() not in keys)

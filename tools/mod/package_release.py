@@ -18,10 +18,10 @@ ROOT = Path(__file__).resolve().parents[2]
 KIT = ROOT / "launcher"
 
 
-def main() -> int:
+def main(profile: str = "mod/release.json") -> int:
     if os.name != "nt":
         raise ValueError("Build the Windows player release on Windows x64.")
-    release = json.loads((ROOT / "mod/release.json").read_text(encoding="utf-8"))
+    release = json.loads((ROOT / profile).read_text(encoding="utf-8"))
     exe = KIT / "runtime/rerac.exe"
     identity = json.loads(subprocess.check_output(
         [str(exe), "--version-json"], text=True, encoding="utf-8", timeout=20
@@ -48,7 +48,11 @@ def main() -> int:
         "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
         "default_ini_sha256": hashlib.sha256((KIT / "weapons.default.ini").read_bytes()).hexdigest(),
         "icon_sha256": hashlib.sha256((KIT / "launcher.ico").read_bytes()).hexdigest(),
-        "gameplay_validation": "Publication approved by the mod author after local testing; automated Windows validation is recorded by this workflow.",
+        "gameplay_validation": (
+            "Unpublished draft requested by the mod author after local testing; automated Windows validation is recorded by this workflow."
+            if release.get("draft") is True else
+            "Publication approved by the mod author after local testing; automated Windows validation is recorded by this workflow."
+        ),
     }
     (destination.parent / "release-build.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8"

@@ -21,8 +21,9 @@ def api(repo: str, path: str) -> dict:
     return json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/{path}'], text=True))
 
 
-def validate_player(root: Path, assets: Path, commit: str) -> tuple[dict, list[Path]]:
-    release = json.loads((root / 'mod/release.json').read_text())
+def validate_player(root: Path, assets: Path, commit: str,
+                    profile: str = 'mod/release.json') -> tuple[dict, list[Path]]:
+    release = json.loads((root / profile).read_text())
     report_path = assets / 'release-build.json'
     report = json.loads(report_path.read_text())
     archive = assets / (release['asset'] + '.zip')
@@ -47,7 +48,7 @@ def validate_player(root: Path, assets: Path, commit: str) -> tuple[dict, list[P
 
 
 def source_archive(root: Path, assets: Path, tag: str, commit: str) -> list[Path]:
-    if not re.fullmatch(r'v\d+\.\d+(?:\.\d+)?', tag):
+    if not re.fullmatch(r'v\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9][a-zA-Z0-9.-]*)?', tag):
         raise ValueError('Invalid mod release tag.')
     stem = f'ReRAC_Weapon_Evolution_{tag[1:]}_source'
     archive = assets / (stem + '.zip')

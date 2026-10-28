@@ -676,3 +676,24 @@ HUD.add('weapon_bar_behind_hud')
 BOOLEANS.add('weapon_bar_behind_hud')
 LABELS['weapon_bar_behind_hud']='Draw weapon XP bar behind HUD'
 HELP['weapon_bar_behind_hud']='On draws the weapon XP bar behind the name, grade and ammo icons. Off draws it in front. Position, damage and progression remain unchanged.'
+
+# Alternate-mode balance overrides; the shared footer order keeps colors last.
+EXPERIMENTAL_DEFAULTS['pyrocitor']['lava_damage_bonus_percent'] = '25'
+PYRO.add('lava_damage_bonus_percent')
+EXPERIMENTAL_DEFAULTS['mine_glove'].update({
+    'flame_mine_max_active_mines':'8', 'flame_mine_lifetime_seconds':'30'})
+EXTRA[17] += ' flame_mine_max_active_mines flame_mine_lifetime_seconds'
+INTEGER.add('flame_mine_max_active_mines')
+EXPERIMENTAL_RANGES.update({'lava_damage_bonus_percent':(0,1000),
+    'flame_mine_max_active_mines':(1,32),'flame_mine_lifetime_seconds':(0.5,600)})
+LABELS.update({'lava_damage_bonus_percent':'Lavagun damage bonus (%)',
+    'flame_mine_max_active_mines':'Flame mine maximum active mines',
+    'flame_mine_lifetime_seconds':'Flame mine lifetime (seconds)'})
+HELP.update({'lava_damage_bonus_percent':
+    'Additional percentage of this grade damage_per_second, only while Lavagun mode is active. 25 means +25%: 100 HP/s becomes 125 HP/s. Normal and triple native flames are unchanged. Applies to INI activation and saved R1 mode; captured by each launched droplet.',
+    'flame_mine_max_active_mines':
+    'Replaces standard max_active_mines only for a mine launched in flame mode, including R1 mode 1. Uses the existing shared deployed-mine budget; excess oldest mines retire. Normal mode uses the standard value. Missing values inherit the standard setting.',
+    'flame_mine_lifetime_seconds':
+    'Replaces standard mine_lifetime_seconds only for a mine launched in flame mode, including R1 mode 1. Counts from release, including flight. Captured at launch: changing mode or grade does not change deployed mines. Missing values inherit the standard setting.',
+    'max_active_mines':'Standard deployed-mine limit. Flame mode uses its experimental maximum instead. Launching another retires excess oldest mines without a damaging blast.',
+    'mine_lifetime_seconds':'Standard time from release until automatic retirement, including flight. Flame mode uses its experimental lifetime instead. Existing mines retain their launch-time duration.'})

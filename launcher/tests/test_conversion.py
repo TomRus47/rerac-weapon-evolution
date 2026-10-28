@@ -9,14 +9,11 @@ class ProfileTests(unittest.TestCase):
     def setUp(self):self.raw=(ROOT/'weapons.default.ini').read_bytes()
     def test_all_approved_balance_values_are_preserved_exactly(self):
         d=c.profile_document(self.raw)
-        new_keys={(f'weapon.{weapon}.level{grade}',k) for catalog in [EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS] for weapon,fields in catalog.items() for grade in range(1,6) for k in fields}
-        new_keys |= {('general', k) for k in [*GLOBAL_STANDARD_DEFAULTS, *GLOBAL_EXPERIMENTAL_DEFAULTS]}
-        new_keys |= {('hud','weapon_bar_alternative_position'),('hud','weapon_bar_behind_hud')}
-        new_keys |= {(f'weapon.wrench.level{n}',key) for n in range(1,9) for key in ('move_while_thrown','burn_on_hit','hud_quickselect_only','slam_explosion_enabled','slam_explosion_damage_hp','slam_explosion_radius','slam_explosion_color')}
-        # The supplied current profile is the approved development balance; migration must not change it.
-        canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items() if (s,k) not in new_keys and k!='r1_experimental_max' and not s.startswith('weapon.wrench')),ensure_ascii=True).encode()
-        self.assertEqual(hashlib.sha256(canonical).hexdigest(),'fccddb6a42a586800ba7e7b339edefdb98e337780720c8d2e87731ebecd9b97c')
-        self.assertEqual(len(d.entries),2568);self.assertEqual(len(d.sections),146)
+        # All values are pinned to the author's supplied release profile.
+        approved=json.loads((ROOT.parent/'mod/default-profile.json').read_text())
+        canonical=json.dumps(sorted((s,k,v) for (s,k),v in d.entries.items()),ensure_ascii=True).encode()
+        self.assertEqual(hashlib.sha256(canonical).hexdigest(),approved['values_sha256'])
+        self.assertEqual(len(d.entries),2592);self.assertEqual(len(d.sections),146)
         self.assertEqual(d.entries['general','xp_per_damage'],'0.12')
     def test_public_profile_has_no_damage_model_or_wrench_and_keeps_functioning_opacity(self):
         d=c.profile_document(self.raw)
@@ -45,7 +42,8 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(runtime_profile(generated),generated)
         self.assertNotIn(b'damage_mode',(ROOT/'weapons.default.ini').read_bytes())
     def test_bom_crlf_comments_and_manually_edited_ammo_survive(self):
-        raw=b'\xef\xbb\xbf'+self.raw.replace(b'\n',b'\r\n').replace(b'max_ammo = 40',b'max_ammo = 47',1)
+        edited=c.IniDocument(self.raw).render({('weapon.blaster.level1','max_ammo'):'47'})
+        raw=b'\xef\xbb\xbf'+edited.replace(b'\n',b'\r\n')
         self.assertEqual(convert(raw)[0],raw)
         self.assertEqual(c.profile_document(raw).entries['weapon.blaster.level1','max_ammo'],'47')
         self.assertFalse(runtime_profile(raw).startswith(b'\xef\xbb\xbf'))

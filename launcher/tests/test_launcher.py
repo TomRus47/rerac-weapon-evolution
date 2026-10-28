@@ -28,7 +28,7 @@ class Tests(unittest.TestCase):
         exe = self.parent/'Runtime con spazi'/'rerac.exe'; exe.parent.mkdir(exist_ok=True)
         (exe.parent/'assets/shaders').mkdir(parents=True, exist_ok=True)
         (exe.parent/'assets/shaders/test.wgsl').write_text('// shader')
-        version = dict(name='rerac', game='rac1', data_format=1, weapon_evolution_config=89, version='0.3.4-fixed' if fixed else '0.3.4')
+        version = dict(name='rerac', game='rac1', data_format=1, weapon_evolution_config=90, version='0.3.4-fixed' if fixed else '0.3.4')
         code = '''#!/usr/bin/env python3
 import hashlib,json,os,sys
 from pathlib import Path
@@ -47,12 +47,12 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
     def test_all_approved_values_and_every_color_have_metadata(self):
         from schema import LABELS, COLORS
         doc = c.checked_document(self.raw)
-        self.assertEqual(len(doc.sections), 146); self.assertEqual(len(doc.entries), 2568)
+        self.assertEqual(len(doc.sections), 146); self.assertEqual(len(doc.entries), 2592)
         self.assertEqual(doc.render(), self.raw)
         self.assertEqual({key for _, key in doc.entries}-{*LABELS}, set())
         self.assertTrue(all(key in COLORS for _, key in doc.entries if key.endswith('_color')))
-        self.assertEqual(doc.entries['weapon.blaster','xp_v1_to_v2'], '500')
-        self.assertEqual(doc.entries['weapon.bomb_glove','xp_v4_to_v5'], '5000')
+        self.assertEqual(doc.entries['weapon.blaster','xp_v1_to_v2'], '450')
+        self.assertGreater(float(doc.entries['weapon.bomb_glove','xp_v4_to_v5']), 0)
 
     def test_lossless_edits_preserve_bom_crlf_color_comment_and_unedited_values(self):
         raw = b'\xef\xbb\xbf'+self.raw.replace(b'\n', b'\r\n')
@@ -88,7 +88,8 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
             with self.subTest(section=section,key=key,value=value):
                 with self.assertRaises(ValueError): c.checked_document(doc.render({(section,key): value}))
         with self.assertRaises(ValueError): c.checked_document(self.raw.replace(b'[weapon.tesla_claw.level5]', b'[weapon.unknown.level5]'))
-        with self.assertRaises(ValueError): c.checked_document(self.raw.replace(b'xp_v1_to_v2 = 400', b'xp_unknown = 400', 1))
+        line=doc.lines[doc.addresses['weapon.blaster','xp_v1_to_v2']].encode()
+        with self.assertRaises(ValueError): c.checked_document(self.raw.replace(line,line.replace(b'xp_v1_to_v2',b'xp_unknown'),1))
         for section, key in [('weapon.bomb_glove.level1','auto_lock_range'), ('weapon.decoy_glove.level1','lure_range')]:
             c.validate_value(section,key,'default')
 
@@ -157,7 +158,7 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
 
     def test_mocked_windows_probe_and_launch_accept_paths_with_spaces(self):
         exe, data = self.make_runtime()
-        version = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':89,'version':'0.3.4'}
+        version = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':90,'version':'0.3.4'}
         process = Mock()
         with patch.object(c.subprocess, 'run', return_value=SimpleNamespace(stdout=json.dumps(version))), \
              patch.object(c, 'ensure_closed'), patch.object(c.subprocess, 'Popen', return_value=process) as launch:
@@ -170,7 +171,7 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
 
     def test_fixed_build_and_missing_data_do_not_start_game(self):
         exe, data = self.make_runtime()
-        fixed = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':89,'version':'0.3.4-fixed'}
+        fixed = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':90,'version':'0.3.4-fixed'}
         with patch.object(c.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(fixed))), \
              patch.object(c.subprocess,'Popen') as launch:
             with self.assertRaisesRegex(ValueError,'fixed-profile'): c.launch_game(self.kit,self.raw,'Test',exe,data)
@@ -194,7 +195,7 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
         (self.kit/'save').mkdir();(self.kit/'save/personal.sav').write_bytes(b'private')
         (self.kit/'runs').mkdir();(self.kit/'runs/private.log').write_bytes(b'private')
         destination = self.parent/'Finale mod'
-        version = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':89,'version':'0.3.4'}
+        version = {'name':'rerac','game':'rac1','data_format':1,'weapon_evolution_config':90,'version':'0.3.4'}
         with patch.object(c,'probe_exe',return_value=version):
             archive = c.package_distribution(self.kit,destination,self.raw,exe)
         with zipfile.ZipFile(archive) as z:
@@ -265,7 +266,7 @@ class GuiWorkflowTests(unittest.TestCase):
         a=self.app;pair='weapon.blaster.level2','projectile_color'
         a.variables[pair].set('AA33FF');a.copy_to_grades(pair)
         for n in range(1,6):self.assertEqual(a.variables[f'weapon.blaster.level{n}','projectile_color'].get(),'AA33FF')
-        self.assertEqual(a.variables['weapon.blaster.level1','max_ammo'].get(),'40')
+        self.assertEqual(a.variables['weapon.blaster.level1','max_ammo'].get(),a.base_values['weapon.blaster.level1','max_ammo'])
         self.assertEqual(a.variables['weapon.tesla_claw.level1','beam_core_color'].get(),a.base_values['weapon.tesla_claw.level1','beam_core_color'])
 
 if __name__=='__main__':unittest.main()
