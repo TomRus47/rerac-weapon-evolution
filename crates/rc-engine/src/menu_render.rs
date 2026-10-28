@@ -1109,7 +1109,7 @@ fn post_fade_step(rt: &mut MenuRt, mm: &mut MenuMode, play: &mut Play, _gs: &mut
             // 0x1ba25c: the hook slot's moby (0x179638[slot]), hidden by the scene's start.
             let hook = rt.menu.as_mut().map_or(0, |m| std::mem::take(&mut m.replay_hook));
             if hook != 0 {
-                play.svc.cinematic.replay_hide = play.svc.interact.talk_slots.iter().find(|&(_, &k)| k == hook as i32).map(|(&id, _)| id);
+                play.svc.cinematic.replay_hide = play.svc.interact.hook_moby(play.svc.level, hook as i32);
             }
             // DialogStreamStart: the help box closed, 0x15f3fc = 1 (the scene ramps its own copy).
             play.svc.help.kill();
@@ -1328,6 +1328,8 @@ fn freeze_effects(play: &mut Play, out: &rc_game::menus::freeze::FreezeOut, fram
         // The HUD handle 0x13fbd0 stopped (the freeze set its copy to −1) and the finished counter (0x15ee38 / 0x15ee3c).
         if q.stop_sound.is_some() { play.game.hero.board.hud = -1; }
         if let Some(k) = q.count { play.svc.board.records.finished[k] += 1; }
+        // update_resource_counter: the weapon show's gate the race's start raised (`HudState::weapon_hide`).
+        play.svc.hud.resource_counter();
         println!("menus: frame {frame}: Quit Race: HUD handle {:?} stopped, finished counter {:?}, update_resource_counter, HeroTeleport(entry pose)", q.stop_sound, q.count);
     }
     if out.race_rewind {

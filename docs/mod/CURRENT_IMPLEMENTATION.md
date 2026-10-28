@@ -1,6 +1,6 @@
 # Current implementation map
 
-Main is an unreleased ReRAC 0.3.6-alpha development snapshot, gameplay 0.1.6.109 and launcher 0.29.3. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
+Main is an unreleased ReRAC 0.3.7-alpha development snapshot, gameplay 0.1.6.110 and launcher 0.29.3. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
 
 | Area | Primary source | Responsibilities |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ Read [saved controls](SAVED_CONTROLS.md), [configuration reference](CONFIG_REFER
 
 Damage acceptance must remain independent of reaction cooldowns and respect native phase shields. XP follows actual accepted HP loss and explicit non-damage weapon policies. Never make clones inherit dead/terminal events from a reused dynamic slot. Keep immutable level-table recognition in the loader, and discard/remap table-owned IDs during reload. Do not reintroduce the removed arena experiment or temporary audio probes.
 
-The complete supplied workspace includes rc-game2 because ReRAC 0.3.6-alpha includes that separate module. Weapon Evolution remains a Ratchet & Clank 1 mod; including the upstream module does not claim a second-game mod or new ownership of port code.
+The complete supplied workspace includes rc-game2 because ReRAC 0.3.7-alpha includes that separate module. Weapon Evolution remains a Ratchet & Clank 1 mod; including the upstream module does not claim a second-game mod or new ownership of port code.
 
 ## v102 combat feedback and HUD integration
 

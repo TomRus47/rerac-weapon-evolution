@@ -13,7 +13,7 @@ class SlamUpdateTests(unittest.TestCase):
         # Reverse the exact-block edits against this checkout to obtain the
         # supported previous interface, preserving unrelated source comments.
         for name in {row['path'] for row in data['edits']}:
-            text=(ROOT/name).read_text().replace('\"weapon_evolution_config\":90','\"weapon_evolution_config\":89').replace('0.1.6.109','0.1.6.106')
+            text=(ROOT/name).read_text().replace('\"weapon_evolution_config\":90','\"weapon_evolution_config\":89').replace('0.1.6.110','0.1.6.106')
             for row in reversed(data['edits']):
                 if row['path']==name:
                     self.assertEqual(text.count(row['after']),row['count'])

@@ -400,7 +400,10 @@ fn bomb_aim(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, b: MobyId) ->
             (Some(c), Some(coll)) => line_world(coll, from_f32x3(c), from_f32x3(p), targeting::BOMB_GLOVE.los_flags).is_none(),
             _ => true,
         };
-        if let Some(t) = targeting::bomb_glove_aim_search(hero.weapons.bomb_evo, table, env.targets, launch, yawf, clear) {
+        // The search's first reference is the launch point's yaw (the facing turned by 0xbeb953df, −20.7°: the
+        // glove hand), not the facing: the cone leans right.
+        let reference = crate::moby_update::creature::add_rot(yawf, f32::from_bits(0xbeb9_53df));
+        if let Some(t) = targeting::bomb_glove_aim_search(hero.weapons.bomb_evo, table, env.targets, launch, reference, clear) {
             target = t.point;
             hero.weapons.aim = Some(t.id);
             let m = &table.mobys[t.id];
@@ -430,10 +433,12 @@ fn create_bomb(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut
     Some(b)
 }
 
-/// `0x2c27a8`: the bomb released at the launch point (plus Ratchet's displacement while grinding); a wall between
-/// Ratchet (at the launch height) and the launch point explodes it there.
+/// `0x2c27a8`: the bomb released at the launch point (plus Ratchet's displacement 0x13f450 while grinding or standing
+/// on a carrier, `FUN_00275290(0x13f64c)`: the Metropolis train); a wall between Ratchet (at the launch height) and the
+/// launch point explodes it there.
 fn release_bomb(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, _hits: &mut dyn HitSink, _rng: &mut Rng, b: MobyId, t: Throw) {
-    let grind = if hero.group == 0xf { Some(to_f32x3(hero.disp)) } else { None };
+    let carried = hero.ground_moby.and_then(|g| table.mobys.get(g)).is_some_and(|m| crate::moby_update::triggers::platform_block(m).is_some());
+    let grind = if hero.group == 0xf || carried { Some(to_f32x3(hero.disp)) } else { None };
     bomb::release(&mut table.mobys[b], t.launch, grind);
     let r = &table.mobys[env.hero_moby];
     let from = [r.position[0], r.position[1], t.launch[2]];

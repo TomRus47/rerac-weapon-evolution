@@ -169,6 +169,7 @@ pub(super) fn update(w: &mut World, id: MobyId) -> bool {
         flight(w,id);
         return true;
     }
+    if !carry_platform(w,id) { return true; }
     // Landed experimental mines keep the class collision volume, just like a
     // native landed mine. It is independent of our own swept terrain probes.
     w.mm(id).has_collision = w.classes.info(CLASS).is_some_and(|info| info.has_collision);
@@ -258,6 +259,23 @@ pub(super) fn update(w: &mut World, id: MobyId) -> bool {
     }
     true
 }
+/// Fire mode returns before the native seek loop: explicitly retain the 0.3.7
+/// carrier transform without recapturing the mine's lifetime or damage settings.
+fn bind_platform(w:&mut World,id:MobyId,hit:Option<MobyId>) {
+    let carrier=hit.filter(|&k|triggers::carrier(w.m(k)).is_some());
+    c::set_pi32(w,id,pv::PLATFORM,carrier.map_or(0,|k|k as i32+1));
+}
+fn carry_platform(w:&mut World,id:MobyId)->bool {
+    let Some(k)=platform(w,id) else {return true;};
+    let carrier=(!w.m(k).is_deleted()).then(||triggers::carrier(w.m(k))).flatten();
+    let Some(carrier)=carrier else {retire(w,id);return false;};
+    let m=w.mm(id);
+    let (pos,rot)=triggers::carried(&carrier,[m.position[0],m.position[1],m.position[2]],[m.rotation[0],m.rotation[1],m.rotation[2]]);
+    m.position[..3].copy_from_slice(&pos);m.rotation[..3].copy_from_slice(&rot);
+    p::set_ff(&mut m.pvars,ANGLE,rot[2]);
+    true
+}
+
 const BODY_RADIUS: f32 = 0.25;
 const LANDED_HEIGHT: f32 = 0.4;
 
@@ -294,6 +312,7 @@ fn flight(w: &mut World, id: MobyId) {
             c::set_pv4(w,id,pv::VEL,[0.0;4]);
             w.mm(id).has_collision=w.classes.info(CLASS).is_some_and(|info|info.has_collision);
             orient(w,id,normal);
+            bind_platform(w,id,hit.moby);
         } else {
             // A wall/ceiling redirects the mine; it does not activate a fire
             // cross in midair or allow the next position to enter the surface.
@@ -316,6 +335,7 @@ fn flight(w: &mut World, id: MobyId) {
                 c::set_pv4(w,id,pv::VEL,[0.0;4]);
                 w.mm(id).has_collision=w.classes.info(CLASS).is_some_and(|info|info.has_collision);
                 orient(w,id,normal);
+                bind_platform(w,id,hit.moby);
                 return;
             }
             let point=[hit.point[0],hit.point[1],hit.point[2],1.0];
@@ -376,6 +396,43 @@ fn owned_light(w: &World, id: MobyId) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn flame_mine_rides_a_native_carrier_and_keeps_its_captured_effects() {
+        let (mut b,id)=dropped_mine(12.,-10.);
+        b.tick(None);
+        assert_ne!(b.table.mobys[id].state&LANDED,0);
+        let k=b.create(1200);
+        {
+            let m=&mut b.table.mobys[k];
+            m.mode=crate::moby_runtime::mode::NO_UPDATE|0x20;
+            m.pvars.resize(0x50,0);p::set_i32(&mut m.pvars,8,0x10);
+            m.position=[20.,20.,8.,1.];
+            triggers::carry_riders(&mut m.pvars,0x10,[1.,2.,0.5,0.],[0.;4],[0.;4]);
+        }
+        {
+            let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,b.counter);
+            bind_platform(&mut w,id,Some(k));
+        }
+        let before=b.table.mobys[id].position;
+        let dps=p::ff(&b.table.mobys[id].pvars,DPS);
+        let life=p::i32(&b.table.mobys[id].pvars,LIFE);
+        b.tick(None);
+        for axis in 0..3 {assert!((b.table.mobys[id].position[axis]-before[axis]-[1.,2.,0.5][axis]).abs()<0.0001);}
+        assert_eq!(p::ff(&b.table.mobys[id].pvars,DPS),dps);
+        assert_eq!(p::i32(&b.table.mobys[id].pvars,LIFE),life-1);
+        assert!(b.svc.point_lights.active().next().is_some());
+        triggers::carry_riders(&mut b.table.mobys[k].pvars,0x10,[0.;4],[0.;4],[0.,0.,0.2,0.]);
+        let angle=b.table.mobys[id].rotation[2];
+        b.tick(None);
+        let mine=&b.table.mobys[id];
+        assert!((c::add_rot(angle,0.2+p::ff(&mine.pvars,ROTATION))-mine.rotation[2]).abs()<0.0001);
+        assert_eq!(mine.rotation[2],p::ff(&mine.pvars,ANGLE));
+        b.table.mobys[k].state=0xfd;
+        b.tick(None);
+        assert!(b.table.mobys[id].is_deleted());
+        assert!(b.svc.point_lights.active().next().is_none());
+    }
+
     #[test]
     fn flame_limits_override_only_active_mode_and_are_captured_for_every_grade() {
         for grade in 1..=8 {

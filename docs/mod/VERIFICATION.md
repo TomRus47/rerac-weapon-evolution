@@ -1,3 +1,19 @@
+# v110 / ReRAC 0.3.7-alpha draft verification
+
+Gameplay **0.1.6.110**, capability **90**, launcher **0.29.3**. Weapon Evolution **0.4 draft**, never automatically published. The public v0.3 release/tag remain unchanged.
+
+The earlier local v110 test passed 1,340 rc-game library tests, 161 rc-formats library tests (one upstream ignored), 22 external API tests and 190 Python tests. rc-engine/test targets passed type checking using host-only pkg-config metadata for unavailable native SDKs; this was not a Windows link or GPU test. The current draft workflow independently reruns source/Python/format/game checks and the native Windows build from the exact pushed commit before packaging/upload. GitHub Actions and the attached release-build.json record its actual outcome and identities.
+
+All 58 official delta paths are recorded in mod/upstream_037.json. New tests cover reset recovery versus native race HUD holds and fire-mine carrier translation/rotation/snapshot/light cleanup. The local installer tests cover source/identity rejection before writes, preserved player files and rollback of EXE plus shaders after a late write failure.
+
+The newly attached GBtW_All_Custom(2).ini has original SHA256 230318f30d2e353f4266e992ca5d0468de360b01e44cfe5224963fde64c0f7a5. All 2,592 values match the pinned value fingerprint; public/default/example/embedded profiles agree. The attached native v110 package's 24 shaders and custom icon match tracked sources. A version marker alone is not proof of complete binary provenance, so release artifacts are rebuilt from the recorded source commit.
+
+Windows execution, visual quality, disc-specific scripts and universal randomizer reachability still require playtesting. No new claims of universally completable seeds are made. No save migration or directory change is introduced; WEVO v9 and legacy readers remain.
+
+Historical verification below describes previous builds, not new native evidence for this candidate.
+
+---
+
 # v109 draft preparation verification
 
 ReRAC **0.3.6-alpha**, gameplay **0.1.6.109**, capability **90**, launcher **0.29.3**. The existing public release and tag remain unchanged; the new candidate is an unpublished draft.

@@ -1,4 +1,4 @@
-name: Build unpublished 0.3 runtime-upgrade draft
+name: Build unpublished runtime-upgrade draft
 
 on:
   push:

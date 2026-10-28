@@ -471,33 +471,54 @@ impl UiMaterial for HudComposite {
     }
 }
 
-/// The GS blend `(Cs − Cd)·As + Cd` with As above 1 (a fragment alpha over 0x80: the look stance's marker
-/// `0xff917267`, `0x20fb60`): `Cs·As − Cd·(As − 1)`, the frame under it subtracted. The layer keeps such alphas (a float
-/// target); the frame's blend clamps its factors to [0, 1], so [`HudComposite`] takes the layer's pixels up to 1 and
-/// this second node, over the same image, the ones above: colour `Cs·As`, alpha `As − 1`, blended `src − dst·srcA`.
-/// [`HudComposite`] drew them opaque (`Cs`): the wrench's glassy blue reticle came out as a flat grey one.
-const OVER_ONE_BLEND: BlendState = BlendState {
-    color: BlendComponent { src_factor: BlendFactor::One, dst_factor: BlendFactor::SrcAlpha, operation: BlendOperation::Subtract },
+/// The GS blend `(Cs − Cd)·As + Cd` with As above 1 (a fragment alpha over 0x80: the guns' markers `0xff0fff0f`, the
+/// look stance's `0xff917267`, `0x20fb60`): `P − Cd·k` with P = `Cs·As` (up to 2) and k = `As − 1`, clamped once at the
+/// end. The layer keeps such alphas (a float target); the frame's 8-bit target clamps a fragment to 1 before its
+/// blend, so [`HudComposite`] takes the layer's pixels up to 1 and two more nodes over the same image the ones above
+/// (hud.wgsl `composite_over_sub` / `composite_over_out`): X = clamp(Cd·k − max(P − 1, 0)) ([`OVER_SUB_BLEND`]), then
+/// clamp(min(P, 1) − X) ([`OVER_OUT_BLEND`]). [`HudComposite`] alone drew them opaque (`Cs`: the wrench's glassy reticle
+/// a flat grey one); one node with P clamped first gave `1 − Cd·k` (the green markers a dark negative of the frame).
+const OVER_SUB_BLEND: BlendState = BlendState {
+    color: BlendComponent { src_factor: BlendFactor::One, dst_factor: BlendFactor::SrcAlpha, operation: BlendOperation::ReverseSubtract },
     alpha: BlendComponent { src_factor: BlendFactor::Zero, dst_factor: BlendFactor::One, operation: BlendOperation::Add },
 };
 
-/// The HUD layer's pixels whose alpha is above 1 ([`OVER_ONE_BLEND`]); a child of each [`HudComposite`] node, same image.
+/// The second node's blend: `src − dst` ([`OVER_SUB_BLEND`]).
+const OVER_OUT_BLEND: BlendState = BlendState {
+    color: BlendComponent { src_factor: BlendFactor::One, dst_factor: BlendFactor::One, operation: BlendOperation::Subtract },
+    alpha: BlendComponent { src_factor: BlendFactor::Zero, dst_factor: BlendFactor::One, operation: BlendOperation::Add },
+};
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct HudCompositeOverKey {
+    out: bool,
+}
+
+impl From<&HudCompositeOver> for HudCompositeOverKey {
+    fn from(m: &HudCompositeOver) -> Self { HudCompositeOverKey { out: m.out } }
+}
+
+/// The HUD layer's pixels whose alpha is above 1 ([`OVER_SUB_BLEND`]); two children of each [`HudComposite`] node over
+/// the same image, `out` false then true.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+#[bind_group_data(HudCompositeOverKey)]
 pub struct HudCompositeOver {
     #[texture(0)]
     pub image: Handle<Image>,
     #[uniform(1)]
     pub scaling: Vec4,
+    pub out: bool,
 }
 
 impl UiMaterial for HudCompositeOver {
     fn fragment_shader() -> ShaderRef { SHADER_PATH.into() }
 
-    fn specialize(descriptor: &mut RenderPipelineDescriptor, _key: UiMaterialKey<Self>) {
+    fn specialize(descriptor: &mut RenderPipelineDescriptor, key: UiMaterialKey<Self>) {
+        let (entry, blend) = if key.bind_group_data.out { ("composite_over_out", OVER_OUT_BLEND) } else { ("composite_over_sub", OVER_SUB_BLEND) };
         if let Some(f) = descriptor.fragment.as_mut() {
-            f.entry_point = Some("composite_over".into());
+            f.entry_point = Some(entry.into());
             f.shader_defs.push(ShaderDefVal::Bool("HUD_COMPOSITE".into(), true));
-            for t in f.targets.iter_mut().flatten() { t.blend = Some(OVER_ONE_BLEND); }
+            for t in f.targets.iter_mut().flatten() { t.blend = Some(blend); }
         }
         descriptor.vertex.shader_defs.push(ShaderDefVal::Bool("HUD_COMPOSITE".into(), true));
     }
@@ -873,8 +894,10 @@ fn setup(
     // On the frame's 4:3 box (crate::display: in 16:9 the 512×416 screen is centred, the world widens around it).
     // The whole frame (crate::display): the 512×416 screen in its middle, wider in 16:9 ([`HudRuntime::extra`]).
     let hud_node = commands.spawn((full(), MaterialNode(composites.add(HudComposite { image: target.clone(), scaling: sc })), GlobalZIndex(i32::MAX), HudCompositeNode, Name::new("hud composite"))).id();
-    // Its pixels with an alpha above 1, right after it ([`HudCompositeOver`]).
-    commands.spawn((full(), MaterialNode(over_composites.add(HudCompositeOver { image: target.clone(), scaling: sc })), ZIndex(-1), ChildOf(hud_node), Name::new("hud composite (alpha above 1)")));
+    // Its pixels with an alpha above 1, right after it, in two nodes in this order ([`HudCompositeOver`]).
+    for (out, z) in [(false, -2), (true, -1)] {
+        commands.spawn((full(), MaterialNode(over_composites.add(HudCompositeOver { image: target.clone(), scaling: sc, out })), ZIndex(z), ChildOf(hud_node), Name::new("hud composite (alpha above 1)")));
+    }
     // The 512×416 screen's box inside it: the parent of the canvases composed with the HUD (crate::screen_canvas).
     commands.spawn((full(), crate::display::UiBoxed, HudBoxNode, ChildOf(hud_node), Name::new("hud box")));
     // The static layer: its own 512×416 target, three meshes in pass order (Transparent2d sorts by z), a node over
@@ -963,7 +986,7 @@ type GameInputs<'w> = (Option<Res<'w, crate::gameplay::Persistent>>, Option<Res<
 fn tick_and_build(
     rt: Option<ResMut<HudRuntime>>,
     (ticks, frame_no): (Res<crate::determinism::GameTicks>, Res<crate::determinism::FrameNumber>),
-    hook: Res<Hud2dHook>,
+    (hook, dbg): (Res<Hud2dHook>, Option<Res<crate::debug_hud::DebugHud>>),
     scene: Res<SceneLayer>,
     mut meshes: ResMut<Assets<Mesh>>,
     (state, session, held): GameInputs,
@@ -971,7 +994,7 @@ fn tick_and_build(
     (mut play, mut audio): (Option<ResMut<crate::gameplay::Play>>, Option<ResMut<crate::audio_out::AudioOut>>),
     dyn_images: Option<Res<crate::hud_images::HudImages>>,
     (display, mut images): (Option<Res<crate::display::DisplaySettings>>, ResMut<Assets<Image>>),
-    (mut composites, mut static_composites, mut targets): (ResMut<Assets<HudComposite>>, ResMut<Assets<HudStaticComposite>>, Query<&mut RenderTarget>),
+    (mut composites, mut static_composites, mut over_composites, mut targets): (ResMut<Assets<HudComposite>>, ResMut<Assets<HudStaticComposite>>, ResMut<Assets<HudCompositeOver>>, Query<&mut RenderTarget>),
 ) {
     let Some(mut rt) = rt else { return };
     let rt = &mut *rt;
@@ -988,6 +1011,9 @@ fn tick_and_build(
                 if matches!(&*t, RenderTarget::Image(i) if i.handle.id() == old.id()) { *t = RenderTarget::Image(new.clone().into()); }
             }
             for (_, m) in composites.iter_mut() { if m.image.id() == old.id() { m.image = new.clone(); } }
+            // The alpha-above-1 nodes too: left on the old image they drew nothing in 16:9 (the markers' solid middles
+            // see-through, as the main node leaves those pixels to them).
+            for (_, m) in over_composites.iter_mut() { if m.image.id() == old.id() { m.image = new.clone(); } }
             for (_, m) in static_composites.iter_mut() { if m.image.id() == old.id() { m.image = new.clone(); } }
             if old.id() == rt.target.id() { rt.target = new; } else { rt.static_target = new; }
         }
@@ -1104,9 +1130,10 @@ fn tick_and_build(
     // The guns' screen markers (`DrawWorld`'s 2D overlay before the HUD: crate::marker_render).
     if let Some(p) = play.as_deref().filter(|_| !hook.replace_hud && !scene.hide_hud) { rt.hud2d.prims.extend(crate::marker_render::prims(p)); }
     let mut st = crate::text_render::TextState::default();
-    // The moby draw callbacks' 2-D layer (the vehicles' HUDs: rc_game draw_callbacks::screen / screen_texts), drawn by
-    // `DrawWorld` with the mobys' callbacks, before the HUD.
-    if let Some(p) = play.as_deref().filter(|_| !hook.replace_hud && !scene.hide_hud) {
+    // The moby draw callbacks' 2-D layer (the vehicles' HUDs, Quartu's scene captions: rc_game draw_callbacks::screen /
+    // screen_texts), drawn by `DrawWorld` with the mobys' callbacks, before the HUD; in scenes too (the callbacks run
+    // in every mode the world draws).
+    if let Some(p) = play.as_deref().filter(|_| !hook.replace_hud) {
         use rc_game::moby_update::classes::draw_callbacks::ScreenTex;
         let cb = &p.svc.draw_callbacks;
         for q in &cb.screen {
@@ -1118,7 +1145,7 @@ fn tick_and_build(
         }
         for t in &cb.screen_texts {
             let g = rt.glyphs[t.font as usize];
-            let width = rc_formats::font::measure_text_width(&t.text, t.len, &g);
+            let width = if t.left { 0 } else { rc_formats::font::measure_text_width(&t.text, t.len, &g) };
             crate::text_render::font_print(&mut rt.hud2d, &mut st, &g, t.font, t.x - (width >> 1), t.y, t.rgba, &t.text, t.len);
         }
     }
@@ -1207,6 +1234,35 @@ fn tick_and_build(
                     }
                 }
             }
+        }
+    }
+
+    // The inspect overlay (crate::debug_hud, `RC_DEBUG_HUD=1`; F3 on / off, F4 the page, F8 the repro line): small font
+    // with a shadow, a column from the top left, the mobys page's labels at their screen points.
+    if let (Some(p), Some(d)) = (play.as_deref(), dbg.as_deref().filter(|d| d.on)) {
+        use crate::debug_hud::{self as dh, Page};
+        let font = rc_formats::font::Font::Small;
+        let g = rt.glyphs[font as usize];
+        let text = |hud: &mut Hud2d, st: &mut crate::text_render::TextState, x: i32, y: i32, l: &str, rgba: u32| {
+            crate::text_render::font_print(hud, st, &g, font, x + 1, y + 1, 0x8000_0000, l.as_bytes(), l.len() as i32);
+            crate::text_render::font_print(hud, st, &g, font, x, y, rgba, l.as_bytes(), l.len() as i32);
+        };
+        let mut col = vec![format!("DEBUG {}  (F3 hide  F4 page  F8 repro)", d.page.name())];
+        match d.page {
+            Page::Player => col.extend(dh::lines(p)),
+            Page::Mobys => {
+                let labels = dh::moby_labels(p);
+                for (x, y, l) in &labels { text(&mut rt.hud2d, &mut st, *x as i32 - 12, *y as i32, l, 0x8060_ffff); }
+                col.extend(dh::moby_lines(p, labels.len()));
+            }
+            Page::Sound => match audio.as_deref_mut() {
+                Some(a) => col.extend(dh::sound_lines(a.system(), p)),
+                None => col.push("no audio (RC_AUDIO=0)".into()),
+            },
+        }
+        for (i, l) in col.iter().enumerate() { text(&mut rt.hud2d, &mut st, 12, 24 + 12 * i as i32, l, if i == 0 { 0x8080_ffff } else { 0x80ff_ffff }); }
+        if let Some((n, _)) = d.note.as_ref().filter(|(_, u)| frame_no.0 < *u) {
+            text(&mut rt.hud2d, &mut st, 12, H - 24, n, 0x8060_ff60);
         }
     }
     // The main loop's card icon (`entry` 0x259c40) while the card is in use (an autosave, any save or load), drawn

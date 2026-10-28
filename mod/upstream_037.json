@@ -1,0 +1,418 @@
+{
+  "runtime_base": "0.3.7-alpha",
+  "patch": "0.1.6.110",
+  "upstream_036_commit": "89c87e98f9d8296187df2a6310c67b32144090d3",
+  "upstream_037_commit": "f2dfbb84d7025d475ce8e39f9ab4ae345ab35133",
+  "mod_base_commit": "e2269eb4afd5574d3f70c9d19a612d52c771102e",
+  "upstream_paths": 58,
+  "omitted_paths": [],
+  "merge_notes": "See docs/mod/RUNTIME_037.md for explicit HUD, aim, water, carrier and service merge decisions.",
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "upstream_036_blob": "7a776f0d35754f34905c802dabf0f85f587e3e53",
+      "upstream_037_blob": "53af9b4951d41bb93f6b6a8ca6141f352cbbca21",
+      "merged_blob": "85e19db6971042ed9171a5771823d55a6389f585",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "Cargo.lock",
+      "upstream_036_blob": "22dc2ac62c5e556ecd93f1d6c66dbdecc0209543",
+      "upstream_037_blob": "25fff6a8e50c2baa44323c0d35d879bde9ee573c",
+      "merged_blob": "25fff6a8e50c2baa44323c0d35d879bde9ee573c",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "Cargo.toml",
+      "upstream_036_blob": "6f35fe6b978e028d992790dfd5455b5ff1e8506a",
+      "upstream_037_blob": "bfddafbfe4388d87aca7df9f3dc25dbc64c3b8f5",
+      "merged_blob": "bfddafbfe4388d87aca7df9f3dc25dbc64c3b8f5",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/assets/shaders/hud.wgsl",
+      "upstream_036_blob": "4405ecd86c4c102b164661c02dce2d8628abbe23",
+      "upstream_037_blob": "d61bbf14fd3db6da8ddd10bdbda1190a22ad9cbc",
+      "merged_blob": "d61bbf14fd3db6da8ddd10bdbda1190a22ad9cbc",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/assets/shaders/missile_view.wgsl",
+      "upstream_036_blob": "4f04e5870af71a1753b73584b56a7871a9027e74",
+      "upstream_037_blob": "62052a5c3c6f5ded0b3bf4cc95fd4947b7c06190",
+      "merged_blob": "62052a5c3c6f5ded0b3bf4cc95fd4947b7c06190",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/debug_hud.rs",
+      "upstream_036_blob": null,
+      "upstream_037_blob": "8ab3e6c468fbea18b7ee4ce1588f6071676b54cb",
+      "merged_blob": "8ab3e6c468fbea18b7ee4ce1588f6071676b54cb",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/fx_draw.rs",
+      "upstream_036_blob": "3d97592a99b2f9b526a53a550cffd116f9fd218b",
+      "upstream_037_blob": "06597c4da2de62a455d8a472cbd9f6cc44851ca8",
+      "merged_blob": "f308640a5ac83921da37a8e2363999bf34af7727",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/gameplay.rs",
+      "upstream_036_blob": "0e0530b29fe1c97492b45bd44d79327eb0b9c20d",
+      "upstream_037_blob": "96fc8e28213971a3d5e5af17185af7164453a9e6",
+      "merged_blob": "5666b6dfd0eec0ebc41e62518d183691dd154de7",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/hud_render.rs",
+      "upstream_036_blob": "aefdbc8066015c0cb00a56570c39e4833ff35518",
+      "upstream_037_blob": "e053c832750eb87d9b6fcd150fe81daf45917784",
+      "merged_blob": "65759079214c38984e6ec9032c2bb7b950655591",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/interact_render.rs",
+      "upstream_036_blob": "1aee0b578268c657186fdfbf6c422e2629c8513e",
+      "upstream_037_blob": "d26592e89973711aece7b2aa9fd32d451c33b6ef",
+      "merged_blob": "79ea279d27c18ffbd0035d72766646f09f862b6e",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/main.rs",
+      "upstream_036_blob": "5b8b5349e17aef76abab480c16e285ae90cb39c9",
+      "upstream_037_blob": "d730fc32dabd265c25b99957f8e657df0dc70637",
+      "merged_blob": "c44fea4e3e233774c1b0a67206db591b7e701355",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/menu_render.rs",
+      "upstream_036_blob": "a992aa0cc1f5043d169c889111ad239dbfa7ace1",
+      "upstream_037_blob": "0bdab3aa82197f47aa1426061a48dc43f2a3d89a",
+      "merged_blob": "300133ea2598fcbc8f4689321ac120d95133d5c6",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/moby_render.rs",
+      "upstream_036_blob": "2be3fc61af373201e066901f5f78ba341a0b5b17",
+      "upstream_037_blob": "9eec99ee47b1626731e948b0804aaf6177836a0a",
+      "merged_blob": "79628d5f1a72af5bab85101d89a78f16849a91cb",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/tfrag_render.rs",
+      "upstream_036_blob": "8ca3720dfd764e30cb0b35fa2beb84918934af2e",
+      "upstream_037_blob": "7473b8fcb6523f9c6887fca856a5874ec0d2dea4",
+      "merged_blob": "7473b8fcb6523f9c6887fca856a5874ec0d2dea4",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/visibomb_view.rs",
+      "upstream_036_blob": "4435a5cef2cd0fdc3c44971699e8a75b723defd0",
+      "upstream_037_blob": "6dda0542b33ef488e7ff762002b00077f3cd22dc",
+      "merged_blob": "6dda0542b33ef488e7ff762002b00077f3cd22dc",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-formats/src/tfrag.rs",
+      "upstream_036_blob": "096fdf0446f80aa31e14d89c7fa28f84ea42b064",
+      "upstream_037_blob": "8c65a11603905ced060bc6632b8ffc0a95a061d8",
+      "merged_blob": "8c65a11603905ced060bc6632b8ffc0a95a061d8",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/audio/class_sounds.rs",
+      "upstream_036_blob": "ba6819c682b751e55203cb700959448c945df1a4",
+      "upstream_037_blob": "9a2239b519d18a648a54f92b0617eea1497fb370",
+      "merged_blob": "f83c76afe9b827154c239771f3c8c5adcd7ff2ec",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/cinematic.rs",
+      "upstream_036_blob": "fba90c2d8da97149497e85ee5efbc128f9f215b1",
+      "upstream_037_blob": "1c29d30328e485c550f0289e42e23c3b8a1ace1c",
+      "merged_blob": "427852968ad8e8f84d2409ebc2fbbd46eab0eee7",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/hero/gloves.rs",
+      "upstream_036_blob": "80ec1490e7b0caab2e7f27111afc56cee2b9692e",
+      "upstream_037_blob": "748cbc96e4b39d64cabef3f000cce15fb9667507",
+      "merged_blob": "4758bb7a6ad1f8af96219bb9a7fdc55328908e3c",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/hero/hologuise.rs",
+      "upstream_036_blob": "54e85613c510bf69f15b27c5666fff4c4f9b838d",
+      "upstream_037_blob": "0a600ec91b2cc1173fb1168799df170bc1619143",
+      "merged_blob": "57e58e32d0b15a732b3b84ddfa77e2c7e2c8576d",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/hero/hoverboard.rs",
+      "upstream_036_blob": "2367ed3aea44b9dab3c661d2ed7b309f248d74a4",
+      "upstream_037_blob": "72cf52ef12492337a7e4e7a9b5e7c901906a5058",
+      "merged_blob": "72cf52ef12492337a7e4e7a9b5e7c901906a5058",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/hero/items.rs",
+      "upstream_036_blob": "5283f93eb2585a54e3f474bd13e86248bc73fcfc",
+      "upstream_037_blob": "12fed8a889fe3d8d127679329298c64481caf68e",
+      "merged_blob": "aefd36182e3f7c28b545df573dbb813043997dae",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/hero/pyrocitor.rs",
+      "upstream_036_blob": "ac01063efe9474537029d94ba51146d393e9ff77",
+      "upstream_037_blob": "2f26d47fa9794cbd2954bb64c89ddfba06db2fea",
+      "merged_blob": "0e56821b9f2f055fce15aed4c4e8b7a7b8f788f4",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/hero/swingshot.rs",
+      "upstream_036_blob": "51f7c3c66f5f849bd2d71405af1cabf19b6552e4",
+      "upstream_037_blob": "70b17f11092b9ad8acf3cfa5b0a34a3e8bf28bdb",
+      "merged_blob": "70b17f11092b9ad8acf3cfa5b0a34a3e8bf28bdb",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/hud.rs",
+      "upstream_036_blob": "cc0618f3c0c9496b7fad8ecdd8e9097ed112d769",
+      "upstream_037_blob": "e4aa527c541849e2035b0028d00eca112752039a",
+      "merged_blob": "5f926b81bc339137af686dd28f173f436da5979a",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/hud/calls.rs",
+      "upstream_036_blob": "e63b211b195b558ed09a23c21388d6f3bd3a37e0",
+      "upstream_037_blob": "eee84023be99589354b567fdf981ecadc7209e36",
+      "merged_blob": "ff63289736ee02dc58339184bc62380e57535d41",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/menus/mod.rs",
+      "upstream_036_blob": "e65cea10fce45c4db5f164341ab4c4b225bcb421",
+      "upstream_037_blob": "cd9f86312312739ed06f1cae9605dfe2e303a30e",
+      "merged_blob": "ac5c636f3e7171d73902dbe93566df9624acbf5c",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/menus/pause/media.rs",
+      "upstream_036_blob": "e704161cb963fa8f1132adca29e8c3902b2d71c2",
+      "upstream_037_blob": "9eb587dcdaf2fe5475f368a32988ebe77cb457e7",
+      "merged_blob": "9eb587dcdaf2fe5475f368a32988ebe77cb457e7",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/bomb.rs",
+      "upstream_036_blob": "e522c37fcc82256ad030039f7b682d58ee8de6c1",
+      "upstream_037_blob": "edd72600316b6b13d4915cad95675fe9f7853bdf",
+      "merged_blob": "2ad6a443e31c10001c5966b7652bd00372b5bbf8",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/cutscene_fx.rs",
+      "upstream_036_blob": "486275e67faf6b5f04468aff81e2e86a43d505bc",
+      "upstream_037_blob": "b0a20f83fc0f583c0026f8d1fc858057d848b4d8",
+      "merged_blob": "b0a20f83fc0f583c0026f8d1fc858057d848b4d8",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/decoy.rs",
+      "upstream_036_blob": "3276eaa5c450c6a1eb1078dc5e78090b99da8b05",
+      "upstream_037_blob": "e067b1ae9c87bb89185c23489dde1997df52b821",
+      "merged_blob": "2c163c783dd43531529cacd3e481887f016da66f",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/draw_callbacks.rs",
+      "upstream_036_blob": "28311066ab4c32435d417e52af7e545e0f6c5940",
+      "upstream_037_blob": "32cb84d178cef888f5c2706a0dfaa2cca66a7bbd",
+      "merged_blob": "32cb84d178cef888f5c2706a0dfaa2cca66a7bbd",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/mine.rs",
+      "upstream_036_blob": "1a5e8f0a9a79145cb90ad8d1dd9cbde5dfd1207a",
+      "upstream_037_blob": "b6ae064e656bbefdd2a2ac6f55a94ec51a74ae67",
+      "merged_blob": "72fb9c4229af9fca898630db98dfdeb717a582b5",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/pyro_glow.rs",
+      "upstream_036_blob": "a6aae26ddd4af2b1b768c76b6387ed087d46f220",
+      "upstream_037_blob": "74009cf23c5e9e2dce31b9568eb6a04b55b70832",
+      "merged_blob": "74009cf23c5e9e2dce31b9568eb6a04b55b70832",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/teleporter.rs",
+      "upstream_036_blob": "977575c264fddecf2fd6f8741ff3209cf501c2a5",
+      "upstream_037_blob": "758ce059d3d690f56d89d0aff2e7c2f4066a9f18",
+      "merged_blob": "758ce059d3d690f56d89d0aff2e7c2f4066a9f18",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/fleet_ship_hud.rs",
+      "upstream_036_blob": "83b59e4574386331763cdbfe97e9c9c942d653b3",
+      "upstream_037_blob": "5e8ec043949349e1339e5acf43a846e585b7e7d6",
+      "merged_blob": "5e8ec043949349e1339e5acf43a846e585b7e7d6",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/floating_pushable.rs",
+      "upstream_036_blob": "075693eea94a8009aad037d9219861a2e3e2071d",
+      "upstream_037_blob": "e2ae984896dae92259999157224f01382c164ce7",
+      "merged_blob": "e2ae984896dae92259999157224f01382c164ce7",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/gemlik_field.rs",
+      "upstream_036_blob": "986f4eafe73bc4ac6b319ce13555a72493f00fc4",
+      "upstream_037_blob": "45350c9246ffcfc832cb5608e76a66f824ea8a84",
+      "merged_blob": "45350c9246ffcfc832cb5608e76a66f824ea8a84",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/gemlik_relay.rs",
+      "upstream_036_blob": "7103f56d8db905f988c71904a7fbd91147b2ec61",
+      "upstream_037_blob": "a8d69f0fb519efef5a17b2048aad1ab5efbb2bc6",
+      "merged_blob": "a8d69f0fb519efef5a17b2048aad1ab5efbb2bc6",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/gemlik_ship_hud.rs",
+      "upstream_036_blob": "33f84cadc695784e168e67fbf08fa1ee89e7260a",
+      "upstream_037_blob": "837d4036e695ad95abf30f682fa7056dc743036a",
+      "merged_blob": "837d4036e695ad95abf30f682fa7056dc743036a",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/hoverboard.rs",
+      "upstream_036_blob": "3bad0108046231c70815c6fc38bb05128c54b60e",
+      "upstream_037_blob": "d0bd7ed01958076ab065a019cd2ff77cb9a6d716",
+      "merged_blob": "d0bd7ed01958076ab065a019cd2ff77cb9a6d716",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/mod.rs",
+      "upstream_036_blob": "9981f5c4dc806deec9e32e7b99d7133edd126a1a",
+      "upstream_037_blob": "1e411419a1107a763879786db33d3b7c5b8f78ba",
+      "merged_blob": "1e411419a1107a763879786db33d3b7c5b8f78ba",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/oltanis_cart.rs",
+      "upstream_036_blob": "6ac10583b16b72628a7d562fc724baa28d66ad38",
+      "upstream_037_blob": "79401e06112a77085a957f888e9caba6fda830bb",
+      "merged_blob": "79401e06112a77085a957f888e9caba6fda830bb",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/oltanis_lightning.rs",
+      "upstream_036_blob": "fd5c329703594929897195857f0cbf527951e165",
+      "upstream_037_blob": "2e3e7374e994dceb3eaab28e4508589de86e4e6e",
+      "merged_blob": "2e3e7374e994dceb3eaab28e4508589de86e4e6e",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/pokitaru_jet_hud.rs",
+      "upstream_036_blob": "6e3add8dc3730a55cfd43036cb2d8f7a75208ae8",
+      "upstream_037_blob": "76f2accbdfc5dedb0d7fcaa917651d1dc1bc2d23",
+      "merged_blob": "76f2accbdfc5dedb0d7fcaa917651d1dc1bc2d23",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/quartu_guard.rs",
+      "upstream_036_blob": "efe7ce27be432e40094220b10a1efd7dfa1484dd",
+      "upstream_037_blob": "e7e5f0c889fc7b07c4781d88b107b716a1befd77",
+      "merged_blob": "2f34ff540a294789a8e1d965f4dd159315ba7d45",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/quartu_story.rs",
+      "upstream_036_blob": "4b4b640bf18becc676b81e903526e4bbd17d1be6",
+      "upstream_037_blob": "e0b86c555a241fb59b327e7aa5ef3bfe39c77494",
+      "merged_blob": "34e786685a32bf796ca6bb9495ff766c6de00141",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/qwark_ship_parts.rs",
+      "upstream_036_blob": "2ece750ed6bac1d0cddfcb58e86287febc974974",
+      "upstream_037_blob": "26430dc852550ae961818b8d63a41af76fce4285",
+      "merged_blob": "a7462b4c71895ce96168b6b441e8ae9cfac76dbd",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/interact.rs",
+      "upstream_036_blob": "a526a643a1ddec87a0b15dae43e976256ba029a5",
+      "upstream_037_blob": "f134b95f37d05c34ff53c4b0a1349ddef8374ad3",
+      "merged_blob": "409c577913c120b02c7c3077f64f9ae8e813f208",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/services.rs",
+      "upstream_036_blob": "93765b4a746784cc552ab3d1c56fc1d38d52e0d1",
+      "upstream_037_blob": "f37b6592be602d59345c947fcda1865caa27990a",
+      "merged_blob": "d0b6b30a8f8ef95210f03c34f8e4f2d87431e230",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/targeting.rs",
+      "upstream_036_blob": "6070f2f9a7bdf3d02ffce5d506ca4831131ff1ef",
+      "upstream_037_blob": "557445c8481f3d3eadbca04ffc219a6bb7889406",
+      "merged_blob": "06e6d1ae30cd080a31068d1a35d6deefde28bef3",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/tests/ui/pause_pages_novalis.rs",
+      "upstream_036_blob": "3633f45c079b21ef49c6dab75c1af42dca52fd7b",
+      "upstream_037_blob": "cc3906e07dd85c03e781627cf4616f3afcb4ecd2",
+      "merged_blob": "cc3906e07dd85c03e781627cf4616f3afcb4ecd2",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "docs/formats/tfrag_rac1.md",
+      "upstream_036_blob": "833a7555131e8a54eae66030b325beb58fc03d7a",
+      "upstream_037_blob": "34891c8e7363c5cfef85763a9d4e8b99877e4ee9",
+      "merged_blob": "34891c8e7363c5cfef85763a9d4e8b99877e4ee9",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "docs/plan/forum_triage.md",
+      "upstream_036_blob": "6753add8eed657fd90c394da1cc07f665d6724a6",
+      "upstream_037_blob": "2142bb1e4ac239e3b684b00ad4e1bb41a11ca9a5",
+      "merged_blob": "2142bb1e4ac239e3b684b00ad4e1bb41a11ca9a5",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "docs/plan/gaps.md",
+      "upstream_036_blob": "a90dd1136855e74ba245920e60fa1568ae981ef3",
+      "upstream_037_blob": "d8ba3aabd2331f18bf019d365271e7ffafb4ea5f",
+      "merged_blob": "d13db4bd212328589b86a76f8144f517e366aa8e",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "docs/plan/hero_gameplay.md",
+      "upstream_036_blob": "0f24862c261f2976703799fc5ebd378df4183fe5",
+      "upstream_037_blob": "3e909dc54501245b68dfd5db7d84375d7313f014",
+      "merged_blob": "1e5eb37ed8b4f1c6bd9481856687d460b32300ce",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "docs/plan/vu1_tfrag_analysis.md",
+      "upstream_036_blob": "57266ed536a11feb197615aa1c31defbed538960",
+      "upstream_037_blob": "3871621c27102a8aafc7758225bb8c733f5f2b38",
+      "merged_blob": "3871621c27102a8aafc7758225bb8c733f5f2b38",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "docs/workflows/dev-switches.md",
+      "upstream_036_blob": "152b2bc9880269083646f87194e9ed3bb433f90b",
+      "upstream_037_blob": "594f8e50dcbf5cb759d16bb724a7c17a25677be5",
+      "merged_blob": "af5222762f6d7d823e327aba6b16e68c834586e3",
+      "integration": "merged-with-weapon-evolution"
+    }
+  ]
+}

@@ -956,3 +956,7 @@ See [v106 implementation notes](docs/mod/SLAM_VISUAL_V106.md). Historical snapsh
 - `mod/default-profile.json`: approved input and all-value fingerprint, synchronized public and embedded profiles.
 - `mod/draft.json`, `.github/workflows/draft-release.yml`, `tools/mod/draft_release.py`: exact-commit Windows/source archives in an unpublished draft, without replacing public v0.3.
 - `docs/mod/EXPERIMENTAL_OVERRIDES_V109.md`, `LAUNCHER_LIFECYCLE.md`, `DRAFT_RELEASE.md`: ownership, extension and packaging contracts.
+
+## ReRAC 0.3.7 integration
+
+`docs/mod/RUNTIME_037.md` describes merge boundaries, exact upstream commits, profile/save compatibility and local/native verification. `mod/upstream_037.json` accounts for every upstream delta path. `runtime037_test.py` and `create_runtime037_kit.py` export/update a complete local source kit; updater integrity, preserved-file and rollback tests live in `launcher/tests/test_runtime037.py`. Current draft notes are `docs/releases/v0.4-rerac-0.3.7-alpha.md`; the old published v0.3 descriptor and tag remain historical.

@@ -1,6 +1,6 @@
 # Weapon Evolution development rules
 
-This is an independent mod for ReRAC 0.3.6-alpha. Keep the distinction between
+This is an independent mod for ReRAC 0.3.7-alpha. Keep the distinction between
 the mod author, the ReRAC developers and the original game's developers clear.
 
 - Write code comments, configuration comments and developer documentation in English.

@@ -1,10 +1,10 @@
 {
-  "public_mod_version": "0.3",
+  "public_mod_version": "0.4",
   "status": "development; not released",
-  "runtime_base": "0.3.6-alpha",
-  "patch": "0.1.6.109",
+  "runtime_base": "0.3.7-alpha",
+  "patch": "0.1.6.110",
   "config_capability": 90,
   "launcher": "0.29.3",
   "release_created": false,
-  "notes": "docs/mod/EXPERIMENTAL_OVERRIDES_V109.md"
+  "notes": "docs/mod/RUNTIME_037.md"
 }
