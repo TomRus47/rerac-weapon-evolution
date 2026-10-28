@@ -47,10 +47,10 @@ class DraftReleaseTests(unittest.TestCase):
         record = draft.descriptor(ROOT)
         commit = 'a' * 40
         files = [Path('player.zip'), Path('source.zip')]
-        state = {'tag_name': record['tag'], 'draft': True,
+        state = {'id': 123, 'tag_name': record['tag'], 'draft': True,
                  'target_commitish': commit, 'html_url': 'https://github.com/example/draft'}
         with patch.dict(os.environ, GH_REPO='owner/repo'), \
-                patch.object(draft.subprocess, 'check_output', side_effect=[commit, '[[]]']), \
+                patch.object(draft.subprocess, 'check_output', side_effect=[commit, '[[]]', json.dumps([[state]])]), \
                 patch.object(draft.subprocess, 'run') as run, \
                 patch.object(draft.publish_release, 'validate_player', return_value=(record, files[:1])) as validate, \
                 patch.object(draft.publish_release, 'source_archive', return_value=files[1:]) as archive, \
@@ -65,7 +65,7 @@ class DraftReleaseTests(unittest.TestCase):
             self.assertIn(commit, command)
             archive.assert_called_once_with(ROOT, Path('assets'), record['tag'], commit)
             self.assertEqual(validate.call_args.args[-1], 'mod/draft.json')
-            verify.assert_called_once()
+            verify.assert_called_once_with('owner/repo', record['tag'], files, release_id=123)
 
     def test_release_list_failure_does_not_create_anything(self):
         with patch.dict(os.environ, GH_REPO='owner/repo'), \

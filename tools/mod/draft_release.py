@@ -50,6 +50,12 @@ def existing_draft(releases: list[dict], tag: str, commit: str) -> dict | None:
     return release
 
 
+def release_list(repo: str) -> list[dict]:
+    pages = json.loads(subprocess.check_output(
+        ['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases?per_page=100'], text=True))
+    return [item for page in pages for item in page]
+
+
 def upload(root: Path, assets: Path) -> str:
     draft = descriptor(root)
     commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
@@ -60,9 +66,7 @@ def upload(root: Path, assets: Path) -> str:
     files += publish_release.source_archive(root, assets, draft['tag'], commit)
     # List all releases, including private drafts, before any mutation. Do not
     # interpret an API failure as a missing release.
-    pages = json.loads(subprocess.check_output(
-        ['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/releases?per_page=100'], text=True))
-    existing = existing_draft([item for page in pages for item in page], draft['tag'], commit)
+    existing = existing_draft(release_list(repo), draft['tag'], commit)
     notes = root / draft['notes']
     if existing is None:
         subprocess.run(['gh', 'release', 'create', draft['tag'], *map(str, files), '--draft',
@@ -73,9 +77,14 @@ def upload(root: Path, assets: Path) -> str:
         # draft. Never pass --clobber until that identity has been checked.
         subprocess.run(['gh', 'release', 'upload', draft['tag'], *map(str, files), '--clobber'],
                        cwd=root, check=True)
-    state = publish_release.api(repo, f'releases/tags/{draft["tag"]}')
+    # The tag lookup API describes published releases. A private draft need not
+    # have a Git tag yet: resolve it from the authenticated list, then use its ID.
+    found = existing_draft(release_list(repo), draft['tag'], commit)
+    if found is None:
+        raise ValueError('The requested draft was not saved.')
+    state = publish_release.api(repo, f'releases/{found["id"]}')
     existing_draft([state], draft['tag'], commit)
-    publish_release.verify_uploaded(repo, draft['tag'], files)
+    publish_release.verify_uploaded(repo, draft['tag'], files, release_id=found['id'])
     print('Saved unpublished draft: ' + state['html_url'], flush=True)
     return state['html_url']
 

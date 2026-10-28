@@ -64,8 +64,9 @@ def source_archive(root: Path, assets: Path, tag: str, commit: str) -> list[Path
     return [archive, checksum]
 
 
-def verify_uploaded(repo: str, tag: str, files: list[Path]) -> None:
-    remote = {entry['name']: entry for entry in api(repo, f'releases/tags/{tag}')['assets']}
+def verify_uploaded(repo: str, tag: str, files: list[Path], release_id: int | None = None) -> None:
+    endpoint = f'releases/{release_id}' if release_id is not None else f'releases/tags/{tag}'
+    remote = {entry['name']: entry for entry in api(repo, endpoint)['assets']}
     for path in files:
         item = remote.get(path.name, {})
         if item.get('state') != 'uploaded' or item.get('digest') != 'sha256:' + digest(path):

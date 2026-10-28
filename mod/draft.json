@@ -8,7 +8,7 @@
   "launcher": "0.29.3",
   "notes": "docs/releases/v0.3-rerac-0.3.6-alpha.md",
   "asset": "ReRAC_Weapon_Evolution_0.3_ReRAC_0.3.6_alpha_windows_x64",
-  "build_revision": 1,
+  "build_revision": 2,
   "draft": true,
   "publish": false
 }

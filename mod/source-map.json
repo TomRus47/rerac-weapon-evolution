@@ -7,7 +7,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "bfb050709c79aa3183f1856ec0c40b7ed9de8b8b49211cb80456edbbf32c72d2"
+      "sha256": "058649535c39668989e86b431edda83ebc1f331999e2b28bf2ae00c68442dd2b"
     },
     {
       "path": ".github/workflows/windows-release.yml",
@@ -3192,7 +3192,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "5fe90a19cdf629f6cf3ccbad4734dbe98e3dc6374450466228ba9a4a26fd171a"
+      "sha256": "dd2ce6e173a1031020d73ea1ada267ce72a26a7a4ef7b4f3fdc9cfada47becfd"
     },
     {
       "path": "launcher/tests/test_eight_grades.py",
@@ -3451,7 +3451,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "93290626cdb6150ee4464ecd16d2b7f640167378d626360ef6211c621e41f470"
+      "sha256": "10ba8b076f65dbb4e9c1416cc1236bd54d7f97861568df8827750f5495e09189"
     },
     {
       "path": "mod/provenance.json",
@@ -3535,7 +3535,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "1e96b5fc09611faa620e18d868d3a364de7ad3d37f22c7ab158f104711a1452a"
+      "sha256": "a73684185eefe1db64a3d5db27fd94a1e9718544589f987448d9c56166b3d78c"
     },
     {
       "path": "tools/mod/feedback_update.py",
@@ -3584,7 +3584,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "b2eb60730c1236c811c4b54740214d4d0078a0940fd9649d25758c2916d1cc51"
+      "sha256": "2974a82a1d28b8201a1ec01c6b9f107aefc7cf0b56dd23b1c2a6f9ddfcfe8452"
     },
     {
       "path": "tools/mod/refresh_source_map.py",

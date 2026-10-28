@@ -10,7 +10,8 @@ permissions:
 
 concurrency:
   group: weapon-evolution-unpublished-draft
-  cancel-in-progress: false
+  # Only unpublished candidates use this group. Newer corrected source wins.
+  cancel-in-progress: true
 
 jobs:
   build:
