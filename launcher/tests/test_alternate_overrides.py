@@ -30,8 +30,8 @@ class AlternateOverrideTests(unittest.TestCase):
             self.assertEqual(after.entries[f'weapon.pyrocitor.level{n}','lava_damage_bonus_percent'],'25')
         self.assertIn(b'; keep my note\r\n',after.raw)
         self.assertEqual(core.profile_document(after.raw).raw,after.raw)
-        self.assertEqual(core.required_config(before),89)
-        self.assertEqual(core.required_config(after),90)
+        self.assertEqual(core.required_config(before),92)
+        self.assertEqual(core.required_config(after),92)
     def test_independent_explicit_overrides_survive_preset_and_session_export(self):
         doc=core.profile_document(Path(__file__).resolve().parents[1].joinpath('weapons.default.ini').read_bytes())
         edits={}

@@ -8,16 +8,20 @@ fn tables()->ChunkTables {
         level:fields(&[(3001,1),(3003,4),(3004,16),(3005,256)])}
 }
 
-fn native_bolts(count:usize)->Vec<u8> {
+fn native_bolts(level:u32,count:usize)->Vec<u8> {
     use rc_formats::gameplay as g;
-    let mut data=vec![0u8;0x110+count*g::MOBY_INSTANCE_SIZE+count*12];
+    // Include the two authored weapon actors now used as optional sites. A
+    // bolt-only fixture silently lost any weapon randomized into either one.
+    let native=match level {4=>Some(1120),14=>Some(1354),_=>None};
+    let actors=count+usize::from(native.is_some());
+    let mut data=vec![0u8;0x110+actors*g::MOBY_INSTANCE_SIZE+actors*12];
     let put=|data:&mut [u8],at:usize,v:u32|data[at..at+4].copy_from_slice(&v.to_le_bytes());
-    put(&mut data,g::MOBY_INSTANCES_POINTER,0x100);put(&mut data,0x100,count as u32);
-    let ptable=0x110+count*g::MOBY_INSTANCE_SIZE;let pbytes=ptable+count*8;
+    put(&mut data,g::MOBY_INSTANCES_POINTER,0x100);put(&mut data,0x100,actors as u32);
+    let ptable=0x110+actors*g::MOBY_INSTANCE_SIZE;let pbytes=ptable+actors*8;
     put(&mut data,g::PVAR_TABLE_POINTER,ptable as u32);put(&mut data,g::PVAR_DATA_POINTER,pbytes as u32);
-    for i in 0..count {
+    for i in 0..actors {
         let p=0x110+i*g::MOBY_INSTANCE_SIZE;
-        put(&mut data,p,g::MOBY_INSTANCE_SIZE as u32);put(&mut data,p+0x18,1134);
+        put(&mut data,p,g::MOBY_INSTANCE_SIZE as u32);put(&mut data,p+0x18,if i<count {1134}else{native.unwrap()});
         put(&mut data,p+0x30,(20.+i as f32*30.).to_bits());put(&mut data,p+0x34,20f32.to_bits());put(&mut data,p+0x38,10f32.to_bits());
         put(&mut data,p+0x58,i as u32);put(&mut data,ptable+i*8,(i*4) as u32);put(&mut data,ptable+i*8+4,4);
         put(&mut data,pbytes+i*4,i as u32);
@@ -64,10 +68,17 @@ fn editable_test_boot_retains_persistence_menus_and_every_reward_location() {
     assert_eq!(golden::card_root("saves".into(),true),std::path::PathBuf::from("saves/weapon_location_test"));
 
     use rc_game::{moby_runtime::{Moby,MobyTable,ClassInfo},moby_update::{Services,ClassTable,services::World,classes::gold_bolt},rng::Rng};
+    // A reproducible census, not an assertion about a fresh random layout.
+    // Both native weapon actors are exercised as weapons; Oltanis already uses
+    // all four native Gold Bolt bits, so its extra site's empty-marker policy
+    // is outside this fixture's native-card marker census.
+    gs.weapon_progress.golden=(1..10000).map(|seed|golden::State::generate(seed,0))
+        .find(|s|s.item_at(86).is_some()&&s.item_at(87).is_some()).unwrap();
     let mut weapons=0;let mut bolts=0;
     for level in 1..19u32 {
         let mut svc=Services::new();svc.level=level;svc.bomb_evo.restore_progress(&gs.weapon_progress);
-        svc.golden=golden::WorldState::from_gameplay(level,&gs.weapon_progress.golden,&native_bolts(golden::COUNTS[level as usize] as usize),Some([100.,100.,10.]));
+        let gameplay=native_bolts(level,golden::COUNTS[level as usize] as usize);
+        svc.golden=golden::WorldState::from_gameplay(level,&gs.weapon_progress.golden,&gameplay,Some([100.,100.,10.]));
         let mut classes=ClassTable::default();classes.classes.insert(1134,(ClassInfo{update_fn:Some(gold_bolt::UPDATE_FN),scale:1.,..Default::default()},None));
         let mut table=MobyTable::new(vec![Moby::init_instance(0,0,None)],weapon_evo::location_test::actor_reserve(level)+2);
         let hero=Hero::new();let mut rng=Rng::new();
@@ -79,7 +90,9 @@ fn editable_test_boot_retains_persistence_menus_and_every_reward_location() {
         w.svc.golden.reset_for_reload();golden::tick(&mut w);
         assert_eq!(w.table.mobys.iter().filter(|m|m.o_class==1134&&m.state<0x80).count(),count,"no duplicate markers after reload");
         weapons+=w.svc.golden.rewards.len();bolts+=count;
-        assert_eq!(count+w.svc.golden.rewards.len(),golden::COUNTS[level as usize] as usize+golden::locations::all_for_level(level,Some([100.,100.,10.])).len());
+        assert_eq!(count+w.svc.golden.rewards.len(),golden::COUNTS[level as usize] as usize
+            +golden::locations::all_for_level(level,Some([100.,100.,10.])).len()
+            +golden::locations::native_weapon_sites(level,&gameplay).len());
         if let Some(&id)=ids.first() {
             let index=i32::from_le_bytes(w.m(id).pvars[..4].try_into().unwrap()) as usize;
             w.svc.interact.game.gold_bolt_bits.resize(19,[0;4]);w.svc.interact.game.gold_bolt_bits[level as usize][index]=1;
@@ -87,5 +100,5 @@ fn editable_test_boot_retains_persistence_menus_and_every_reward_location() {
             assert_eq!(w.table.mobys.iter().filter(|m|m.o_class==1134&&m.state<0x80).count(),count-1);
         }
     }
-    assert_eq!((weapons,bolts),(15,31));
+    assert_eq!((weapons,bolts),(15,33));
 }

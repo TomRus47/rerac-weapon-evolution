@@ -242,8 +242,59 @@ fn award(w: &mut World, id: MobyId) {
     set_collected(w, index);
 }
 
+const PRESENTATION_TAG:usize=pv::LEN;
+const PRESENTATION_MAGIC:u32=0x5747_4250;
+const PRESENTATION_LEFT:usize=PRESENTATION_TAG+4;
+/// A corrupt/stalled clip cannot keep control forever. Normal completion still
+/// follows the native animation wrap and its one-second hidden tail.
+const PRESENTATION_MAX_TICKS:i32=600;
+fn presentation(m:&crate::moby_runtime::Moby)->bool {
+    m.pvars.get(PRESENTATION_TAG..PRESENTATION_TAG+4).is_some_and(|b|b==PRESENTATION_MAGIC.to_le_bytes())
+}
+/// Present an already granted randomized bolt with the real bolt animation and
+/// camera. This actor can never grant a second/native location reward.
+pub fn present_reward(w:&mut World)->bool {
+    if w.hero.health<=0 || crate::weapon_evo::golden::is_swimming(w.hero)
+        || w.classes.info(CLASSES[0]).is_none()
+        || w.svc.creatures.cutscene
+        || w.table.mobys.iter().any(|m|!m.is_deleted()&&presentation(m)) {return false;}
+    // Reject unavailable animation resources before taking the hero/camera.
+    if !w.classes.anim(CLASSES[0]).is_some_and(|class|(0..=1).all(|seq|
+        class.sequence(seq).is_some_and(|s|s.header.frame_count>0&&!s.frames.is_empty()))) {return false;}
+    let Some(id)=w.create_moby(CLASSES[0]) else {return false;};
+    let deadline=w.ticks(PRESENTATION_MAX_TICKS);
+    let h=crate::hero::physics::to_f32x3(w.hero.pos);
+    let yaw=w.hero.rot[2].to_f32()+PI;
+    {
+        let m=w.mm(id);m.pvars.resize(PRESENTATION_LEFT+4,0);
+        p::set_u32(&mut m.pvars,PRESENTATION_TAG,PRESENTATION_MAGIC);
+        p::set_i32(&mut m.pvars,PRESENTATION_LEFT,deadline);
+        // CreateMoby defaults to update_dist=0. The cutaway camera moves away,
+        // and the actor is hidden before its tail timer ends: neither phase may
+        // depend on renderer visibility or the destination's class-port table.
+        m.update_fn=Some(UPDATE_FN);m.update_dist=0xff;m.draw_dist=0x1ff;
+        m.mode &= !(mode::NO_UPDATE|mode::NO_ANIM|mode::HIDDEN|mode::TARGETABLE);
+        m.has_collision=false;m.anim.skip_advance=false;
+        p::set_i32(&mut m.pvars,pv::INDEX,-1);
+        p::set_i32(&mut m.pvars,pv::CUBOID_A,-1);p::set_i32(&mut m.pvars,pv::CUBOID_B,-1);
+        p::set_v4f(&mut m.pvars,pv::SPAWN,[h[0]-2.5*yaw.cos(),h[1]-2.5*yaw.sin(),h[2],1.]);
+        p::set_ff(&mut m.pvars,pv::YAW,yaw);
+    }
+    glow_init(w,id,pv::GLOW);
+    start_cutaway(w,id);
+    true
+}
+
 /// `GoldBoltUpdate` (0x307ca0).
 pub fn update(w: &mut World, id: MobyId) {
+    if presentation(w.m(id)) {
+        let mut left=p::i32(&w.m(id).pvars,PRESENTATION_LEFT);
+        let expired=fast_dec_timer(&mut left)!=0;
+        p::set_i32(&mut w.mm(id).pvars,PRESENTATION_LEFT,left);
+        if expired || w.hero.health<=0 {finish_cutaway(w,id);}
+        else {cutaway(w,id);}
+        return;
+    }
     if w.svc.bomb_evo.randomizer_mode{w.mm(id).mode|=1;w.mm(id).has_collision=false;return;}
     if crate::weapon_evo::golden::replace_bolt(w,id) {return;}
     if w.m(id).pvars.len() < pv::LEN { w.mm(id).pvars.resize(pv::LEN, 0); }
@@ -412,18 +463,56 @@ fn cutaway(w: &mut World, id: MobyId) {
     let done = fast_dec_timer(&mut t);
     p::set_i32(&mut w.mm(id).pvars, pv::TIMER, t);
     if done == 0 { return; }
-    award(w, id);
-    cinematic::letterbox(w, false);
-    let (pos, rot) = (crate::hero::physics::to_f32x3(w.hero.pos), crate::hero::physics::to_f32x3(w.hero.rot));
-    cinematic::hero_teleport(w, pos, rot, 0, false);
-    cinematic::camera_script2(w, 0);
-    cinematic::save(w);
+    finish_cutaway(w,id);
+}
+
+/// One exit for normal completion and presentation failure/death. A randomized
+/// reward was already granted; this actor never writes another location/bolt.
+fn finish_cutaway(w:&mut World,id:MobyId) {
+    let cosmetic=presentation(w.m(id));
+    if !cosmetic {award(w,id);}
+    cinematic::letterbox(w,false);
+    if cosmetic {w.hero_fields_mut().hide_hand=false;}
+    // Death retains its native state. Never revive Ratchet to leave a pickup.
+    if !cosmetic || w.hero.health>0 {
+        if cosmetic {w.hero_fields_mut().call(HeroCall::SetAnim {blend:0.,seq:0,frame:0});}
+        let (pos,rot)=(crate::hero::physics::to_f32x3(w.hero.pos),crate::hero::physics::to_f32x3(w.hero.rot));
+        cinematic::hero_teleport(w,pos,rot,0,false);
+    }
+    cinematic::camera_script2(w,0);
+    // A death interruption does not introduce a new save at a dead pose.
+    if !cosmetic || w.hero.health>0 {cinematic::save(w);}
     w.delete_moby(id);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn randomized_bolt_uses_native_cutaway_without_a_second_award() {
+        use crate::{hero::Hero,moby_runtime::{Moby,MobyTable},moby_update::{ClassTable,services::Services},rng::Rng};
+        let hero=Hero::new();
+        let mut table=MobyTable::new(vec![Moby::default()],4);
+        let mut classes=ClassTable::default();
+        classes.classes.insert(CLASSES[0],(crate::moby_runtime::ClassInfo{scale:1.,..Default::default()},Some(presentation_class())));
+        let mut svc=Services::new();svc.bomb_evo.randomizer_mode=true;
+        let mut rng=Rng::new();
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+        assert!(present_reward(&mut w));
+        let id=w.table.mobys.iter().position(presentation).unwrap();
+        assert_eq!(w.m(id).state,2);
+        assert!(w.hero_fields().calls.iter().flatten().any(|c|matches!(c,HeroCall::SetAnim{seq:HERO_ANIM,..})));
+        assert!(w.svc.creatures.cutscene);
+        // Simulate the native animation ending; the presentation actor must
+        // release control and disappear without writing a native bolt flag.
+        w.mm(id).anim.seq_a=0;
+        p::set_i32(&mut w.mm(id).pvars,pv::TIMER,1);
+        update(&mut w,id);
+        assert!(w.m(id).state>=0xfd);
+        assert!(!w.svc.creatures.cutscene);
+        assert!(!w.svc.interact.writes.iter().any(|g|matches!(g,GameWrite::GoldBolt{..})));
+    }
 
     #[test]
     fn timer_counts_down_like_fast_dec_timer() {
@@ -437,4 +526,121 @@ mod tests {
         assert!(!LEVELS.contains(&0));
         assert_eq!(LEVELS.len(), 18);
     }
+    fn presentation_class() -> rc_formats::moby_anim::MobyAnimClass {
+        use rc_formats::moby_anim::{MobyFrame,MobyFrameHeader,MobySequence,MobySequenceHeader,MobyAnimClass};
+        let sequence=|count:u8|Some(MobySequence {
+            header:MobySequenceHeader{frame_count:count,loop_sound:0xff,..Default::default()},
+            frames:(0..count).map(|i|MobyFrame {
+                header:MobyFrameHeader{rate:1.,time:i as i16*16,..Default::default()},
+                quats:vec![],scales:vec![],trans:vec![],payload:vec![],
+            }).collect(),triggers:vec![],
+        });
+        MobyAnimClass{joint_count:0,skeleton:vec![],rest:vec![],parent_word:vec![],
+            sequences:vec![sequence(1),sequence(4)]}
+    }
+    fn with_presentation(test:impl FnOnce(&mut World)) {
+        with_resources(Some(presentation_class()),test);
+    }
+    fn with_resources(anim:Option<rc_formats::moby_anim::MobyAnimClass>,test:impl FnOnce(&mut World)) {
+        use crate::{hero::Hero,moby_runtime::{Moby,MobyTable,ClassInfo},
+            moby_update::{ClassTable,services::Services},rng::Rng};
+        let mut hero=Hero::new();hero.pos=[20.,30.,40.,1.].map(crate::ps2v::Pf::f);
+        let mut table=MobyTable::new(vec![Moby::default()],4);
+        let mut classes=ClassTable::default();
+        classes.classes.insert(CLASSES[0],(ClassInfo{scale:1.,b0c:2,update_fn:Some(UPDATE_FN),..Default::default()},anim));
+        let mut svc=Services::new();svc.bomb_evo.randomizer_mode=true;
+        let mut rng=Rng::new();
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+        w.camera=[100.,200.,300.,1.].map(crate::ps2v::Pf::f);
+        test(&mut w);
+    }
+    #[test]
+    fn presentation_remains_scheduled_without_renderer_visibility() {
+        with_presentation(|w| {
+            assert!(present_reward(w));
+            let id=w.table.mobys.iter().position(presentation).unwrap();
+            w.mm(id).visible=0;
+            let (list,_)=crate::moby_update::scheduler::build_active_list(w.table,w.camera,&w.svc.groups);
+            assert!(list.contains(&id),"the cutaway owner must tick even outside camera culling");
+        });
+    }
+    #[test]
+    fn presentation_finishes_via_animation_and_scheduler_without_forced_end_flags() {
+        with_presentation(|w| {
+            assert!(present_reward(w));
+            let id=w.table.mobys.iter().position(presentation).unwrap();
+            let mut saw_pickup=false;
+            for tick in 2..200 {
+                w.counter=tick;w.mm(id).visible=0;
+                let (list,_)=crate::moby_update::scheduler::build_active_list(w.table,w.camera,&w.svc.groups);
+                for item in list {crate::moby_update::scheduler::run_moby(w,item);}
+                saw_pickup|=w.m(id).anim.seq_a==1;
+                if w.m(id).is_deleted() {break;}
+            }
+            assert!(saw_pickup,"the actual bolt sequence must advance");
+            assert!(w.m(id).is_deleted(),"the real sequence and tail must return control");
+            assert!(!w.svc.creatures.cutscene);
+            assert!(!w.hero_fields().hide_hand);
+            assert!(w.hero_fields().calls.iter().flatten().any(|c|matches!(c,HeroCall::Teleport{state:0})));
+            assert!(!w.svc.interact.writes.iter().any(|g|matches!(g,GameWrite::GoldBolt{..})));
+            assert_eq!(w.svc.cinematic.requests.iter().filter(|r|matches!(r,cinematic::EngineRequest::Save)).count(),1);
+        });
+    }
+
+    #[test]
+    fn presentation_refuses_missing_clip_without_taking_control() {
+        for anim in [None,Some(rc_formats::moby_anim::MobyAnimClass {
+            sequences:vec![presentation_class().sequences.remove(0)],..presentation_class()
+        })] {
+            with_resources(anim,|w| {
+                let free=w.table.available_dynamic_slots(w.counter);
+                assert!(!present_reward(w));
+                assert_eq!(w.table.available_dynamic_slots(w.counter),free);
+                assert!(!w.svc.creatures.cutscene);
+                assert!(w.svc.cinematic.calls.is_empty());
+                assert!(w.hero_fields().calls.iter().all(Option::is_none));
+            });
+        }
+    }
+    #[test]
+    fn presentation_has_one_owner_and_recovers_from_a_stalled_clip() {
+        with_presentation(|w| {
+            assert!(present_reward(w));
+            let id=w.table.mobys.iter().position(presentation).unwrap();
+            let free=w.table.available_dynamic_slots(w.counter);
+            assert!(!present_reward(w));
+            assert_eq!(w.table.available_dynamic_slots(w.counter),free);
+            w.mm(id).anim.seq_a=1;w.mm(id).anim.seq_b=1;
+            w.mm(id).mode|=mode::NO_ANIM;
+            for tick in 2..=(w.ticks(PRESENTATION_MAX_TICKS) as u64+1) {
+                w.counter=tick;w.mm(id).visible=0;
+                let (list,_)=crate::moby_update::scheduler::build_active_list(w.table,w.camera,&w.svc.groups);
+                for item in list {crate::moby_update::scheduler::run_moby(w,item);}
+                if w.m(id).is_deleted() {break;}
+            }
+            assert!(w.m(id).is_deleted());assert!(!w.svc.creatures.cutscene);
+            assert!(!w.hero_fields().hide_hand);
+            assert!(w.hero_fields().calls.iter().flatten().any(|c|matches!(c,HeroCall::SetAnim{seq:0,..})));
+            assert!(w.svc.cinematic.calls.iter().any(|c|matches!(c,cinematic::CinematicCall::CameraRelease{..})));
+            assert!(!w.svc.interact.writes.iter().any(|g|matches!(g,GameWrite::GoldBolt{..})));
+            w.counter+=2;
+            assert!(present_reward(w),"another pickup can run after cleanup");
+        });
+    }
+    #[test]
+    fn presentation_death_cleanup_does_not_revive_or_force_idle() {
+        with_presentation(|w| {
+            assert!(present_reward(w));
+            let id=w.table.mobys.iter().position(presentation).unwrap();
+            let mut dead=w.hero.clone();dead.health=0;
+            let mut dying=World::new(w.table,&dead,w.rng,w.classes,w.svc,w.counter+1);
+            update(&mut dying,id);
+            assert!(dying.m(id).is_deleted());assert!(!dying.svc.creatures.cutscene);
+            assert!(!dying.hero_fields().hide_hand);
+            assert!(!dying.svc.cinematic.requests.iter().any(|r|matches!(r,cinematic::EngineRequest::Save)));
+            assert!(!dying.hero_fields().calls.iter().flatten().any(|c|matches!(c,
+                HeroCall::Teleport{state:0}|HeroCall::SetAnim{seq:0,..})));
+        });
+    }
+
 }

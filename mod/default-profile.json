@@ -1,9 +1,9 @@
 {
-  "source": "User-approved GBtW_All_Custom(2).ini",
-  "source_sha256": "230318f30d2e353f4266e992ca5d0468de360b01e44cfe5224963fde64c0f7a5",
-  "public_sha256": "5c2631c4616081faac43caf50d3d81c4bde2942666677434c10ff1917ab7615d",
-  "values_sha256": "f9baac4366920cb2d5406af584c41f885f3f8f0d189dade29813046d83d8a3cd",
+  "source": "User-supplied player ZIP, root weapons.ini (2026-10-29)",
+  "source_sha256": "38f5662e41ac3fd7851def000752dd07c4570dfbdbb58c98ce5eb03cc5aa6cef",
+  "public_sha256": "f51dc0149d8324b27291c24fb7a574c7a1c78cd27dbed3e1314fcdf5c1477e62",
+  "values_sha256": "24125c457d9ec5bc94126382775850be956209d1afae8ff081c189343b910c2c",
   "values": 2592,
   "sections": 146,
-  "changes": "Only English runtime compatibility and obsolete boss-rule comments differ from the supplied file. Every one of its 2,592 settings is unchanged."
+  "changes": "Every authored setting is preserved. Only the stale runtime compatibility comment changes from ReRAC 0.3.7-alpha to 0.3.8-alpha. No logs, session copies, executable binaries or personal launcher settings are imported."
 }

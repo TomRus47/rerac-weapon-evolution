@@ -224,7 +224,7 @@ impl Hero {
             return;
         }
         // □ with the wrench (item 8) → the Comet-Strike 0x15 (super::comet; the fall test below still runs).
-        if pad.pressed_within(button::SQUARE, ticks(0xf)).is_some() && self.items.slot.id == super::items::item::WRENCH { self.set_state(c, 0x15, true); }
+        if pad.pressed_within(button::SQUARE, ticks(0xf)).is_some() && super::comet::held_wrench(self) { self.set_state(c, 0x15, true); }
         if ticks(8) < self.air_ticks as i32 {
             if self.prev_state == 8 && self.timer < ticks(15) { return; }
             self.set_state(c, 6, true);

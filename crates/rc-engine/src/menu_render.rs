@@ -1134,9 +1134,11 @@ fn post_fade_step(rt: &mut MenuRt, mm: &mut MenuMode, play: &mut Play, _gs: &mut
 }
 
 /// 0x15ed88 = `lang`: the runtime language every later load reads (crate::hud_render::language), the page menu's
-/// language (the Controls / Items / Epilogue pictures), the help voice bank (`help_audio[lang·150 + n]`).
+/// language (the Controls / Items / Epilogue pictures), the help voice bank (`help_audio[lang·150 + n]`). Port-only:
+/// also saved for the next start (crate::hud_render::save_language).
 fn apply_language(play: &mut Play, lang: u32) {
     crate::hud_render::set_language(lang);
+    crate::hud_render::save_language(lang);
     play.svc.help.text.lang = lang;
 }
 
@@ -1745,7 +1747,7 @@ fn translate(d: &Draw, ox: i32, oy: i32) -> Draw {
             *y += oy;
         }
         // (The HUD's 1/16-pixel calls: the slot meters only, never in a panel; translated for completeness.)
-        Draw::Sprite16 { x, y, .. } => {
+        Draw::Sprite16 { x, y, .. } | Draw::Nanotech16 { x,y,.. } => {
             *x += ox << 4;
             *y += oy << 4;
         }

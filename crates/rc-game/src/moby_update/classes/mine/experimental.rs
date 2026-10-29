@@ -548,7 +548,7 @@ mod tests {
         let id=b.create(CLASS);
         init_held(&mut b.table.mobys[id],&mut b.rng,[20.,20.,z],0);
         p::set_v4f(&mut b.table.mobys[id].pvars,pv::VEL,[0.02,0.,vz,0.]);
-        release(&mut b.table,id,&mut b.rng,[20.,20.,z]);
+        release(&mut b.table,id,&mut b.rng,[20.,20.,z],None);
         p::set_u32(&mut b.table.mobys[id].pvars,FLAGS,1);
         p::set_i32(&mut b.table.mobys[id].pvars,LIFE,600);
         (b,id)

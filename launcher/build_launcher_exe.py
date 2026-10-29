@@ -22,7 +22,7 @@ EXE_NAME = 'ReRAC_Weapon_Evolution.exe'
 # imported by the GUI. Otherwise a staged kit cannot invoke this builder.
 SOURCES = ('windows_entry.py','launcher.py','launcher_core.py','schema.py','migrate_ini.py',
     'frozen_support.py','icon_assets.py','i18n.py','page_views.py','page_smoke.py',
-    'weapons.default.ini','build_launcher_exe.py','build_lifecycle.py','scroll_paint.py')
+    'weapons.default.ini','nanotech_cap_profile.py','build_launcher_exe.py','build_lifecycle.py','scroll_paint.py')
 
 def source_digest(kit):
     h=hashlib.sha256()

@@ -102,6 +102,10 @@ pub fn install(
     if rc_game::weapon_evo::randomizer::enabled() || rc_game::weapon_evo::location_test::enabled() {
         import_models(root,1,&[1134,750,479,511],mobys,textures)?;
         if rc_game::weapon_evo::randomizer::enabled(){
+            // Randomized boots can be worn on planets that never load them
+            // natively. Import before the attachment entities are constructed.
+            if !mobys.classes.iter().any(|c|c.o_class==173) {import_models(root,10,&[173],mobys,textures)?;}
+            if !mobys.classes.iter().any(|c|c.o_class==195) {import_models(root,6,&[195],mobys,textures)?;}
             import_models(root,17,&[1428],mobys,textures)?;
             import_models(root,12,&[287],mobys,textures)?;
         }

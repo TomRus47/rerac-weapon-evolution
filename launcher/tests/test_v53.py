@@ -25,7 +25,7 @@ class GrenadeMineTests(unittest.TestCase):
             self.assertEqual(EXPERIMENTAL_DEFAULTS['visibomb']['grenade_launcher_enabled'],'false')
         doc=core.checked_document(self.doc.render(changes))
         for p,v in changes.items():self.assertEqual(doc.entries[p],v)
-        self.assertEqual(core.required_config(doc),90)
+        self.assertEqual(core.required_config(doc),92)
     def test_migration_adds_55_fields_without_changing_old_values(self):
         new={p for p in self.doc.entries if p[1] not in MODEL_NEW_KEYS and (p[1].startswith('grenade_') or p[1]=='flame_mine_size_percent' or (p[0].startswith('weapon.visibomb.level') and p[1]=='explosion_damage_radius'))}
         self.assertEqual(len(new),88);indexes={self.doc.addresses[p] for p in new}

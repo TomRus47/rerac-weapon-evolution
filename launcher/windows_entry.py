@@ -29,7 +29,7 @@ def self_test(destination):
                   'wrench_trail_ui': 'trail_color' in schema.EXTRA[8].split(),
                   'ngplus_difficulty_ui': list(schema.WORLD_DEFAULTS)[0]=='ngplus_multiplier',
                   'eight_grade_ui': len(schema.XP)==7 and 'hide_ryno' in schema.GLOBAL_STANDARD_DEFAULTS,
-                  'additive_nanotech_ui': core.numeric_range('general','nanotech_max_health') == (0,64),
+                  'additive_nanotech_ui': core.numeric_range('general','nanotech_progression_max_health') == (4,206),
                   'nanotech_xp_bar_ui': ('nanotech_xp_bar_opacity_percent' in schema.HUD
                       and core.numeric_range('hud','nanotech_xp_bar_opacity_percent') == (0,100)),
                   'location_test_ui': core.game_environment(Path('weapons.ini'),Path('.'),env={'RC_WEAPON_LOCATION_TEST':'1'}).get('RC_LEVEL') == '18',

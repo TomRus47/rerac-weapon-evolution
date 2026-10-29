@@ -102,12 +102,28 @@ pub(crate) fn award_health_write(w: &mut World, id: MobyId, offset: usize, befor
 
 fn award_effective(w: &mut World, hit: HitRecord, actual: f32) {
     if actual>0. {super::super::feedback::accepted(w,hit);}
-    let actual=actual*w.svc.bomb_evo.world_settings.health_scale(w.m(hit.target).o_class);
+    if let Some(attack)=hit.evolution {if let Some(color)=attack.burn_color {w.svc.hits.real_hp.burn_colors.insert(hit.target,(attack.weapon,color));}}
+    if crate::moby_update::classes::amoeboid::split_descendant(w.m(hit.target)) { return; }
     // A robot touching a creature only triggers detonation. Only a marked blast
     // whose HP loss has been committed can credit the Glove of Doom.
     if hit.h2a == 0xba && !hit.independent() { return; }
+    if crate::moby_update::classes::amoeboid::CLASSES.contains(&w.m(hit.target).o_class) {
+        let weapon=hit.evolution.map(|a|a.weapon).or_else(||match hit.h2a {
+            121=>Some(10),305|168=>Some(15),153=>Some(11),172=>Some(13),74=>Some(17),
+            180=>Some(18),177=>Some(19),186=>Some(20),457=>Some(23),479=>Some(24),
+            203|1900=>Some(25),0x351=>Some(9),
+            0|176 if hit.b28==5 && hit.attacker==w.hero_moby=>Some(16),_=>None,
+        });
+        if let Some(weapon)=weapon {
+            // Physical damage was normalized by health_scale in the resolver.
+            // 1/2/3 original HP supply exactly 100/200/300 base XP, not XP on children.
+            w.svc.bomb_evo.award_fixed_xp(weapon,actual*100.,
+                actual*w.svc.bomb_evo.world_settings.health_scale(w.m(hit.target).o_class));
+        }
+        return;
+    }
+    let actual=actual*w.svc.bomb_evo.world_settings.health_scale(w.m(hit.target).o_class);
     if let Some(attack) = hit.evolution {
-        if let Some(color) = attack.burn_color { w.svc.hits.real_hp.burn_colors.insert(hit.target,(attack.weapon,color)); }
         // Attribution survives deletion/reuse of the source moby slot.
         match attack.weapon {
             10 => w.svc.bomb_evo.award_damage(actual, 121),
@@ -147,11 +163,40 @@ pub(crate) fn award_terminal(w: &mut World, id: MobyId, hit: Option<HitRecord>, 
 /// a missing numeric record has one logical HP, a dead/invalid record has none.
 pub(crate) fn special_health(w: &World, id: MobyId) -> Option<f32> {
     let m = w.table.mobys.get(id)?;
-    if m.state >= 0x80 || m.o_class == 1126 || w.svc.bomb_evo.target_is_terminal(id) { return None; }
+    if m.state >= 0x80 || m.o_class == 1126 || w.svc.bomb_evo.target_is_terminal(id) || crate::moby_update::classes::amoeboid::split_descendant(m) { return None; }
     let hp = if w.svc.bomb_evo.real_hp_enabled() && super::super::real_hp::terminal_class(m.o_class) {
         w.svc.hits.real_hp.logical_health(id)
     } else { crate::targeting::record_health(m).unwrap_or(1.0) };
+    if crate::moby_update::classes::amoeboid::CLASSES.contains(&m.o_class) {
+        let rate=w.svc.bomb_evo.xp_per_damage;
+        let units=if w.svc.bomb_evo.real_hp {100.}else{1.};
+        return (hp.is_finite()&&hp>0.&&rate>0.).then(||hp*100./(rate*units));
+    }
     (hp.is_finite() && hp > 0.0).then_some(hp*w.svc.bomb_evo.world_settings.health_scale(m.o_class))
+}
+
+/// Capture both reward bases before morphing/deleting the source. Placed
+/// amoeboids retain their explicit weapon budget; Nanotech always uses real HP.
+/// Split descendants return no reward through `special_health`.
+#[derive(Clone, Copy)]
+pub(crate) struct SpecialReward { native_hp:f32, fixed_weapon_xp:Option<f32> }
+impl SpecialReward {
+    pub(crate) fn award(self,evo:&mut crate::weapon_evo::Evolution,weapon:i32,target:MobyId) {
+        if let Some(amount)=self.fixed_weapon_xp {
+            evo.award_fixed_special_once(weapon,target,amount,self.native_hp);
+        } else {evo.award_special_once(weapon,target,self.native_hp,1.);}
+    }
+}
+pub(crate) fn special_reward(w:&World,id:MobyId)->Option<SpecialReward> {
+    let hp=special_health(w,id)?;
+    let class=w.m(id).o_class;
+    if crate::moby_update::classes::amoeboid::CLASSES.contains(&class) {
+        let remaining=crate::targeting::record_health(w.m(id))?;
+        Some(SpecialReward {
+            native_hp:remaining*w.svc.bomb_evo.world_settings.health_scale(class),
+            fixed_weapon_xp:Some(remaining*100.),
+        })
+    } else {Some(SpecialReward {native_hp:hp,fixed_weapon_xp:None})}
 }
 
 /// Use the boss life's original HP for its single attraction reward, even if

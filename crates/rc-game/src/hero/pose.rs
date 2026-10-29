@@ -141,7 +141,7 @@ impl Hero {
         }
         // With a feet item moby (0x140430) Ratchet's feet records 4 / 5 get scale 0.01 this tick: the boots replace
         // his feet.
-        if self.feet_slot.state != 0 {
+        if matches!(self.feet_slot.state,2|3) && matches!(self.feet_slot.id,28|29) {
             for k in [joint::FOOT_L, joint::FOOT_R] { self.idle.joints[k].scale = f(0x3c23_d70a); }
         }
         if self.idle.motes.flags & 0x80 != 0 {
@@ -307,4 +307,20 @@ pub mod motes {
 impl Hero {
     /// [`Hero::foot_motes`] with one of [`motes`]' argument sets.
     pub fn land_motes(&mut self, a: motes::Args) { self.foot_motes(a.0, a.1, a.2, a.3, a.4, a.5); }
+}
+
+#[cfg(test)]
+mod worn_feet_tests {
+    use super::*;
+    #[test]
+    fn only_a_ready_boot_attachment_hides_ratchets_bare_feet() {
+        for (state,id,hidden) in [(0,28,false),(1,28,false),(2,28,true),(3,29,true),(2,0,false),(2,5,false)] {
+            let mut hero=Hero::new();hero.feet_slot.state=state;hero.feet_slot.id=id;
+            for k in [joint::FOOT_L,joint::FOOT_R] {hero.idle.joints[k].scale=1.;}
+            hero.feet_update(&super::super::anim::RecordingAnim::default(),&mut Rng::new());
+            for k in [joint::FOOT_L,joint::FOOT_R] {
+                assert_eq!(hero.idle.joints[k].scale<0.1,hidden,"state {state}, item {id}");
+            }
+        }
+    }
 }

@@ -1,6 +1,7 @@
 """Lossless presets and explicit one-process ReRAC configuration. Python 3.10+."""
 from __future__ import annotations
 import hashlib
+from nanotech_cap_profile import migrate_health_cap
 import json
 import math
 import os
@@ -18,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.29.3'
+VERSION = '0.29.5'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -215,7 +216,7 @@ def validate_document(doc: IniDocument):
     return doc
 
 def checked_document(raw):
-    return validate_document(IniDocument(raw))
+    return validate_document(IniDocument(migrate_health_cap(raw)))
 
 def profile_document(raw):
     from migrate_ini import convert
@@ -375,7 +376,7 @@ class LaunchSession:
 def live_restart_fields(before, after):
     cold = {'ngplus_multiplier','enemy_health_multiplier','enemy_health_include_bosses',
             'extra_enemies_per_level','extra_enemy_prefer_small','extra_enemy_prefer_medium',
-            'extra_enemy_prefer_large','enemy_damage_by_health','nanotech_xp_per_upgrade','nanotech_max_health',
+            'extra_enemy_prefer_large','enemy_damage_by_health','nanotech_xp_per_upgrade','nanotech_max_health','nanotech_progression_max_health',
             'experimental_ammo_unlock_mode', 'golden_bolts_to_weapons',
             'golden_bolts_early_bias_percent', 'golden_bolts_one_weapon_per_planet',
             'hide_ryno', 'randomizer_mode', 'damage_mode'}
@@ -612,3 +613,17 @@ def required_config(doc):
     previous = _before_experimental_overrides_required_config(doc)
     keys = {'lava_damage_bonus_percent','flame_mine_max_active_mines','flame_mine_lifetime_seconds'}
     return max(90,previous) if any(key in keys for _,key in doc.entries) else previous
+
+
+# Expanded health profiles require the matching save validation and HUD packing.
+_required_config_before_layered_health = required_config
+def required_config(doc):
+    needed=_required_config_before_layered_health(doc)
+    bonus=float(doc.entries.get(('general','nanotech_max_health'),'20'))
+    return max(91,needed) if bonus>64 else needed
+
+
+_required_config_before_compact_nanotech = required_config
+def required_config(doc):
+    previous=_required_config_before_compact_nanotech(doc)
+    return max(92,previous) if ('general','nanotech_progression_max_health') in doc.entries else previous

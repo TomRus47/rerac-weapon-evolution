@@ -2,6 +2,7 @@
 from pathlib import Path
 import re
 import sys
+from nanotech_cap_profile import migrate_health_cap
 
 def ensure_stream_fields(raw):
     from launcher_core import IniDocument
@@ -154,6 +155,7 @@ def ensure_global_fields(raw):
 
 def convert(raw):
     """Keep absolute HP values; remove obsolete UI fields and the internal model flag."""
+    raw = migrate_health_cap(raw)
     from launcher_core import IniDocument
     doc=IniDocument(raw)
     if doc.entries.get(('general','damage_mode'),'real_hp')!='real_hp':

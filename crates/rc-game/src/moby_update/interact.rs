@@ -700,22 +700,22 @@ fn condition(w: &World, nd: &TalkNode) -> bool {
 
 /// The prompt text of node `nd`: kind 6 replaces the text's `%d` by the gold price as `"%d%s%03d"` (thousands,
 /// the language's separator from 0x20a180 (`,` / `.` for German and Italian), the rest).
-fn node_text(w: &World, nd: &TalkNode) -> Vec<u8> {
+fn node_text(w: &World, id:MobyId, base:usize, nd: &TalkNode) -> Vec<u8> {
     let t = w.svc.interact.msg(nd.msg);
     if w.svc.bomb_evo.randomizer_mode {
-        if let Some(source)=crate::weapon_evo::randomizer::talk_source(w.svc.level,nd.item.max(0) as usize){
+        // The condition argument can be a flag (the Raritanium exchange), not
+        // the reward. Resolve the NPC/table before interpreting that argument.
+        let group=p::i32(&w.m(id).pvars,base+talk::TABLE)-1;
+        let nodes=if group>=0 {w.svc.interact.tables.nodes(group as usize)} else {&[]};
+        let source=crate::weapon_evo::randomizer::talk_offer_source(w.svc.level,w.m(id).o_class,nd,nodes);
+        if let Some(source)=source {
             let state=w.svc.bomb_evo.progress().randomizer;
-            if let Some(reward)=state.reward(source){
+            if let Some(reward)=state.reward(source) {
                 let new=crate::weapon_evo::randomizer::reward_name(reward,w.svc.interact.lang,&w.svc.gold_shop.names);
-                if let Some(old)=w.svc.gold_shop.names.get(&(nd.item.max(0) as usize)).filter(|s|!s.is_empty()) {
-                    if let Some(at)=t.windows(old.len()).position(|x|x==old.as_slice()){
-                        return [&t[..at],new.as_slice(),&t[at+old.len()..]].concat();
-                    }
-                }
-                if nd.kind==1 {
-                    let mut text=match w.svc.interact.lang{2=>b"Acheter : ".to_vec(),3=>b"Kaufen: ".to_vec(),4=>b"Comprar: ".to_vec(),5=>b"Acquista: ".to_vec(),_=>b"Buy: ".to_vec()};
-                    text.extend(new);text.extend(format!(" - {} bolts",w.svc.interact.tables.shop.price(nd.item.max(0) as usize)).as_bytes());return text;
-                }
+                let old=w.svc.gold_shop.names.get(&source).map_or(&[][..],Vec::as_slice);
+                let price=w.svc.interact.tables.shop.price(source);
+                return crate::weapon_evo::randomizer::offer_text(&t,old,&new,w.svc.interact.lang,
+                    (nd.kind==1 || price>0).then_some(price),source==35 && w.svc.level==11);
             }
         }
     }
@@ -760,7 +760,7 @@ pub fn talk_refresh_at(w: &mut World, id: MobyId, base: usize, advance: bool) {
         }
     }
     if nd.msg != 0 {
-        let t = node_text(w, &nd);
+        let t = node_text(w, id, base, &nd);
         set_text(&mut w.svc.interact.prompt.text, &t);
     } else {
         w.svc.interact.talk_shown = false;

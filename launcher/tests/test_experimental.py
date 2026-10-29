@@ -25,8 +25,8 @@ class ExperimentalTests(unittest.TestCase):
                         expected=before.entries[f'weapon.{weapon}.level{grade}',standard]
                     self.assertEqual(after.entries[f'weapon.{weapon}.level{grade}',key],expected)
         self.assertEqual(convert(result)[0],result)
-        self.assertEqual(core.required_config(before),89)
-        self.assertEqual(core.required_config(after),90)
+        self.assertEqual(core.required_config(before),92)
+        self.assertEqual(core.required_config(after),92)
     def test_custom_behavior_and_balance_survive_bom_crlf_and_preset_round_trip(self):
         doc=core.checked_document(self.raw)
         changed=doc.render({('weapon.bomb_glove.level3','cluster_bombs_enabled'):'true',
@@ -55,7 +55,7 @@ class ExperimentalTests(unittest.TestCase):
             info=dict(name='rerac',game='rac1',version='0.3.4',data_format=1,weapon_evolution_config=40)
             with patch.object(core.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(info))):
                 with self.assertRaises(ValueError):core.probe_exe(exe,core.required_config(doc))
-            info['weapon_evolution_config']=90
+            info['weapon_evolution_config']=92
             with patch.object(core.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(info))):
                 self.assertEqual(core.probe_exe(exe,core.required_config(doc)),info)
 

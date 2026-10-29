@@ -26,7 +26,7 @@ class SavedControlsTests(unittest.TestCase):
                 core.validate_value('general',key,value)
             for value in ['2','invalid']:
                 with self.assertRaises(ValueError):core.validate_value('general',key,value)
-        self.assertEqual(core.required_config(doc),90)
+        self.assertEqual(core.required_config(doc),92)
 
     def test_migration_keeps_balance_unknown_fields_comments_bom_and_crlf(self):
         raw=(Path(__file__).resolve().parents[1]/'weapons.default.ini').read_bytes()

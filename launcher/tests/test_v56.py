@@ -40,7 +40,7 @@ class V56Tests(unittest.TestCase):
         for grade in range(1,6):
             for key in ('hit_radius_multiplier','knockback_multiplier'):self.assertEqual(after.entries[f'weapon.wrench.level{grade}',key],'1')
         self.assertEqual(convert(result)[0],result);self.assertIn(b'\r\n',result);self.assertTrue(result.startswith(b'\xef\xbb\xbf'))
-        self.assertEqual(core.required_config(before),90);self.assertEqual(core.required_config(after),90)
+        self.assertEqual(core.required_config(before),92);self.assertEqual(core.required_config(after),92)
     def test_independent_grade_settings_limits_and_translated_help(self):
         doc=core.checked_document(self.raw);edits={}
         for n in range(1,6):

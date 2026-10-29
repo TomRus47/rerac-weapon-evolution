@@ -379,7 +379,7 @@ WORLD_DEFAULTS = {'enemy_health_multiplier': '1',
  'enemy_chase_range_multiplier': '1',
  
  'nanotech_xp_per_upgrade': '1000',
- 'nanotech_max_health': '20',
+ 'nanotech_progression_max_health': '24',
  'nanotech_upgrade_sound': 'true',
  'nanotech_random_healing': 'true',
  }
@@ -389,12 +389,12 @@ WORLD_RANGES = {'enemy_health_multiplier': (0.1, 100),
  'enemy_perception_multiplier': (0.1, 10),
  'enemy_chase_range_multiplier': (0.1, 10),
  'nanotech_xp_per_upgrade': (0.1, 1000000),
- 'nanotech_max_health': (0, 64)}
+ 'nanotech_progression_max_health': (4, 206)}
 GLOBAL_STANDARD_DEFAULTS.update(WORLD_DEFAULTS)
 BOOLEANS.update({'enemy_health_include_bosses',   'nanotech_upgrade_sound', 'extra_enemy_prefer_large', 'extra_enemy_prefer_small', 'enemy_damage_by_health', 'nanotech_random_healing', 'extra_enemy_prefer_medium'})
-INTEGER.update({"extra_enemies_per_level","nanotech_max_health"})
-LABELS.update({'enemy_health_multiplier': 'Enemy health multiplier', 'enemy_health_include_bosses': 'Apply health multiplier to bosses', 'extra_enemies_per_level': 'Extra enemies per level (total count, selected categories only)', 'extra_enemy_prefer_small': 'Duplicate small enemies (up to 100 base HP)', 'extra_enemy_prefer_medium': 'Duplicate medium enemies (over 100, up to 200 base HP)', 'extra_enemy_prefer_large': 'Duplicate large enemies (over 200 base HP)', 'enemy_damage_by_health': 'Health-based enemy damage and Nanotech progression', 'enemy_damage_multiplier': 'Enemy damage multiplier (including boss attacks)', 'enemy_perception_multiplier': 'Enemy perception multiplier',  'nanotech_xp_per_upgrade': 'XP per Nanotech upgrade', 'nanotech_max_health': 'Maximum extra Nanotech from XP', 'nanotech_upgrade_sound': 'Nanotech upgrade notification sound', 'nanotech_random_healing': 'Random Nanotech healing (1-4)', })
-HELP.update({'enemy_health_multiplier': 'Scales effective enemy HP and actual-loss XP together. Native AI phase thresholds are preserved.', 'enemy_health_include_bosses': 'Includes the four boss classes in health scaling.', 'extra_enemies_per_level': 'Extra enemies per level (total count, selected categories only)', 'extra_enemy_prefer_small': 'Duplicate small enemies (up to 100 base HP)', 'extra_enemy_prefer_medium': 'Duplicate medium enemies (over 100, up to 200 base HP)', 'extra_enemy_prefer_large': 'Duplicate large enemies (over 200 base HP)', 'enemy_damage_by_health': 'Health-based enemy damage and Nanotech progression', 'enemy_damage_multiplier': 'Enemy damage multiplier (including boss attacks)', 'enemy_perception_multiplier': 'Scales enemy detection and engagement distances. Does not change projectile physics.',  'nanotech_xp_per_upgrade': 'Constant hidden XP threshold. Each completion adds one usable maximum HP; excess XP carries over. Max-grade weapons still contribute.', 'nanotech_max_health': 'Limits XP-earned extra HP only (0-64). Total HP = 4 + Premium (1) + Ultra (3) + XP bonus. Progress is stored per save.', 'nanotech_upgrade_sound': 'Play the HelpDesk notification sound for Max Nanotech increased! Independent of weapon upgrade sound.', 'nanotech_random_healing': 'Requires damage tiers. Each field pickup heals 1-4 HP: original, indigo, violet, red. Never overheals or revives Ratchet.', })
+INTEGER.update({"extra_enemies_per_level","nanotech_progression_max_health"})
+LABELS.update({'enemy_health_multiplier': 'Enemy health multiplier', 'enemy_health_include_bosses': 'Apply health multiplier to bosses', 'extra_enemies_per_level': 'Extra enemies per level (total count, selected categories only)', 'extra_enemy_prefer_small': 'Duplicate small enemies (up to 100 base HP)', 'extra_enemy_prefer_medium': 'Duplicate medium enemies (over 100, up to 200 base HP)', 'extra_enemy_prefer_large': 'Duplicate large enemies (over 200 base HP)', 'enemy_damage_by_health': 'Health-based enemy damage and Nanotech progression', 'enemy_damage_multiplier': 'Enemy damage multiplier (including boss attacks)', 'enemy_perception_multiplier': 'Enemy perception multiplier',  'nanotech_xp_per_upgrade': 'XP per Nanotech upgrade', 'nanotech_progression_max_health': 'Maximum extra Nanotech from XP', 'nanotech_upgrade_sound': 'Nanotech upgrade notification sound', 'nanotech_random_healing': 'Random Nanotech healing (1-4)', })
+HELP.update({'enemy_health_multiplier': 'Scales effective enemy HP and actual-loss XP together. Native AI phase thresholds are preserved.', 'enemy_health_include_bosses': 'Includes the four boss classes in health scaling.', 'extra_enemies_per_level': 'Extra enemies per level (total count, selected categories only)', 'extra_enemy_prefer_small': 'Duplicate small enemies (up to 100 base HP)', 'extra_enemy_prefer_medium': 'Duplicate medium enemies (over 100, up to 200 base HP)', 'extra_enemy_prefer_large': 'Duplicate large enemies (over 200 base HP)', 'enemy_damage_by_health': 'Health-based enemy damage and Nanotech progression', 'enemy_damage_multiplier': 'Enemy damage multiplier (including boss attacks)', 'enemy_perception_multiplier': 'Scales enemy detection and engagement distances. Does not change projectile physics.',  'nanotech_xp_per_upgrade': 'Constant hidden XP threshold. Each completion adds one usable maximum HP; excess XP carries over. Max-grade weapons still contribute.', 'nanotech_progression_max_health': 'Limits XP-earned extra HP only (0-300; total usable HP never exceeds 300). Total HP = 4 + Premium (1) + Ultra (3) + XP bonus. Progress is stored per save.', 'nanotech_upgrade_sound': 'Play the HelpDesk notification sound for Max Nanotech increased! Independent of weapon upgrade sound.', 'nanotech_random_healing': 'Requires damage tiers. Each field pickup heals 1-4 HP: original, indigo, violet, red. Never overheals or revives Ratchet.', })
 
 
 # BEGIN WEAPON EVOLUTION V64 LAVA
@@ -478,7 +478,7 @@ _WORLD_ORDER = (
     'enemy_projectile_range_multiplier','enemy_projectile_speed_multiplier',
     'enemy_perception_multiplier','enemy_chase_range_multiplier','extra_enemies_per_level',
     'extra_enemy_prefer_small','extra_enemy_prefer_medium','extra_enemy_prefer_large',
-    'nanotech_xp_per_upgrade','nanotech_max_health','nanotech_upgrade_sound','nanotech_random_healing')
+    'nanotech_xp_per_upgrade','nanotech_progression_max_health','nanotech_upgrade_sound','nanotech_random_healing')
 WORLD_DEFAULTS = {key:WORLD_DEFAULTS[key] for key in _WORLD_ORDER}
 WORLD_RANGES.update({'enemy_speed_multiplier':(0.1,4),
     'enemy_projectile_speed_multiplier':(0.1,4),'enemy_projectile_range_multiplier':(0.1,10)})
@@ -697,3 +697,6 @@ HELP.update({'lava_damage_bonus_percent':
     'Replaces standard mine_lifetime_seconds only for a mine launched in flame mode, including R1 mode 1. Counts from release, including flight. Captured at launch: changing mode or grade does not change deployed mines. Missing values inherit the standard setting.',
     'max_active_mines':'Standard deployed-mine limit. Flame mode uses its experimental maximum instead. Launching another retires excess oldest mines without a damaging blast.',
     'mine_lifetime_seconds':'Standard time from release until automatic retirement, including flight. Flame mode uses its experimental lifetime instead. Existing mines retain their launch-time duration.'})
+
+LABELS['nanotech_progression_max_health']='Maximum Nanotech before Premium/Ultra'
+HELP['nanotech_progression_max_health']='Includes the 4 starting HP and XP upgrades (4-206). Premium adds 1 HP and Ultra adds 3 HP, independently of this limit. At the maximum: 206 + 1 + 3 = 210 total HP. The 30 HUD orbs change color in layers. Lowering the cap preserves earned progress.'

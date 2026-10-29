@@ -1,3 +1,10 @@
+# Current local v116 update
+
+For ReRAC 0.3.8-alpha, gameplay 0.1.6.116, capability 92 and launcher 0.29.5,
+see [compact Nanotech](NANOTECH_V116.md) and [verification](VERIFICATION.md).
+Normal new games retain four starting HP. The explicit Veldin II test starts at
+210/210. This is a local test kit; no publication operations occur.
+
 # Current implementation map
 
 Main is an unreleased ReRAC 0.3.7-alpha development snapshot, gameplay 0.1.6.110 and launcher 0.29.3. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.

@@ -1,10 +1,10 @@
 {
-  "public_mod_version": "0.4",
-  "status": "development; not released",
-  "runtime_base": "0.3.7-alpha",
-  "patch": "0.1.6.110",
-  "config_capability": 90,
-  "launcher": "0.29.3",
+  "public_mod_version": "0.4.1",
+  "status": "draft candidate; not released",
+  "runtime_base": "0.3.8-alpha",
+  "patch": "0.1.6.116",
+  "config_capability": 92,
+  "launcher": "0.29.5",
   "release_created": false,
-  "notes": "docs/mod/RUNTIME_037.md"
+  "notes": "docs/releases/v0.4.1.md"
 }

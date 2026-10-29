@@ -1,6 +1,9 @@
-# ReRAC Weapon Evolution
+# ReRAC Weapon Evolution 0.4.1
 
-Weapon Evolution **0.4 draft candidate**: gameplay **0.1.6.110**, configuration capability **90**, launcher **0.29.3**, based on **ReRAC 0.3.7-alpha**. The 0.4 Windows/source package remains an unpublished draft. The existing public 0.3 release and tag are unchanged. See [complete draft notes](docs/releases/v0.4-rerac-0.3.7-alpha.md) and [runtime integration](docs/mod/RUNTIME_037.md).
+Independent mod for **ReRAC 0.3.8-alpha**. Gameplay **0.1.6.116**, configuration
+capability **92**, standalone launcher **0.29.5**. This main-branch candidate is
+prepared as an **unpublished 0.4.1 draft**, with matching Windows and source ZIPs.
+[Release notes](docs/releases/v0.4.1.md) · [Nanotech behavior and compatibility](docs/mod/NANOTECH_V116.md).
 
 **Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to their games, characters, trademarks or game assets, and is not affiliated with their rights holders. Upstream licenses and contributor credits remain applicable. See [credits](docs/mod/CREDITS.md) and [LICENSE](LICENSE).
 
@@ -38,7 +41,7 @@ Authoring requires the Rust MSVC toolchain, Visual Studio C++ x64 tools and a Wi
 02_OPEN_LAUNCHER.bat
 ```
 
-The first command tests rc-game, builds this checkout's editable ReRAC 0.3.7-alpha runtime and stages it in `launcher/runtime/`. The editor bootstraps a missing personal `launcher/weapons.ini` from the tracked example; existing personal values and presets remain local. Select extracted game data containing `toc.bin` and `extract-info.json`. Existing ReRAC data under `%LOCALAPPDATA%\rerac\games\rac1\data` can be detected automatically.
+The first command tests rc-game, builds this checkout's editable ReRAC 0.3.8-alpha runtime and stages it in `launcher/runtime/`. The editor bootstraps a missing personal `launcher/weapons.ini` from the tracked example; existing personal values and presets remain local. Select extracted game data containing `toc.bin` and `extract-info.json`. Existing ReRAC data under `%LOCALAPPDATA%\rerac\games\rac1\data` can be detected automatically.
 
 To build a local standalone player ZIP after compiling the game:
 
@@ -52,7 +55,7 @@ The tracked custom `launcher/launcher.ico` is included in the EXE build fingerpr
 
 ## Configuration and saves
 
-`launcher/weapons.default.ini` and `launcher/weapons.example.ini` are identical public defaults. The approved default is the supplied GBtW profile; `mod/default-profile.json` records its source and all-value fingerprint. Personal `weapons.ini`, presets, runtime, logs and launcher settings are ignored by Git. With no preset selected the launcher uses the current `weapons.ini`; named presets are optional and an explicitly selected preset is remembered. The internal real-HP marker is injected only into private runtime profiles.
+`launcher/weapons.default.ini` and `launcher/weapons.example.ini` are identical public defaults. The approved default is the root `weapons.ini` from the author-supplied player ZIP; `mod/default-profile.json` records its source and all-value fingerprint. Personal `weapons.ini`, presets, runtime, logs and launcher settings are ignored by Git. With no preset selected the launcher uses the current `weapons.ini`; named presets are optional and an explicitly selected preset is remembered. The internal real-HP marker is injected only into private runtime profiles.
 
 The optional embedded-profile feature uses the same reviewed default, with its internal session marker. Normal builds remain editable with `--no-default-features`.
 
@@ -74,4 +77,4 @@ See [verification](docs/mod/VERIFICATION.md) for completed checks and remaining 
 
 ## Source provenance
 
-The supplied source archives already contain earlier mod work. The original archive did not identify an official commit; the 0.3.6→0.3.7 integration is pinned to exact official release commits in `mod/upstream_037.json`. [Provenance](mod/provenance.json) records the supplied baseline and preserves historical export information. The historical port README is retained as [README.ReRAC.md](README.ReRAC.md); the current complete workspace uses ReRAC 0.3.7-alpha, including its separate rc-game2 module.
+The supplied source archives already contain earlier mod work. The original archive did not identify an official commit; the 0.3.6→0.3.7 integration is pinned to exact official release commits in `mod/upstream_037.json`. [Provenance](mod/provenance.json) records the supplied baseline and preserves historical export information. The historical port README is retained as [README.ReRAC.md](README.ReRAC.md); the current complete workspace uses ReRAC 0.3.8-alpha, including its separate rc-game2 module.

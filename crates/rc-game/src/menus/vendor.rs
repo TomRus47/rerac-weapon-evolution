@@ -1227,5 +1227,8 @@ mod tests;
 /// World acquisitions use the same native demo table as a purchased weapon.
 /// A missing/negative entry means the native weapon has no acquisition scene.
 pub fn acquisition_demo_scene(tables:&VendorTables,item:usize)->Option<i32> {
+    // The native array contains zero/default records for non-weapons. Zero is
+    // a real Bomb Glove demo, not a generic gadget acquisition animation.
+    if !crate::weapon_evo::golden::ITEMS.contains(&item) {return None;}
     tables.layout.as_ref()?.demo.get(item).copied().filter(|&scene|scene>=0)
 }

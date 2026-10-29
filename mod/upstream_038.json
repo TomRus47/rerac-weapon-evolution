@@ -1,0 +1,437 @@
+{
+  "runtime_base": "0.3.8-alpha",
+  "patch": "0.1.6.112",
+  "upstream_037_commit": "f2dfbb84d7025d475ce8e39f9ab4ae345ab35133",
+  "upstream_038_commit": "46c1948b604445cbbbcbdfaee4cb15bb7cc899ac",
+  "source": "Author-supplied v111 source inventory; 1378 files verified",
+  "source_inventory_sha256": "a69552e2918bc69fca25cb19426b8261e0cf50294ed98138d84e2edeb169a191",
+  "upstream_paths": 53,
+  "omitted_paths": [],
+  "merge_notes": "docs/mod/RUNTIME_038.md",
+  "files": [
+    {
+      "path": "CHANGELOG.md",
+      "upstream_037_blob": "53af9b4951d41bb93f6b6a8ca6141f352cbbca21",
+      "upstream_038_blob": "1293b5d4e308ffd11068816a932696c3b1e069a0",
+      "mod_v111_sha256": "248eb1805c396f73e976a0d35b1f44848dc3d13f3b62a767cb790946e7be4a3e",
+      "merged_sha256": "0245729d77ec6ad07a4bde2636922c75021443ca3a052aa31bb03479d7feeb94",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "Cargo.lock",
+      "upstream_037_blob": "25fff6a8e50c2baa44323c0d35d879bde9ee573c",
+      "upstream_038_blob": "6c4a328ac7f642bde8c237c9a1e462ced38687cd",
+      "mod_v111_sha256": "734a8fe296a7693eb22b96d38d9d432d13e04e65dd62b0c8da672de0d18a4aae",
+      "merged_sha256": "30f5f7fc2235066d7fbcc5ae1359b5ecb277eb23b39261044df5addc513cc546",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "Cargo.toml",
+      "upstream_037_blob": "bfddafbfe4388d87aca7df9f3dc25dbc64c3b8f5",
+      "upstream_038_blob": "b2b881dc7e480610205a048d8235b89deb1773f2",
+      "mod_v111_sha256": "7dd84f3e3e482b13981ad57ccb38a01b9dc28bd38c39b8b384d651cb2ce9569d",
+      "merged_sha256": "fc124f2df8e7bde4d586e10af8700844ed4c4542acb5dc8a2dbef7b1d0116a44",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/display.rs",
+      "upstream_037_blob": "b478f71e07922a1b3a23a08ed966a7a43d301ddd",
+      "upstream_038_blob": "2216932f7e539f60000b21710f7355ee130c0e68",
+      "mod_v111_sha256": "6c3d7b8608560018e1b10236165b4270ce42f23a2cb6d84033b68608e90c2149",
+      "merged_sha256": "74606b6f22a047b0bc68983682fd29ddf27cd8e025a19948a7bbfdcb5827894b",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/display_blend.rs",
+      "upstream_037_blob": "16aa283f7f45c338f30357a8c03b7d2329a9fe4d",
+      "upstream_038_blob": "e3cd5029bbadc990c64afcbf86577d6bbf6e2fe1",
+      "mod_v111_sha256": "9ec51f10b28d30ec908c6d6c2bb018fe97a6bc1bcaf9d76a2a3582e71342f6d0",
+      "merged_sha256": "d580ebe69a344fe5c344c55a4eb9d568e17f533a39fed5c463572c94e901e882",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/flight_render.rs",
+      "upstream_037_blob": "591a6edac4ec318b8bc88f5c9e1c2671e58678b3",
+      "upstream_038_blob": "69d3345c6e112585d4ef215a657e456d6aa2bfde",
+      "mod_v111_sha256": "1c779ee16598d137a869716b0cb4d57b638eabccd9f3ea27580fa00adfef1d75",
+      "merged_sha256": "dbb26bc080456cd53c4298b8b13f24ed1060fd695cdb77fb83dd3e43c99ce645",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/gameplay.rs",
+      "upstream_037_blob": "96fc8e28213971a3d5e5af17185af7164453a9e6",
+      "upstream_038_blob": "b94b1212f4c2dcd635133ccd6fe3b5e95f9a2792",
+      "mod_v111_sha256": "2559815ac170af64937b334f98c49920c5d0eeef66f925cf2f58c2e9252af985",
+      "merged_sha256": "71f122f17eff8d55c91296b07f838af65ad33c5227ab81a5a81a090b3951e61c",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/hud_render.rs",
+      "upstream_037_blob": "e053c832750eb87d9b6fcd150fe81daf45917784",
+      "upstream_038_blob": "6fa7bcfd0121cb918251b5d187465d2ad3071f2f",
+      "mod_v111_sha256": "f867a586ba24bbd9d74c0e6fe962edbaabf72ab84999c8dfa89b70f2965d40a0",
+      "merged_sha256": "87dc07fb8fea43a3458217ceebfe48d94331dd7a99ba0f0c16839ebd1e273879",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/input_map.rs",
+      "upstream_037_blob": "c29a328882ef5d6dbbacfa9efaf916dedaaf85ed",
+      "upstream_038_blob": "36d39f4c89faeec11e1fbd492732475f9e38923b",
+      "mod_v111_sha256": "fe5b22d30c18e2c36f7595d47c2e7810293ea4bdc500f35bc1fc49ee8cbc90ff",
+      "merged_sha256": "913ee5f2d466c3cca1d95fa1ae4a74cc9eed7deba18a0465e8ada55a91077403",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/level_load.rs",
+      "upstream_037_blob": "fe70d95949b0f7de432cf3ce44390d9ac8a0c41d",
+      "upstream_038_blob": "4c99d51644e5247440ea22ddb803b44893de3ec5",
+      "mod_v111_sha256": "1b0eff224286da1cdcd4c608ae7ad7514c555c49f69367041dbd759bee850114",
+      "merged_sha256": "be818dcac2c5faed9e3c5bf99e57fe0e9de104fb4fa90f1ed0049b99ed026f84",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/level_switch.rs",
+      "upstream_037_blob": "68db42b514ef5a9c9f792b145890c10f224913c1",
+      "upstream_038_blob": "b794cf3962275b2a607af5040abce7e40f7e521c",
+      "mod_v111_sha256": "691fd2afe5ce3fd9dc635af1ea4f9e567a5f2a05ce4bbce0db8db5f815c58084",
+      "merged_sha256": "3b1d678cd0681077da37fec5e3dd9f11ac056c8e0458c0af876a825d4f4457c5",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/main.rs",
+      "upstream_037_blob": "d730fc32dabd265c25b99957f8e657df0dc70637",
+      "upstream_038_blob": "46249e4b4be8cc5adb978642bd65e4da6da80c42",
+      "mod_v111_sha256": "ee51fe2171a18da3ee816d82a7e8ac2229c579de90240f8cbbe7830985f7b46a",
+      "merged_sha256": "aa551004b8fe22986f9443958b3651e6180ee0c825e30915df03c0a97312ad21",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/menu_models.rs",
+      "upstream_037_blob": "238dd45bc88d746c792c207b95685ad10fd8e408",
+      "upstream_038_blob": "8d4a704362d5edbebd950c9adc21b528d9c2be4a",
+      "mod_v111_sha256": "f8339d0329177d8c4c37029cbc29a7642a1ed0f9da33ff30b31386437f3487c6",
+      "merged_sha256": "52627cf4a882fca7ea9f9e792152695becaebfe0f57940a56338dfb52df15c67",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/menu_render.rs",
+      "upstream_037_blob": "0bdab3aa82197f47aa1426061a48dc43f2a3d89a",
+      "upstream_038_blob": "f0d9913c0e05bd921e0492eb9213311e0f9fafa5",
+      "mod_v111_sha256": "c2fc25e3e604f54b0bb38ddab4e25fc54ce2cfa40214ee07d0690ff8bd19d691",
+      "merged_sha256": "916a47ff8a04d04eb63cc3237bac80f34f78da336c85e8f329411d70ea0880e8",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/moby_attach.rs",
+      "upstream_037_blob": "87a630c8fbc3ccfa336041906b9d3e8c52caf832",
+      "upstream_038_blob": "4f8629598e4e7e84b6d41e44d7cd234d3b85149d",
+      "mod_v111_sha256": "8e98ae6875c68591a5a1afe7065ce601f3b0721a48711de61acae69c662718b8",
+      "merged_sha256": "77bb08eef2257409496aed514803e0c75d23afc5bb1a032ab1afc128776c68a8",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/moby_render.rs",
+      "upstream_037_blob": "9eec99ee47b1626731e948b0804aaf6177836a0a",
+      "upstream_038_blob": "54af9ceee43c0543d645aacbc268102e716c7d29",
+      "mod_v111_sha256": "add131c5da82b686611f610e3b2a6c95c23f5070112bdc8907179236aeb47099",
+      "merged_sha256": "8ea25582f98a1d0ab97db6cc9d5c8d981f03d1515c958bf0159383572a8ee221",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/moby_spawn.rs",
+      "upstream_037_blob": "949d2f33bde1731148cfc99ede51b0ae7fa0b277",
+      "upstream_038_blob": "4435aa54c1755b0deee4e56ee8cd488407a6e425",
+      "mod_v111_sha256": "219369ba5177c4d39424c8ee7131122d8663b80f49607aab0338ffba3ad7bf07",
+      "merged_sha256": "c68ab86e5b2d0d286fada2536acde581054276a19b4a637c22a9ef3abcdb488d",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/particle_render.rs",
+      "upstream_037_blob": "f612817ca03f68b25f2f78f6b87dde33ccfd2100",
+      "upstream_038_blob": "a211ea843a015901fd0445c26565bd7016e217e9",
+      "mod_v111_sha256": "db48fa07e7131db991679b23e9d5ed9668fddc786664eb01e0dcb6d825f0a426",
+      "merged_sha256": "ab1b050453c2860887648e9ae2596e21d51c1bab5c0df3f709daf698bf9066f8",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/play_camera.rs",
+      "upstream_037_blob": "f48cb965ecefb0c03d040a901c1007cb539c7bb7",
+      "upstream_038_blob": "912cef682f5a4758b116ad24b88c0ba526ebe966",
+      "mod_v111_sha256": "a7c6310fa3d2c7ab6ab7085cd24e274796571bcfdee84f93938ac913dc521eb1",
+      "merged_sha256": "243d69ff583d7baabb03f9efb576964c5ca9c166a71f678d403d7ed4cf4c65ee",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/saves.rs",
+      "upstream_037_blob": "bc19737fb1a2ced56dd58c37967b653690f4e284",
+      "upstream_038_blob": "be6c62eaeb9c9f7fd6ffdcf44bf59025c4890bb7",
+      "mod_v111_sha256": "b39b75e71e90d17f3a2d2bd12883b94128accf419f01df434345caa757adff24",
+      "merged_sha256": "b517e3c6c4bfa39017d6170321330301ebfb8e75949cc7e38b0579d5db77bb9b",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/scene_render.rs",
+      "upstream_037_blob": "b1a5e2ff22de231329398427dcb463851989dd7a",
+      "upstream_038_blob": "6311fb81ca19bb3252e47e9d74f52cd80d39f61d",
+      "mod_v111_sha256": "0b295c7ee1bbdf6d57b8d1bad64350dc76ece3ce3c0c531363af59e78bb654b5",
+      "merged_sha256": "28deb8142710f32ac14df1c580eaf090aa8044fa363b2a117b72e0e68e181e5e",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/title_world.rs",
+      "upstream_037_blob": "f9b96632b3c7eab7ce044b381724c9d63698bd9b",
+      "upstream_038_blob": "60e61a1cfe65d5297dcbeb8b0b42d4931be47a69",
+      "mod_v111_sha256": "f1ff934c5da12ae98904c113cfbabd6844bd190307e8a01366a50cc3a7df6f33",
+      "merged_sha256": "f5ebf70156a6c2d962c2fc7157051b4ff9d792f10c3653753d8b7b727baefcf4",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-engine/src/travel_render.rs",
+      "upstream_037_blob": "20f86dae120a583f015cf41eb69848d9466a359c",
+      "upstream_038_blob": "5d3a6645f6a703e560b182be9a52cd26c94ca3d5",
+      "mod_v111_sha256": "630ebc37c5d187c1644d16c6bf7b4e4aecfb354cba7e9a1600a7d69b64913adc",
+      "merged_sha256": "9eeeffd02edff6df636380dddd0aead96ab9df53a59c4f40fd6bd4815d3bc8fe",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-engine/src/water_render.rs",
+      "upstream_037_blob": "73bb409e852fe41f94b9fa72fd3cae84a2beb5d9",
+      "upstream_038_blob": "f3de7d978750bcade4ed770d68fd867e8aa7aee6",
+      "mod_v111_sha256": "86d1c7b86ddfce929c633d14f3d9545aeb764c7063ba5726501a9fb418495f60",
+      "merged_sha256": "f89869ab282690a5ca005bdbdebde4aeb6fa1998be35e36390c5e9b4e9d8824c",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-formats/src/moby_light.rs",
+      "upstream_037_blob": "eefda6402a3c7c24bcac537112ad006da4086130",
+      "upstream_038_blob": "5cb4a12c487d4acb4a489e6d38765b0907d92bac",
+      "mod_v111_sha256": "1e9176e181ac06153c9228b3281d6ebe756b8f1a9932d2fdfda958694b4b03db",
+      "merged_sha256": "4c62c77d2ff8d3f25da76e686d5f09faace8118ee18f127386fc18ea5230468d",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/hero/comet.rs",
+      "upstream_037_blob": "ad40ede6f1ad64e22c27ee95795872aa5d1d18fe",
+      "upstream_038_blob": "1dc85077fb4a828cef580fe00b5c70ee890f88b8",
+      "mod_v111_sha256": "cc0d0d474b50d256d43b3df6cbbad60ce4729731e3d42cc7fde6800c0a83c429",
+      "merged_sha256": "c791cc1ea3d00a60d9c72473f2b962d4d3602adf7e17d348697f95ce79fb60df",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/hero/gloves.rs",
+      "upstream_037_blob": "748cbc96e4b39d64cabef3f000cce15fb9667507",
+      "upstream_038_blob": "2bc4f3e4b6f87755341fbd7211fd2de55e47294b",
+      "mod_v111_sha256": "e6635b61001e857cf42deb9a1ce87303ad21090607aca24e65a700f137e1c30c",
+      "merged_sha256": "ce3094a9a849c862d8d5b87b6b6526860af189925094503893813714a594aa2e",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/hud.rs",
+      "upstream_037_blob": "e4aa527c541849e2035b0028d00eca112752039a",
+      "upstream_038_blob": "72577944db9f2e15fc29dd4a0bfe0cf0614334bf",
+      "mod_v111_sha256": "e59d5977b5669a5cf3a87b500b59d81cd80e3abc63e34d38b31b3d4b38c7dcb7",
+      "merged_sha256": "4a91a062a0e9ec176cc793b4b3137e9e2770153696471c2e83055376d9670e11",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/memcard.rs",
+      "upstream_037_blob": "7356e031962e50e0c6437c530e255740b0ef234b",
+      "upstream_038_blob": "69894f08fa181576920ec790dccbbf933c1d7d09",
+      "mod_v111_sha256": "b4010dce4de1617661fb928d74b03cd57f65ab8a286d7a784e5bebdfe23893ad",
+      "merged_sha256": "dcc3b5b0aa436a31bee30e9ad20e0a36c417f48e10a757ca234c1c436f757bee",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/menus/pause/port.rs",
+      "upstream_037_blob": "e22d307d5e97f6fbefbe33206316e29a22d7b6ba",
+      "upstream_038_blob": "13e581c5ff8e551e8836b3ee7c1f5931cd75f613",
+      "mod_v111_sha256": "0cae5ad4cd3d0bcc0af1a2f8d61c17a80caaac245dc162f971d01c296e4dd1f9",
+      "merged_sha256": "5fada24a52f194fc83b7a2ed9316415cd6a4d95f4b1ec1e1d3dc811a5d8081af",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/bomb.rs",
+      "upstream_037_blob": "edd72600316b6b13d4915cad95675fe9f7853bdf",
+      "upstream_038_blob": "c8cc8815e5902a8c99e54155acdab44151741126",
+      "mod_v111_sha256": "b46ddcdc2e56f11f82ba7ea81a9619f268f9486b6c811854eaeca73dd8f01dc1",
+      "merged_sha256": "dca896185aa463dc7c40b8461af309c56830e1182f2a90777abcbf8ea37c7f8b",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/chicken.rs",
+      "upstream_037_blob": "a5d76fdb1cea7ffe735f866d2d7778e75460e01c",
+      "upstream_038_blob": "597225ea91e93c6115c1356cce35395123b9bb8a",
+      "mod_v111_sha256": "cb9ab10f2bd21a00ef3a5e00ba3d1535a75becd7dec64e79b84225803efe2757",
+      "merged_sha256": "df875f7d40c996796b6d26565589b0ac78a9319984ec4bbad0e34e61e7a59476",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/decoy.rs",
+      "upstream_037_blob": "e067b1ae9c87bb89185c23489dde1997df52b821",
+      "upstream_038_blob": "0102ac4beaa2b20a759df7e1d20c577a0ff09e07",
+      "mod_v111_sha256": "ecae620ed13d423ed0567b43c8e0d54e92caca03934cc1472049c95db95cb17c",
+      "merged_sha256": "50e086c2062baf46ff7ab35358e8f6f78bb674ff9bed5c94aba292ab184d509e",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/doom_bot.rs",
+      "upstream_037_blob": "a6409c91ed9ec7319269c2b465ff1d5ff49d0c62",
+      "upstream_038_blob": "562fee86d4d4bdfec69d1c94e5cf459261cfc2fd",
+      "mod_v111_sha256": "042e333676f8365a5404c070d000c97dafd0d1251d88105f1e499d4c2c53629e",
+      "merged_sha256": "1ba26a903d5584d7c0afec300316cfa173a2b844b9e3da9f13f35a5331979bd7",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/doom_canister.rs",
+      "upstream_037_blob": "7100b6a9506b9d8e6a92f0fb395c2a14619cbca9",
+      "upstream_038_blob": "4a45c5ffd9288ef5d713d1a1d87e4e5e6cf08bfd",
+      "mod_v111_sha256": "407307cb7267c2eff6a2fe0362aa87bc1fcfb984b9d7f3e966f3ed547268b143",
+      "merged_sha256": "169bd510a27a84ee2e312bf20c42e3602a5dadd2da48941326a4fe2e35ec073d",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/mine.rs",
+      "upstream_037_blob": "b6ae064e656bbefdd2a2ac6f55a94ec51a74ae67",
+      "upstream_038_blob": "587829042b6dfde550128cdf98008a6428c1b730",
+      "mod_v111_sha256": "b93d8c46e84da1951d8152ffa0054f0d1205e76cbb4cdf8b5ac4dd098a656b61",
+      "merged_sha256": "735fe2001906963a7ee4e0e30e3977e02b926b3a308dbc9dee6261e80b83eb3e",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/targeting.rs",
+      "upstream_037_blob": "557445c8481f3d3eadbca04ffc219a6bb7889406",
+      "upstream_038_blob": "ae6dbfbecc493bdecd29095cba46ab22e1ca993a",
+      "mod_v111_sha256": "9ee2a5e42873020bf9dd042dc86b0163282e7692c22eb2d1e4a03123032bbc75",
+      "merged_sha256": "7df58259d490f727d16c7cbd5634b9516f521441d47694b46015ec2adbfd3ecb",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "crates/rc-game/src/travel/mod.rs",
+      "upstream_037_blob": "3cff3241d51ac653956ba53168a1820fa319d114",
+      "upstream_038_blob": "4e9ff0d2199859b13a4393def8e13bf3a2969bba",
+      "mod_v111_sha256": "7e2052fd59db606893a1fac87b072c8184ae2fff79c9a837d5aa14366d16f5af",
+      "merged_sha256": "04f77c473ef018e4a1410eb4385baa5eb2243c1744171c137486ee859834c1e5",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/tests/classes/creature_classes.rs",
+      "upstream_037_blob": "dec66133fc1facafb1a4760f72753d4ba24a9719",
+      "upstream_038_blob": "d5c0052c4f3b8806242e28a40a04ec41ba7c867e",
+      "mod_v111_sha256": "56fe4d256c59cdd6368d8c5b60919f1c22cc113cea3ff8f9bb849c58426cd8cf",
+      "merged_sha256": "055cf7c889f71fca96061a95efd7ce8a82c18ce0bffffa780b21858533171cf8",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/tests/weapons/hero_doom.rs",
+      "upstream_037_blob": "f962faa5621000e43c57995f4718ef7ff644de06",
+      "upstream_038_blob": "20d082aeddeb174a5602d3d53a3204888211982d",
+      "mod_v111_sha256": "eaa1ab17351166456e01b82967b95e31670e7a491e5fd88c0d0f3ef1040e041f",
+      "merged_sha256": "c209ae33cc29d4b6bddc2072503086d06e03f8d4d7e7746a100453816356bdb4",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/tests/weapons/hero_gloves.rs",
+      "upstream_037_blob": "71440780eec4d73c72cf4835414d82658cbb9a99",
+      "upstream_038_blob": "ee587792046843267c54eb151461a08661b496aa",
+      "mod_v111_sha256": "595eb25cd0e55c9fd785472ac85527b9a55aa6f41508e89f6e0c68375511d4e7",
+      "merged_sha256": "5bf0f3cf6c65e87743e6fedf0add621706d17c1cd5392c3f9c80c97b79847375",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/tests/world/all_levels_smoke.rs",
+      "upstream_037_blob": "bc277b5722b8d9ff7a1f95069615751b2943c3ed",
+      "upstream_038_blob": "5a775f53973460b85f63da01bbaa4c52ad35c1d5",
+      "mod_v111_sha256": "a28fadbf5484ebd05f3eedb930fbcd7406444c2e14421dc98a8617db1eeb4633",
+      "merged_sha256": "ab5ff13395a261e96815c37f4effa7658c7b6f728aa99cc08b31b57656059634",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/tests/world/level_ports.rs",
+      "upstream_037_blob": "b576f7b9f5ef5c13f48994d30b28c58ad56e738e",
+      "upstream_038_blob": "fa9e23e5540700c5c63b4eab9790090a8f14c2bd",
+      "mod_v111_sha256": "ef3a74a2a03a8d36e5a342893992c818ef1a933fc1db40a0d7d5e89b35237097",
+      "merged_sha256": "dddefbe35043c79cc48a5b7574cc8e1d1458cfe1c86796a4aa8e33d05dbca13c",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "crates/rc-game/tests/world/moby_collision_novalis.rs",
+      "upstream_037_blob": "83357b811e6c2cb0ad317d576bc8dab8d451353f",
+      "upstream_038_blob": "072e73efb2f5146cd48af107fc000a387fa61edb",
+      "mod_v111_sha256": "c204a5ddfe2d2407c78e72bad7a609cd1a4b786bb20574e01892484ce82fbafd",
+      "merged_sha256": "898435ed3ec6edb0133a58de345887d6dedb232a8871107ecb85ca5b9098b511",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "docs/plan/forum_triage.md",
+      "upstream_037_blob": "2142bb1e4ac239e3b684b00ad4e1bb41a11ca9a5",
+      "upstream_038_blob": "80c65957178933765ae5063869447f6f850afe54",
+      "mod_v111_sha256": "d62ec8052531ac8ad79aeaf34f35621e9358b680edb78c536d3c85d0f135bb30",
+      "merged_sha256": "bbfe6d92c66801a16d7605af644d276b6442dd2c2a703800fd6bae315261c7a9",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "docs/plan/gaps.md",
+      "upstream_037_blob": "d8ba3aabd2331f18bf019d365271e7ffafb4ea5f",
+      "upstream_038_blob": "708ab844c0d52cfcd25ef95ab62dd6adbf346cd4",
+      "mod_v111_sha256": "ffda85baa63489f1a77777a5d565c1bb1bb71a8aa11cca052860d53b6fbeb3cb",
+      "merged_sha256": "3f0831436c6f45764685ee9ad35368c0ba80b1690066a1690fa3db3d97db9468",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "docs/plan/hardware_fidelity_layers.md",
+      "upstream_037_blob": "74076ba8bf8cce56279fad5a0cf968921f04a216",
+      "upstream_038_blob": "d62c20ce08bb346ce048e0b6729089f1c769baaf",
+      "mod_v111_sha256": "2baf2c7045d2e1b7db0c5b3d32e9ef5adc7cc8c2a63cb19fdd942d2592c095c1",
+      "merged_sha256": "40745f8d81586673b7b437eee04e7fbc30ab5fef8d1a995fbfc50cfb7a5335c6",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "docs/plan/hero_gameplay.md",
+      "upstream_037_blob": "3e909dc54501245b68dfd5db7d84375d7313f014",
+      "upstream_038_blob": "b632494a477b82e454f21cc44d521f8e02cf5d8a",
+      "mod_v111_sha256": "30cdd46e4873df8024c9fa6db63a19a59ee13e7d5ab4cbe9703174b01637cfb7",
+      "merged_sha256": "3168aeaccfdb55411cd12b69cc54fe9ef66cc84fbf5a72bbfefba0dff6935e5a",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "docs/plan/menus.md",
+      "upstream_037_blob": "a0bced7edf5457c41fc04d07297614e85fd49aa5",
+      "upstream_038_blob": "94b5e8630c26b83b8b2934f8951a4872df68fa11",
+      "mod_v111_sha256": "ad2833e06ae6b92353ed5ca1435b457f559edf0e88cec46ddb805ad3d832e1a2",
+      "merged_sha256": "256181cbede5d3180ab1a9ee0a75d069cec01e2d2265f7e02a9f58170aa0fb12",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "docs/plan/moby_skinning_lighting.md",
+      "upstream_037_blob": "f197a3a0a6631cd35d3b64d95af799a918fd9874",
+      "upstream_038_blob": "a9c27242ce69b89ac4fe32cd8503f71c32ea4193",
+      "mod_v111_sha256": "0b253655efa87401eece0b2606cf4be140b3a611f0dee740cde265f66c0c41a8",
+      "merged_sha256": "af7412e88d8f3347a33fde3615244fd7d36d9b7f98ba976fc21e98803c9d18d9",
+      "integration": "upstream-identical"
+    },
+    {
+      "path": "docs/plan/progression.md",
+      "upstream_037_blob": "16d27c703247299bfa347a79aa7fa0e8ada7d0b0",
+      "upstream_038_blob": "1b06abd0cc5e85331dbff96a6b80d7f61d4444bf",
+      "mod_v111_sha256": "600ec62c70a092a4b18272a5c6c93a833376a92daf666e6f5f704178f53077d9",
+      "merged_sha256": "637b42784b233c3b62c8c0a555deeafa8cd60f523f62777e4604104cfe936831",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "docs/workflows/dev-switches.md",
+      "upstream_037_blob": "594f8e50dcbf5cb759d16bb724a7c17a25677be5",
+      "upstream_038_blob": "7e015df8bc7bdcbfa03081de5a8f222c18953c99",
+      "mod_v111_sha256": "66e1368dae881e55c107cc46605211a1c8ad994559cda15a29dcedd33cde65c1",
+      "merged_sha256": "b85bb8fb98323de8feb754f1f0e1fab40d9d9f3386ccba3f8edef5c643057da4",
+      "integration": "merged-with-weapon-evolution"
+    },
+    {
+      "path": "docs/workflows/testing.md",
+      "upstream_037_blob": "a9fa4f9574aaa390a77da8ba440d488104aaaa3a",
+      "upstream_038_blob": "d01a4c070395e398bc4c13136a6755e2827f25fe",
+      "mod_v111_sha256": "ea47ff7acefdfbf96c69467923fbf715854a53821a3b52a7904639fcb583b847",
+      "merged_sha256": "d5607f75247ea445482156f41f7dae252a68e29bf9108ec60ded3756e1bf6471",
+      "integration": "upstream-identical"
+    }
+  ]
+}

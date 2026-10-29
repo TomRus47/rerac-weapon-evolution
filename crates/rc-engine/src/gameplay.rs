@@ -205,6 +205,14 @@ pub fn boot_state(root: &std::path::Path, index: u32) -> Option<(GameState, Sess
         gs.global.game_beaten = 1;
         println!("game state: RC_GAME_BEATEN=1: Goodies on the pause menu");
     }
+    // RC_COMPLETES=<n>: the times-completed count 0x15ee20 (`GameState::global.completes`) set (debug; a negative
+    // value is ignored): the challenge-mode content appears (the Novalis gold-weapon room's teleporter pad 961,
+    // `TeleporterPadUpdate`'s pvar+0x3c gate, and the even gold-weapon offers, `ItemOfferUpdate`), and scenes may be
+    // skipped as after a completed game. RC_GAME_BEATEN is a different flag (save chunk 31, the Goodies).
+    if let Some(n) = std::env::var("RC_COMPLETES").ok().and_then(|v| v.trim().parse::<i32>().ok()).filter(|&n| 0 <= n) {
+        gs.global.completes = n;
+        println!("game state: RC_COMPLETES: {n} times completed (challenge mode)");
+    }
     // RC_SKILL_POINTS=all: every skill point earned (0x13d408, debug): the Goodies' Sketchbook and Epilogue unlock.
     if std::env::var("RC_SKILL_POINTS").is_ok_and(|v| v.trim() == "all") {
         for b in gs.global.skill_points.iter_mut() { *b = 1; }
@@ -280,7 +288,7 @@ impl Plugin for GameplayPlugin {
             )
             .add_systems(FixedUpdate, tick.in_set(GameTick).before(crate::particle_render::tick))
             .add_systems(FixedUpdate, elapsed_frame.after(GameTick).after(crate::menu_render::MenuFrameSet))
-            .add_systems(Update, (show_reloaded, debug_dump, respawn_probe))
+            .add_systems(Update, (show_reloaded, debug_dump, respawn_probe, nanotech_test_keys))
             .add_systems(PostUpdate, ratchet_visibility.before(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate))
             .add_systems(RunFixedMainLoop, play_camera::apply.in_set(RunFixedMainLoopSystems::AfterFixedMainLoop))
             .add_systems(
@@ -597,6 +605,11 @@ fn load_game_state(root: &std::path::Path, index: u32) -> anyhow::Result<(GameSt
         sess.hp=gs.global.max_hp;
         sess.temp_hand=8;
         println!("Gemlik NG+ test: V5 weapons, 40 Gold Bolts, 5000000 bolts; independent test memory card");
+    }
+    if rc_game::weapon_evo::health_test::enabled() {
+        rc_game::weapon_evo::health_test::prepare_new_game(&mut gs);
+        sess.hp=gs.global.max_hp;sess.temp_hand=8;
+        println!("Nanotech local test: Veldin II, {} HP. F5: next maximum; F6: heal; F7: -1 HP. Saves disabled.",sess.hp);
     }
     Ok((gs, sess))
 }
@@ -2042,7 +2055,7 @@ fn death_reload(p: &mut Play, lv: &crate::level_load::LoadedLevel, state: Option
     p.svc.hits = Default::default();
     // The "use" system's talk slots and save values by the new instance → moby map (before the load pass, as the load).
     crate::interact_render::install(&mut p.svc, lv, &statics.instance_to_moby, state);
-    if let Some(id) = ship_id.filter(|_| !crate::level_load::ship_adopted()) { p.svc.interact.register_talk_mobys([(id, 0)]); }
+    if let Some(id) = ship_id.filter(|_| !p.svc.travel.adopted) { p.svc.interact.register_talk_mobys([(id, 0)]); }
     p.svc.build_grid(&mut p.game.mobys);
     p.reload_shown = shown;
     println!(
@@ -2114,6 +2127,29 @@ fn ratchet_visibility(
 /// 0x14c050), the checkpoint, this visit's kills 0x1baea4, the never-again bytes 0x1bbb04, the visit death bits
 /// 0x1ba950, the persistent death bits 0x14c190 and the bolt-drop slots 0x14d590 (spawn id / collected).
 /// `RC_RESPAWN_PROBE_AT=<tick>` prints it once at that gameplay tick too (headless runs).
+/// The local test alone accepts these shortcuts; ordinary gameplay and save
+/// data never receive debug HP changes. Current HP remains a single integer.
+fn nanotech_test_keys(keys:Res<ButtonInput<KeyCode>>,play:Option<ResMut<Play>>,
+    state:Option<ResMut<Persistent>>,session:Option<ResMut<Session>>) {
+    if !rc_game::weapon_evo::health_test::enabled(){return;}
+    let (Some(mut p),Some(mut gs),Some(mut sess))=(play,state,session) else{return;};
+    if p.game.hero.health<=0 || p.death_pending {return;}
+    let mut changed=false;
+    if keys.just_pressed(KeyCode::F5) {
+        let max=rc_game::weapon_evo::health_test::next_health(gs.0.global.max_hp);
+        let native=rc_game::weapon_evo::world::native_nanotech(&gs.0.global.flags);
+        p.svc.bomb_evo.nanotech.bonus=(max-native).max(0) as u32;
+        p.svc.bomb_evo.nanotech.xp=0.;
+        gs.0.global.max_hp=max;p.game.hero.health=max;changed=true;
+    }
+    if keys.just_pressed(KeyCode::F6) {p.game.hero.health=gs.0.global.max_hp;changed=true;}
+    if keys.just_pressed(KeyCode::F7) {p.game.hero.health=(p.game.hero.health-1).max(1);changed=true;}
+    if changed {
+        sess.0.hp=p.game.hero.health;
+        p.svc.bomb_evo.sync_progress(&mut gs.0.weapon_progress);
+        println!("Nanotech test: {}/{} HP",p.game.hero.health,gs.0.global.max_hp);
+    }
+}
 fn respawn_probe(keys: Res<ButtonInput<KeyCode>>, play: Option<Res<Play>>, state: Option<Res<Persistent>>, mut done: Local<Option<u64>>) {
     static AT: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
     let at = *AT.get_or_init(|| std::env::var("RC_RESPAWN_PROBE_AT").ok().and_then(|v| v.trim().parse().ok()));
@@ -2207,7 +2243,9 @@ fn debug_dump(
 
 /// `InitLevelRenderGlobals` 0x255958 on level 13 with ship 2 and 0x160540 set: the placed ship of class `0x160550` (ship 2's
 /// 533) is adopted (`0x2a2360`: `rc_game::travel::ship::adopt_table`) and cut to sequence 1 (`hard_cut(m, 1, 0)`), in place of
-/// the ship the loader would create (crate::moby_spawn creates none then).
+/// the ship the loader would create (crate::moby_spawn creates none then). The flag is this visit's (the level load
+/// clears it: crate::level_load::ship_adopted), so this runs on a death reload after Gemlik's escape; a later return to
+/// Gemlik gets a created ship, and the director 1353's state 0xd deletes the placed 533 (issue #47: it was the ship).
 fn adopt_placed_ship(table: &mut MobyTable, travel: &mut rc_game::travel::ShipGlobals, classes: &ClassTable, level: u32) {
     use rc_game::moby_update::services::ClassData;
     const PLACED: i16 = 533;
@@ -2886,8 +2924,6 @@ fn tick(
     }
 
     publish_anim(p, anim.as_deref_mut());
-    // 0x160540 (a placed ship adopted: Gemlik's 533 after the escape) holds for the session.
-    if p.svc.travel.adopted && !crate::level_load::ship_adopted() { crate::level_load::set_ship_adopted(); }
     let hm = &p.game.mobys.mobys[p.hero_id];
     if let Some(a) = attach.as_mut() { a.set_host(rows_bits(&hm.rows), [hm.position[0], hm.position[1], hm.position[2]]); }
     if let Some(v) = view.as_mut() {
@@ -3129,6 +3165,9 @@ fn write_visible(play: Option<ResMut<Play>>, occl: Option<Res<MobyOcclusion>>, a
 /// Missing demo resources preserve the successful reward and its ordinary
 /// localized banner. Underwater pickups never enter this path.
 fn request_acquisition_demo(play:&Play,root:&std::path::Path,index:u32,item_defs:u32,item:usize) {
+    if let Some((level,scene))=rc_game::weapon_evo::randomizer::acquisition_scene(item) {
+        crate::travel_render::request_native_pickup(level,scene);return;
+    }
     if let Some(movie)=rc_game::weapon_evo::randomizer::acquisition_movie(item){
         crate::movie_render::request(crate::movie_render::MovieRequest::acquisition(movie));return;
     }
@@ -3150,8 +3189,10 @@ fn randomizer_feedback(play:&mut Play,root:&std::path::Path,index:u32,item_defs:
         if equip {request_acquisition_demo(play,root,index,item_defs,reward as usize);}else{request_pickup_jingle(root);}
         rc_game::weapon_evo::golden::localized_notice(reward as usize,play.svc.interact.lang,&name)
     } else {
-        request_pickup_jingle(root);
-        rc_game::weapon_evo::randomizer::reward_name(reward,play.svc.interact.lang,&play.svc.gold_shop.names)
+        if reward>=96 && equip {crate::travel_render::request_gold_bolt_pickup();}
+        else {request_pickup_jingle(root);}
+        let name=rc_game::weapon_evo::randomizer::reward_name(reward,play.svc.interact.lang,&play.svc.gold_shop.names);
+        rc_game::weapon_evo::golden::localized_notice(reward as usize,play.svc.interact.lang,&name)
     };
     rc_game::cinematic::text_banner_call(&mut play.svc.cinematic,text,rc_game::menus::scale_ticks(300));
 }

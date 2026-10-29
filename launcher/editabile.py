@@ -103,7 +103,7 @@ def build(root: Path, kit: Path) -> Path:
     validate(kit/'weapons.ini')
     ensure_closed()
     check_source_root(root)
-    print('Building Weapon Evolution v110 from this source checkout.',flush=True)
+    print('Building Weapon Evolution v116 from this source checkout.',flush=True)
     # An explicit target dir also prevents a user-wide CARGO_TARGET_DIR from picking a stale executable.
     common = ['--release','--locked','--no-default-features','--target-dir',str(root/'target')]
     for args in [['cargo','test',*common,'-p','rc-game','--lib'],
@@ -175,7 +175,7 @@ def launch(kit: Path, root_override: Path | None = None) -> int:
     return result.returncode
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Weapon Evolution v110 editable')
+    parser = argparse.ArgumentParser(description='Weapon Evolution v116 editable')
     parser.add_argument('action',choices=['build','run','build-and-run'])
     parser.add_argument('root',nargs='?',type=Path)
     args = parser.parse_args()

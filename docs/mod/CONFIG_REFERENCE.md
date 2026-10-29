@@ -17,7 +17,7 @@ See [Developer guide](DEVELOPER_GUIDE.md) for extension recipes and the damage/X
 
 | `xp_per_damage` | Number, 0..100 | `0.12` | XP awarded per HP actually removed from eligible enemies. For example, 0.12 gives 12 XP for 100 HP; overkill does not grant extra XP. |
 
-| `ngplus_multiplier` | Number, 0.1..4 | `1.2` | NG+ only: multiplies enemy health, damage, action speed, projectile speed/range, perception and chase coefficients. Base 1 with 2 becomes 2; base 1.5 with 2 becomes 3. Normal games keep base values. Counts, switches and Nanotech XP requirements are unchanged. Range: 0.1-4. |
+| `ngplus_multiplier` | Number, 0.1..4 | `1.25` | NG+ only: multiplies enemy health, damage, action speed, projectile speed/range, perception and chase coefficients. Base 1 with 2 becomes 2; base 1.5 with 2 becomes 3. Normal games keep base values. Counts, switches and Nanotech XP requirements are unchanged. Range: 0.1-4. |
 
 | `enemy_health_multiplier` | Number, 0.1..100 | `1` | Scales effective enemy HP and actual-loss XP together. Native AI phase thresholds are preserved. |
 
@@ -45,9 +45,9 @@ See [Developer guide](DEVELOPER_GUIDE.md) for extension recipes and the damage/X
 
 | `extra_enemy_prefer_large` | Boolean | `true` | Duplicate large enemies (over 200 base HP) |
 
-| `nanotech_xp_per_upgrade` | Number, 0.1..1e+06 | `2500` | Constant hidden XP threshold. Each completion adds one usable maximum HP; excess XP carries over. Max-grade weapons still contribute. |
+| `nanotech_xp_per_upgrade` | Number, 0.1..1e+06 | `4000` | Constant hidden XP threshold. Each completion adds one usable maximum HP; excess XP carries over. Max-grade weapons still contribute. |
 
-| `nanotech_max_health` | Integer, 0..64 | `22` | Limits XP-earned extra HP only (0-64). Total HP = 4 + Premium (1) + Ultra (3) + XP bonus. Progress is stored per save. |
+| `nanotech_progression_max_health` | Integer, 4..206 | `26` | Includes the 4 starting HP and XP upgrades (4-206). Premium adds 1 HP and Ultra adds 3 HP, independently of this limit. At the maximum: 206 + 1 + 3 = 210 total HP. The 30 HUD orbs change color in layers. Lowering the cap preserves earned progress. |
 
 | `nanotech_upgrade_sound` | Boolean | `true` | Play the HelpDesk notification sound for Max Nanotech increased! Independent of weapon upgrade sound. |
 
@@ -155,7 +155,7 @@ INI prefix: `[weapon.wrench]`; grade sections: `[weapon.wrench.level1]` through 
 
 | `damage_hp` | `100` | `125` | `150` | `175` | `200` | `250` | `300` | `400` |
 
-| `hit_radius_multiplier` | `1` | `1.1` | `3` | `1.5` | `1.8` | `2` | `2.2` | `2.5` |
+| `hit_radius_multiplier` | `1` | `1.1` | `1.3` | `1.5` | `1.8` | `2` | `2.2` | `2.5` |
 
 | `throw_range` | `10` | `12` | `14` | `16` | `20` | `20` | `20` | `20` |
 
@@ -181,7 +181,7 @@ INI prefix: `[weapon.wrench]`; grade sections: `[weapon.wrench.level1]` through 
 
 | `gold_texture` | `false` | `false` | `false` | `false` | `true` | `true` | `true` | `true` |
 
-| `trail_color` | `default` | `default` | `B5BADD` | `8686C8` | `FBF482` | `FFFC82` | `FFF979` | `FFE02F` |
+| `trail_color` | `default` | `default` | `B5BADD` | `8686C8` | `FFEC7D` | `FFFC82` | `FFF979` | `FFE02F` |
 
 | `slam_explosion_enabled` | `false` | `false` | `false` | `false` | `true` | `true` | `true` | `true` |
 
@@ -284,7 +284,7 @@ INI prefix: `[weapon.bomb_glove]`; grade sections: `[weapon.bomb_glove.level1]` 
 
 | `explosion_color` | `default` | `default` | `C59222` | `FFE724` | `FAFF22` | `EEFF22` | `FFF97D` | `FFF89F` |
 
-| `cluster_bombs_enabled` | `false` | `false` | `false` | `true` | `true` | `true` | `true` | `true` |
+| `cluster_bombs_enabled` | `false` | `false` | `false` | `false` | `true` | `true` | `true` | `true` |
 
 | `r1_experimental_max` | `0` | `0` | `0` | `0` | `0` | `0` | `0` | `0` |
 
@@ -1078,15 +1078,15 @@ INI prefix: `[weapon.visibomb]`; grade sections: `[weapon.visibomb.level1]` thro
 
 | V2 → V3 | 1000 |
 
-| V3 → V4 | 3000 |
+| V3 → V4 | 5000 |
 
-| V4 → V5 | 5000 |
+| V4 → V5 | 7500 |
 
 | V5 → V6 | Gold purchase in NG+ |
 
-| V6 → V7 | 8000 |
+| V6 → V7 | 10000 |
 
-| V7 → V8 | 12000 |
+| V7 → V8 | 15000 |
 
 
 | Grade field | V1 | V2 | V3 | V4 | V5 | V6 | V7 | V8 |
@@ -1526,7 +1526,7 @@ INI prefix: `[weapon.tesla_claw]`; grade sections: `[weapon.tesla_claw.level1]` 
 
 | `r1_experimental_max` | `0` | `0` | `0` | `0` | `0` | `0` | `0` | `0` |
 
-| `experimental_max_ammo` | `50` | `65` | `80` | `100` | `125` | `125` | `125` | `125` |
+| `experimental_max_ammo` | `75` | `90` | `120` | `150` | `300` | `325` | `350` | `400` |
 
 | `secondary_beam_damage_percent` | `25` | `25` | `25` | `25` | `25` | `25` | `25` | `25` |
 
@@ -1597,13 +1597,13 @@ INI prefix: `[weapon.morph_ray]`; grade sections: `[weapon.morph_ray.level1]` th
 | Transition | Required XP |
 |---|---|
 
-| V1 → V2 | 1500 |
+| V1 → V2 | 1000 |
 
-| V2 → V3 | 1950 |
+| V2 → V3 | 1500 |
 
 | V3 → V4 | 2500 |
 
-| V4 → V5 | 7500 |
+| V4 → V5 | 4000 |
 
 | V5 → V6 | Gold purchase in NG+ |
 

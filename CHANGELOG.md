@@ -1,3 +1,68 @@
+# Weapon Evolution 0.4.1 — unpublished draft
+
+ReRAC **0.3.8-alpha**, gameplay **0.1.6.116**, capability **92**, launcher **0.29.5**.
+[Complete changes since 0.4](docs/releases/v0.4.1.md).
+
+- Integrate all 53 official 0.3.8 delta paths, preserving existing mod systems.
+- Correct moving wrench-throw input, randomized reward/NPC text, acquisition scene completion and boots across planet travel.
+- Separate amoeboid weapon/Nanotech XP bases and exclude split descendants; credit successful Morph-o-Ray conversions to the reward chain once.
+- Compact Nanotech into 30 spheres with seven color layers, up to 210 total HP. Keep ordinary new games at four HP and reserve Premium/Ultra upgrades independently.
+- Migrate the explicit base-plus-XP cap safely, retain saves/presets and rebuild all local workspace artifacts to avoid stale mixed runtimes.
+- Adopt the newly supplied root weapons.ini without changing its values. Prepare exact Windows/source assets as a private 0.4.1 draft; do not alter published 0.4 or earlier releases.
+
+Historical entries follow.
+
+## Weapon Evolution 0.1.6.116 — local compact Nanotech test
+
+- Limit the centered health HUD to 30 recolored native spheres in two rows.
+- Use blue through 30 HP; purple 31–60, red 61–90, orange 91–120, yellow
+  121–150, green 151–180 and white 181–210. Hard usable-health cap: 210.
+- Count starting health and XP in the launcher cap (4–206), reserving Premium
+  +1 and Ultra +3 independently. Migrate old XP-only profiles without changing
+  other balance; retain old save progress while clamping usable HP.
+- Start the disposable Veldin II health test at 210/210; update its shortcuts.
+- Keep full local-workspace cache invalidation, fresh Rust tests, Cargo artifact
+  verification and transactional runtime/GUI/profile installation.
+
+Local only; no repository, release, draft or tag operations.
+
+## v115 local health test and Morph-o-Ray chain credit
+
+At most 50 recolored native Nanotech spheres represent up to 300 actual HP. The local Veldin II test disables normal saves. Successful Morph-o-Ray conversions advance the existing reward multiplier once per enemy. All other input source files, including v114 pickup completion fixes, are retained. [Implementation and test instructions](docs/mod/NANOTECH_V115.md). No GitHub operations or publication.
+
+## Weapon Evolution 0.1.6.114 — local pickup completion test
+
+- Keep randomized Gold Bolt presentation actors scheduled across camera movement and their hidden final timer. Bind their native update explicitly, enable animation, and disable collision/targeting for the cosmetic actor only.
+- Reject missing clips before taking control, prevent concurrent presentation owners, and add a bounded stall recovery path. Completion restores the hand item, idle/control, letterbox and follow camera without granting a second reward. Death cleanup preserves the death state and does not create a save at the dead pose.
+- Complete incomplete weapon/item demos through the same one-shot cleanup event as valid scenes. Test normal scene end/chunk boundaries independently of the frozen world clock.
+- Reproduce the original Gold Bolt culling failure and add scheduler/animation, resource, stall, repeat-request, death and streamed-scene regressions. Retain v113 XP fixes, approved INI values and ReRAC 0.3.8-alpha integration.
+
+## Weapon Evolution 0.1.6.113 — local XP test
+
+- Keep placed amoeboids' 100/200/300 weapon XP budgets; calculate Nanotech XP from confirmed effective HP loss and the configured XP-per-damage rate.
+- Apply the same separation to successful Suck Cannon swallowing and Morph-o-Ray transformations. Repeated special callbacks remain limited to one reward per target life.
+- Preserve zero weapon/Nanotech XP from all split descendants. No INI/default balance, save or seed migration.
+- Add cross-frame wrench swing/throw/blast checks and cross-weapon, overkill, enemy-size, health-scale and logical/numeric-health XP regressions. Retain the complete ReRAC 0.3.8 integration.
+
+# Local v112 test — ReRAC 0.3.8-alpha
+
+- Integrate all 53 official 0.3.7→0.3.8 paths, retaining every supplied v111 system and fix.
+- Merge ship return/reload, gold rendering, glove reticles/carrier motion, placed chickens, magnetic wrench orientation, language, Fill aspect, controller and portable-card fixes.
+- Keep fire-mine snapshots and release clocks, configurable gold previews, custom HUD composition and mode-specific card directories.
+- Retain all approved default values and existing player INIs, presets, seeds, saves and GUI/icon.
+
+[Integration and local test instructions](docs/mod/RUNTIME_038.md). Local compilation/package tools perform no GitHub operations. Existing public releases and private drafts are unchanged.
+
+# Local v111 test — ReRAC 0.3.7-alpha
+
+- Prevent phantom Comet-Strike re-entry, animation and voice while the wrench is in flight.
+- Use generic localized reward notices and actual randomized NPC offer names, including the Raritanium trade.
+- Restore the native Gold Bolt cutaway and confirmed item-specific scenes; reject gadget entries in the weapon demo table.
+- Persist randomized boots and stage their worn assets/joint lists on destination levels.
+- Give placed amoeboids 100/200/300 base XP by initial size; split descendants give neither weapon nor Nanotech XP. HP is unchanged.
+
+[Implementation and local test instructions](docs/mod/RANDOMIZER_COMBAT_V111.md). Existing INIs, presets, seeds and saves are retained. This local kit performs no GitHub operations. The v110 draft and public releases are unchanged.
+
 # Draft preparation — Weapon Evolution 0.4 / ReRAC 0.3.7-alpha
 
 Gameplay **0.1.6.110**, capability **90**, launcher **0.29.3**. The existing public v0.3 release/tag remain unchanged. [Complete changes](docs/releases/v0.4-rerac-0.3.7-alpha.md).
@@ -6,6 +71,22 @@ Gameplay **0.1.6.110**, capability **90**, launcher **0.29.3**. The existing pub
 - Keep reset recovery independent of native hoverboard HUD ownership; carry flame mines with moving/rotating platforms without resetting their snapshots.
 - Adopt the newly supplied GBtW_All_Custom(2).ini with every setting unchanged; synchronize public/default/embedded profiles and document merge boundaries and exact upstream hashes.
 - Prepare matching Windows/source assets for a private draft only.
+
+
+## v0.3.8-alpha
+
+Fixes and features from the community's pull requests.
+
+- Coming back to Gemlik after the escape, your ship is waiting for you again.
+- Gold weapons look gold all over, as on the PS2.
+- The Decoy Glove and the Glove of Doom show where they will land, like the Bomb Glove and the Mine Glove.
+- Mines, decoys and Doom bots thrown from the Metropolis train keep the train's speed, land where the reticle shows and ride along with it.
+- Kalebo III's breakroom chickens peck, cluck, run from Ratchet and can be hit again.
+- Wrench throws in first person follow Ratchet's tilt on the Magneboots.
+- The game remembers the language you pick, and the first start follows your computer's language when the game has it.
+- A new Fill aspect ratio uses the whole window, for ultrawide and other uncommon screens.
+- Every connected controller is read, not just the first, and the 8BitDo Ultimate's buttons are right on Linux.
+- The memory card folder can be set in the settings file, and a memcard folder next to the game is used when there is one.
 
 ## Official ReRAC 0.3.7-alpha changes integrated
 

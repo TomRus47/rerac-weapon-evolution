@@ -1207,3 +1207,120 @@ fn v60_population_adds_a_total_of_five_separated_enemies() {
     assert_eq!(actors.len(),6);
     for (i,a) in actors.iter().enumerate(){for b in &actors[i+1..]{assert!((a.position[0]-b.position[0]).hypot(a.position[1]-b.position[1])>=1.34);}}
 }
+
+#[test]
+fn all_weapon_health_and_terminal_paths_credit_only_new_accepted_hp_loss() {
+    use crate::moby_update::real_hp::Attack;
+    for weapon in [8,9,10,11,13,14,15,16,17,18,19,20,23,24,25] {
+        for terminal in [false,true] {
+            let mut s=real_hp_sim(if terminal {1445}else{749},3.);
+            s.svc.bomb_evo.xp_required=[10000.;7];
+            s.svc.bomb_evo.world_settings.enemy_damage_by_health=true;
+            s.svc.bomb_evo.world_settings.enemy_health_multiplier=2.;
+            s.svc.bomb_evo.world_settings.nanotech_xp_per_upgrade=10000.;
+            s.svc.bomb_evo.xp_per_damage=0.12;
+            s.svc.bomb_evo.pyro.enabled=true;
+            s.svc.bomb_evo.pyro.xp_required=[10000.;7];
+            for track in &mut s.svc.bomb_evo.extras {track.enabled=true;track.xp_required=[10000.;7];}
+            let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
+            let hit=|instance,loss|HitRecord {
+                h2a:if weapon==20 {186}else{121},b28:2,b29:3,damage:Pf::f(loss),
+                evolution:Some(Attack {instance,weapon,damage:loss,damage_only:false,
+                    origin:None,burn_color:None}),..evolution_record()
+            };
+            for (instance,loss) in [(1,0.25),(1,0.25),(2,100.),(2,100.)] {
+                for _ in 0..5 {
+                    w.counter+=1;
+                    if terminal {damage::award_terminal(&mut w,1,Some(hit(instance,loss)),1.);}
+                    else {
+                        let r=damage::resolve(&mut w,1,Some(hit(instance,loss)),0x20,0,4);
+                        if r.damage>0. {let hp=pf(&w,1,0x20);set_pf(&mut w,1,0x20,hp-r.damage);}
+                    }
+                }
+            }
+            // Logical enemies have one native HP; numeric ones have three.
+            let total=if terminal {24.}else{72.};
+            let expected=if matches!(weapon,14|25) {0.}else{total};
+            assert!((w.svc.bomb_evo.nanotech.xp-expected).abs()<0.001,
+                "weapon {weapon}, terminal {terminal}: {}",w.svc.bomb_evo.nanotech.xp);
+            let xp=match weapon {10=>w.svc.bomb_evo.xp,16=>w.svc.bomb_evo.pyro.xp,
+                _=>w.svc.bomb_evo.extras.iter().find(|t|t.id==weapon).unwrap().xp};
+            assert!((xp-total).abs()<0.001,"weapon {weapon}, terminal {terminal}: {xp}");
+        }
+    }
+}
+
+// Successful Morph-o-Ray conversions consume one enemy life for the reward
+// chain, independently of XP enablement and native source retention.
+#[test]
+fn morph_chain_counts_normal_and_gold_conversion_before_awarding_xp() {
+    for gold in [0,1] {
+        let mut s=evolution_sim(577,0.75);enable_special_tracks(&mut s);
+        s.svc.bomb_evo.configure_ng_plus(true);
+        s.svc.creatures.react.gold_morph=gold;
+        let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
+        w.coll=Some(&s.mesh);
+        let chicken=react::morph_target(&mut w,1).unwrap();
+        assert_eq!(w.svc.bomb_evo.bolt_chain.kills,1);
+        assert_eq!(w.svc.bomb_evo.reward_factor(),1.1);
+        assert!((special_xp(&w,21)-0.825).abs()<0.0001);
+        assert!(react::morph_target(&mut w,1).is_none());
+        assert!(react::morph_target(&mut w,chicken).is_none());
+        assert_eq!(w.svc.bomb_evo.bolt_chain.kills,1);
+        assert!((special_xp(&w,21)-0.825).abs()<0.0001);
+    }
+}
+#[test]
+fn morph_chain_allocation_failure_does_not_spend_the_enemy_or_bonus() {
+    let mut s=evolution_sim(577,0.75);enable_special_tracks(&mut s);
+    s.svc.bomb_evo.configure_ng_plus(true);
+    for m in &mut s.table.mobys[2..] {m.state=0;}
+    let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
+    assert!(react::morph_target(&mut w,1).is_none());
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills,0);
+    assert!(!w.svc.bomb_evo.target_is_terminal(1));
+    assert_eq!(special_xp(&w,21),0.);
+    w.mm(2).state=0xff;
+    assert!(react::morph_target(&mut w,1).is_some());
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills,1);
+}
+#[test]
+fn morph_chain_retained_native_source_can_only_count_once() {
+    let mut s=evolution_sim(577,0.75);enable_special_tracks(&mut s);
+    s.svc.bomb_evo.configure_ng_plus(true);
+    s.table.mobys[1].pvars[0x20+0xe]=1;
+    let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
+    assert!(react::morph_target(&mut w,1).is_some());
+    assert!(w.m(1).state<0x80);
+    assert_eq!(w.m(1).pvars[0x20+0xe],2);
+    for _ in 0..10 {assert!(react::morph_target(&mut w,1).is_none());}
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills,1);
+    assert!((special_xp(&w,21)-0.825).abs()<0.0001);
+}
+#[test]
+fn morph_chain_is_independent_of_xp_settings_and_respects_its_enablement() {
+    for (ng,enabled,xp_rate,expected) in [(true,true,0.,1),(true,false,1.,1),(false,true,1.,0)] {
+        let mut s=evolution_sim(577,0.75);enable_special_tracks(&mut s);
+        s.svc.bomb_evo.configure_ng_plus(ng);s.svc.bomb_evo.xp_per_damage=xp_rate;
+        s.svc.bomb_evo.extras.iter_mut().find(|t|t.id==21).unwrap().enabled=enabled;
+        let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
+        assert!(react::morph_target(&mut w,1).is_some());
+        assert_eq!(w.svc.bomb_evo.bolt_chain.kills,expected);
+        if !enabled||xp_rate==0. {assert_eq!(special_xp(&w,21),0.);}
+    }
+}
+#[test]
+fn morph_chain_reused_dynamic_enemy_slot_has_a_new_life() {
+    let mut s=evolution_sim(577,0.75);enable_special_tracks(&mut s);
+    s.svc.bomb_evo.configure_ng_plus(true);
+    let original=s.table.mobys[1].clone();
+    let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
+    let id=w.create_moby(577).unwrap();
+    w.mm(id).pvars=original.pvars.clone();w.mm(id).mode|=0x20;
+    assert!(react::morph_target(&mut w,id).is_some());
+    w.counter+=2;
+    let reused=w.create_moby(577).unwrap();assert_eq!(id,reused);
+    w.mm(reused).pvars=original.pvars;w.mm(reused).mode|=0x20;
+    assert!(react::morph_target(&mut w,reused).is_some());
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills,2);
+}

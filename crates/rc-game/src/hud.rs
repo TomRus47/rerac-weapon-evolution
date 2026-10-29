@@ -207,6 +207,8 @@ pub enum Rot {
 /// One call of the game's 2D layer, in draw order.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Draw {
+    /// An existing native orb sprite with a precomputed palette, never an overlay.
+    Nanotech16 { frame:usize, x:i32, y:i32, w:i32, h:i32, alpha:i32, layer:u8 },
     /// `HudSprite` (frame, x, y, w, h, alpha): the whole frame texture stretched over `w×h`, RGBAQ =
     /// `alpha << 24 | 0x7f7f7f` (alpha may exceed 0x80).
     Sprite { frame: usize, x: i32, y: i32, w: i32, h: i32, alpha: i32, rot: Rot },
@@ -573,7 +575,8 @@ pub struct HudState {
     vendor_handle: Option<u32>,
     /// The Morph-o-Ray's request as last seen (up, target).
     morph_last: (bool, i32),
-    /// Port-only: the game pixels the frame extends past the 512-wide screen on each side (16:9; 0 at 4:3, the TV's).
+    /// Port-only: the game pixels the frame extends past the 512-wide screen on each side (0 at 4:3, the TV's; 51 at
+    /// 16:10, 85 at 16:9, the frame's own margin at Fill).
     /// The slots anchored left or right ([`ANCHOR_BITS`] 4 / 8) move out by it, to the frame's edges ([`Self::anchor`]).
     pub side_extra: i32,
 }
@@ -1418,18 +1421,20 @@ impl HudState {
                 out.push(Self::sprite(mid_frame(self), (centre-half) as i32,(y+row as f32*24.*scale-16.*scale) as i32,
                     (half*2.) as i32,(32.*scale) as i32,bar_a,Rot::None));
             }
+            let orbs=nanotech::orbs(max_hp,s.value);
             for (n,(ox,oy)) in centres.into_iter().enumerate() {
-                let frame=self.assets.icon_frame(icon::ORB,if n<s.value.max(0) as usize {(fr+n as i32*6)%30} else {30});
+                let layer=orbs[n].current;
+                let frame=self.assets.icon_frame(icon::ORB,if layer>0 {(fr+n as i32*6)%30} else {30});
                 let (width,height)=self.assets.size(frame);let (width,height)=(width as f32*scale,height as f32*scale);
-                out.push(Draw::Sprite16{frame,x:((centre+ox-width/2.)*16.) as i32,y:((y+oy-height/2.)*16.) as i32,
+                out.push(Draw::Nanotech16{frame,layer,x:((centre+ox-width/2.)*16.) as i32,y:((y+oy-height/2.)*16.) as i32,
                     w:(width*16.) as i32,h:(height*16.) as i32,alpha:a_orb});
                 // Frame 30 is the enclosing cyan shell, including empty HP.
                 // The native four/five/eight layout layers it over the vortex.
-                if n < s.value.max(0) as usize {
+                if layer>0 {
                     let shell=self.assets.icon_frame(icon::ORB,30);
                     let (sw,sh)=self.assets.size(shell);
                     let (sw,sh)=(sw as f32*scale,sh as f32*scale);
-                    out.push(Draw::Sprite16{frame:shell,x:((centre+ox-sw/2.)*16.) as i32,
+                    out.push(Draw::Nanotech16{frame:shell,layer,x:((centre+ox-sw/2.)*16.) as i32,
                         y:((y+oy-sh/2.)*16.) as i32,w:(sw*16.) as i32,h:(sh*16.) as i32,alpha:a_orb});
                 }
             }
@@ -2838,8 +2843,9 @@ mod tests {
 }
 
 /// Balanced two-row expansion. Scale spacing and art together: fixed 50% above eight HP.
+pub mod nanotech;
 pub fn nanotech_layout(max_hp:i32)->(f32,Vec<(f32,f32)>) {
-    let n=max_hp.clamp(1,72) as usize;let upper=(n+1)/2;
+    let n=max_hp.clamp(1,nanotech::MAX_VISIBLE as i32) as usize;let upper=(n+1)/2;
     // Above eight HP, orb artwork and spacing stay at exactly half size.
     let scale: f32 = if n <= 8 { 1.0 } else { 0.5 };
     let pitch=(32.0*scale).min((512.0-32.0*scale)/(upper.saturating_sub(1).max(1) as f32));
@@ -2860,14 +2866,14 @@ fn mid_frame(h:&HudState)->usize {h.assets.icon_frame(icon::BAR,0)}
             hud.inputs=Inputs{hp,max_hp:hp,..Default::default()};
             hud.slots[1].slide=8;hud.slots[1].value=hp;
             let mut draws=Vec::new();hud.draw_health(1,&mut draws);
-            let shells=draws.iter().filter(|d|matches!(d,Draw::Sprite16{frame:30,..})).count();
-            assert_eq!(shells,hp as usize,"{hp} HP");
+            let shells=draws.iter().filter(|d|matches!(d,Draw::Nanotech16{frame:30,..})).count();
+            assert_eq!(shells,(hp as usize).min(30),"{hp} HP");
             hud.slots[1].value=hp-1;draws.clear();hud.draw_health(1,&mut draws);
-            assert_eq!(draws.iter().filter(|d|matches!(d,Draw::Sprite16{frame:30,..})).count(),hp as usize);
+            assert_eq!(draws.iter().filter(|d|matches!(d,Draw::Nanotech16{frame:30,..})).count(),(hp as usize).min(30));
         }
     }
     #[test]fn rows_remain_centered_and_orbs_and_spacing_shrink_together(){
-        for hp in 9..=72 {let(s,p)=nanotech_layout(hp);assert_eq!(p.len(),hp as usize);assert!((0.50..=0.50).contains(&s));
+        for hp in 9..=210 {let(s,p)=nanotech_layout(hp);assert_eq!(p.len(),(hp as usize).min(30));assert!((0.50..=0.50).contains(&s));
             for row in 0..2 {let xs:Vec<_>=p.iter().filter(|p|p.1==row as f32*24.*s).map(|p|p.0).collect();
                 assert!(xs.iter().sum::<f32>().abs()<0.001);assert!(xs.iter().all(|x|x.abs()+16.*s <= 256.));}
         }

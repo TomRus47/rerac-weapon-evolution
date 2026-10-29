@@ -202,6 +202,9 @@ impl Hero {
         if it.slot.state != 2 { return false; }
         // The other hand items (Swingshot, Hologuise, PDA, …): super::gadgets.
         if it.slot.id != 8 { return super::gadgets::pda_item(self, c, t0); }
+        // Movement after a Comet-Strike does not put another wrench in hand.
+        // Reject the attack before state entry, animation, voice and loop setup.
+        if !super::comet::held_wrench(self) { return false; }
         let mask = it.slot.fire_mask;
         let pad = c.env.pad;
         let v = c.anim.view();

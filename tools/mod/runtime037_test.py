@@ -1,4 +1,4 @@
-"""Build bundled v110 sources and transactionally update an existing playable mod.
+"""Build bundled v111 sources and transactionally update an existing playable mod.
 
 The old source checkout is never patched. Player INIs, presets, saves and the
 working GUI/icon remain outside the replacement set. The native build must
@@ -18,7 +18,7 @@ import traceback
 
 SOURCE = Path(__file__).resolve().parents[2]
 BUNDLE = SOURCE.parent
-PATCH = '0.1.6.110'
+PATCH = '0.1.6.111'
 
 
 def sha(data):
@@ -48,7 +48,7 @@ def safe(root, name):
 def verify_sources(source=SOURCE, bundle=BUNDLE):
     manifest = json.loads((bundle / 'source-files.json').read_text(encoding='utf-8'))
     if manifest['patch'] != PATCH or manifest['runtime_base'] != '0.3.7-alpha':
-        raise ValueError('This is not the v110 / ReRAC 0.3.7 source kit.')
+        raise ValueError('This is not the v111 / ReRAC 0.3.7 source kit.')
     for name, digest in manifest['files'].items():
         path = safe(source, name)
         if not path.is_file() or sha(path.read_bytes()) != digest:
@@ -60,7 +60,7 @@ def validate_identity(identity):
                 'weapon_evolution_patch': PATCH, 'weapon_evolution_config': 90,
                 'weapon_evolution_audio_diagnostics': False}
     if any(identity.get(key) != value for key, value in expected.items()):
-        raise ValueError('Expected editable Weapon Evolution v110 / ReRAC 0.3.7.')
+        raise ValueError('Expected editable Weapon Evolution v111 / ReRAC 0.3.7.')
 
 
 def probe(exe):
@@ -176,7 +176,7 @@ def main():
         print('Playable ZIP: ' + str(archive))
         return
     verify_sources()
-    print('Weapon Evolution v110 / ReRAC 0.3.7-alpha. No GitHub operations.')
+    print('Weapon Evolution v111 / ReRAC 0.3.7-alpha. No GitHub operations.')
     playable = args.playable or Path(input('EXISTING playable mod folder (launcher EXE, weapons.ini and runtime): ').strip().strip('"'))
     playable = playable.expanduser().resolve()
     launcher = (playable / args.launcher).resolve()

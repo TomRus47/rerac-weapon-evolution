@@ -73,6 +73,7 @@ pub fn initialize_new_game(gs: &mut GameState, settings: Settings,
     }
 }
 pub fn card_root(root: std::path::PathBuf, on: bool) -> std::path::PathBuf {
+    if super::health_test::enabled(){return root.join("nanotech_health_test");}
     if super::randomizer::enabled(){return root.join("randomizer");}
     if super::gemlik_test::enabled() {return super::gemlik_test::card_root(root);}
     if super::location_test::enabled() {return root.join("weapon_location_test");}
@@ -324,13 +325,15 @@ pub fn finish_deferred_equip(gs:&mut GameState,session:&mut SessionState,hero:&c
     true
 }
 
-/// Compose around the disc's localized, font-encoded weapon name. Do not
+/// Compose around the disc's localized, font-encoded reward name. Do not
 /// reinterpret those bytes as UTF-8, or guess a level-specific message ID.
 pub fn localized_notice(item:usize,lang:u32,native_name:&[u8])->Vec<u8> {
-    if native_name.is_empty(){return notice(item).to_vec();}
+    let fallback=if ITEMS.contains(&item) {notice(item).strip_suffix(b" acquired!").unwrap_or(b"Item")}
+        else {match lang {2=>b"Objet".as_slice(),3=>b"Gegenstand",4=>b"Objeto",5=>b"Oggetto",_=>b"Item"}};
+    let native_name=if native_name.is_empty(){fallback}else{native_name};
     let prefix:&[u8]=match lang {
-        2=>b"Arme obtenue : ",3=>b"Erhalten: ",4=>b"Arma obtenida: ",5=>b"Arma ottenuta: ",
-        6|7=>b"",_=>b"Acquired: ",
+        2=>b"Vous avez trouve : ",3=>b"Gefunden: ",4=>b"Has encontrado: ",5=>b"Hai trovato: ",
+        6|7=>b"",_=>b"You found: ",
     };
     let mut text=prefix.to_vec();text.extend_from_slice(native_name);text
 }

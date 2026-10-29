@@ -20,7 +20,7 @@ class FeedbackHudTests(unittest.TestCase):
     def test_old_values_survive_and_conversion_is_idempotent(self):
         before=core.IniDocument(self.raw);out=convert(self.raw)[0];after=core.checked_document(out)
         self.assertEqual(before.entries,after.entries);self.assertEqual(convert(out)[0],out)
-        self.assertEqual(core.required_config(after),90)
+        self.assertEqual(core.required_config(after),92)
         self.assertIn(('hud','weapon_bar_alternative_position'),after.entries)
     def test_bounds_and_all_five_localizations(self):
         for key,value in [('slam_explosion_damage_hp','-1'),('slam_explosion_radius','0'),('slam_explosion_radius','31'),('burn_on_hit','perhaps'),('hud_quickselect_only','2'),('slam_explosion_color','not-a-color')]:

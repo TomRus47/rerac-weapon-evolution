@@ -14,7 +14,7 @@ class NgPlusUiTests(unittest.TestCase):
         doc=core.profile_document(profile())
         self.assertEqual(list(schema.WORLD_DEFAULTS)[0],'ngplus_multiplier')
         self.assertEqual(doc.entries['general','ngplus_multiplier'],'1')
-        self.assertEqual(core.required_config(doc),90)
+        self.assertEqual(core.required_config(doc),92)
         self.assertLess(doc.keys('general').index('ngplus_multiplier'),doc.keys('general').index('enemy_health_multiplier'))
 
     def test_existing_values_comments_and_upper_grades_are_preserved(self):

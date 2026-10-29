@@ -151,8 +151,13 @@ fn notices_keep_native_font_bytes_and_never_use_unrelated_message_ids() {
         let text=localized_notice(23,lang,name);
         assert!(text.ends_with(name));assert!(!text.windows(7).any(|s|s==b"Paradox"));
     }
-    assert_eq!(localized_notice(23,5,b"MIPS"),b"Arma ottenuta: MIPS");
-    assert_eq!(localized_notice(23,0,b""),notice(23));
+    assert_eq!(localized_notice(23,5,b"MIPS"),b"Hai trovato: MIPS");
+    for (lang,prefix) in [(0,b"You found: ".as_slice()),(2,b"Vous avez trouve : "),
+        (3,b"Gefunden: "),(4,b"Has encontrado: "),(5,b"Hai trovato: ")] {
+        assert_eq!(localized_notice(26,lang,b"Native \x8a gadget"),[prefix,b"Native \x8a gadget"].concat());
+    }
+    assert_eq!(localized_notice(23,0,b""),b"You found: RYNO");
+    assert_eq!(localized_notice(26,5,b""),b"Hai trovato: Oggetto");
 }
 
 

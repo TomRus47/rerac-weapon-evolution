@@ -146,6 +146,7 @@ const FULL_SCISSOR: [i32; 4] = [0, W - 1, 0, H - 1];
 /// The frame's 2D primitive list, in draw order.
 #[derive(Clone, Debug)]
 pub struct Hud2d {
+    pub nanotech_frames: std::collections::HashMap<(usize,u8),usize>,
     pub prims: Vec<Prim>,
     scissor: [i32; 4],
     /// Texture size of every HUD frame.
@@ -159,7 +160,7 @@ pub struct Hud2d {
 }
 
 impl Default for Hud2d {
-    fn default() -> Self { Hud2d { prims: Vec::new(), scissor: FULL_SCISSOR, frame_sizes: Vec::new(), fine: Vec::new(), add: Vec::new() } }
+    fn default() -> Self { Hud2d { nanotech_frames: Default::default(), prims: Vec::new(), scissor: FULL_SCISSOR, frame_sizes: Vec::new(), fine: Vec::new(), add: Vec::new() } }
 }
 
 impl Hud2d {
@@ -189,6 +190,10 @@ impl Hud2d {
 
     /// `fun_00200080(frame, x, y, w, h, alpha)` (0x250928): the whole frame over a `w×h` rectangle at (x, y), all in
     /// 1/16 pixels (the same `v + OF − 8` convention as `HudSprite`).
+    pub fn nanotech_fine(&mut self, frame:usize, x:i32, y:i32, w:i32, h:i32, alpha:i32, layer:u8) {
+        let colored=self.nanotech_frames.get(&(frame,layer)).copied().unwrap_or(frame);
+        self.sprite_fine(colored,x,y,w,h,alpha);
+    }
     pub fn sprite_fine(&mut self, frame: usize, x: i32, y: i32, w: i32, h: i32, alpha: i32) {
         let (tw, th) = self.frame_sizes.get(frame).copied().unwrap_or((0, 0));
         let rgba = ((alpha as u32) & 0xff) << 24 | 0x007f_7f7f;
@@ -277,6 +282,7 @@ pub fn decode_cut(t: &IndexedFx, cut: u8) -> Texture {
 
 /// The level's HUD data.
 pub struct LevelHud {
+    pub nanotech_frames: std::collections::HashMap<(usize,u8),usize>,
     pub hud: Hud,
     /// Every frame with raw GS alpha.
     pub frames: Vec<Texture>,
@@ -290,13 +296,13 @@ pub struct LevelHud {
     pub lang: u32,
 }
 
-/// 0x15ed88, the game's language: `RC_LANG` (default English) until the front end's Language list changes it
-/// ([`set_language`]); every later load (the level's text, the help voice bank, the movies' and scenes' language, the
-/// space plates) reads it.
+/// 0x15ed88, the game's language: `RC_LANG`, else the one last chosen ([`saved_language`]), else the computer's
+/// ([`system_language`]), else English, until the front end's Language list changes it ([`set_language`]); every
+/// later load (the level's text, the help voice bank, the movies' and scenes' language, the space plates) reads it.
 pub fn language() -> u32 {
     let v = LANGUAGE.load(std::sync::atomic::Ordering::Relaxed);
     if v != u32::MAX { return v; }
-    std::env::var("RC_LANG").ok().and_then(|v| v.trim().parse().ok()).unwrap_or(rc_formats::strings::lang::ENGLISH)
+    std::env::var("RC_LANG").ok().and_then(|v| v.trim().parse().ok()).or_else(saved_language).or_else(system_language).unwrap_or(rc_formats::strings::lang::ENGLISH)
 }
 
 /// The runtime language (u32::MAX: not set, `RC_LANG` applies).
@@ -304,6 +310,97 @@ static LANGUAGE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::ne
 
 /// 0x15ed88 = `lang` (`MenuSetPostAction` action 9).
 pub fn set_language(lang: u32) { LANGUAGE.store(lang, std::sync::atomic::Ordering::Relaxed); }
+
+/// Port-only: the PS2 keeps the Language choice for the session only; the port keeps it in the port settings file
+/// (`language = <slot>`, crate::render_settings::load_key) so the next start is in that language. A slot the disc has
+/// no text for (1, 6, 7) is ignored.
+const LANGUAGE_KEY: &str = "language";
+
+/// The saved language (read once).
+fn saved_language() -> Option<u32> {
+    static SAVED: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *SAVED.get_or_init(|| {
+        let v = crate::render_settings::load_key(LANGUAGE_KEY)?;
+        let l = v.trim().parse().ok().filter(|l| known_language(*l));
+        if l.is_none() { eprintln!("hud: settings file: language = {v} is not one of the disc's languages; English"); }
+        l
+    })
+}
+
+/// The slots `rc_formats::strings::lang` names (the disc's English, French, German, Spanish and Italian text).
+fn known_language(l: u32) -> bool {
+    use rc_formats::strings::lang::*;
+    [ENGLISH, FRENCH, GERMAN, SPANISH, ITALIAN].contains(&l)
+}
+
+/// Saves the player's Language choice for the next start ([`LANGUAGE_KEY`]).
+pub fn save_language(lang: u32) {
+    if known_language(lang) { crate::render_settings::save_key(LANGUAGE_KEY, &lang.to_string()); }
+}
+
+/// With nothing chosen yet, the computer's display language, as `InitOnce` takes the PS2's system language (EN→0,
+/// FR→2, DE→3, ES→4, IT→5, anything else English: [`language_from_code`]); read once. None (English) when it
+/// cannot be read, and in frame-exact runs (their output must not depend on the host).
+fn system_language() -> Option<u32> {
+    static SYSTEM: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *SYSTEM.get_or_init(|| {
+        if crate::determinism::deterministic() { return None; }
+        let code = system_language_code();
+        let l = code.as_deref().and_then(language_from_code);
+        println!("hud: system language {}: {}", code.as_deref().unwrap_or("unknown"), l.map_or("English (no text in it)".into(), |l| format!("language {l}")));
+        l
+    })
+}
+
+/// The language slot of a language code (`fr`, `de-DE`, `es_ES.UTF-8`, …: its first two letters), None for one the
+/// disc has no text in.
+fn language_from_code(code: &str) -> Option<u32> {
+    use rc_formats::strings::lang::*;
+    let two: String = code.trim().chars().take_while(|c| c.is_ascii_alphabetic()).collect::<String>().to_ascii_lowercase();
+    match two.as_str() {
+        "en" => Some(ENGLISH),
+        "fr" => Some(FRENCH),
+        "de" => Some(GERMAN),
+        "es" => Some(SPANISH),
+        "it" => Some(ITALIAN),
+        _ => None,
+    }
+}
+
+/// The display language (`GetUserDefaultUILanguage`, kernel32): the primary language of its LANGID as a code.
+#[cfg(windows)]
+fn system_language_code() -> Option<String> {
+    #[link(name = "kernel32")]
+    unsafe extern "system" { fn GetUserDefaultUILanguage() -> u16; }
+    // SAFETY: GetUserDefaultUILanguage takes nothing and returns a value.
+    let id = unsafe { GetUserDefaultUILanguage() };
+    // PRIMARYLANGID: the low 10 bits (LANG_ENGLISH 0x09, LANG_FRENCH 0x0c, LANG_GERMAN 0x07, LANG_SPANISH 0x0a,
+    // LANG_ITALIAN 0x10).
+    Some(match id & 0x3ff {
+        0x09 => "en".into(),
+        0x0c => "fr".into(),
+        0x07 => "de".into(),
+        0x0a => "es".into(),
+        0x10 => "it".into(),
+        p => format!("langid {id:#06x} (primary {p:#x})"),
+    })
+}
+
+/// The messages locale: `LANGUAGE`'s first entry, `LC_ALL`, `LC_MESSAGES`, `LANG` (the first set; `C` / `POSIX`
+/// count as English); on macOS, where an app started from Finder has none of these, then the first of
+/// `defaults read -g AppleLanguages`.
+#[cfg(not(windows))]
+fn system_language_code() -> Option<String> {
+    let env = ["LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"].iter().find_map(|k| {
+        let v = std::env::var(k).ok()?;
+        let first = v.split(':').next()?.trim().to_string();
+        (!first.is_empty()).then_some(first)
+    });
+    if env.is_some() || !cfg!(target_os = "macos") { return env; }
+    let out = std::process::Command::new("defaults").args(["read", "-g", "AppleLanguages"]).output().ok()?;
+    // `(\n    "fr-FR",\n    "en-US"\n)`
+    String::from_utf8_lossy(&out.stdout).split('"').nth(1).map(str::to_string)
+}
 
 /// Reads `hud_header`, the banks, the overlay's glyph tables, the FX textures and the level text.
 pub fn load(root: &Path, index: u32, core: &rc_formats::level::LevelCore, core_index: &[u8], core_data: &[u8], gameplay: &[u8]) -> Result<LevelHud> {
@@ -316,7 +413,21 @@ pub fn load(root: &Path, index: u32, core: &rc_formats::level::LevelCore, core_i
         if h.bank_size[b] != 0 { *bank = rc_data::hud_bank(root, index, b).with_context(|| format!("hud bank {b}"))?.to_vec(); }
     }
     let hud = hud::parse_hud(&header, std::array::from_fn(|b| banks[b].as_slice())).context("parsing hud")?;
-    let frames = (0..hud.frames.len()).map(|i| hud.decode_frame_raw(i)).collect::<rc_formats::buf::Result<Vec<_>>>()?;
+    let mut frames = (0..hud.frames.len()).map(|i| hud.decode_frame_raw(i)).collect::<rc_formats::buf::Result<Vec<_>>>()?;
+    // Reuse the native orb artwork, recolored once on the loader thread. There
+    // are no extra per-orb draw passes and no shader changes or stacked spheres.
+    let mut nanotech_frames=std::collections::HashMap::new();
+    if let Some(icon)=hud.icons.iter().find(|icon|icon.id==30006) {
+        for offset in 0..icon.frame_count.min(32) as usize {
+            let native=icon.first_frame as usize+offset;
+            let Some(original)=frames.get(native).cloned() else{continue;};
+            for layer in 2..=7 {
+                let mut colored=original.clone();
+                for pixel in colored.rgba.chunks_exact_mut(4) {rc_game::hud::nanotech::recolor(pixel,layer);}
+                nanotech_frames.insert((native,layer),frames.len());frames.push(colored);
+            }
+        }
+    }
     let (glyphs, glyph_addrs) = font::parse_glyph_tables(&read("overlay.bin")?).context("glyph tables")?;
     let fx_entries = particle_tex::parse_particle_textures(core, core_index, core_data).context("fx textures")?.fx_entries;
     let fx_bank = core.blocks.iter().find(|b| b.name == "fx_bank").map(|b| &core_data[b.offset..b.offset + b.size]).unwrap_or(&[]);
@@ -341,7 +452,7 @@ pub fn load(root: &Path, index: u32, core: &rc_formats::level::LevelCore, core_i
         .collect();
     let lang = language();
     let messages = strings::parse_strings(gameplay, lang).context("level text")?;
-    Ok(LevelHud { hud, frames, fx, fx_indexed, glyphs, glyph_addrs, messages, lang })
+    Ok(LevelHud { nanotech_frames, hud, frames, fx, fx_indexed, glyphs, glyph_addrs, messages, lang })
 }
 
 /// Rectangles of every texture in the atlas.
@@ -931,7 +1042,7 @@ fn setup(
 
     let assets = HudAssets::new(&lh.hud, lh.glyphs, lh.messages.clone());
     let evo_bar_cap_inset = assets.weapon_bar_cap_inset(&lh.frames);
-    let frame_sizes = assets.frame_sizes.clone();
+    let frame_sizes = lh.frames.iter().map(|t|(t.width as i32,t.height as i32)).collect();
     let env = HudEnv::read();
     println!(
         "hud: {} icons, {} frames, {} fx textures, glyph tables {:#x}/{:#x}/{:#x}, {} messages (language {}), atlas {}x{}{}{}{}",
@@ -957,7 +1068,7 @@ fn setup(
         built: Default::default(),
         ticks_done: 0,
         draws: Vec::new(),
-        hud2d: Hud2d { frame_sizes, ..default() },
+        hud2d: Hud2d { frame_sizes, nanotech_frames:lh.nanotech_frames.clone(), ..default() },
         // Until the first frame reads the game state (Persistent / Session / HeldWeapon): 4/4, no bolts, no slot.
         game: Inputs { lang: lh.lang, ..Default::default() },
         evo_notice: rc_game::weapon_evo::notice::State::default(),
@@ -993,13 +1104,14 @@ fn tick_and_build(
     mut feed: ResMut<HudFeed>,
     (mut play, mut audio): (Option<ResMut<crate::gameplay::Play>>, Option<ResMut<crate::audio_out::AudioOut>>),
     dyn_images: Option<Res<crate::hud_images::HudImages>>,
-    (display, mut images): (Option<Res<crate::display::DisplaySettings>>, ResMut<Assets<Image>>),
+    frame: Res<crate::display::GameFrame>,
+    mut images: ResMut<Assets<Image>>,
     (mut composites, mut static_composites, mut over_composites, mut targets): (ResMut<Assets<HudComposite>>, ResMut<Assets<HudStaticComposite>>, ResMut<Assets<HudCompositeOver>>, Query<&mut RenderTarget>),
 ) {
     let Some(mut rt) = rt else { return };
     let rt = &mut *rt;
     // The side margin of the frame's aspect (crate::display): the layer's targets and the HUD's left / right slots.
-    let extra = display.map_or(0, |d| crate::display::side_extra(d.aspect));
+    let extra = crate::display::side_extra(frame.ratio());
     if extra != rt.extra {
         rt.extra = extra;
         rt.state.side_extra = extra;
@@ -1106,12 +1218,12 @@ fn tick_and_build(
     let mut evo_notice_sound = false;
     if let Some(p) = play.as_deref() {
         let evo = &p.svc.bomb_evo;
-        let mut levels=[0u8;37];
+        let mut levels=[0u16;37];
         for &id in &rc_game::weapon_evo::WEAPON_IDS {
-            levels[id as usize]=evo.weapon_level(id).unwrap_or(0) as u8;
+            levels[id as usize]=evo.weapon_level(id).unwrap_or(0) as u16;
         }
         if !evo.hud.level_up_popup {levels.fill(0);}
-        if evo.world_settings.enemy_damage_by_health {levels[0]=(evo.nanotech.bonus+1).min(255) as u8;}
+        if evo.world_settings.enemy_damage_by_health {levels[0]=(evo.nanotech.bonus+1).min(301) as u16;}
         let duration=(evo.hud.level_up_popup_duration_seconds*60.0).round().max(1.0) as u64;
         let alive=p.game.hero.health>0 && !matches!(p.game.hero.state,0x7b|0x7f);
         let started=rt.evo_notice.update(p.game.counter,alive,evo.hud.level_up_popup || evo.world_settings.enemy_damage_by_health,levels,duration);
@@ -1185,7 +1297,7 @@ fn tick_and_build(
                 rt.state.nanotech_xp_anchor(rt.evo_bar_cap_inset,nanotech_height),
                 evo.nanotech.fraction(&evo.world_settings,evo.nanotech_native_max)) {
                 let alpha=(rc_game::weapon_evo::HudOptions::alpha(ui.nanotech_xp_bar_opacity_percent) as f32*fade) as u32;
-                let maxed=evo.nanotech.bonus >= evo.world_settings.nanotech_max_health;
+                let maxed=evo.nanotech.fraction(&evo.world_settings,evo.nanotech_native_max)==Some(1.0);
                 let draws=rc_game::hud::xp_bar::draws(left,top,width,nanotech_height,fraction,alpha,maxed);
                 crate::text_render::execute(&mut rt.hud2d,&mut st,&rt.glyphs,&draws);
             }
@@ -1478,6 +1590,17 @@ mod tests {
         assert_eq!(hud.add,vec![0,2]);
         let empty=Hud2d::default();hud.insert_batch(hud.prims.len(),empty);
         assert_eq!(hud.add,vec![0,2]);assert_eq!(hud.fine[1],(1,original));
+    }
+
+    #[test]
+    fn system_language_codes() {
+        use rc_formats::strings::lang::*;
+        for (code, want) in [("fr", Some(FRENCH)), ("de-DE", Some(GERMAN)), ("es_ES.UTF-8", Some(SPANISH)), ("it_IT", Some(ITALIAN)),
+            ("en-GB", Some(ENGLISH)), ("FR-ca", Some(FRENCH)), ("ja-JP", None), ("pt_BR", None), ("C", None), ("POSIX", None), ("", None),
+            ("langid 0x0411 (primary 0x11)", None)] {
+            assert_eq!(language_from_code(code), want, "{code}");
+        }
+        assert!(known_language(GERMAN) && !known_language(1) && !known_language(6));
     }
 
     #[test]

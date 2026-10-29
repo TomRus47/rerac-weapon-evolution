@@ -262,7 +262,10 @@ pub fn grant(gs:&mut GameState,session:&mut SessionState,items:&ItemTables,sourc
     if reward<37 {
         gs.give_item_native(reward as usize,equip,items,session);
         let item=reward as usize;
-        if equip && items.slot_type[item]==1{session.temp_feet=reward as i32;}
+        if equip && items.slot_type[item]==1 {
+            session.temp_feet=reward as i32;
+            gs.global.equipped[1]=reward as i32;
+        }
         if super::ammo_mode::AMMO_IDS.contains(&item){
             let native=u16::from_le_bytes(items.records[item].0[14..16].try_into().unwrap()) as i32;
             let max=super::effective_max_ammo(item,native).max(1);
@@ -292,11 +295,59 @@ pub fn display_class(reward:u16,native:i32)->i32{
     match reward {24=>479,65..=82=>750,96.. =>1134,49=>287,50=>1428,48|52|53=>511,
         _ if native>0=>native,_=>511}
 }
+/// Confirmed item-specific in-engine scenes, not vendor-array defaults.
+pub const ACQUISITION_SCENES:&[(usize,u32,usize)]=&[(9,4,2),(21,14,6),(22,6,2),(26,2,4),(28,10,2),(34,15,5)];
+pub fn acquisition_scene(item:usize)->Option<(u32,usize)> {
+    ACQUISITION_SCENES.iter().find(|row|row.0==item).map(|row|(row.1,row.2))
+}
 pub fn acquisition_movie(item:usize)->Option<i32>{match item{31=>Some(0),27=>Some(1),5=>Some(2),_=>None}}
 pub fn talk_source(level:u32,item:usize)->Option<usize>{
     if catalog::locations().iter().any(|l|l.id==item&&l.level==level){return Some(item);}
     match (level,item){(1,37)=>Some(66),(5,38)=>Some(71),(8,39)=>Some(73),(14,42)=>Some(79),_=>None}
 }
+/// A talk condition's flag/index is not necessarily the unlocked reward.
+pub fn talk_offer_source(level:u32,class:i16,node:&crate::moby_update::interact::TalkNode,nodes:&[crate::moby_update::interact::TalkNode])->Option<usize> {
+    if level==11 && class==298 {return Some(35);}
+    if matches!(node.kind,1|2|3) {
+        if let Some(source)=talk_source(level,node.item.max(0) as usize){return Some(source);}
+    }
+    let mut candidates=nodes.iter().filter(|n|matches!(n.kind,1|2|3))
+        .filter_map(|n|talk_source(level,n.item.max(0) as usize)).collect::<Vec<_>>();
+    candidates.sort_unstable();candidates.dedup();
+    (candidates.len()==1).then(||candidates[0])
+}
+
+/// Replace all case variants without decoding the game's font bytes. A prompt
+/// without the source name gets an explicit localized offer instead of a lie.
+pub fn replace_reward_name(native:&[u8],old:&[u8],reward:&[u8])->Option<Vec<u8>> {
+    if old.is_empty() {return None;}
+    let mut text=Vec::new();let mut at=0;let mut replaced=false;
+    while at<native.len() {
+        if native.get(at..at+old.len()).is_some_and(|s|s.eq_ignore_ascii_case(old)) {
+            text.extend_from_slice(reward);at+=old.len();replaced=true;
+        } else {text.push(native[at]);at+=1;}
+    }
+    replaced.then_some(text)
+}
+
+pub fn offer_text(native:&[u8],old:&[u8],reward:&[u8],lang:u32,price:Option<i32>,trade:bool)->Vec<u8> {
+    if let Some(text)=replace_reward_name(native,old,reward).filter(|t|t.len()<crate::moby_update::interact::PROMPT_TEXT_MAX) {return text;}
+    let prefix:&[u8]=if trade {match lang {
+        2=>b"Echanger du Raritanium contre : ",3=>b"Raritanium tauschen gegen: ",
+        4=>b"Cambiar Raritanium por: ",5=>b"Scambia Raritanium per: ",_=>b"Exchange Raritanium for: ",
+    }} else {match lang {2=>b"Obtenir : ",3=>b"Erhalten: ",4=>b"Obtener: ",5=>b"Ottieni: ",_=>b"Obtain: "}};
+    let mut text=prefix.to_vec();text.extend_from_slice(reward);
+    if let Some(price)=price.filter(|_|!trade) {text.extend_from_slice(format!(" - {price} bolts").as_bytes());}
+    // Never let a long translated name become the engine's "Message too long"
+    // diagnostic. Prefer the actual reward over optional explanatory wording.
+    if text.len()>=crate::moby_update::interact::PROMPT_TEXT_MAX {
+        text=if trade {b"Raritanium: ".to_vec()}else{Vec::new()};text.extend_from_slice(reward);
+        if let Some(price)=price.filter(|_|!trade) {text.extend_from_slice(format!(" - {price} bolts").as_bytes());}
+        text.truncate(crate::moby_update::interact::PROMPT_TEXT_MAX-1);
+    }
+    text
+}
+
 pub fn departure(state:State,from:u32,intended:i32,unlocked:&[u8])->i32{
     if !state.active()||intended<0{return intended;}
     let source=match (from,intended){(0,1)=>65,(7,8)=>72,_=>return intended};
@@ -406,6 +457,33 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
 
 #[cfg(test)]mod tests{
     use super::*;
+    #[test]
+    fn trade_and_purchase_prompts_resolve_rewards_not_condition_flags_in_all_languages() {
+        use crate::moby_update::interact::TalkNode;
+        let flag=TalkNode{kind:4,item:1,..Default::default()};
+        assert_eq!(talk_offer_source(11,298,&flag,&[]),Some(35));
+        let owned=TalkNode{kind:2,item:34,..Default::default()};
+        assert_eq!(talk_offer_source(15,1377,&flag,&[owned]),Some(34));
+        assert_eq!(talk_offer_source(3,100,&flag,&[]),None);
+        for lang in 0..=5 {
+            let out=offer_text(b"Give raritanium for the PERSUADER?",b"Persuader",b"Rilgar",lang,None,true);
+            assert!(out.windows(6).any(|w|w==b"Rilgar"));assert!(!out.windows(9).any(|w|w.eq_ignore_ascii_case(b"Persuader")));
+            let fallback=offer_text(b"Native unrelated text",b"",b"Rilgar",lang,None,true);
+            assert!(fallback.ends_with(b"Rilgar"));
+            assert!(fallback.windows(10).any(|w|w==b"Raritanium"));
+            let buy=offer_text(b"missing name",b"old",b"Gadget",lang,Some(1200),false);
+            assert!(buy.ends_with(b"1200 bolts"));
+        }
+    }
+    #[test]
+    fn item_scene_catalog_never_uses_the_bomb_glove_as_a_gadget_default() {
+        assert_eq!(acquisition_scene(34),Some((15,5)));
+        assert_eq!(acquisition_scene(28),Some((10,2)));
+        assert_eq!(acquisition_scene(26),Some((2,4)));
+        assert_eq!(acquisition_scene(22),Some((6,2)));
+        assert_eq!(acquisition_scene(12),None);
+    }
+
     #[test]
     fn surveyed_layouts_preserve_version_six_saves_without_rerolling() {
         let mut state=State::generate(9701);assert_eq!(state.version,8);
@@ -606,6 +684,21 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
         let p=gs.weapon_progress;let bytes=p.encode(b"native").unwrap();
         assert_eq!(Progress::decode(&bytes,b"native").unwrap(),p);
         assert!(Progress::decode(&bytes,b"other").is_err());
+    }
+    #[test]fn randomized_boots_are_persisted_before_a_planet_transition(){
+        for reward in [28u16,29] {
+            let (mut gs,mut sess,mut items)=fixture();
+            items.slot_type[reward as usize]=1;
+            let at=gs.weapon_progress.randomizer.placements.iter().position(|&r|r==reward).unwrap();
+            assert_eq!(grant(&mut gs,&mut sess,&items,at,true),Some(reward));
+            assert_eq!(gs.global.equipped[1],reward as i32);
+            assert_eq!(sess.temp_feet,reward as i32);
+            assert_eq!(gs.global.owned[reward as usize],1);
+            let restored=gs.clone();
+            let fresh=SessionState::default();
+            assert_eq!(fresh.temp_feet,0);
+            assert_eq!(restored.global.equipped[1],reward as i32);
+        }
     }
     #[test]fn challenge_reset_keeps_seed_claims_coordinates_and_actual_inventory(){
         let (mut gs,mut sess,items)=fixture();

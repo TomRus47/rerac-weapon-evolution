@@ -346,13 +346,13 @@ and disassembly of 0x265548, 0x2711f8, 0x2d8330, 0x2c2be0 (disassembled in full)
 * **Which weapons**: the reticle is the Bomb Glove's only (0x2c2be0's one caller is the bomb 0x2c3300, gated on the
   owner's class 0xc0; nothing else registers 0x2c23c0). **Corrected 2026-09-28 (§13):** the mine 74 (`0x2bfa78` +
   draw `0x2bf420`), the decoy 203 and the Glove of Doom's canister 230 (`0x2d9760` / `0x2de0a8` + draw `0x2d8e28`) run
-  copies of the preview and of the draw (same quads and constants); the decoy's and the canister's never draw in
-  practice (their first update marks them as replaced), the mine's does. The Drone Device has none; the Pyrocitor
-  reads no target list. Plug-in rows for the other readers (`AimRules` or their own
-  search over the same list): the melee aim assist (range 11, cone 50°, score `d + diff·d`, +7 for a record flag), the
-  Devastator 0x2c7d68 (hard lock within 2.5 at 60° / 45°, else a 10° cone (+40° gold) narrowed by the record's
-  radius byte +0x0a, camera line flags 6), the head look 0x22c080 (range record +0x38, 110°, 60°, priority +0x39), and
-  0x2cc830 / 0x2cf138 / 0x2d2018 / 0x2d49f8 / 0x30d308 / 0x2bfe40 (lures, a two-target scorer, the mines of class
+  copies of the preview and of the draw (same quads and constants); all four draw a held reticle (the decoy's and the
+  canister's from their state-1 update: their create leaves the velocity 0, so the state-0 update has nothing to
+  preview). The Drone Device has none; the Pyrocitor reads no target list. Plug-in rows for the other readers
+  (`AimRules` or their own search over the same list): the melee aim assist (range 11, cone 50°, score `d + diff·d`,
+  +7 for a record flag), the Devastator 0x2c7d68 (hard lock within 2.5 at 60° / 45°, else a 10° cone (+40° gold)
+  narrowed by the record's radius byte +0x0a, camera line flags 6), the head look 0x22c080 (range record +0x38, 110°,
+  60°, priority +0x39), and 0x2cc830 / 0x2cf138 / 0x2d2018 / 0x2d49f8 / 0x30d308 / 0x2bfe40 (lures, a two-target scorer, the mines of class
   190) — not ported.
 
 **Native, not emulated.** `f32` with `atan2` for `FastArcTan` and the moby Euler rows for `fun_001fa050`; the
@@ -360,7 +360,9 @@ reticle is two ordinary textured quads through the shared callback material; no 
 target list is rebuilt from the run list after the moby loop (the game builds it at the loop's start: a moby that
 toggles 0x1000 in its own update is seen one tick early); the glove is not a table moby in the port, so the preview's
 "owner" exemption covers Ratchet only; the GroundHeight line's endpoints' x/y (the decompiler dropped them: taken as the
-moby's); the moving-platform variants (0x13f64c, never set in the port) are not wired.
+moby's). The held reticle is the game's variant 1. On a carrier the game calls variant 0 instead (the plain arc, drawn
+only when it lands on a carrier moby) and falls back to variant 2 (the arc with Ratchet's displacement 0x13f450); the
+port draws variant 1 alone, which is what variant 0 shows while the aim lands on the train (G-WPN-018).
 
 **Tests**: `targeting::tests` (6: the list and record, the glove's rules, landing, snapping, the reticle's plane /
 size / spin, the pull and the per-tick list), `moby_attach::tests` (2: one hand entity set per equipped item, absent
@@ -911,6 +913,10 @@ and the pulse loop; an R5900-aware disassembly of lq / sq / por, scratch `morph/
   the gold burst: `SpawnBeamExplosion` with the colour shift and a damage-1 sphere of 3) into 5–8 feathers and hides
   (state 6); in the Suck Cannon (state 5) through its reaction table `react::CHICKEN` and `react::carried`, a feather
   one tick in four. Clucks (class sound 0 / 1) every 2–5 s.
+* **Placed chickens** (Kalebo III's breakroom, 16 level instances in group 86): these keep the game's 0x80-byte pvar
+  block; the ring slot's knockback and suck records after it belong to the morph, so a placed chicken is never
+  suckable but runs the same update from the base block. Its burst leaves it in state 6, which is what the chicken
+  pad (`0x2e8970`) waits for to send one through teleporter pad #1192 again (`chicken::respawn_at`).
 * **The beam** (`0x2d2d08`, draw `0x2d38b8`): 12 points bending from the last tick's shape to the aim and the target,
   rings of 20, two helix strands, type-53 sparkle pairs at their ends, type-78 sparks (not ported), three pulses (8 u/s,
   0.1 → 1.5); drawn as the tube (FX 13, two counter-scrolled layers, back faces culled), the strands (FX 14 / 16), the
@@ -982,19 +988,23 @@ unchanged (`novalis_hero_digest` NO_IDLE md5 596306d7…, identical).
 **The landing previews and the reticle are shared too**: `targeting::arc_landing` now takes the copies' rules
 (`Prims::Snap { max_rise }` — the bomb's 2-unit rule, none for the decoy / canister; `Prims::Ignore` — the mine: only a
 face ends it; `first_test`), and the draws `0x2bf420` (mine) / `0x2d8e28` (decoy, canister) are the bomb's `0x2c23c0`
-(`targeting::BOMB_RETICLE`). A quirk reproduced: the decoy's and the canister's first update (state 0) takes the
-preview's "flying" branch and marks "a new object in the glove" on themselves, so they never show a reticle; the mine's
-held state is 0, so it does (held, and for its first 10 ticks out).
+(`targeting::BOMB_RETICLE`). All four gloves show the ground reticle while they hold their object: the decoy's and the
+canister's create leaves the velocity 0 (the glove's aim fills it), so their first update (state 0) has nothing to
+preview and state 1 draws every tick; the mine's held state is 0, so it draws from its first aimed tick (held, and for
+its first 10 ticks out).
 
 **The Mine Glove's mine** (`moby_update::classes::mine`, module doc for the states, pvars and constants): thrown as a
 45° lob, bounces (×0.6, half the vertical, a bob that fades in), lands on ground flatter than 45° once slower than 0.5
 u/s and arms at once (the arming timer is cleared on the ground; a mine still out after 120 ticks goes off). Armed and
 landed it watches the target list: any target within 1.5 sets it off; the nearest non-crate within `4 + record
 radius/8` (×3 while the Taunter lures it) and 2 in height is **sought** — it hops at 4 u/s after it, its 0.35 sphere
-setting it off on contact, for at most 600 ticks. Ratchet standing on it pushes it away (`walker::move_ground`, the
-shared `0x26d270`). A hit (mask 0x830000) or more than 8 mines (the oldest) set it off. **The explosion**: an area hit
-of radius 2, damage 3 (`creature::attack::area_hit`, the shared `0x26f8f8`), `SpawnBeamExplosion` in the air or 15
-type-16 puffs on the ground, class sound 2, the shake, the Bomb Glove's explosion light (0x20a890 = 0x20a930). **In
+setting it off on contact — except on the carrier it rides [L]: the game checks the first listed moby's class and has
+no platform exemption, but the port's sphere lists the exactly tangent deck, so the carrier is skipped — for at most
+600 ticks. Ratchet standing on it pushes it away (`walker::move_ground`, the shared `0x26d270`). A hit (mask 0x830000)
+or more than 8 mines (the oldest) set it off. **The explosion**: an area hit of radius 2, damage 3
+(`creature::attack::area_hit`, the shared `0x26f8f8`), `SpawnBeamExplosion` in the air or 15 type-16 puffs
+on the ground (Weapon Evolution bounds the native camera-distance count), class sound 2, the shake, the Bomb Glove's explosion light (0x20a890 =
+0x20a930). **In
 water** it uses the bomb's water code (`classes::bomb_water`, written for both: the entry splash, the sinking bubbles,
 now also `bubbles` and `scorch` with the mine's counts). A bug fixed on the way: the water entry makes **16** drops,
 not 15 (the loop counts 0xf down to −1, like the other loops' 0x95 → 150, 99 → 100); the bomb's ledger test updated.
@@ -1077,8 +1087,8 @@ Ratchet's hit ignored — the port tests the world alone [L], as the Bomb Glove 
 | address / branch | what it does | status |
 |---|---|---|
 | `0x2bf6a0`: `CreateMoby(0x4a)`, +0x30 0xff, +0x32 0x7f, +0x31 1, scale ×0.5, state 0, owner, +0x36 / +0x78 = 0, hand point, vel 0, 2 × `randf(60°·dt, 180°·dt)` +0x38 / +0x3c, +0x68 −1, +0x6c, +0x5c = frame, +0x60 / +0x64 / +0x70 / +0x74 = 0, +0x94 = 0, `fun_0020def8` | the mine in the glove | P `mine::init_held` (the rotation build is the renderer's: n/a) |
-| `0x2bf7d8`: 3 × `randf(±1)` + `randf(0.01·dt, 0.1·dt)` nudge, state 1, scale ÷0.65, +0x34 = ticks(120), > 7 other mines → oldest +0x5c = −1, at the launch point, `CollLine_Fix((Ratchet.xy, z), point, 0, Ratchet)` → on the wall 9.7·dt² off, vel reflected ×0.6 | the release | P `mine::release` / `release_hit` + `gloves::wall_probe` |
-| 0x13f64c / `FUN_00275290` / `FUN_002752c0` | moving platforms (release, preview, landing, riding) | n/a (0x13f64c never set in the port: G-WPN-008 lists the platform previews) |
+| `0x2bf7d8`: 3 × `randf(±1)` + `randf(0.01·dt, 0.1·dt)` nudge, state 1, scale ÷0.65, +0x34 = ticks(120), > 7 other mines → oldest +0x5c = −1, at the launch point, on a carrier Ratchet's displacement 0x13f450 added to the velocity after the nudge (0x2bf8e0), `CollLine_Fix((Ratchet.xy, z), point, 0, Ratchet)` → on the wall 9.7·dt² off, vel reflected ×0.6 | the release | P `mine::release` / `release_hit` + `gloves::wall_probe` |
+| 0x13f64c / `FUN_00275290` / `FUN_002752c0` | moving platforms (release, preview, landing, riding) | P: the release adds Ratchet's displacement 0x13f450 (0x2bf8e0); landed, the mine rides its carrier (+0x4c, 0x2752c0); the preview's carrier variants 0 / 2 are **G-WPN-018** |
 | 0x1413f5 / 0x1413ff | hidden in first person or with the hand hidden (held) | P |
 | hand not 0xbe or 0x1413f4 ≠ 0, held → `DeleteMoby` | | P |
 | owner alive, class 0xbe, +0x36 == 0, vel ≠ 0 → `0x2bfa78(…, 1)` | the preview | P `mine::preview` (the reticle every held tick: test) |
@@ -1089,7 +1099,7 @@ Ratchet's hit ignored — the port tests the world alone [L], as the Bomb Glove 
 | −0.4 and the bob's undo | | P |
 | `CollLine_Fix(old, pos, 0x10, mine, tmpl)` | the path | P (`line_hit_in`) |
 | water face (CollType 0), vz < 0 → `RippleDisturb`, +0x50 = 1, vel (0, 0, −1.5·dt), `FUN_002ff768(2, …)` +0x23 = 0x70, 16 × `PartType35Spawn` | the water entry | P `bomb_water::entry` (16 drops: the bomb's 15 corrected) |
-| world face, not water, vz ≥ −9.8·dt → the bounce (9.7·dt² off, ×0.6, vz ×0.5, the bob's start `+0x6c/70/74`), floor > 45° and falling → z ≥ ground, vz flipped, slow → landed (+0x94 = collision) | | P `mine::ground_bounce`; tests (landed) |
+| world face, not water, vz ≥ −9.8·dt → the bounce (9.7·dt² off, ×0.6, vz ×0.5, the bob's start `+0x6c/70/74`), floor > 45° and falling → z ≥ ground, vz flipped, slow → landed (+0x94 = collision); a **carrier** face lands it at once (the ground line's moby satisfies `FUN_00275290`, 0x2c091c) | | P `mine::ground_bounce`; tests (landed, a carrier's instant settle) |
 | the tilt (`FUN_00222420`, 3°) | | P `mine::orient` |
 | a crate (`FUN_00273278`: 500..540) or mode 0x5000, not a mine / Ratchet / the glove → explode (not state 1: at the hit, on the ground) | | P; test `novalis_mine_breaks_a_crate` |
 | Ratchet / the glove (kind < 1: nothing) or another moby → the landing test; another mine → bounce ×0.4 or explode | | P |
@@ -1118,12 +1128,12 @@ Ratchet's hit ignored — the port tests the world alone [L], as the Bomb Glove 
 
 | address / branch | what it does | status |
 |---|---|---|
-| `0x2d9228`: class 0xcb (0x76c gold), +0x30 / +0x32 0xff, +0x31 1, state 0, the hand point, +0x10 = the point, owner, +0x44 / +0x54 = 0, scale × 0.5, health (gold + 1)·4, seq-0 blend (a no-op on a new moby), +0x94 = 0, +0x98 = −1, yaw `randf(±π)`, +0x58 / +0x5c = 0, the cap (> 5 listed: the oldest below state 5 → 6), `fun_0020def8`, `FUN_00272078` (Ratchet's +0x38 lighting), the flash record (0x80, 4, 15), list in, hidden in first person | | P `decoy::init_held` / `cap_count` |
-| `0x2d94f0`: the release from the hand point, the line (Ratchet → 0.2 past, flags 0, the mobys too) → state 2, or on the wall: vel 0, state 4, `ticks(30)`, the tilt | | P `decoy::release` + `gloves::wall_probe` |
+| `0x2d9228`: class 0xcb (0x76c gold), +0x30 / +0x32 0xff, +0x31 1, state 0, the hand point, +0x10 = 0 (the caller's `loc` is zeroed; the aim writes it), owner, +0x44 / +0x54 = 0, scale × 0.5, health (gold + 1)·4, seq-0 blend (a no-op on a new moby), +0x94 = 0, +0x98 = −1, yaw `randf(±π)`, +0x58 / +0x5c = 0, the cap (> 5 listed: the oldest below state 5 → 6), `fun_0020def8`, `FUN_00272078` (Ratchet's +0x38 lighting), the flash record (0x80, 4, 15), list in, hidden in first person | | P `decoy::init_held` / `cap_count` |
+| `0x2d94f0`: the release from the hand point, Ratchet's displacement 0x13f450 added to the velocity on a carrier (the Metropolis train), the line (Ratchet → 0.2 past, flags 0, the mobys too) → state 2, or on the wall: vel 0, state 4, `ticks(30)`, the tilt | | P `decoy::release` + `gloves::wall_probe` |
 | out of [2, 1021]³ → list out, delete | | P |
 | hand not 0x232 / 0x1413f4 ≠ 0, held → delete | | P |
 | +0x54++ ; hidden in first person (state ≤ 1) | | P |
-| the preview (owner 0x232, +0x46 == 0, vel ≠ 0); the first update's "flying" branch sets +0x46 on itself | | P `decoy::preview` (never draws: the game's quirk, reproduced) |
+| the preview (owner 0x232, +0x46 == 0, vel ≠ 0): held (state 1) from the launch point for 300 ticks; out, from the object for +0x44, and a new decoy in the glove (+0x50) sets +0x46, ending it | the ground reticle | P `decoy::preview` (the reticle while held) |
 | 0 → 1 (+0x44, +0x98 −1, +0x6e, +0x6c) | | P |
 | 1: owner alive and in hand → nothing; else delete | | P |
 | 2: grow 0.02 a tick; −9·dt²; apart from the listed decoys (1.8, ×0.015); Ratchet's +0x94 off in 0x1e; `FUN_0026d610(0.2, 0.2, 0)`; walls → `FUN_00212960(0.23)`; pushed from Ratchet when falling; reflected ×0.2 (×1.05 off a primitive); slow on < 35° → +0x44++ and land (a primitive after 240); land: blend 1 (ticks(10)), +0x98 0, +0x94 collision, vel 0, state 3, +0x44 ticks(600), z, the tilt | | P `decoy::fly` / `land`; tests (flew, landed) |
@@ -1167,7 +1177,8 @@ Reproduced (`mine::tests::explodes_in_water`).
 **Native, not emulated**: standard `f32`; the rand draws are the game's, at its points. **Inferred [L]** (module docs):
 the gloves' pvars start clear with the hand moby's creation; the hit templates' unwritten bytes; the held mine's
 orientation (the glove's joint-0 frame) is not written; the decoy / mine lists 0x1b0cb0 / 0x1b0c30 are the table's
-objects; objects on moving platforms do not ride them (0x13f64c never set); the gold gloves are not mirrored.
+objects; the gold gloves are not mirrored. A throw from a carrier adds Ratchet's displacement 0x13f450 (`FUN_00275290(0x13f64c)`),
+and a decoy or mine that lands on one rides it (`0x2752c0`).
 
 **Tests** (`crates/rc-game/tests/weapons/hero_gloves.rs`, headless on the arrival state with `GiveItem(id, equip)`, every run
 twice identical; the rows carry the objects, their class sounds, the hero-side sounds, particle counts, lights, the
@@ -1566,7 +1577,7 @@ are set off by explosions (0x800000) and enemy hits (1).
 | case 3 without a canister: `fun_0022da68(0, 0, glove)` | the click | P (`Empty::Click`); test `novalis_glove_of_doom_clicks_without_a_canister` |
 | case 3: `s16 0x141720++`, 0x141722 minutes, 0x141724 level bits | throw statistics | **G-SAV-009** (counted in `Weapons::throws`) |
 | case 3: `FUN_002ddf58(glove+0x40, canister, pvars)` | the release | P `gloves::release_canister` |
-| tail: `FUN_00249530(−1)` → `FUN_002dde80(glove, hand, hand)` | a new canister with ammo | P (`Refill::Ammo`); test (the next canister at the throw tick) |
+| tail: `FUN_00249530(−1)` → `FUN_002dde80(glove, hand, 0)` | a new canister with ammo | P (`Refill::Ammo`); test (the next canister at the throw tick) |
 | case 6 → return | the canister deletes itself | P (`OnDelete::Keep`) |
 | HAND_ITEMS row (weapon check `weapons::fire`, 0x23 / the arm) | | P `gadgets::HAND_ITEMS` |
 
@@ -1574,11 +1585,11 @@ are set off by explosions (0x800000) and enemy hits (1).
 
 | address / branch | what it does | status |
 |---|---|---|
-| `0x2dde80`: `CreateMoby(0xe6)`, +0x32 / +0x30 0xff, +0x31 1, state 0, the hand point, pvars[0] = the point, owner, +0x38 / +0x34 = 0, scale = class · 0.01, 0x1413f5 / 0x1413ff → mode \| 0x41 | | P `doom_canister::init_held` |
-| `0x2ddf58`: velocity kept, (0x13f64c platform add), at the hand point, `CollLine_Fix((Ratchet.xy, point.z), point, 0, Ratchet)` → on the wall `(9 − 0.1)·dt²` off, velocity reflected ×0.6; state 2 | | P `doom_canister::release` + `gloves::wall_probe` (platform: n/a, 0x13f64c never set) |
+| `0x2dde80`: `CreateMoby(0xe6)`, +0x32 / +0x30 0xff, +0x31 1, state 0, the hand point, pvars[0] = 0 (the caller's `grip` is zeroed; the aim writes it), owner, +0x38 / +0x34 = 0, scale = class · 0.01, 0x1413f5 / 0x1413ff → mode \| 0x41 | | P `doom_canister::init_held` |
+| `0x2ddf58`: velocity kept, plus Ratchet's displacement 0x13f450 on a carrier (`FUN_00275290(0x13f64c)`), at the hand point, `CollLine_Fix((Ratchet.xy, point.z), point, 0, Ratchet)` → on the wall `(9 − 0.1)·dt²` off, velocity reflected ×0.6; state 2 | | P `doom_canister::release` + `gloves::wall_probe` |
 | out of [2, 1021]³ → `DeleteMoby` | | P |
 | 0x1413f5 and state ≤ 1 → mode \| 0x41, else clear | hidden in first person | P |
-| owner class 0xe5, +0x3a == 0, \|vel\| > 0 → `0x2de0a8(…, 1)` (0 / 2 on platforms) | the landing preview | P `decoy::short_glove_preview` (shared with the decoy); never draws (the first update marks +0x3a: §13's quirk) |
+| owner class 0xe5, +0x3a == 0, \|vel\| > 0 → `0x2de0a8(…, 1)` (0 / 2 on platforms) | the landing preview | P `decoy::short_glove_preview` (shared with the decoy); the reticle while held |
 | `0x2de0a8`: 0x72 / 0x15f5c4 → 0; held from the launch point for 300 ticks (grind displacement), flying from it for +0x38 ticks and +0x3a = 1 when the glove holds one; the arc (gravity 9, flags 0x10, Ratchet / the owner skipped in the first 10 ticks); `FUN_0021afe0(0x2dda60)` (= the bomb's reticle `0x2c23c0`); the point 0.95 from the camera | | P (the same function as `0x2d9760`: `tg::arc_landing`, `tg::BOMB_RETICLE`) |
 | 0 → 1: +0x34 ticks(4), +0x3c / +0x38 = 0 | | P |
 | 1: +0x38 = 0; scale += class·0.05 below class·0.25; `FastDecTimer(+0x34)` → ticks(4), `0x283d88` unless 0x1413f5 | grows, glows | P; test `opens_and_lets_out_four_bots` (glows), `novalis_bots_blow_up_a_critter` (glows while held) |
@@ -1586,10 +1597,10 @@ are set off by explosions (0x800000) and enemy hits (1).
 | 2: scale += class·0.05·gs below class·0.5·gs; the glow timer; vz −= 9·dt²; `FUN_00212960(0.3·gs, next + 0.2 up, 4, Ratchet)`, else `CollLine_Fix(bottom, next bottom, 0, Ratchet)`; none → moved | the flight | P `doom_canister::fly` |
 | 2 hit: to the pushed centre (0.2 down) or the line point (bottom back up); `FUN_00221570` reflect ×0.5; slow (< 0.01): +0x38++, world / mesh (0x1742dc > 0) / > ticks(240) → 3; (platform ride); pos += vel; `0x2ddce0` | | P; test (opened) |
 | `0x2ddce0`: surfaces 0, 1, 3, 8, 0xb, 0xc, 0xd → 20 × (3 `randf(±0.3)`, 3 `rand`, `randf(1e5, 8e5)`, `rand`) `PartType05Spawn`, state 4 | the pop | P `doom_canister::pop` (type 5 records: **G-PRT-001**); test `pops_on_a_pop_surface` |
-| 3: `FUN_0026e618` + `FUN_002752c0` | ground probe for the platform ride | n/a (0x13f64c never set; no other effect) |
+| 3: `FUN_0026e618` + `FUN_002752c0` | ground probe for the platform ride (every open tick) | P `doom_canister::ride` |
 | 3: `FastDecTimer(+0x38)` → count class 0xba not dead in the moby list; < 8 → `FUN_002d5a70(owner, pos + v, v)`, v = (cos, sin)(k·π/2)·0.05 + 0.02 up, +0x38 ticks(8), +0x3c++, > 3 → 4; else +0x38 ticks(15) | the bots | P `doom_canister::open`; tests `opens_and_lets_out_four_bots` (8 apart), `waits_while_eight_bots_are_out` |
 | 3: +0x3c < 2 → the glow timer | | P |
-| 4: alpha −4, scale ×0.92, (ride), alpha 0 → `DeleteMoby` | the fade | P; tests (deleted) |
+| 4: alpha −4, scale ×0.92, the platform ride, alpha 0 → `DeleteMoby` | the fade | P (`doom_canister::ride`); tests (deleted) |
 | default → 0 | | P |
 | gold (0x13e534: size ×2, sphere 0.6) | | **G-WPN-009** |
 | `0x283d88` / `0x283ea8` (type 32): the glow riding the canister (alpha pulse 0 → 0.6 → 0 by 0.016, white → blue, turning, size scale·3e6 + 5e4) | the glow | P `particles::type32` (new); test `type32::tests::pulses_follows_and_dies` |
@@ -1612,7 +1623,7 @@ are set off by explosions (0x800000) and enemy hits (1).
 | `FastDecTimer(+0x30)`; +0x20 = pos | | P |
 | `0x2d4718(5)`: a targetable creature's primitive → 0xb; the world or a primitive → onto the pushed centre (the `fabs(z − z) > 0.6` hold never true), velocity = the normal clamped 0.05 (3-D, xy), 8, a target → failed + 500; sequence 5 | touching / pushed | P `doom_bot::knocked`; test (Rilgar: the first bot out touches the amoeboid and blows up) |
 | z < 0.1 → delete; +0x30 > 4000 → 0xb | | P; test `runs_out_of_patience` |
-| `FUN_0026e618` + `FUN_002752c0` | the platform ride | n/a (0x13f64c) |
+| `FUN_0026e618` + `FUN_002752c0` | the platform ride | P `doom_bot::update` (the ground line's moby, every state) |
 | 0: `STUB_printf`, → 1; 1 / 9 / 10: wrap → 2 | | P (debug print n/a) |
 | 2..5: target alive: reach = g' + record +0x0a / 8 (z + record +0x10); dist < reach and `FUN_00212960(g', pos, 1)` → 0xb | explode on touching the target | P `doom_bot::chase`; tests (the critter blown up) |
 | 2..5: within reach/2 (xy, z) → `0x2d4868`, `0x2d5518`, `0x2d48b0`, point = target, top 0.066, sequence 0, state 6 (overwritten below: the game's) | | P |
@@ -1658,7 +1669,7 @@ gloves / creature tests are unchanged.
 
 **Native, not emulated**: standard `f32` everywhere; the rand draws are the game's (`randi(4)` gates, `randf(±π)`, the
 pop's and the glow's draws). **Inferred [L]**: the owner is "the Glove of Doom in hand"; the globals per bot (above);
-moving platforms n/a (0x13f64c never set); the type-5 puffs are records only (G-PRT-001); 0 / 0 in `0x2d5518` keeps the
+the type-5 puffs are records only (G-PRT-001); 0 / 0 in `0x2d5518` keeps the
 speed; the gold canister / bots not mirrored (G-WPN-009).
 
 **Shared pieces and their users**: `hero::gloves::update` + `short_throw_aim` (Decoy, Doom); `weapons::launch_velocity`

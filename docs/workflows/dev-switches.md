@@ -39,8 +39,9 @@ module that reads it: `grep -rn '"RC_' crates/` lists them all.
 | `RC_LANDING` | `1`: the boot's level enters as after a level change (`entry`: the music pause / unpause and `ShipLandingStart`'s landing scene); default: the level's start in mode 0 (or `RC_HERO_AT`) |
 | `RC_FRONTEND` | The front end (the card check, the logos, the title world, PRESS START, the main menu) is the default start. `0`: skip it and start in the level; `1`: keep it even with `RC_LEVEL` |
 | `RC_UNPORTED` | `1`: every 600 ticks, print the calls the moby loop met without a port so far (`Services::unported`, by name and count) |
+| `RC_LANG` | The start language slot (0 English, 2 French, 3 German, 4 Spanish, 5 Italian), over the saved choice. Without it: the Language choice saved in the settings file (`language = <slot>`), else the computer's display language (English when it is none of the five, or in frame-exact runs) |
 | `RC_SKIP_LOGOS` | `1`: in the front end, skip the publisher logos movie and go straight to the title |
-| `RC_SAVE_DIR` | the memory-card folder (`0` or empty: no card); default `<config>/rerac/memcard`. `RC_SAVE_TRACE=1` logs every card state change |
+| `RC_SAVE_DIR` | the memory-card folder (`0` or empty: no card); without it, the `memcard_dir = <path>` key of the port settings file (relative: from the settings file's folder), else a `memcard/` folder beside the executable if it exists, else `<config>/rerac/memcard` (deterministic runs: no card). `RC_SAVE_TRACE=1` logs every card state change |
 | `RC_CAM` | Starting camera `ex,ey,ez,tx,ty,tz` (eye and target, game units) |
 | `RC_SCREENSHOT` | Save a screenshot to this path, then exit |
 | `RC_SCREENSHOT_DELAY` | Seconds before the screenshot (default 3) |
@@ -57,7 +58,7 @@ module that reads it: `grep -rn '"RC_' crates/` lists them all.
 | `RC_RESPAWN_PROBE_AT` | `<tick>`: print the respawn state once at that gameplay tick, as **F10** does in dev builds (the format of `work/scratch/respawn_probe.py`, which reads the same tables from a running PCSX2 over PINE: compare the two line by line) |
 | `RC_TRACE_RESPAWN` | `1`: at every death reload, the spawn test's verdict for each Kerwan trooper (574) with the bits that decided it, and a line whenever a trooper blows up or is deleted (`respawn trace:`) |
 | `RC_TRACE_BOTS` | `1`: Clank's gadgetbots and their pads (class 857 / 1302) on stderr: each bot merged into a pad with the count left, each knock-back home, each pad trigger with its count, mission and the class and state of each linked door (a door opens only from state 2) |
-| `RC_ASPECT` | `4:3` (default: the original TV picture), `16:10` or `16:9` (Hor+: the view widens, the HUD's side elements move to the frame's edges, the menus stay in the centred 4:3 box); overrides the Port Options value at start (crate::display) |
+| `RC_ASPECT` | `4:3` (default: the original TV picture), `16:10`, `16:9` or `fill` (the window's own shape, never narrower than 4:3: the frame is the window's, so an ultrawide monitor has no black pillars, while a narrower window is letterboxed) (Hor+: the view widens, the HUD's side elements move to the frame's edges, the menus stay in the centred 4:3 box); overrides the Port Options value at start (crate::display) |
 | `RC_RESOLUTION` | `window` (default: the largest frame of the Aspect ratio that fits the window) or `416`, `720`, `1080`, `1440`, `2160` (a frame that many lines high at the Aspect ratio, scaled to the window); overrides the Port Options value at start (crate::display) |
 | `RC_FULLSCREEN` | `1`: borderless fullscreen on the current monitor; `0`: windowed; overrides the Port Options value at start (F11 toggles in game) |
 | `RC_FOG` | `0`: disable fog |
@@ -84,11 +85,12 @@ module that reads it: `grep -rn '"RC_' crates/` lists them all.
 | `RC_GIVE_ITEMS_EQUIP` | `0`: `RC_GIVE_ITEMS` only owns the items (nothing equipped; equip them in the pause menu's Gadgets page) |
 | `RC_HERO_AT` | `x,y,z[,yaw]`: place Ratchet there at the level load, before the hero init's ground snap (debug; e.g. on a grind rail with `RC_GIVE_ITEMS=29`) |
 | `RC_DEBUG_HUD` | `1`: the inspect overlay: F3 shows / hides it, F4 cycles its pages, F8 makes a repro line. **Player**: level, tick, Ratchet's position, facing (radians and degrees), state, speed, ground moby, the camera, the moby the camera looks at, the scene. **Mobys**: a label (id, class, state) over every moby within 15 of Ratchet, and the looked-at moby's uid, mode, distances, health and first pvar words. **Sound**: every busy sound slot (owner, sound, loop, volume, state, sound instance). **F8**: `RC_LEVEL=… RC_SCENE=0 RC_HERO_AT=x,y,z,yaw RC_GIVE_ITEMS=…` (hand item last), printed, copied to the clipboard and shown for 5 s. `show` / `mobys` / `sound`: shown from the start on that page (headless captures). F9's dump prints the player page |
-| `RC_SHIP_ADOPTED` | `1`: a placed ship was adopted (0x160540) from the start: level 13 with `RC_SHIP=2` takes Gemlik's placed 533 as the ship at the load, as after the escape (debug) |
+| `RC_SHIP_ADOPTED` | `1`: a placed ship was adopted (0x160540) from the start: the boot's level 13 with `RC_SHIP=2` takes Gemlik's placed 533 as the ship at the load, as a death reload after the escape does (debug; the first level change clears it, as the game's level load does) |
 | `RC_LEVEL_CAMERAS` | `0`: do not load the level's camera records (no class-17 regions: the follow camera alone, as before `rc_game::follow_camera::level`; for before / after comparisons) |
 | `RC_GIVE_BOLTS` | `n`: start with n bolts (debug; e.g. to buy at the Gadgetron vendor) |
 | `RC_GIVE_GOLD_BOLTS` | `n`: n gold bolts collected from the start (debug; e.g. to buy a gold weapon on Novalis) |
 | `RC_GIVE_GOLD_WEAPONS` | `id,id,...`: those items' gold versions owned from the start (decimal or `0x` hex; debug: the gold look and effects; give the items with `RC_GIVE_ITEMS`) |
+| `RC_COMPLETES` | `n` (≥ 0; a negative value is ignored): the times-completed count (0x15ee20, challenge mode) from the start (debug): the Novalis gold-weapon room's teleporter (pad 961) and the even gold-weapon offers appear. This is not `RC_GAME_BEATEN`, which only sets the Goodies flag |
 | `RC_INTERACT_TRACE` | `1`: log the context prompt's owner changes, the "use" hand-offs (vendor, talkers), vendor purchases and sounds (docs/plan/interaction.md) |
 
 Examples:

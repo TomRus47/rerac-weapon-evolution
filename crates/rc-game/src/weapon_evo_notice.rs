@@ -2,9 +2,9 @@
 use std::collections::VecDeque;
 
 pub struct State {
-    seen: [u8; 37],
-    queue: VecDeque<(i32, u8)>,
-    popup: Option<(i32, u8, u64)>,
+    seen: [u16; 37],
+    queue: VecDeque<(i32, u16)>,
+    popup: Option<(i32, u16, u64)>,
     last_tick: Option<u64>,
 }
 
@@ -13,12 +13,12 @@ impl Default for State {
 }
 
 impl State {
-    pub fn popup(&self) -> Option<(i32, u8, u64)> { self.popup }
+    pub fn popup(&self) -> Option<(i32, u16, u64)> { self.popup }
 
     /// Return true only when a new popup starts (the HUD may play its sound).
     /// Death, disabled notices and a rewound/reloaded timeline cancel transient
     /// state; persistent weapon levels and XP are owned elsewhere and untouched.
-    pub fn update(&mut self, now:u64, alive:bool, enabled:bool, levels:[u8;37], duration:u64)->bool {
+    pub fn update(&mut self, now:u64, alive:bool, enabled:bool, levels:[u16;37], duration:u64)->bool {
         let rewound=self.last_tick.is_some_and(|last|now<last);
         let restored=levels.iter().zip(self.seen).any(|(&level,old)|level<old);
         self.last_tick=Some(now);
@@ -46,7 +46,7 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn levels(level:u8)->[u8;37] {let mut a=[0;37];a[15]=level;a}
+    fn levels(level:u16)->[u16;37] {let mut a=[0;37];a[15]=level;a}
     #[test]
     fn dying_during_an_upgrade_clears_the_active_popup_and_queued_grades() {
         let mut s=State::default();s.update(100,true,true,levels(1),180);
@@ -76,5 +76,14 @@ mod tests {
         assert!(s.update(2,true,true,levels(3),5));assert_eq!(s.popup().unwrap().1,2);
         assert!(s.update(7,true,true,levels(3),5));assert_eq!(s.popup().unwrap().1,3);
         assert!(!s.update(12,true,true,levels(3),5));assert_eq!(s.popup(),None);
+    }
+}
+
+#[cfg(test)] mod high_nanotech_notice_tests {
+    #[test] fn upgrades_above_255_still_notify() {
+        let mut state=super::State::default();let mut levels=[0;37];levels[0]=255;
+        state.update(1,true,true,levels,1);levels[0]=256;
+        assert!(state.update(2,true,true,levels,1));assert_eq!(state.popup().unwrap().1,256);
+        levels[0]=300;assert!(state.update(3,true,true,levels,1));
     }
 }

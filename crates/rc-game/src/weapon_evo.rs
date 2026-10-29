@@ -1,4 +1,4 @@
-//! Weapon Evolution v0.1.6.76 for ReRAC v0.3.6-alpha.
+//! Weapon Evolution for ReRAC v0.3.8-alpha.
 //! Per-weapon V1..V8 tracks. Active only with RC_WEAPON_EVOLUTION_INI.
 //! XP, grades and bonus Nanotech are stored beside each native save; its format is unchanged.
 #[path = "weapon_evo_controls.rs"]
@@ -39,6 +39,8 @@ pub mod golden;
 pub mod location_test;
 #[path="weapon_evo_gemlik_test.rs"]
 pub mod gemlik_test;
+#[path="weapon_evo_health_test.rs"]
+pub mod health_test;
 #[cfg(test)]
 #[path="weapon_evo_upgrade_tests.rs"]
 mod upgrade_tests;
@@ -788,19 +790,42 @@ impl Evolution {
     fn award_nanotech(&mut self, amount:f32) {
         self.nanotech_pending_heal += self.nanotech.award(&self.world_settings,self.nanotech_native_max,amount);
     }
-    pub fn award_extra_damage(&mut self, weapon: i32, damage: f32) {
-        let damage=damage*self.reward_factor();
+    pub fn award_extra_damage(&mut self, weapon:i32, damage:f32) {
+        self.award_extra_xp(weapon,damage*self.reward_factor()*self.xp_per_damage*if self.real_hp {100.}else{1.});
+    }
+    fn award_extra_xp(&mut self,weapon:i32,amount:f32) {
+        self.award_extra_xp_split(weapon,amount,amount);
+    }
+    fn award_extra_xp_split(&mut self,weapon:i32,amount:f32,nanotech_amount:f32) {
         let before=self.weapon_level(weapon).unwrap_or(1);
-        // Lure rewards and the Taunter's optional offensive aura level the
-        // weapon only. They must never advance Ratchet's Nanotech progression.
-        if !matches!(weapon, 14 | 25) && self.extras.iter().any(|t|t.id==weapon && t.enabled) {
-            self.award_nanotech(damage*self.xp_per_damage*if self.real_hp {100.} else {1.});
-        }
-        if let Some(track) = self.extras.iter_mut().find(|t| t.id == weapon && t.enabled) {
-            track.award(damage * self.xp_per_damage * if self.real_hp { 100.0 } else { 1.0 });
-            self.publish_max_ammo();
+        // Taunter/Decoy attraction and offensive auras never level Nanotech.
+        if !matches!(weapon,14|25) && self.extras.iter().any(|t|t.id==weapon&&t.enabled) {self.award_nanotech(nanotech_amount);}
+        if let Some(track)=self.extras.iter_mut().find(|t|t.id==weapon&&t.enabled) {
+            track.award(amount);self.publish_max_ammo();
         }
         self.earned_upgrade(weapon,before);
+    }
+    /// An explicit weapon XP budget must not bypass the configured Nanotech rate.
+    /// `native_loss` is confirmed HP loss with the encounter health scale restored.
+    /// Keep reward-chain bonuses and the zero-XP switch common to both tracks.
+    pub(crate) fn award_fixed_xp(&mut self,weapon:i32,amount:f32,native_loss:f32) {
+        if self.xp_per_damage<=0. || !amount.is_finite() || amount<=0.
+            || !native_loss.is_finite() || native_loss<=0. {return;}
+        let bonus=self.reward_factor();
+        let nanotech_amount=self.hp_units(native_loss)*self.xp_per_damage*bonus;
+        let amount=amount*bonus;
+        match weapon {
+            10=>self.award_bomb_xp_split(amount,nanotech_amount),
+            16=>self.award_pyro_xp_split(amount,nanotech_amount),
+            _=>self.award_extra_xp_split(weapon,amount,nanotech_amount),
+        }
+    }
+    /// Swallow/morph share the per-life key with other special rewards. Their
+    /// fixed weapon budget still uses ordinary HP conversion for Nanotech.
+    pub(crate) fn award_fixed_special_once(&mut self,weapon:i32,target:usize,amount:f32,native_loss:f32) {
+        if !amount.is_finite() || amount<=0. || !native_loss.is_finite() || native_loss<=0.
+            || !self.extras.iter().any(|t|t.id==weapon&&t.enabled) {return;}
+        if self.award_once.insert((weapon,target)) {self.award_fixed_xp(weapon,amount,native_loss);}
     }
     pub fn drain_special(&mut self) {
         let messages = self.pending_special.0.lock().map(|mut q| std::mem::take(&mut *q)).unwrap_or_default();
@@ -871,6 +896,7 @@ impl Evolution {
                 Ok(mut s) => {
                     location_test::configure(&mut s);
                     gemlik_test::configure(&mut s);
+                    health_test::configure(&mut s);
                     CONFIG_ACTIVE.store(true, Ordering::Relaxed);
                     s.publish_max_ammo();
                     println!("weapon evolution: config loaded from {path}");
@@ -882,6 +908,7 @@ impl Evolution {
     }
     pub fn parse(ini: &str) -> Result<Self, String> {
         let mut evo = Self::default();
+        let mut progression_cap = None;
         let mut section = String::new();
         let mut bomb_seen = [false; 8];
         let mut pyro_seen = [false; 8];
@@ -1068,7 +1095,11 @@ impl Evolution {
                 if key == "hide_ryno" { evo.hide_ryno=parse_bool(val)?; continue; }
                 if key=="refill_ammo_on_upgrade" {evo.refill_ammo_on_upgrade=match val.to_ascii_lowercase().as_str(){"on"=>true,"off"=>false,_=>parse_bool(val)?};}
                 else if evo.golden_settings.parse_field(&key,val)? {}
-                else if evo.world_settings.parse_field(&key,val)? {}
+                else if evo.world_settings.parse_field(&key,val)? {
+                    if key == "nanotech_progression_max_health" {
+                        progression_cap = Some(evo.world_settings.nanotech_max_health);
+                    }
+                }
                 else if key == ammo_mode::KEY { evo.ammo_unlock_mode = parse_bool(val)?; }
                 else if evo.ammo_mode_settings.parse_field(&key, val)? { /* validated global mode parameter */ }
                 else if key == "wrench_gold_texture" { evo.wrench_gold_texture = parse_bool(val)?; }
@@ -1230,6 +1261,7 @@ impl Evolution {
                 }
             }
         }
+        if let Some(cap) = progression_cap { evo.world_settings.nanotech_max_health = cap; }
         evo.ammo_mode_settings.validate()?;
         if evo.randomizer_mode {evo.golden_settings.enabled=false;evo.ammo_unlock_mode=false;evo.hide_ryno=false;}
         Ok(evo)
@@ -1256,9 +1288,17 @@ impl Evolution {
         };
         if let Some(id) = weapon { self.award_extra_damage(id, effective_damage); }
         if !self.enabled || attack_class != 121 { return; }
-        let before=self.level;
         let amount = self.hp_units(effective_damage.max(0.0)) * self.xp_per_damage * self.reward_factor();
-        self.award_nanotech(amount);
+        self.award_bomb_xp(amount);
+    }
+    fn award_bomb_xp(&mut self,amount:f32) {
+        self.award_bomb_xp_split(amount,amount);
+    }
+    fn award_bomb_xp_split(&mut self,amount:f32,nanotech_amount:f32) {
+        self.last_hit_xp=0.;
+        if !self.enabled {return;}
+        let before=self.level;
+        self.award_nanotech(nanotech_amount);
         if self.level >= self.level_cap { return; }
         self.last_hit_xp = amount;
         self.xp += amount;
@@ -1276,7 +1316,13 @@ impl Evolution {
     pub fn award_pyro_damage(&mut self, effective_damage: f32, attack_type: u8, attack_class: u16, from_ratchet: bool) {
         if !from_ratchet || attack_type != 5 || !matches!(attack_class, 0 | 176) { return; }
         let amount = self.hp_units(effective_damage.max(0.0)) * self.xp_per_damage * self.reward_factor();
-        if self.pyro.enabled { self.award_nanotech(amount); }
+        self.award_pyro_xp(amount);
+    }
+    fn award_pyro_xp(&mut self,amount:f32) {
+        self.award_pyro_xp_split(amount,amount);
+    }
+    fn award_pyro_xp_split(&mut self,amount:f32,nanotech_amount:f32) {
+        if self.pyro.enabled { self.award_nanotech(nanotech_amount); }
         let before=self.pyro.level;
         self.pyro.award(amount);
         self.earned_upgrade(16,before);
@@ -1879,7 +1925,7 @@ pub fn inspect_profile() -> Option<Evolution> {
     let raw=RELEASE_PROFILE.to_string();
     #[cfg(not(feature="weapon-evo-release"))]
     let raw=std::env::var("RC_WEAPON_EVOLUTION_INI").ok().and_then(|p|std::fs::read_to_string(p).ok())?;
-    Evolution::parse(&raw).ok().map(|mut e| {location_test::configure(&mut e);gemlik_test::configure(&mut e);e})
+    Evolution::parse(&raw).ok().map(|mut e| {location_test::configure(&mut e);gemlik_test::configure(&mut e);health_test::configure(&mut e);e})
 }
 
 /// Reserve actors on the loader thread without publishing gameplay state.
@@ -2428,5 +2474,32 @@ mod alternate_override_tests {
         let text=profile().lines().filter(|line|!line.starts_with("lava_damage_bonus_percent=")).collect::<Vec<_>>().join("\n");
         let evo=Evolution::parse(&text).unwrap();
         assert_eq!(evo.effective_pyro().lava.damage_bonus_percent,25.);
+    }
+}
+
+#[cfg(test)]
+mod fixed_xp_nanotech_tests {
+    use super::*;
+    #[test]
+    fn explicit_weapon_budgets_keep_chain_bonus_zero_xp_and_nanotech_switch() {
+        for weapon in [8,9,10,14,16,21,25] {
+            let mut e=Evolution::default();
+            e.enabled=true;e.real_hp=true;e.xp_per_damage=0.12;e.xp_required=[10000.;7];
+            e.pyro.enabled=true;e.pyro.xp_required=[10000.;7];
+            for t in &mut e.extras {t.enabled=true;t.xp_required=[10000.;7];}
+            e.world_settings.enemy_damage_by_health=true;
+            e.world_settings.nanotech_xp_per_upgrade=10000.;
+            e.configure_ng_plus(true);e.bolt_chain.kills=30;
+            e.award_fixed_xp(weapon,300.,6.);
+            let xp=match weapon {10=>e.xp,16=>e.pyro.xp,_=>e.extras.iter().find(|t|t.id==weapon).unwrap().xp};
+            assert!((xp-900.).abs()<0.001);
+            let expected=if matches!(weapon,14|25) {0.}else{216.};
+            assert!((e.nanotech.xp-expected).abs()<0.001);
+            e.xp_per_damage=0.;e.award_fixed_xp(weapon,300.,6.);
+            assert!((e.nanotech.xp-expected).abs()<0.001);
+            e.xp_per_damage=0.12;e.world_settings.enemy_damage_by_health=false;
+            e.award_fixed_xp(weapon,300.,6.);
+            assert!((e.nanotech.xp-expected).abs()<0.001);
+        }
     }
 }

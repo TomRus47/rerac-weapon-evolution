@@ -169,11 +169,24 @@ pub const VELDIN_749: Wrappers = Wrappers { held: 9, release: 5, start_only: Non
 
 /// `0x2defb0(target)`: the Morph-o-Ray's morph (a spawn and a delete: `crate::moby_update::classes::chicken::morph`).
 pub fn morph_target(w: &mut World, target: MobyId) -> Option<MobyId> {
+    let source=w.table.mobys.get(target)?;
+    // Repeated callbacks must not transform a corpse, an already consumed
+    // retained actor, or the chicken created by the previous conversion.
+    if source.state>=0x80 || source.o_class==crate::moby_update::classes::chicken::CLASS
+        || w.svc.bomb_evo.target_is_terminal(target) {return None;}
+    let counts_as_kill=crate::moby_update::real_hp::donor(source)
+        && crate::targeting::record_health(source).is_none_or(|hp|hp.is_finite()&&hp>0.);
     let gold = w.svc.creatures.react.gold_morph;
-    let hp = super::damage::special_health(w, target);
+    let reward = super::damage::special_reward(w, target);
     let made = crate::moby_update::classes::chicken::morph(w, target, gold);
     if made.is_some() {
-        if let Some(hp) = hp { w.svc.bomb_evo.award_special_once(21, target, hp, 1.0); }
+        // A successful conversion consumes the enemy's life, just like a
+        // lethal HP write. Credit the chain before XP, independently of XP
+        // settings; allocation failure leaves both rewards and identity intact.
+        if counts_as_kill && w.svc.bomb_evo.mark_terminal_target(target) {
+            w.svc.bomb_evo.reward_chain_kill();
+        }
+        if let Some(reward) = reward { reward.award(&mut w.svc.bomb_evo,21,target); }
     }
     made
 }
@@ -712,8 +725,8 @@ pub fn swallow(w: &mut World, id: MobyId, point: V) -> i32 {
     // `if (0x1403e0 && its class == 0x351) fun_0022da68(5, 0)`: the cannon's sound 5 (made by its next update).
     if w.svc.creatures.react.cannon.is_some() { w.svc.creatures.react.cannon_sound5 += 1; }
     crate::moby_update::classes::crate_::set_death_bits(w, id, 0, -1);
-    if let Some(hp) = super::damage::special_health(w, id) {
-        w.svc.bomb_evo.award_special_once(9, id, hp, 1.0);
+    if let Some(reward) = super::damage::special_reward(w, id) {
+        reward.award(&mut w.svc.bomb_evo,9,id);
     }
     set_rs(w, r, id, rec::STATE, 4);
     let s = seq(w, id, 4);

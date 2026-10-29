@@ -271,3 +271,11 @@ fn randomized_infobots_are_upright_and_spin_in_both_vendor_previews() {
         before=Some(panel.rows);
     }
 }
+
+#[test]
+fn zero_filled_nonweapon_demo_entries_are_not_weapon_acquisition_scenes() {
+    let mut tables=VendorTables::default();let mut layout=super::layout::VendorLayout::default();
+    layout.demo=vec![0;37];tables.layout=Some(layout);
+    assert_eq!(acquisition_demo_scene(&tables,10),Some(0));
+    for item in [12,22,26,28,29,33,34,35] {assert_eq!(acquisition_demo_scene(&tables,item),None);}
+}

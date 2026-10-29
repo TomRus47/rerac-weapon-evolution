@@ -940,7 +940,7 @@ fn upload(mut commands: Commands, mut rt: ResMut<SceneRuntime>, active: Res<Acti
 }
 
 /// The scene camera over the play camera (after `play_camera::apply`, before any reader of the transform).
-fn apply_camera(active: Res<ActiveScene>, source: Option<Res<CameraSource>>, display: Res<crate::display::DisplaySettings>, mut cams: Query<(&mut Transform, &mut Projection), With<FlyCam>>) {
+fn apply_camera(active: Res<ActiveScene>, source: Option<Res<CameraSource>>, frame: Res<crate::display::GameFrame>, mut cams: Query<(&mut Transform, &mut Projection), With<FlyCam>>) {
     let Some(c) = active.camera else { return };
     if source.is_some_and(|s| *s == CameraSource::Fly) { return; }
     let [fwd, _left, up] = c.rows;
@@ -948,7 +948,7 @@ fn apply_camera(active: Res<ActiveScene>, source: Option<Res<CameraSource>>, dis
     for (mut tf, mut proj) in &mut cams {
         if *tf != t { *tf = t; }
         // The scene's tangent (Hor+ in 16:9, crate::display).
-        crate::display::set_view_tans(&mut proj, c.tan_half_fov, display.aspect);
+        crate::display::set_view_tans(&mut proj, c.tan_half_fov, frame.ratio());
     }
 }
 
@@ -1092,7 +1092,28 @@ fn subtitle_layer(mut rt: ResMut<SceneRuntime>, active: Res<ActiveScene>, hold: 
     }
     let (Some(glyphs), Some(line)) = (rt.glyphs.as_ref(), active.last.as_ref().and_then(|t| t.subtitle.as_ref())) else { return };
     if !active.running { return; }
-    layer.prims = subtitle_prims(glyphs, &line.text);
+    let mut text=line.text.clone();
+    if let Some(p)=play.as_ref().filter(|p|p.svc.bomb_evo.randomizer_mode) {
+        if let Some(npc)=rt.talker.and_then(|id|p.game.mobys.mobys.get(id)) {
+            use rc_game::weapon_evo::randomizer as random;
+            let mut sources=Vec::new();
+            for base in [0,0x20] {
+                let offset=base+rc_game::moby_update::interact::talk::TABLE;
+                let nodes=npc.pvars.get(offset..offset+4).map(|b|i32::from_le_bytes(b.try_into().unwrap())-1)
+                    .filter(|&n|n>=0).map(|n|p.svc.interact.tables.nodes(n as usize)).unwrap_or(&[]);
+                if let Some(source)=random::talk_offer_source(p.svc.level,npc.o_class,&Default::default(),nodes) {sources.push(source);}
+            }
+            sources.sort_unstable();sources.dedup();
+            if sources.len()==1 {
+                let source=sources[0];let state=p.svc.bomb_evo.progress().randomizer;
+                if let (Some(old),Some(reward))=(p.svc.gold_shop.names.get(&source),state.reward(source)) {
+                    let name=random::reward_name(reward,p.svc.interact.lang,&p.svc.gold_shop.names);
+                    if let Some(replaced)=random::replace_reward_name(&text,old,&name) {text=replaced;}
+                }
+            }
+        }
+    }
+    layer.prims = subtitle_prims(glyphs, &text);
 }
 
 /// One primitive of the Trespasser minigame as a HUD primitive (pixels and texels rounded; the FX texture).

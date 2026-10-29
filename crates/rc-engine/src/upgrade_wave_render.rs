@@ -44,9 +44,9 @@ fn draw(
     };
     let now = play.game.counter;
     let mut levels =
-        std::array::from_fn(|i| play.svc.bomb_evo.weapon_level(i as i32).unwrap_or(0) as u8);
+        std::array::from_fn(|i| play.svc.bomb_evo.weapon_level(i as i32).unwrap_or(0) as u16);
     if play.svc.bomb_evo.world_settings.enemy_damage_by_health {
-        levels[0]=(play.svc.bomb_evo.nanotech.bonus+1).min(255) as u8;
+        levels[0]=(play.svc.bomb_evo.nanotech.bonus+1).min(301) as u16;
     }
     let position = play.game.hero.pos.map(|n| n.to_f32());
     gfx.state.update(

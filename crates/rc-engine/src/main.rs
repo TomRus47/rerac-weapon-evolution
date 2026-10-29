@@ -22,8 +22,9 @@
 //! - `RC_SCENE=0` / `RC_SCENE=<k>`, `RC_SUBTITLES=0` in-engine scenes (Novalis arrival = scene 5), crate::scene_render
 //! - `RC_UNLOCK_PLANETS=<p>,…` planets unlocked from the start (the ship's planet page), crate::gameplay;
 //!   `RC_TRAVEL_TRACE=1` the ship / mode-6 / transition trace, crate::travel_render
-//! - `RC_GAME_BEATEN=1` the Goodies on the pause menu, `RC_SKILL_POINTS=all` every skill point (Sketchbook, Epilogue),
-//!   crate::gameplay
+//! - `RC_GAME_BEATEN=1` the Goodies on the pause menu, `RC_COMPLETES=<n>` the times-completed count (challenge
+//!   mode: the Novalis gold-weapon room teleporter and the even offers), `RC_SKILL_POINTS=all` every skill point
+//!   (Sketchbook, Epilogue), crate::gameplay
 //! - `RC_HUD=0`, `RC_HUD_DEMO=1`, `RC_HUD_TEXT`, `RC_HUD_HELP=<id>`, `RC_LANG` the HUD and its demos, crate::hud_render
 //! - `RC_SCREEN_TINT=<rgba hex>:<alpha hex>` one forced full-screen tint every frame (dev check), crate::screen_tint
 //! - `RC_DEBUG_HUD=1` the inspect overlay, F3 shows / hides it (position, facing, state, camera, the moby looked at), crate::debug_hud
@@ -52,6 +53,7 @@ mod hud_images;
 mod input_map;
 mod interact_render;
 mod companion_assets;
+mod pickup_presentation;
 mod discovery_render;
 mod reward_model_render;
 mod reward_render_probe;
@@ -148,6 +150,13 @@ fn main() -> anyhow::Result<()> {
         std::env::set_var("RC_FRONTEND", "0");
         std::env::set_var("RC_SHIP", "2");
     }
+    if rc_game::weapon_evo::health_test::enabled() {
+        std::env::set_var("RC_LEVEL", "18");
+        std::env::set_var("RC_FRONTEND", "0");
+        std::env::set_var("RC_SHIP", "2");
+        std::env::set_var("RC_SAVE_DIR", "0");
+    }
+    input_map::install_sdl_mappings();
     crash_log::install();
     // `--version-json` exits here; a missing or wrong data folder exits with a clear error (crate::disc_source).
     let root = disc_source::startup();
@@ -163,6 +172,8 @@ fn main() -> anyhow::Result<()> {
     let boot = if rac2 { None } else { gameplay::boot_state(&root, index) };
     anyhow::ensure!(!rc_game::weapon_evo::location_test::enabled() || boot.is_some(),
         "location test: persistent game state could not be initialized; see the startup error above");
+    anyhow::ensure!(!rc_game::weapon_evo::health_test::enabled() || boot.is_some(),
+        "Nanotech test: persistent game state could not be initialized");
     let save = gameplay::level_spawn_save(boot.as_ref().map(|(gs, _)| gs), index);
     let level_switch::LevelBundle { mut level, spawn, fog: fog_state, .. } = level_switch::load_bundle(&root, index, &save)?;
     let t = &level.timings;

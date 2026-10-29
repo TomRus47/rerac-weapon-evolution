@@ -7,8 +7,8 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-NAME = 'ReRAC_Weapon_Evolution_v110_ReRAC_0.3.7_Local_Test'
-README = '''Weapon Evolution v110 / ReRAC 0.3.7-alpha local source kit
+NAME = 'ReRAC_Weapon_Evolution_v111_Randomizer_Combat_Fixes_Local_Test'
+README = '''Weapon Evolution v111 / ReRAC 0.3.7-alpha local source kit
 
 Extract the entire ZIP to a new writable folder, close the game, then run
 01_COMPILE_AND_UPDATE.bat. Select the EXISTING playable mod folder containing
@@ -23,7 +23,7 @@ cache can be chosen with --target-dir "C:\\ReRAC-Mod\\target-037".
 Tests/build/identity checks complete before installed files change. The EXE and
 matching shaders are backed up and replaced together. A failed installation
 rolls back changed files. Your INI, presets, saves and launcher/icon are retained.
-The existing 0.29.3 launcher is compatible; no GUI rebuild is needed for the port.
+The existing 0.29.3 launcher is compatible; no GUI rebuild is needed for these fixes.
 
 02_OPEN_UPDATED_LAUNCHER.bat verifies and reopens the same installation.
 03_CREATE_PLAYABLE_ZIP.bat creates a player ZIP under this kit's dist folder,
@@ -36,9 +36,9 @@ Backups: backup/runtime_037/<timestamp> in the playable folder. restore.json map
 numbered backup files to their original paths; retain it for manual recovery.
 The BAT windows pause on completion, including errors. No GitHub operations occur.
 
-Test hoverboard HUD, death/reload, locked-camera aim, per-grade ordnance, moving
-platforms and planet scripts. Automated checks do not validate every GPU effect,
-physical route or randomizer seed. Source notes are in docs/mod/RUNTIME_037.md.
+Test repeated wrench throws, randomized gadget/Gold Bolt pickup scenes, NPC
+trade text, boots after travel, and XP from placed versus split amoeboids. Automated checks do not validate every GPU effect,
+physical route or randomizer seed. Source notes are in docs/mod/RANDOMIZER_COMBAT_V111.md.
 
 Weapon Evolution is an independent mod by TomRus47. The author is not a ReRAC
 developer and owns no original-game rights or assets. Thanks to ReRAC's developers
@@ -68,7 +68,7 @@ def create(output):
         data = path.read_bytes()
         entries['source/' + name] = data
         hashes[name] = hashlib.sha256(data).hexdigest()
-    entries['source-files.json'] = (json.dumps({'patch': '0.1.6.110',
+    entries['source-files.json'] = (json.dumps({'patch': '0.1.6.111',
         'runtime_base': '0.3.7-alpha', 'files': hashes}, indent=2) + '\n').encode()
     entries['README_FIRST.txt'] = README.encode()
     for filename, action in [('01_COMPILE_AND_UPDATE.bat', 'build'),

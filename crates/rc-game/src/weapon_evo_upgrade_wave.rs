@@ -45,12 +45,12 @@ impl Wave {
 }
 #[derive(Default)]
 pub struct State {
-    seen: Option<[u8; 37]>,
+    seen: Option<[u16; 37]>,
     last: u64,
     pub waves: Vec<Wave>,
 }
 impl State {
-    pub fn update(&mut self, now: u64, alive: bool, levels: [u8; 37], position: [f32; 3]) {
+    pub fn update(&mut self, now: u64, alive: bool, levels: [u16; 37], position: [f32; 3]) {
         if !alive || now < self.last {
             self.seen = Some(levels);
             self.waves.clear();
@@ -68,7 +68,7 @@ impl State {
                         // if a single attack advances several grades.
                         self.waves.push(Wave {
                             origin: [position[0], position[1], position[2] + 0.8],
-                            grade: if item==0 {0}else{after},
+                            grade: if item==0 {0}else{after.min(255) as u8},
                             born: now,
                         });
                     }
@@ -150,5 +150,14 @@ mod nanotech_upgrade_tests {
         levels[0]=4;levels[8]=2;state.update(14,true,levels,[1.,2.,3.]);
         assert_eq!(state.waves.iter().map(|w|w.grade).collect::<Vec<_>>(),vec![0,2]);
         levels[0]=1;state.update(15,true,levels,[1.,2.,3.]);assert!(state.waves.is_empty());
+    }
+}
+
+#[cfg(test)] mod high_nanotech_wave_tests {
+    #[test] fn upgrades_above_255_still_emit_blue_bursts() {
+        let mut state=super::State::default();let mut levels=[0;37];levels[0]=255;
+        state.update(1,true,levels,[0.;3]);levels[0]=256;state.update(2,true,levels,[0.;3]);
+        assert_eq!(state.waves.len(),1);assert_eq!(state.waves[0].grade,0);
+        levels[0]=301;state.update(3,true,levels,[0.;3]);assert_eq!(state.waves.len(),2);
     }
 }

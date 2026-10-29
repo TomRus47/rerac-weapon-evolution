@@ -511,7 +511,7 @@ HELP_TEXT['enemy_damage_by_health']={'en': 'Enemies with 100/200/300+ original H
 HELP_TEXT['enemy_damage_multiplier']={'en': 'Multiplies health-tier damage, rounded to 1-3 Nanotech. Requires enemy damage tiers.', 'it': 'Moltiplicatore danno nemici. Intervallo: 0.1–3. Impostazione globale salvata nel profilo.', 'fr': 'Multiplicateur des dégâts ennemis. Plage : 0.1–3. Paramètre global enregistré dans le profil.', 'de': 'Gegner-Schadensmultiplikator. Bereich: 0.1–3. Globale Einstellung im Profil gespeichert.', 'es': 'Multiplicador de daño enemigo. Intervalo: 0.1–3. Ajuste global guardado en el perfil.'}
 HELP_TEXT['enemy_perception_multiplier']={'en': 'Scales enemy detection and engagement distances. Does not change projectile physics.', 'it': 'Moltiplicatore percezione nemici. Intervallo: 0.1–10. Impostazione globale salvata nel profilo.', 'fr': 'Multiplicateur de perception ennemie. Plage : 0.1–10. Paramètre global enregistré dans le profil.', 'de': 'Gegner-Wahrnehmungsmultiplikator. Bereich: 0.1–10. Globale Einstellung im Profil gespeichert.', 'es': 'Multiplicador de percepción enemiga. Intervalo: 0.1–10. Ajuste global guardado en el perfil.'}
 HELP_TEXT['nanotech_xp_per_upgrade']={'en': 'Constant hidden XP threshold. Each completion adds one usable maximum HP; excess XP carries over. Max-grade weapons still contribute.', 'it': 'XP per potenziamento Nanotech. Intervallo: 0.1–1000000. Impostazione globale salvata nel profilo.', 'fr': 'XP par amélioration Nanotech. Plage : 0.1–1000000. Paramètre global enregistré dans le profil.', 'de': 'EP pro Nanotech-Verbesserung. Bereich: 0.1–1000000. Globale Einstellung im Profil gespeichert.', 'es': 'XP por mejora Nanotech. Intervalo: 0.1–1000000. Ajuste global guardado en el perfil.'}
-HELP_TEXT['nanotech_max_health']={'en': 'Maximum health from progression. Native Premium/Ultra upgrades are never removed. Progress is stored per save.', 'it': 'Nanotech massimo da XP. Intervallo: 4–64. Impostazione globale salvata nel profilo.', 'fr': 'Nanotech maximal par XP. Plage : 4–64. Paramètre global enregistré dans le profil.', 'de': 'Maximales Nanotech durch EP. Bereich: 4–64. Globale Einstellung im Profil gespeichert.', 'es': 'Nanotech máximo por XP. Intervalo: 4–64. Ajuste global guardado en el perfil.'}
+HELP_TEXT['nanotech_max_health']={'en': 'Maximum health from progression. Native Premium/Ultra upgrades are never removed. Progress is stored per save.', 'it': 'Nanotech massimo da XP. Intervallo: 0–300. Impostazione globale salvata nel profilo.', 'fr': 'Nanotech maximal par XP. Plage : 0–300. Paramètre global enregistré dans le profil.', 'de': 'Maximales Nanotech durch EP. Bereich: 0–300. Globale Einstellung im Profil gespeichert.', 'es': 'Nanotech máximo por XP. Intervalo: 0–300. Ajuste global guardado en el perfil.'}
 HELP_TEXT['nanotech_upgrade_sound']={'en': 'Play the HelpDesk notification sound for Max Nanotech increased! Independent of weapon upgrade sound.', 'it': 'Suono potenziamento Nanotech. Intervallo: Off / On. Impostazione globale salvata nel profilo.', 'fr': 'Son de notification Nanotech. Plage : Off / On. Paramètre global enregistré dans le profil.', 'de': 'Nanotech-Benachrichtigungston. Bereich: Off / On. Globale Einstellung im Profil gespeichert.', 'es': 'Sonido de mejora Nanotech. Intervalo: Off / On. Ajuste global guardado en el perfil.'}
 HELP_TEXT['nanotech_random_healing']={'en': 'Requires damage tiers. Each field pickup heals 1-4 HP: original, indigo, violet, red. Never overheals or revives Ratchet.', 'it': 'Cura Nanotech casuale (1-4). Intervallo: Off / On. Impostazione globale salvata nel profilo.', 'fr': 'Soins Nanotech aléatoires (1-4). Plage : Off / On. Paramètre global enregistré dans le profil.', 'de': 'Zufällige Nanotech-Heilung (1-4). Bereich: Off / On. Globale Einstellung im Profil gespeichert.', 'es': 'Curación Nanotech aleatoria (1-4). Intervalo: Off / On. Ajuste global guardado en el perfil.'}
 
@@ -617,11 +617,11 @@ FIELD_LABELS['nanotech_max_health'] = dict(zip(LANGUAGES, (
     'Nanotech supplémentaire maximal par XP', 'Maximales zusätzliches Nanotech durch EP',
     'Nanotech adicional máximo por XP')))
 HELP_TEXT['nanotech_max_health'] = dict(zip(LANGUAGES, (
-    'Limits XP-earned extra HP only (0-64). Total HP = 4 + Premium (1) + Ultra (3) + XP bonus. Lowering this limit preserves earned progress.',
-    'Limita solo i punti vita aggiuntivi da XP (0-64). Vita totale = 4 + Premium (1) + Ultra (3) + bonus XP. Ridurre il limite conserva i progressi ottenuti.',
-    'Limite uniquement les PV supplémentaires gagnés par XP (0-64). PV totaux = 4 + Premium (1) + Ultra (3) + bonus XP. Réduire la limite conserve la progression.',
-    'Begrenzt nur zusätzliche EP-Lebenspunkte (0-64). Gesamtleben = 4 + Premium (1) + Ultra (3) + EP-Bonus. Ein niedrigeres Limit erhält den Fortschritt.',
-    'Limita solo los PV adicionales ganados por XP (0-64). PV totales = 4 + Premium (1) + Ultra (3) + bonus XP. Reducir el límite conserva el progreso.')))
+    'Limits XP-earned extra HP only (0-300). Total HP = 4 + Premium (1) + Ultra (3) + XP bonus. Lowering this limit preserves earned progress.',
+    'Limita solo i punti vita aggiuntivi da XP (0-300). Vita totale = 4 + Premium (1) + Ultra (3) + bonus XP. Ridurre il limite conserva i progressi ottenuti.',
+    'Limite uniquement les PV supplémentaires gagnés par XP (0-300). PV totaux = 4 + Premium (1) + Ultra (3) + bonus XP. Réduire la limite conserve la progression.',
+    'Begrenzt nur zusätzliche EP-Lebenspunkte (0-300). Gesamtleben = 4 + Premium (1) + Ultra (3) + EP-Bonus. Ein niedrigeres Limit erhält den Fortschritt.',
+    'Limita solo los PV adicionales ganados por XP (0-300). PV totales = 4 + Premium (1) + Ultra (3) + bonus XP. Reducir el límite conserva el progreso.')))
 HELP_TEXT['enemy_damage_multiplier'] = dict(zip(LANGUAGES, (
     'Scales health-based enemy damage and all boss attack profiles (0.1-100). Rounded to whole HP, minimum 1.',
     'Moltiplica i danni per classe e tutti gli attacchi dei boss (0.1-100). Arrotondamento a punti vita interi, minimo 1.',
@@ -791,3 +791,26 @@ flame_mine_lifetime_seconds|Sostituisce la durata standard solo per le mine lanc
 max_active_mines|Limite standard delle mine a terra. In modalità fuoco viene usato il limite sperimentale. Lanciare altre mine rimuove quelle più vecchie in eccesso senza esplosioni dannose.|Limite standard des mines déployées. Le mode feu utilise la limite expérimentale. Lancer d'autres mines retire les plus anciennes en trop sans explosion infligeant des dégâts.|Standardlimit ausgelegter Minen. Der Feuermodus verwendet das experimentelle Limit. Weitere Würfe entfernen überzählige älteste Minen ohne schädliche Explosion.|Límite estándar de minas desplegadas. El modo fuego usa el límite experimental. Lanzar más retira las más antiguas que sobren sin una explosión dañina.
 mine_lifetime_seconds|Durata standard dal lancio alla rimozione, incluso il volo. In modalità fuoco vale la durata sperimentale. Le mine già attive mantengono la durata scelta al lancio.|Durée standard du lancer au retrait, vol compris. Le mode feu utilise la durée expérimentale. Les mines déjà actives conservent leur durée au lancement.|Standarddauer vom Wurf bis zur Entfernung, einschließlich Flug. Im Feuermodus gilt die experimentelle Dauer. Aktive Minen behalten ihre beim Wurf festgelegte Dauer.|Duración estándar desde el lanzamiento hasta la retirada, incluido el vuelo. El modo fuego usa la duración experimental. Las minas activas conservan su duración al lanzarse.
 '''))
+
+# The XP bonus remains additive, but all native purchases share the hard cap.
+for _lang,_cap in zip(LANGUAGES, (
+    'Total usable health is capped at 300, including Premium and Ultra. Above 50 HP, the same 50 orbs change color: purple, red, orange, yellow, green.',
+    'La vita totale non supera 300, inclusi Premium e Ultra. Oltre 50 HP, le stesse 50 sfere cambiano colore: viola, rosso, arancione, giallo, verde.',
+    'La vie totale est limitée à 300, Premium et Ultra compris. Au-delà de 50 PV, les mêmes 50 sphères changent de couleur : violet, rouge, orange, jaune, vert.',
+    'Das Gesamtleben ist einschließlich Premium und Ultra auf 300 begrenzt. Über 50 LP wechseln dieselben 50 Kugeln die Farbe: Violett, Rot, Orange, Gelb, Grün.',
+    'La vida total está limitada a 300, incluidos Premium y Ultra. Por encima de 50 PV, las mismas 50 esferas cambian de color: morado, rojo, naranja, amarillo, verde.')):
+    HELP_TEXT['nanotech_max_health'][_lang]+=' '+_cap
+
+# Canonical base-plus-XP cap. Do not reuse the retired XP-bonus-only label.
+FIELD_LABELS['nanotech_progression_max_health']=dict(zip(LANGUAGES,(
+    'Maximum Nanotech before Premium/Ultra',
+    'Nanotech massimo prima di Premium/Ultra',
+    'Nanotech maximal avant Premium/Ultra',
+    'Maximales Nanotech vor Premium/Ultra',
+    'Nanotech máximo antes de Premium/Ultra')))
+HELP_TEXT['nanotech_progression_max_health']=dict(zip(LANGUAGES,(
+    'Includes the 4 starting HP and XP upgrades (4-206). Premium adds 1 HP and Ultra adds 3 HP, independently of this limit: up to 210 total. The 30 HUD orbs change color in layers. Lowering the limit preserves earned progress.',
+    'Comprende i 4 HP iniziali e i potenziamenti da XP (4-206). Premium aggiunge 1 HP e Ultra aggiunge 3 HP oltre questo limite: massimo totale 210. Le 30 sfere HUD cambiano colore a strati. Ridurre il limite conserva i progressi ottenuti.',
+    'Comprend les 4 PV de départ et les améliorations par XP (4-206). Premium ajoute 1 PV et Ultra ajoute 3 PV au-delà de cette limite : 210 au total. Les 30 sphères du HUD changent de couleur par couches. Réduire la limite conserve la progression.',
+    'Umfasst die 4 Start-LP und EP-Verbesserungen (4-206). Premium fügt 1 LP und Ultra 3 LP zusätzlich hinzu: insgesamt höchstens 210. Die 30 HUD-Kugeln wechseln schichtweise ihre Farbe. Ein niedrigeres Limit erhält den Fortschritt.',
+    'Incluye los 4 PV iniciales y las mejoras por XP (4-206). Premium añade 1 PV y Ultra añade 3 PV por encima de este límite: hasta 210 en total. Las 30 esferas del HUD cambian de color por capas. Reducir el límite conserva el progreso.')))

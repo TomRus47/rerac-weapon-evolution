@@ -625,6 +625,17 @@ impl ShipMode {
         self.phase = Phase::Hold { n: 4, k: 0, then: After::Scene };
     }
 
+    /// Normal and incomplete demo resources share one bounded hand-back.
+    fn finish_demo(&mut self,w:&mut World,out:&mut SpaceFrame) {
+        self.fade=0.;self.white=0.;
+        for (id,_) in std::mem::take(&mut self.actors) {if let Some(id)=id {w.delete_moby(id);}}
+        if let Some(id)=self.helmet.take() {w.delete_moby(id);}
+        self.last_actors.clear();self.last_camera=None;self.actor_anim.clear();
+        self.demo=None;self.lump=None;self.stream=None;
+        out.camera=None;out.actors.clear();out.black=0.;out.white=0.;
+        out.event=Some(SpaceEvent::DemoDone);self.phase=Phase::Idle;
+    }
+
     /// `VendorModeUpdate` substate 3 (module docs of [`SUB_DEMO`]): after the world part (the gameplay tick's scene
     /// form) the chunk and scene ticks + 1; the fade: past `end − 12` + 0.1 (≤ 1), else − 0.125 (≥ 0); before the end the
     /// chunk roll (≥ 0x60), the camera of the record (its tan; eye and Euler z in the demo's frame), the actors (frames,
@@ -633,12 +644,16 @@ impl ShipMode {
     /// (the engine's world lights), `IncrementTickCounter`; at the end the fade 0, tan 0.63, the actors deleted (their
     /// class slots freed) and [`SpaceEvent::DemoDone`].
     fn demo_tick(&mut self, w: &mut World, out: &mut SpaceFrame) {
-        let (Some(lump), Some(fr)) = (self.lump.clone(), self.demo) else { return };
-        let scene = &lump.scene;
+        let (Some(lump),Some(fr))=(self.lump.clone(),self.demo) else {
+            self.finish_demo(w,out);return;
+        };
+        let scene=&lump.scene;
+        let Some(end)=scene.chunks.first().map(|c|c.header.end_tick as i32).filter(|&end|end>0) else {
+            self.finish_demo(w,out);return;
+        };
         self.sub_tick = self.sub_tick.wrapping_add(1);
         self.chunk_tick += 1;
         self.tick += 1;
-        let end = scene.end_tick();
         if end - 0xc < self.tick {
             self.fade += 0.1;
             if 1.0 < self.fade { self.fade = 1.0; }
@@ -647,17 +662,7 @@ impl ShipMode {
             if self.fade < 0.0 { self.fade = 0.0; }
         }
         if end <= self.tick {
-            self.fade = 0.0;
-            for (id, _) in std::mem::take(&mut self.actors) {
-                if let Some(id) = id { w.delete_moby(id); }
-            }
-            if let Some(h) = self.helmet.take() { w.delete_moby(h); }
-            self.last_actors.clear();
-            self.last_camera = None;
-            self.demo = None;
-            out.camera = None;
-            out.event = Some(SpaceEvent::DemoDone);
-            self.phase = Phase::Idle;
+            self.finish_demo(w,out);
             return;
         }
         if CHUNK_TICKS <= self.chunk_tick {
@@ -1516,4 +1521,49 @@ mod tests {
             assert_eq!(anim.sequences[slot as usize].as_ref().map(|s| s.header.frame_count), Some(7), "class {oc}: the streamed sequence is in the slot");
         }
     }
+    #[test]
+    fn pickup_demos_end_once_even_when_the_world_counter_does_not_advance() {
+        use rc_formats::scene::{Scene,Region,SceneChunk,ChunkHeader,CamRecord};
+        for end in [24,120,191] {
+            let chunks=(0..((end+95)/96)).map(|_|SceneChunk {
+                header:ChunkHeader{end_tick:end,..Default::default()},
+                camera:vec![CamRecord::default();96],actors:vec![],subtitles:vec![],
+            }).collect();
+            let lump=SpaceLump{index:0,scene:std::sync::Arc::new(Scene{index:0,region:Region::Ntsc,chunks})};
+            let mut table=MobyTable::new(vec![Moby::default()],4);
+            let hero=crate::hero::Hero::new();let mut rng=crate::rng::Rng::new();
+            let classes=ClassTable::default();let mut svc=Services::new();
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+            let frame=DemoFrame{rows:[[0.;4];4],origin:[0.;4],yaw:0.};
+            let mut mode=ShipMode::default();mode.demo_start(&mut w,lump,frame,DEMO_STREAM);
+            let actor=w.create_moby(999).unwrap();mode.actors.push((Some(actor),999));
+            let mut completed=0;
+            for _ in 0..end+20 {
+                let out=mode.frame(&mut w,0,false);
+                if out.event==Some(SpaceEvent::DemoDone) {completed+=1;assert!(out.camera.is_none());assert!(out.actors.is_empty());}
+            }
+            assert_eq!(completed,1);assert!(!mode.active());assert!(w.m(actor).is_deleted());
+            assert_eq!(w.counter,1,"the isolated scene owns its timeline");
+        }
+    }
+    #[test]
+    fn incomplete_demo_resources_release_actors_instead_of_waiting_forever() {
+        for missing in 0..3 {
+            let mut table=MobyTable::new(vec![Moby::default()],4);
+            let hero=crate::hero::Hero::new();let mut rng=crate::rng::Rng::new();
+            let classes=ClassTable::default();let mut svc=Services::new();
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+            let mut mode=ShipMode::default();mode.sub=SUB_DEMO;mode.phase=Phase::Run;
+            mode.demo=Some(DemoFrame{rows:[[0.;4];4],origin:[0.;4],yaw:0.});
+            if missing!=0 {mode.lump=Some(SpaceLump{index:0,scene:std::sync::Arc::new(
+                rc_formats::scene::Scene{index:0,region:rc_formats::scene::Region::Ntsc,chunks:vec![]})});}
+            if missing==1 {mode.demo=None;}
+            let id=w.create_moby(999).unwrap();mode.actors.push((Some(id),999));
+            let out=mode.frame(&mut w,0,false);
+            assert_eq!(out.event,Some(SpaceEvent::DemoDone));assert!(!mode.active());
+            assert!(w.m(id).is_deleted());assert_eq!(out.black,0.);
+            assert_eq!(mode.frame(&mut w,0,false).event,None);
+        }
+    }
+
 }

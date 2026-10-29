@@ -22,6 +22,7 @@ pub struct Settings {
     pub enemy_projectile_range_multiplier: f32,
 
     pub nanotech_xp_per_upgrade: f32,
+    /// Internal XP bonus cap. The public base-plus-XP limit subtracts four.
     pub nanotech_max_health: u32,
     pub nanotech_upgrade_sound: bool,
     pub nanotech_random_healing: bool,
@@ -100,7 +101,8 @@ impl Settings {
             "enemy_speed_multiplier" | "enemy_projectile_speed_multiplier" => (0.1, 4.),
             "enemy_projectile_range_multiplier" => (0.1, 10.),
             "nanotech_xp_per_upgrade" => (0.1, 1_000_000.),
-            "nanotech_max_health" => (0., 64.),
+            "nanotech_max_health" => (0., 300.), // Legacy XP-bonus profiles remain readable.
+            "nanotech_progression_max_health" => (4., 206.),
             "enemy_health_include_bosses"
             | "extra_enemy_prefer_small"
             | "extra_enemy_prefer_medium"
@@ -136,7 +138,7 @@ impl Settings {
         if !v.is_finite()
             || v < range.0
             || v > range.1
-            || (matches!(key, "extra_enemies_per_level" | "nanotech_max_health") && v.fract() != 0.)
+            || (matches!(key, "extra_enemies_per_level" | "nanotech_max_health" | "nanotech_progression_max_health") && v.fract() != 0.)
         {
             return Err(format!("{key}: outside {}..{}", range.0, range.1));
         }
@@ -152,6 +154,7 @@ impl Settings {
             "enemy_projectile_range_multiplier" => self.enemy_projectile_range_multiplier = v,
 
             "nanotech_xp_per_upgrade" => self.nanotech_xp_per_upgrade = v,
+            "nanotech_progression_max_health" => self.nanotech_max_health = v as u32 - 4,
             _ => self.nanotech_max_health = v as u32,
         };
         Ok(true)
@@ -162,29 +165,40 @@ pub struct NanotechProgress {
     pub bonus: u32,
     pub xp: f32,
 }
+/// Absolute usable HP limit, including native purchases and XP-earned HP.
+pub const MAX_NANOTECH: i32 = 210;
+/// Four starting HP plus up to 202 XP upgrades. Native purchases reserve four more.
+pub const MAX_PROGRESSION_NANOTECH: u32 = 206;
+pub const MAX_XP_NANOTECH_BONUS: u32 = MAX_PROGRESSION_NANOTECH - 4;
+/// Keep old v115 companions readable without altering stored earned progress.
+const MAX_STORED_NANOTECH_BONUS: u32 = 300;
 impl NanotechProgress {
+    pub fn bonus_cap(s: &Settings, native: i32) -> u32 {
+        s.nanotech_max_health.min(MAX_XP_NANOTECH_BONUS)
+            .min((MAX_NANOTECH-native.clamp(0,MAX_NANOTECH)) as u32)
+    }
     /// Hidden progression uses one fixed requirement per gained health point.
     /// At the configured cap, a full bar communicates that no upgrade is pending.
-    pub fn fraction(self, s: &Settings, _native: i32) -> Option<f32> {
+    pub fn fraction(self, s: &Settings, native: i32) -> Option<f32> {
         if !s.enemy_damage_by_health { return None; }
-        if self.bonus >= s.nanotech_max_health { return Some(1.0); }
+        if self.bonus >= Self::bonus_cap(s,native) { return Some(1.0); }
         Some((self.xp / s.nanotech_xp_per_upgrade).clamp(0.0,1.0))
     }
     pub fn valid(self) -> bool {
-        self.bonus <= 64 && self.xp.is_finite() && (0. ..=1_000_000.).contains(&self.xp)
+        self.bonus <= MAX_STORED_NANOTECH_BONUS && self.xp.is_finite() && (0. ..=1_000_000.).contains(&self.xp)
     }
     pub fn max_health(self, s: &Settings, native: i32) -> i32 {
         if !s.enemy_damage_by_health {
-            return native;
+            return native.clamp(1,MAX_NANOTECH);
         }
-        native + self.bonus.min(s.nanotech_max_health) as i32
+        (native + self.bonus.min(Self::bonus_cap(s,native)) as i32).clamp(1,MAX_NANOTECH)
     }
-    pub fn award(&mut self, s: &Settings, _native: i32, xp: f32) -> u32 {
+    pub fn award(&mut self, s: &Settings, native: i32, xp: f32) -> u32 {
         if !s.enemy_damage_by_health || !xp.is_finite() || xp <= 0. {
             return 0;
         }
         let before = self.bonus;
-        let cap = s.nanotech_max_health;
+        let cap = Self::bonus_cap(s,native);
         if self.bonus >= cap {
             self.xp = 0.;
             return 0;
@@ -660,5 +674,52 @@ mod additive_health_tests {
         assert_eq!(e.hit_points(&h,&table,18,&s),None);
         table.mobys[0].o_class=1422;assert_eq!(e.hit_points(&h,&table,1,&s),None);
         table.mobys[1].pvars[0x198..0x19c].fill(0);assert_eq!(e.hit_points(&h,&table,18,&s),None);
+    }
+}
+
+#[cfg(test)]
+mod capped_nanotech_tests {
+    use super::*;
+    #[test]
+    fn progression_reserves_four_slots_for_native_purchases() {
+        let mut s=Settings{enemy_damage_by_health:true,nanotech_xp_per_upgrade:1.,..Default::default()};
+        assert!(s.parse_field("nanotech_progression_max_health","206").unwrap());
+        assert_eq!(s.nanotech_max_health,202);
+        for (native,total) in [(4,206),(5,207),(8,210)] {
+            let mut p=NanotechProgress::default();
+            assert_eq!(p.max_health(&s,native),native); // A ceiling never grants initial HP.
+            assert_eq!(p.bonus,0);
+            assert_eq!(p.award(&s,native,1000.),202);
+            assert_eq!(p.max_health(&s,native),total);
+            assert_eq!(p.fraction(&s,native),Some(1.));
+            assert_eq!(p.award(&s,native,1000.),0);
+            let mut save=crate::weapon_evo::save::Progress::default();save.nanotech=p;
+            assert_eq!(crate::weapon_evo::save::Progress::decode(&save.encode(b"native").unwrap(),b"native").unwrap().nanotech,p);
+        }
+        for value in ["3","207","300","205.5","NaN"] {
+            assert!(s.parse_field("nanotech_progression_max_health",value).is_err(),"{value}");
+        }
+        s.parse_field("nanotech_progression_max_health","4").unwrap();
+        assert_eq!(s.nanotech_max_health,0);
+        assert_eq!(NanotechProgress{bonus:202,xp:0.}.max_health(&s,8),8);
+    }
+    #[test]
+    fn old_large_saves_are_readable_and_clamped_without_erasing_progress() {
+        let s=Settings{enemy_damage_by_health:true,nanotech_max_health:300,..Default::default()};
+        let p=NanotechProgress{bonus:292,xp:37.};
+        assert!(p.valid());assert_eq!(p.max_health(&s,8),210);assert_eq!(p.max_health(&s,4),206);
+        let mut save=crate::weapon_evo::save::Progress::default();save.nanotech=p;
+        let restored=crate::weapon_evo::save::Progress::decode(&save.encode(b"old").unwrap(),b"old").unwrap();
+        assert_eq!(restored.nanotech,p);
+        assert!(!NanotechProgress{bonus:301,xp:0.}.valid());
+    }
+    #[test]
+    fn canonical_limit_wins_over_legacy_key_in_either_order() {
+        for fields in ["nanotech_max_health=300\nnanotech_progression_max_health=26",
+                       "nanotech_progression_max_health=26\nnanotech_max_health=300"] {
+            let raw=include_str!("weapon_evo_release.ini").replace("nanotech_progression_max_health", "nanotech_max_health");
+            let evo=crate::weapon_evo::Evolution::parse(&format!("[general]\n{fields}\n{raw}")).unwrap();
+            assert_eq!(evo.world_settings.nanotech_max_health,22);
+        }
     }
 }

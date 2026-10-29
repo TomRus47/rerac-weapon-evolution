@@ -1,3 +1,15 @@
+## v116 compact Nanotech
+
+See [v116](docs/mod/NANOTECH_V116.md). Runtime packing, cap arithmetic and local
+startup live in hud/nanotech.rs, weapon_evo_world.rs and weapon_evo_health_test.rs.
+launcher/nanotech_cap_profile.py owns the idempotent public-profile migration;
+native save storage is retained. The full-source local kit exporter is
+`tools/mod/create_nanotech116_kit.py`.
+
+## v115 local health test and Morph-o-Ray chain credit
+
+At most 50 recolored native Nanotech spheres represent up to 300 actual HP. The local Veldin II test disables normal saves. Successful Morph-o-Ray conversions advance the existing reward multiplier once per enemy. All other input source files, including v114 pickup completion fixes, are retained. [Implementation and test instructions](docs/mod/NANOTECH_V115.md). No GitHub operations or publication.
+
 # Weapon Evolution source map
 
 Unreleased development snapshot: gameplay 0.1.6.106, launcher 0.28.9, ReRAC 0.3.6-alpha. The complete supplied workspace is included; the reviewed entries cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
@@ -960,3 +972,27 @@ See [v106 implementation notes](docs/mod/SLAM_VISUAL_V106.md). Historical snapsh
 ## ReRAC 0.3.7 integration
 
 `docs/mod/RUNTIME_037.md` describes merge boundaries, exact upstream commits, profile/save compatibility and local/native verification. `mod/upstream_037.json` accounts for every upstream delta path. `runtime037_test.py` and `create_runtime037_kit.py` export/update a complete local source kit; updater integrity, preserved-file and rollback tests live in `launcher/tests/test_runtime037.py`. Current draft notes are `docs/releases/v0.4-rerac-0.3.7-alpha.md`; the old published v0.3 descriptor and tag remain historical.
+
+## v111 local corrections
+
+`docs/mod/RANDOMIZER_COMBAT_V111.md` describes the wrench entry guards, fixed initial amoeboid XP budgets/descendant markers, boot persistence/imports, generic localized notices, NPC source resolution, native Gold Bolt presentation and cached item scenes. `crates/rc-engine/src/pickup_presentation.rs` stages/recenters native tracks on the loader worker; gameplay/travel request playback without executing foreign mission scripts. The official 0.3.7 merge inventory remains the historical v110 result; later local changes are covered by the current source-map hashes.
+
+## ReRAC 0.3.8-alpha / local v112
+
+`docs/mod/RUNTIME_038.md` explains the complete port, conflicts and save/profile compatibility. `mod/upstream_038.json` accounts for all 53 official delta paths and their supplied/merged hashes. `tools/mod/runtime038_test.py` builds and transactionally installs the bundled runtime/shaders; `create_runtime038_kit.py` exports the local kit. `launcher/tests/test_runtime038.py` covers integrity/preservation/rollback, and `crates/rc-game/tests/runtime038_save_api.rs` exercises configured/default/environment/disabled roots with isolated randomizer and weapons-only cards. Existing v037 tools remain historical; the new BATs call the v038 tool.
+
+## v113 Nanotech XP correction
+
+- `crates/rc-game/src/weapon_evo.rs`: separate fixed encounter weapon XP from ordinary HP-derived Nanotech XP; retain ordinary weapon paths, switches and chain bonuses.
+- `crates/rc-game/src/moby_update/creature/damage.rs`: pass effective HP loss and capture both special reward bases before actor deletion.
+- `crates/rc-game/src/moby_update/creature/react.rs`: use the captured reward after successful swallow/morph.
+- `crates/rc-game/src/moby_update/classes/amoeboid.rs` and `creature/tests.rs`: cross-frame attack identity, all-weapon, HP-scale, overkill, descendant and ordinary health-path regressions.
+- `docs/mod/AMOEBOID_XP_V113.md`: behavior, examples, source boundaries and local installation.
+- Existing ReRAC 0.3.8 source-kit tools export and verify patch 0.1.6.113; the working launcher/icon and player files stay outside the replacement set.
+
+## v114 acquisition completion
+
+- `crates/rc-game/src/moby_update/classes/gold_bolt.rs`: cosmetic actor scheduling/resource gates, one presentation owner, bounded stall/death cleanup, and actual active-list/animation regressions. Native location grants remain separate.
+- `crates/rc-game/src/travel/space.rs`: common normal/incomplete demo completion; world-clock-independent streamed-scene and actor cleanup tests.
+- `docs/mod/PICKUP_COMPLETION_V114.md`: reproduced cause, implementation boundaries, compatibility and Windows checks.
+- Existing local ReRAC 0.3.8 source-kit tools now identify v114 and preserve the installed GUI/icon, configuration and saves.
