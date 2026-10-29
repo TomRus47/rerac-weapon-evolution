@@ -302,7 +302,11 @@ fn fire(w: &mut World, id: MobyId) {
 
 /// `0x2a75f0(m, p, v, homing)` (module table).
 pub fn spawn_shell(w: &mut World, owner: MobyId, p: c::V, v: c::V, homing: bool) -> Option<MobyId> {
+    // Preserve the tank's original HP tier even if this class is dispatched
+    // outside the scheduler or the shell's native class type is a creature.
+    w.svc.enemies.observe(owner, &w.table.mobys[owner]);
     let s = w.create_moby(SHELL)?;
+    w.svc.enemies.created_from(s, Some(owner));
     let (light, ambient) = (w.m(owner).light, w.m(owner).ambient);
     let life = w.ticks(0xf0);
     let m = w.mm(s);
@@ -377,5 +381,69 @@ pub fn tread_update(w: &mut World, id: MobyId) {
         let m = w.mm(id);
         m.anim.speed = 0.0;
         m.mode |= mode::NO_ANIM;
+    }
+}
+
+#[cfg(test)]
+mod damage_owner_tests {
+    use super::*;
+    use crate::moby_runtime::{ClassInfo, Moby, MobyTable};
+    use crate::moby_update::services::{ClassTable, HitRecord, Services};
+    use crate::weapon_evo::world::{Enemy, Settings};
+
+    #[test]
+    fn shells_use_original_tank_hp_for_direct_and_splash_damage_and_keep_it_after_owner_reuse() {
+        for ty in [0, 5] {
+            let mut tank = Moby { o_class: 1454, state: 1, pvars: vec![0; pv::LEN], ..Default::default() };
+            // Use the tank's own native +0x20 health, including when it has no
+            // generic target-record header. The donor catalog is not involved.
+            p::set_ff(&mut tank.pvars, pv::D, 6.0);
+            let mut table = MobyTable::new(vec![tank, Moby::zeroed()], 8);
+            let hero = crate::hero::Hero::new();
+            let mut rng = crate::rng::Rng::new();
+            let mut classes = ClassTable::default();
+            classes.classes.insert(SHELL, (ClassInfo { slot: 1, ty, scale: 1.0, ..Default::default() }, None));
+            let mut svc = Services::new();
+            svc.level = REFERENCE_LEVEL;
+            // A different current updater must not become the projectile owner.
+            svc.enemies.updating = Some(1);
+            svc.enemies.records.insert(1, Enemy { class: 577, base_hp: 1. });
+            let mut w = World::new(&mut table, &hero, &mut rng, &classes, &mut svc, 0);
+            let shot = spawn_shell(&mut w, 0, [20., 20., 10., 1.], [0.3, 0., 0., 0.], false).unwrap();
+            assert_eq!(link(&w, shot, shell::OWNER), Some(0));
+            assert_eq!(w.svc.enemies.records[&shot].base_hp, 6.);
+            w.mm(shot).state = 1;
+            w.svc.enemies.observe(shot, &w.table.mobys[shot]);
+            assert_eq!(w.svc.enemies.records[&shot].base_hp, 6.);
+            p::set_ff(&mut w.mm(0).pvars, pv::D, 0.25);
+            w.svc.enemies.observe(0, &w.table.mobys[0]);
+            for (multiplier, expected) in [(0.5, 3), (1., 6), (2., 12), (2.5, 15)] {
+                let settings = Settings { enemy_damage_by_health: true,
+                    enemy_damage_multiplier: multiplier, enemy_health_multiplier: 100., ..Default::default() };
+                // Collision and beam explosion templates both retain the shell
+                // as attacker; their native 2/1 damage must not replace its tier.
+                for native in [2., 1.] {
+                    let hit = HitRecord { attacker: Some(shot), flags: 1,
+                        damage: Pf::f(native), ..Default::default() };
+                    let points = w.svc.enemies.hit_points(&hit, w.table, REFERENCE_LEVEL, &settings);
+                    assert_eq!(points, Some(expected));
+                    let mut victim = crate::hero::Hero::new(); victim.health = 100;
+                    victim.damage.enemy_hit_points = points;
+                    crate::hero::damage::take_enemy_damage_or_native(&mut victim, native as i32);
+                    assert_eq!(victim.health, 100 - expected);
+                    assert_eq!(w.svc.enemies.hit_points(&hit, w.table, REFERENCE_LEVEL,
+                        &Settings { enemy_damage_by_health: false, ..settings.clone() }), None);
+                }
+            }
+            w.mm(0).state = 0xfe;
+            w.svc.enemies.created(0, false);
+            w.svc.enemies.observe(0, &w.table.mobys[0]);
+            assert!(!w.svc.enemies.records.contains_key(&0));
+            w.svc.enemies.records.insert(0, Enemy { class: 577, base_hp: 1. });
+            let settings = Settings { enemy_damage_by_health: true, ..Default::default() };
+            assert_eq!(w.svc.enemies.points(Some(shot), &settings), Some(6));
+            w.svc.enemies.created(shot, false);
+            assert_eq!(w.svc.enemies.points(Some(shot), &settings), None);
+        }
     }
 }

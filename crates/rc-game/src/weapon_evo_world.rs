@@ -228,10 +228,17 @@ pub struct Enemies {
 }
 impl Enemies {
     pub fn observe(&mut self, id: MobyId, m: &Moby) {
-        if m.state == 0 || !crate::moby_update::real_hp::donor(m) {
+        // The native Veldin II tank is not in the mod's XP-donor catalog.
+        // It still owns hostile damage: read its numeric record, independently
+        // of XP eligibility and without assigning the shell's fallback 1 HP.
+        let veldin_tank = m.o_class == 1454;
+        if m.state == 0 || m.state >= 0x80 || (!crate::moby_update::real_hp::donor(m) && !veldin_tank) {
             return;
         }
-        let hp = if crate::moby_update::real_hp::terminal_class(m.o_class) {
+        let hp = if veldin_tank {
+            m.pvars.get(0x20..0x24)
+                .map(|b| f32::from_le_bytes(b.try_into().unwrap())).unwrap_or(0.)
+        } else if crate::moby_update::real_hp::terminal_class(m.o_class) {
             1.
         } else {
             crate::targeting::record_health(m).unwrap_or(1.)
@@ -278,11 +285,13 @@ impl Enemies {
     }
 
     pub fn created(&mut self, id: MobyId, inherit: bool) {
-        let e = if inherit {
-            self.updating.and_then(|p| self.records.get(&p).copied())
-        } else {
-            None
-        };
+        self.created_from(id, if inherit { self.updating } else { None });
+    }
+    /// Snapshot the explicit launcher, not a projectile's class/type or whatever
+    /// actor happens to be updating. Source deletion/reuse cannot change a shot
+    /// already in flight; the shot's own reuse still clears its old identity.
+    pub fn created_from(&mut self, id: MobyId, source: Option<MobyId>) {
+        let e = source.and_then(|p| self.records.get(&p).copied());
         self.records.remove(&id);
         if let Some(e) = e {
             self.records.insert(id, e);

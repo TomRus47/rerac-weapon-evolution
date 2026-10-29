@@ -1,3 +1,12 @@
+# Unreleased — Veldin II tank damage attribution
+
+- Record the tank's native six-HP damage tier independently of the XP-donor
+  catalog and snapshot its explicit ownership when a shell is created.
+- With health-class damage enabled, direct and splash hits use six times the
+  effective enemy damage multiplier. Damaging/deleting the tank or reusing its
+  slot cannot weaken a shell already fired. Disabling the option retains native
+  damage; boss overrides, XP eligibility and balance settings are unchanged.
+
 # Unreleased — R2 gadget activation
 
 - Extend the existing R2/Circle action to equipped active gadgets, including
