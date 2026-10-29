@@ -297,3 +297,86 @@ fn every_weapon_grade_accepts_integer_limits_and_invalid_modes_are_rejected() {
         assert!(Evolution::parse(&format!("{base}\n[weapon.ryno.level1]\nr1_experimental_max = {value}\n")).is_err());
     }
 }
+
+#[test]
+fn equipped_gadgets_share_press_hold_release_and_pressure_for_both_buttons() {
+    // Every active hand gadget uses Circle, including those whose fire case is
+    // dispatched separately from their own item update.
+    for item in [12, 22, 26, 27, 31, 32] {
+        let mut h = Hero::new(); h.health = 4; h.items.slot.id = item;
+        for state in [0, 1, 2, 6, 0x1e] {
+            h.state = state;
+            for held in [0, button::CIRCLE, button::R2, button::CIRCLE | button::R2] {
+                for previous in [0, button::CIRCLE, button::R2, button::CIRCLE | button::R2] {
+                    let mut physical = pad(held, previous);
+                    physical.hist_count = 1; physical.hist_index = 1;
+                    physical.hist_pressed[0] = physical.pressed;
+                    physical.pressure[11] = Pf::f(0.7);
+                    physical.analog_copy[15] = Pf::f(0.7);
+                    let p = hero_gameplay_pad(&physical, &h, true, false);
+                    let now = if held != 0 { button::CIRCLE } else { 0 };
+                    let old = if previous != 0 { button::CIRCLE } else { 0 };
+                    assert_eq!(p.held, now, "item {item}, state {state:#x}");
+                    assert_eq!(p.pressed, now & !old);
+                    assert_eq!(p.released, old & !now);
+                    assert_eq!(p.hist_pressed[0], p.pressed);
+                    assert_eq!(p.pressure[5], Pf::f(0.7));
+                    assert_eq!(p.analog_copy[9], Pf::f(0.7));
+                    assert_eq!(physical.held, held); // Physical camera/menu input stays intact.
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn gadget_use_phases_keep_r2_without_enabling_equipment_changes_or_minigame_input() {
+    let physical = pad(button::R2, button::R2);
+    let mut h = Hero::new(); h.health = 4;
+    for (item, states) in [(12, &[0x24, 0x25, 0x26, 0x2c, 0x2d][..]),
+                           (22, &[0x38, 0x39, 0x3a][..])] {
+        h.items.slot.id = item;
+        for &state in states {
+            h.state = state;
+            let p = hero_gameplay_pad(&physical, &h, true, true);
+            assert_ne!(p.held & button::CIRCLE, 0);
+            assert_eq!(p.released & button::CIRCLE, 0);
+            assert!(!direct_control(&h));
+            let direction = pad(button::R2 | button::UP, button::R2);
+            let p = hero_gameplay_pad(&direction, &h, true, true);
+            assert_ne!(p.held & button::UP, 0); // No shortcut consumes native gadget steering.
+            h.items.slot.id = 15;
+            assert_eq!(hero_gameplay_pad(&physical, &h, true, false).held, physical.held);
+            h.items.slot.id = item;
+        }
+    }
+    h.items.slot.id = 12;
+    for (state, mode) in [(100, 0), (0x72, 0), (0x78, 0), (0x45, 1)] {
+        h.state = state; h.mode = mode;
+        assert_eq!(hero_gameplay_pad(&physical, &h, true, false).held, physical.held);
+    }
+    h.mode = 0; h.state = 0;
+    for game_mode in [3, 5, 9] {
+        h.gadgets.game_mode = game_mode;
+        assert_eq!(hero_gameplay_pad(&physical, &h, true, false).held, physical.held);
+    }
+    h.gadgets.game_mode = 0; h.frozen = 1;
+    assert_eq!(hero_gameplay_pad(&physical, &h, true, false).held, physical.held);
+    h.frozen = 0;
+    assert_eq!(hero_gameplay_pad(&physical, &h, false, false).held, physical.held);
+}
+
+#[test]
+fn hologuise_r2_salutes_instead_of_selecting_the_hidden_wrench() {
+    let mut h = Hero::new(); h.health = 4;
+    h.mode = crate::hero::bodies::body::DISGUISE;
+    h.items.slot.id = 8;
+    for state in [0x53, 0x54, 0x59] {
+        h.state = state;
+        let p = hero_gameplay_pad(&pad(button::R2, 0), &h, true, false);
+        assert_eq!(p.held, button::CIRCLE);
+        assert_eq!(p.pressed, button::CIRCLE);
+        assert_eq!(p.held & button::SQUARE, 0);
+        assert!(!direct_control(&h));
+    }
+}

@@ -28,7 +28,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "8a1426fdaa5066c8ec1a6da1645dd9eb0536014018fbb997ddfefae295d3ef89"
+      "sha256": "1fed8046d08ec7307e1115b28c6ec0533d654afd0bc834bb3a436f78fd38ecbc"
     },
     {
       "path": "Cargo.lock",
@@ -56,7 +56,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "a98b99359c57f16b0cf797e5fd136670c66b1f8e06d6b7e732039e7e3ab3d06f"
+      "sha256": "dd6e0eee2ab8d651b0b375f88f519b27ce6b0791f1169895a6407b8fcf6c3356"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -818,7 +818,7 @@
     },
     {
       "path": "crates/rc-game/src/hero.rs",
-      "sha256": "4f57e60c074f39bb546092ca6258416020791fb5569544c1a6a637aa459cf47b",
+      "sha256": "d1140de89a2a17be974343d9cff629db5b5bb29718dea665b912a45b1bfa18a4",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -967,7 +967,7 @@
     },
     {
       "path": "crates/rc-game/src/hero/items.rs",
-      "sha256": "c0e7e6b08ad083b510a7813dcbfa852eaea30c0e09a7b9e9cd7067e48f522c5f",
+      "sha256": "c438bcea50e01fd19cf450ab00461253bbd1a539c2c956827fbb7592d621fafb",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -2577,7 +2577,7 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "fb38537c733f05644d90602a806d3083238a47a75559c99c84188ad255d4d177"
+      "sha256": "6e40af5160906b6066973f265d519ac56a3a5b176f199745fc237eef32372604"
     },
     {
       "path": "crates/rc-game/src/travel/cards.rs",
@@ -2642,14 +2642,14 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "3dbb52cd038228a06de2e73c406c68dbb4743c95e1e65336fa6131d62cded61f"
+      "sha256": "cbbc2e986504b1babd9426cbe1505a80e6ef0eab9d76a676857f233d133e6c83"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_controls_tests.rs",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "4c1629f4d40d25baf18bfa15e9fecca74d1353a20511c657f199afba9f949a47"
+      "sha256": "00e1de69a8481c7995e7102985668bfe9629fd069fe0139c4a03e24f3182a773"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_discovery.rs",
@@ -3290,7 +3290,7 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "af1237bbd48ea8dcab3a3b3e540da6ad528da3538b644262f74201bb0a2aef08"
+      "sha256": "e8493918d2430ce4ca104112ecbeb228d380ed457a4d38db3cfe7cc7f78cd4f0"
     },
     {
       "path": "docs/mod/SLAM_VISUAL_V106.md",

@@ -449,10 +449,16 @@ impl Game {
                 if self.hero.gadgets.pending.is_some() || !self.hero.gadgets.calls.is_empty() || self.hero.swing.item.alive || self.hero.weapons.deferred.is_some() || self.hero.weapons.pending_draw || self.hero.weapons.pending_idle || self.hero.weapons.pending_anim.is_some() {
                     let scene = hooks.world.as_deref_mut().and_then(|w| w.scene(&self.mobys));
                     let mobys = scene.as_ref().map(OwnedScene::scene);
+                    // Deferred gadgets (notably Swingshot) need the same R2/Circle
+                    // union as their fire transition and hand-slot update.
+                    let gameplay_pad = crate::weapon_evo::controls::hero_gameplay_pad(
+                        &self.pad, &self.hero, crate::weapon_evo::controls::active(),
+                        crate::weapon_evo::controls::settings().dpad,
+                    );
                     let view = self.camera.out;
                     let env = Env {
                         coll,
-                        pad: &self.pad,
+                        pad: &gameplay_pad,
                         cam_yaw: view.yaw(),
                         cam_rows: view.rows,
                         mirror: self.options.mirror,

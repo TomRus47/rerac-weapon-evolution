@@ -1,3 +1,12 @@
+# Unreleased — R2 gadget activation
+
+- Extend the existing R2/Circle action to equipped active gadgets, including
+  deferred Swingshot updates and the Hologuise salute.
+- Preserve one logical press/hold/release when switching between the two buttons;
+  keep gadget use phases separate from quick-equip permission.
+- Retain physical menu, puzzle, turret, vehicle and Clank-body inputs. No profile,
+  save format or balance change is required.
+
 # Weapon Evolution 0.4.1 — unpublished draft
 
 ReRAC **0.3.8-alpha**, gameplay **0.1.6.116**, capability **92**, launcher **0.29.5**.

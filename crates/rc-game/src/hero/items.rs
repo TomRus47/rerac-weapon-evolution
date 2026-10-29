@@ -289,10 +289,10 @@ impl HeroItems {
 /// slot loop 0x231088), after the transitions and the write-back.
 #[allow(clippy::too_many_arguments)]
 pub fn items_update(hero: &mut Hero, g: &mut ItemGlobals, table: &mut MobyTable, anim: &dyn AnimCtl, rng: &mut Rng, env: &ItemEnv, hits: &mut dyn HitSink) {
-    let gameplay_pad = if crate::weapon_evo::controls::active() && crate::weapon_evo::controls::input_layout_allowed(hero) {
-        crate::weapon_evo::controls::gameplay_pad(env.pad,if hero.items.slot.id>0{hero.items.slot.id}else{hero.items.target},true,
-            crate::weapon_evo::controls::settings().dpad,super::combat_strafe::active(hero))
-    } else { super::combat_strafe::gameplay_pad_for_weapon(env.pad, super::combat_strafe::active(hero), hero.items.slot.id) };
+    let gameplay_pad = crate::weapon_evo::controls::hero_gameplay_pad(
+        env.pad, hero, crate::weapon_evo::controls::active(),
+        crate::weapon_evo::controls::settings().dpad,
+    );
     let env = &ItemEnv { mobys: None, pad: &gameplay_pad, ..*env };
     items_flags(hero);
     super::melee::jump_attack_shockwave(hero, table, env, hits, rng);

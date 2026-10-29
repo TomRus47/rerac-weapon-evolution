@@ -279,3 +279,29 @@ fn record_parse() {
     assert_eq!((r.kind, r.length, r.mode, r.cuboid, r.mission, r.link), (1, 7.0, 0, -1, -1, -1));
     assert!((r.max_speed - 1.0 / 3.0).abs() < 1e-6 && (r.f10 - 1.0 / 12.0).abs() < 1e-6);
 }
+
+#[test]
+fn deferred_update_keeps_the_pull_attached_with_r2_and_releases_after_both_buttons() {
+    // Exercise the native deferred item consumer, not just the button alias:
+    // state 4 used to see physical R2 as a released Circle and drop the rope.
+    for held in [button::R2, button::CIRCLE, button::R2 | button::CIRCLE, 0] {
+        let mut sim = Sim::new(vec![]);
+        sim.r.hero.state = 0x24;
+        sim.r.hero.swing.pull_pos = [420.0, 410.0, 101.0];
+        sim.r.hero.swing.item.alive = true;
+        sim.r.hero.swing.item.state = 4;
+        sim.r.hero.swing.item.amplitude = 0.1;
+        sim.r.hero.swing.item.hook = Some(Hook { pos: [420.0, 410.0, 101.0], ..Default::default() });
+        sim.r.hero.gadgets.pending = Some(SWINGSHOT);
+        let mut physical = crate::pad::PadState::default();
+        physical.update(Some(&PadInput::neutral().press(held).bytes()), false);
+        let mapped = crate::weapon_evo::controls::hero_gameplay_pad(&physical, &sim.r.hero, true, false);
+        let env = Env { coll: &sim.coll, pad: &mapped, cam_yaw: sim.r.cam_yaw,
+            cam_rows: sim.r.cam_rows, mirror: false, death_z: Pf::ZERO, mobys: None,
+            hero_moby: None, water: None, world: Some(&sim.w) };
+        let mut c = Ctx { env: &env, anim: &mut sim.r.anim, rng: &mut sim.r.rng, voice: None };
+        crate::hero::gadgets::after_items(&mut sim.r.hero, &mut c, &sim.data);
+        assert_eq!(sim.r.hero.swing.item.state, if held == 0 { 6 } else { 5 });
+        assert_eq!(sim.r.hero.state, if held == 0 { 0 } else { 0x25 });
+    }
+}

@@ -843,10 +843,10 @@ pub(crate) fn hero_update_with_combat_mode(
     combat_enabled: bool,
 ) -> HeroTick {
     combat_strafe::configure(hero, env.pad, env.cam_yaw, combat_enabled);
-    let gameplay_pad = if crate::weapon_evo::controls::active() && crate::weapon_evo::controls::input_layout_allowed(hero) {
-        crate::weapon_evo::controls::gameplay_pad(env.pad,if hero.items.slot.id>0{hero.items.slot.id}else{hero.items.target},true,
-            crate::weapon_evo::controls::settings().dpad,combat_strafe::active(hero))
-    } else { combat_strafe::gameplay_pad_for_weapon(env.pad, combat_strafe::active(hero), hero.items.slot.id) };
+    let gameplay_pad = crate::weapon_evo::controls::hero_gameplay_pad(
+        env.pad, hero, crate::weapon_evo::controls::active(),
+        crate::weapon_evo::controls::settings().dpad,
+    );
     let env = &Env { pad: &gameplay_pad, ..*env };
     // L2 can take over after releasing L1 without leaving Ratchet hidden.
     if combat_strafe::active(hero) && matches!(hero.state, 1 | 0x1e) {

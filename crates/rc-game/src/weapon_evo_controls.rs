@@ -141,6 +141,36 @@ pub(super) fn apply_registry(settings:Settings,state:&State,registry:&mut HashMa
     }
 }
 
+/// Extra input phases belong to the equipped gadget, not to free equipment
+/// changes. In particular, keeping R2 held must keep the Swingshot attached.
+fn gadget_input_layout_allowed(h: &Hero) -> bool {
+    if h.health <= 0 || h.frozen != 0 || h.gadgets.game_mode != 0 { return false; }
+    if h.mode == crate::hero::bodies::body::DISGUISE {
+        return matches!(h.state, 0x53..=0x59);
+    }
+    h.mode == 0 && match h.items.slot.id {
+        12 => matches!(h.state, 0x24..=0x26 | 0x2c | 0x2d),
+        22 => matches!(h.state, 0x38..=0x3a),
+        _ => false,
+    }
+}
+
+/// One semantic input view for hero transitions, hand-item updates and deferred
+/// gadget updates. Leave the physical pad available to cameras and minigames.
+/// Gadget-only phases do not widen `direct_control` or quick-equip permissions.
+pub fn hero_gameplay_pad(pad: &PadState, h: &Hero, enabled: bool, dpad: bool) -> PadState {
+    let locked = crate::hero::combat_strafe::active(h);
+    if enabled && (input_layout_allowed(h) || gadget_input_layout_allowed(h)) {
+        let item = if h.items.slot.id > 0 { h.items.slot.id } else { h.items.target };
+        // A disguise's Circle action is its salute, even if the hidden hand is
+        // still the wrench. It must never become Square (leave the disguise).
+        let item = if h.mode == crate::hero::bodies::body::DISGUISE { 31 } else { item };
+        gameplay_pad(pad, item, true, dpad && input_layout_allowed(h), locked)
+    } else {
+        crate::hero::combat_strafe::gameplay_pad_for_weapon(pad, locked, h.items.slot.id)
+    }
+}
+
 /// Gameplay-only semantic pad. Physical R2 and Circle are one logical trigger;
 /// L1 retains native first-person aiming; R1 retains native crouch. Menus and
 /// cameras keep the physical pad, including contextual R1 radial switching.
