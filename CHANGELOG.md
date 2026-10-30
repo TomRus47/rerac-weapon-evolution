@@ -1,3 +1,18 @@
+# Unreleased — Randomizer mission rewards and persistent shops
+
+- Retain Pokitaru, Blarg Station and Novalis rewards when their native items or
+  coordinates were already found elsewhere. Completion follows the original
+  source claim; ordinary mission prerequisites and native mode are retained.
+- Fix both hero and host race gates on Kalebo III and Rilgar so an early native
+  prize does not suppress the actual randomized winning reward. Repeated claims
+  and losses cannot award a prize.
+- Retain registered Gadgetron offers after travel: visiting their source planet
+  makes them available at all normal vendors until purchased. World pickups
+  unlock ammo without registering offers; the PDA remains ammo-only.
+- Preserve existing stock, seed, placements, source prices and save format.
+  [Implementation](docs/mod/RANDOMIZER_REWARD_HANDOFFS.md) and
+  [0.4.2 preparation status](docs/releases/v0.4.2.md).
+
 # Unreleased — Veldin II tank damage attribution
 
 - Record the tank's native six-HP damage tier independently of the XP-donor

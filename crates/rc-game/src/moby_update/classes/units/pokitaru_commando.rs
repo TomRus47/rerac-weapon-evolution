@@ -341,7 +341,10 @@ fn init(w: &mut World, id: MobyId) {
     }
     c::set_pv4(w, id, pv::VEL, [0.0; 4]);
     c::set_pv4(w, id, pv::MOVE, [0.0; 4]);
-    let acquired = w.svc.interact.game.acquired.get(REWARD_ITEM).copied().unwrap_or(0) != 0;
+    // Owning an early randomized O2 Mask must not remove the native reward
+    // source. Resume the escort/fighter handoff until this check is claimed.
+    let acquired = crate::weapon_evo::randomizer::source_owned(w, REWARD_ITEM,
+        w.svc.interact.game.acquired.get(REWARD_ITEM).copied().unwrap_or(0) != 0);
     let gate = link(w, id, pv::GATE);
     if mission_done(w, c::pi32(w, id, pv::MISSION_B)) {
         if !acquired {
@@ -692,5 +695,126 @@ pub fn gate_update(w: &mut World, id: MobyId) {
             if r == 0.0 { w.mm(id).state = 3; }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod v122_reward_guard_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    use crate::moby_update::interact::GameWrite;
+    use crate::moby_update::services::LevelMissions;
+    use crate::weapon_evo::{randomizer, save::Progress};
+
+    fn bench(native: bool, random: bool, claimed: bool) -> (Bench, MobyId) {
+        let mut b = Bench::new(crate::hero::testkit::floor(0.0, 0, 12, 0, 12),
+            &CLASSES, [20.0, 20.0, 4.0]);
+        let id = b.create(CLASSES[0]);
+        b.table.mobys[id].pvars.resize(pv::SIZE, 0);
+        b.table.mobys[id].position = [20.0, 20.0, 4.0, 1.0];
+        let p = &mut b.table.mobys[id].pvars;
+        for o in (pv::AREA..=pv::WALLS + 8).step_by(4).chain([pv::GATE, pv::BOATS, pv::BOATS + 4]) {
+            crate::moby_update::services::pvar::set_i32(p, o, -1);
+        }
+        crate::moby_update::services::pvar::set_i32(p, pv::MISSION_B, 2);
+        crate::moby_update::services::pvar::set_i32(p, pv::MISSION_C, 4);
+        b.svc.level = REFERENCE_LEVEL;
+        b.svc.interact.game.acquired.resize(37, 0);
+        b.svc.interact.game.acquired[REWARD_ITEM] = u8::from(native);
+        b.hero.owned.set(REWARD_ITEM, native);
+        b.svc.bomb_evo.randomizer_mode = random;
+        if random {
+            let mut progress = Progress::default();
+            progress.randomizer = randomizer::State::generate(122);
+            if claimed { progress.randomizer.collect(REWARD_ITEM); }
+            b.svc.bomb_evo.restore_progress(&progress);
+        }
+        (b, id)
+    }
+
+    #[test]
+    fn early_mask_does_not_remove_unclaimed_reward_on_revisit() {
+        for native in [false, true] {
+            let (mut b, id) = bench(native, true, false);
+            let mut missions = LevelMissions::fresh_load(REFERENCE_LEVEL, [0; 16]);
+            missions.done[2] = 0xff;
+            missions.done[4] = 0xff;
+            let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+            w.missions = &missions;
+            init(&mut w, id);
+            assert_eq!(w.m(id).state, 0xe, "resume the post-escort reward talk");
+            assert_eq!(c::pi32(&w, id, pv::PHASE), 3);
+            assert!(w.svc.interact.writes.is_empty(), "loading must not auto-grant a reward");
+            // Completing the same native handoff queues the randomized source,
+            // never another O2 Mask, and never duplicates the pending reward.
+            w.mm(id).state = 0xf;
+            brain(&mut w, id);
+            w.mm(id).state = 0xf;
+            brain(&mut w, id);
+            assert_eq!(w.svc.interact.writes, vec![GameWrite::RandomizerReward(REWARD_ITEM)]);
+        }
+    }
+
+    #[test]
+    fn claim_controls_retirement_even_without_the_native_item() {
+        for native in [false, true] {
+            let (mut b, id) = bench(native, true, true);
+            let mut missions = LevelMissions::fresh_load(REFERENCE_LEVEL, [0; 16]);
+            missions.done[2] = 0xff;
+            let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+            w.missions = &missions;
+            init(&mut w, id);
+            assert!(w.m(id).state >= 0x80);
+        }
+    }
+
+    #[test]
+    fn native_mode_keeps_original_ownership_rule() {
+        for native in [false, true] {
+            let (mut b, id) = bench(native, false, false);
+            let mut missions = LevelMissions::fresh_load(REFERENCE_LEVEL, [0; 16]);
+            missions.done[2] = 0xff;
+            let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+            w.missions = &missions;
+            init(&mut w, id);
+            assert_eq!(w.m(id).state >= 0x80, native);
+        }
+    }
+
+    #[test]
+    fn early_mask_does_not_skip_the_escort_missions() {
+        let (mut b, id) = bench(true, true, false);
+        let missions = LevelMissions::fresh_load(REFERENCE_LEVEL, [0; 16]);
+        let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+        w.missions = &missions;
+        init(&mut w, id);
+        assert_eq!(w.m(id).state, 1);
+        assert!(w.svc.interact.writes.is_empty());
+    }
+
+    #[test]
+    fn catalog_item_and_coordinate_guards_use_check_history_not_inventory() {
+        let (mut b, _) = bench(true, true, false);
+        let mut progress = b.svc.bomb_evo.progress();
+        for collected in [false, true] {
+            if collected {
+                for location in randomizer::catalog::locations() {
+                    if progress.randomizer.reward(location.id).is_some() { progress.randomizer.collect(location.id); }
+                }
+            }
+            b.svc.bomb_evo.restore_progress(&progress);
+            let w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+            for location in randomizer::catalog::locations() {
+                if location.id < 37 {
+                    for native in [false, true] { assert_eq!(randomizer::source_owned(&w, location.id, native), collected); }
+                }
+            }
+            for planet in 2..19 {
+                for native in [false, true] { assert_eq!(randomizer::source_planet(&w, planet, native), collected); }
+            }
+            for source in [48, 49, 50, 52, 53] {
+                for native in [0, 1] { assert_eq!(randomizer::source_flag(&w, source, native), u8::from(collected)); }
+            }
+        }
     }
 }

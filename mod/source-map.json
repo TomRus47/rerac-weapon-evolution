@@ -28,7 +28,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "03c9c631e8547a04e5e7a2eead34a3bfc17ec780bf0d736865388f52d6d25a41"
+      "sha256": "0e41cddee87268262dc085e02243942c80d960367f6bb6d8da0a3ccd05eacfbd"
     },
     {
       "path": "Cargo.lock",
@@ -56,7 +56,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "dd6e0eee2ab8d651b0b375f88f519b27ce6b0791f1169895a6407b8fcf6c3356"
+      "sha256": "47e9dd3fcacfac0de25bb6e28d1e590492287c743412bcd949a4480b1621bb05"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -956,7 +956,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "e3bdb29872268380d1eb0168f5e7fbf78a1640e0d5de49a6dfcc6388a9650213"
+      "sha256": "9db0e65b8787fece186bf58da406231f9a83be8b000688d671a5885c4369d5eb"
     },
     {
       "path": "crates/rc-game/src/hero/idle.rs",
@@ -1284,7 +1284,7 @@
     },
     {
       "path": "crates/rc-game/src/menus/vendor.rs",
-      "sha256": "886d66fb1582236211339a242ae779bc61cc3d544431a4433cd3a1b79c455c24",
+      "sha256": "0322c86862991b0335b40806b9f3368136b7406a16fa6771cfd1413c8234a696",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -1301,7 +1301,7 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "99bafa5ce8e88fc5df806bb807fcc98272ddac472bba4640f89ce653f38659d6"
+      "sha256": "84a914c0d657753d6e9ee3c6215066e2793dd30805a0225c949f68f266c313e0"
     },
     {
       "path": "crates/rc-game/src/menus/vendor/tests.rs",
@@ -1537,6 +1537,13 @@
       ]
     },
     {
+      "path": "crates/rc-game/src/moby_update/classes/talking_npc.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "421608b7ef6f8ea8f53118de3ae113c3856168127dd94e01f8ddd936b048fc94"
+    },
+    {
       "path": "crates/rc-game/src/moby_update/classes/teleporter.rs",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -1649,6 +1656,13 @@
       "reasons": [
         "changed since supplied snapshot"
       ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/blarg_story.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "cd932d4912d886e1529048aaadfdafd2b11c0cc402e549af2813ca5b310062c8"
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/units/blarg_trooper.rs",
@@ -1937,7 +1951,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "11efe08069a07fa5a921c02738e68cd199a73b4bed2e8ddb644e797813f7fb7f"
+      "sha256": "ca8a23367d9775f492cf784f6ec4acd7e07371515eaace21aaf30a9cad0babe6"
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/units/kalebo_mine.rs",
@@ -1959,7 +1973,7 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "dcaf3a2db3ebb559682b212cec844204cc02d325f9462b454bbc2340ce54f3f9"
+      "sha256": "071d8a3b9729db5bf7ecb3b036dd90886312bfa91f26b269785c746912142c27"
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/units/kalebo_trooper.rs",
@@ -2159,6 +2173,13 @@
       ]
     },
     {
+      "path": "crates/rc-game/src/moby_update/classes/units/pokitaru_commando.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "811041cedddcb860917388fa70e8040865e369bd44b563403778534cc4cfd813"
+    },
+    {
       "path": "crates/rc-game/src/moby_update/classes/units/pokitaru_jet_hud.rs",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -2270,7 +2291,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "f90a58f65891f5a9c7251bcb1d398b89d804d50448109fecce71529059817d28"
+      "sha256": "6636927512a90ce7420368133b6c790bfe6ce0c3c707e651cac5ffb0645dfe5e"
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/units/rilgar_trail_rider.rs",
@@ -3150,14 +3171,14 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "1396abbeef135c5a59e18f9944507d71e8ec7b04b0acf815031ce8dfdaa09f44"
+      "sha256": "ad23aaf1b24158a1532267a19d809773dd2fec81b912e8ce37be86c99457f32d"
     },
     {
       "path": "docs/mod/DEVELOPER_GUIDE.md",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "f87d0ae3405d5db429665d79c76d033eb4a6cd9dc49e0984e24f5370e6781d2d"
+      "sha256": "e9dd40e843eb4bedb1433d18cff283f2c229bfa4da9d0bbb7b0b59723978a2ae"
     },
     {
       "path": "docs/mod/DRAFT_RELEASE.md",
@@ -3272,6 +3293,13 @@
       "sha256": "217097725d3456f77467db4a90d0272a7dd2a135b20c8a62ad57d415210bf7f3"
     },
     {
+      "path": "docs/mod/RANDOMIZER_REWARD_HANDOFFS.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "61496e719d2bbfecb4bfaf15f26ee30da31acd32b39ae2094521e0218462982d"
+    },
+    {
       "path": "docs/mod/RANDOMIZER_ROUTE_AUDIT.md",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -3311,7 +3339,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "10ed89f58fdd0454b1c82bb2023665a2123fdd6d38bc0f39024e595e659155a4"
+      "sha256": "ceb10710df4408c0c0a4591f9d4df0eede882c759617b55be72b60cdd4f687f2"
     },
     {
       "path": "docs/mod/VERIFICATION_V115.md",
@@ -3445,6 +3473,13 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "54e4fc86f4e6c226d9bbd449a4bd74c7b1f4ba1775d3b867f1d8b3bfc728cc2a"
+    },
+    {
+      "path": "docs/releases/v0.4.2.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "7a88527e62cf8cdeae3bd31a94be0ae1bee63631130bbf05a875e6bc6e33a30e"
     },
     {
       "path": "docs/weapon-evolution/V81_SAVED_CONTROLS.md",

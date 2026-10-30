@@ -1,5 +1,13 @@
 # Developer guide
 
+For post-0.4.1 reward/vendor work, start with
+[reward handoffs and persistent shops](RANDOMIZER_REWARD_HANDOFFS.md).
+In Randomizer All, original source completion and actual item ownership are
+different states. Race tests must follow the hero finish command through the
+host and receipt, rather than testing only an injected host command. The
+[0.4.2 preparation notes](../releases/v0.4.2.md) record the source reconciliation
+still required before a complete release build.
+
 This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.110 gameplay implementation and v0.29.3 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
 
 Current model, palette and steering behavior is described in [MODELS_AND_STATIC_PAGES_V58.md](MODELS_AND_STATIC_PAGES_V58.md); its old page-cache implementation is historical. The current launcher builds all 17 page trees before showing the window, keeps each Canvas and its child form together, and coalesces scroll repaint work. See [launcher lifecycle](LAUNCHER_LIFECYCLE.md) before changing this code. The shared percentage for alternative mine models is explained in [FLAME_MINE_MODEL_SCALE.md](FLAME_MINE_MODEL_SCALE.md). See [build layout](BUILD_LAYOUT.md) and [credits](CREDITS.md).

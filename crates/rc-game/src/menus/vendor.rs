@@ -186,13 +186,15 @@ pub struct Entry {
     pub locked: bool,
 }
 
-/// A mixed-mode sale belongs to its authored planet, not to the actual weapon
-/// discovered elsewhere. Ignore the native stock's ownership bit: owning the
-/// source weapon does not claim the different reward sold at that location.
+/// Level entry registers a native Gadgetron source in the persistent vendor
+/// stock. Once registered, its randomized reward is sold by every local vendor
+/// until claimed, regardless of the current planet or original item ownership.
+/// World pickups never register stock; the PDA remains ammo-only.
 fn mixed_offer_available(gs: &GameState, source: usize, remote: bool) -> bool {
     let state = gs.weapon_progress.randomizer;
     !remote && state.active() && state.reward(source).is_some() && !state.collected(source)
-        && crate::weapon_evo::randomizer::catalog::is_gadgetron_source(source,gs.global.level)
+        && crate::weapon_evo::randomizer::catalog::locations().into_iter().any(|location|
+            location.id == source && crate::weapon_evo::randomizer::catalog::is_gadgetron_source(source, location.level as i32))
         && gs.global.vendor.iter().any(|&stock| stock != 0xff && usize::from(stock & 0x3f) == source)
 }
 

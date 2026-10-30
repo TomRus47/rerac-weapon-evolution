@@ -472,6 +472,9 @@ pub struct BoardWorld {
     /// Global flag 0 (0x13d388: Rilgar's race won once), the skill points (0x13d408: 7 / 9 the board's, 0x13d40f /
     /// 0x13d411), PAL (0x15ed80). (Owned item 31, 0x13d4df, is the hero's mirror `Hero::owned`.)
     pub flag0: bool,
+    /// Original race-source claim in Randomizer All, independent of inventory.
+    /// None preserves native first-win rules; this snapshot is never serialized.
+    pub reward_claimed: Option<bool>,
     pub skill: [bool; 32],
     pub pal: bool,
 }
@@ -1443,7 +1446,7 @@ fn race(h: &mut Hero, env: &Env, anim: &mut dyn AnimCtl, rng: &mut Rng) {
     let host = usize::try_from(w.pv(0x28)).ok();
     if level == 0x10 {
         let Some(host) = host else { return };
-        if !h.owned.has(31) && h.board.place == 1 {
+        if !w.reward_claimed.unwrap_or(h.owned.has(31)) && h.board.place == 1 {
             h.board.cmds.push(BoardCmd::Bc { id: host, v: 1 });
         } else {
             h.board.host = Some(host);
@@ -1453,7 +1456,7 @@ fn race(h: &mut Hero, env: &Env, anim: &mut dyn AnimCtl, rng: &mut Rng) {
         let limit = ticks(if w.pal { 0x1680 } else { 0x1644 });
         if h.board.race_ticks <= limit && !w.skill[SKILL_TIME] { h.board.cmds.push(BoardCmd::Skill(SKILL_TIME)); }
         let Some(host) = host else { return };
-        if !w.flag0 && h.board.place == 1 {
+        if !w.reward_claimed.unwrap_or(w.flag0) && h.board.place == 1 {
             h.board.cmds.push(BoardCmd::Bc { id: host, v: 1 });
         } else {
             h.board.host = Some(host);
@@ -1594,4 +1597,111 @@ pub fn weapon_update(hero: &mut Hero, table: &mut crate::moby_runtime::MobyTable
     hero.fx.item_sounds.push(0);
     let at = super::guns::item_point(hero, env, 0);
     crate::moby_update::classes::units::board_missile::spawn(table, hits, env.frame as u64, (s.yaw, s.pitch), env.hero_moby, at, s.target);
+}
+
+#[cfg(test)]
+mod v123_race_receipt_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    use crate::moby_update::classes::units::{hoverboard as board_moby, kalebo_race, rilgar_story};
+    use crate::moby_update::services::{pvar, World};
+    use crate::weapon_evo::{randomizer, save::Progress};
+
+    // Run the real three-lap race finish, dispatch its commands, and then run
+    // the host. A host-only test misses the inventory gate in the hero code.
+    fn finish(level: u32, random: bool, native: bool, claimed: bool, win: bool) -> (Bench, usize) {
+        let host_class = if level == 16 {kalebo_race::CLASSES[0]} else {rilgar_story::GIRL_CLASSES[0]};
+        let source = if level == 16 {31} else {48};
+        let mut b = Bench::new(crate::hero::testkit::floor(0.0, 0, 12, 0, 12),
+            &[host_class, board_moby::CLASSES[0]], [300.0, 300.0, 100.0]);
+        let host = b.create(host_class);
+        b.table.mobys[host].pvars.resize(if level==16 {0x1e0} else {0x264}, 0);
+        b.table.mobys[host].state = if level==16 {3} else {1};
+        let board = b.create(board_moby::CLASSES[0]);
+        b.table.mobys[board].pvars.resize(0x60, 0xff);
+        pvar::set_i32(&mut b.table.mobys[board].pvars, 0x20, 0);
+        pvar::set_i32(&mut b.table.mobys[board].pvars, 0x28, host as i32);
+        pvar::set_i32(&mut b.table.mobys[board].pvars, 0x40, if win {0} else {1});
+        if !win {pvar::set_i32(&mut b.table.mobys[board].pvars, 0x2c, 0);}
+        b.svc.splines.push(vec![[300.0,300.0,100.0,0.0].map(f32::to_bits),
+            [310.0,300.0,100.0,0.0].map(f32::to_bits)]);
+        b.svc.level=level;
+        b.svc.interact.game.flags.resize(128,0);
+        b.svc.interact.game.flags[0]=u8::from(native);
+        b.svc.interact.game.acquired.resize(37,0);
+        b.svc.interact.game.acquired[31]=u8::from(native);
+        b.hero.owned.set(31,native);
+        b.hero.idle.level=level as i32;
+        b.hero.group=0x16;
+        b.hero.board.moby=Some(board);
+        b.hero.board.lap=3;
+        b.hero.board.hud=-1;
+        if !win {b.hero.board.racer_laps[0]=9;}
+        b.svc.bomb_evo.randomizer_mode=random;
+        if random {
+            let mut progress=Progress::default();progress.randomizer=randomizer::State::generate(123);
+            // Match the reported run's Kalebo reward without regenerating it later.
+            let at=progress.randomizer.placements.iter().position(|&r|r==35).unwrap();
+            progress.randomizer.placements.swap(at,31);
+            if claimed {progress.randomizer.collect(source);}
+            b.svc.bomb_evo.restore_progress(&progress);
+        }
+        let snapshot=board_moby::world(&b.svc,&b.table,board).unwrap();
+        assert_eq!(snapshot.reward_claimed,if random {Some(claimed)} else {None});
+        let mut carriers=crate::hero::platform::Carriers::collect(&b.table,0);
+        carriers.board=Some(snapshot);
+        let pad=crate::pad::PadState::default();
+        let (cam_rows,cam_yaw)=crate::hero::testkit::cam_x();
+        let env=Env {coll:&b.coll,pad:&pad,cam_yaw,cam_rows,mirror:false,
+            death_z:Pf::ZERO,mobys:None,hero_moby:Some(0),water:None,world:Some(&carriers)};
+        let mut anim=crate::hero::anim::RecordingAnim::default();
+        race(&mut b.hero,&env,&mut anim,&mut b.rng);
+        let expected=win && if random {!claimed} else {!native};
+        assert_eq!(b.hero.board.cmds.iter().any(|c|matches!(c,BoardCmd::Bc{id,v:1} if *id==host)),expected);
+        assert_eq!(b.hero.board.freeze,!expected);
+        b.svc.board.cmds.extend(std::mem::take(&mut b.hero.board.cmds));
+        let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,1);
+        board_moby::apply(&mut w);
+        if expected {
+            if level==16 {kalebo_race::update(&mut w,host);} else {rilgar_story::race_girl_update(&mut w,host);}
+            let base=if level==16 {0x20} else {0};
+            assert_eq!(pvar::i16(&w.m(host).pvars,base+crate::moby_update::interact::talk::NODE),4);
+        }
+        (b,host)
+    }
+
+    #[test]
+    fn both_race_finishes_respect_source_claims_with_early_items_and_native_mode() {
+        for level in [5,16] {for random in [false,true] {for native in [false,true] {
+            for claimed in [false,true] {finish(level,random,native,claimed,true);}
+        }}}
+    }
+
+    #[test]
+    fn losing_never_unlocks_either_race_prize() {
+        for level in [5,16] {finish(level,true,true,false,false);}
+    }
+
+    #[test]
+    fn kalebo_finish_reaches_the_randomized_persuader_grant_once() {
+        let (mut b,host)=finish(16,true,true,false,true);
+        let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,2);
+        // Simulate the end callback of node 4. No source Hologuise movie should
+        // gate a randomized receipt: the reward's own feedback runs after grant.
+        w.mm(host).state=2;
+        pvar::set_i16(&mut w.mm(host).pvars,0x20+crate::moby_update::interact::talk::LAST,4);
+        kalebo_race::update(&mut w,host);
+        assert_eq!(w.m(host).state,4);
+        kalebo_race::update(&mut w,host);
+        assert_eq!(w.svc.interact.writes,vec![crate::moby_update::interact::GameWrite::RandomizerReward(31)]);
+        let progress=w.svc.bomb_evo.progress();
+        let mut gs=crate::game_state::GameState::zeroed(rc_formats::save_game::ChunkTables{global:vec![],level:vec![]});
+        gs.weapon_progress=progress;
+        let items=rc_formats::save_game::ItemTables{vendor_items:[0;rc_formats::save_game::VENDOR_TABLE_LEN],records:[rc_formats::save_game::ItemRecord([0;0x18]);rc_formats::save_game::ITEM_COUNT],slot_type:[0;rc_formats::save_game::ITEM_COUNT],item_defs_addr:0};
+        let mut session=crate::game_state::SessionState::default();
+        assert_eq!(randomizer::grant(&mut gs,&mut session,&items,31,true),Some(35));
+        assert_eq!(gs.global.owned[35],1);
+        assert_eq!(gs.weapon_progress.randomizer.placements,progress.randomizer.placements);
+        assert_eq!(randomizer::grant(&mut gs,&mut session,&items,31,true),None);
+    }
 }

@@ -1,3 +1,25 @@
+# Post-0.4.1 reward/vendor verification — 2026-10-30
+
+The main-branch reward integration passed **43 distinct targeted rc-game tests**
+on the preparation host: 31 vendor tests and 12 additional NPC/race tests. The
+15-test `v12` selection includes three of those vendor tests; overlapping runs
+are not counted as additional coverage. Tests use locked offline dependencies,
+no default features, the release profile with host optimization disabled.
+
+The integration was compiled against a clean checkout of the existing main
+commit, without the local-kit-only enemy-tracking setting or any compatibility
+shim. Scope covers persistent source stock, actual cross-planet purchase,
+save/companion and NG+ retention, early-native-item NPC guards, and real hero
+race-finish command dispatch through host dialogue to a one-time reward.
+No source save files or personal seed reports are included in the repository.
+
+This is not a complete v123 source reconciliation, Windows engine/GUI build or
+GPU playtest. The earlier local v122 Windows build log is not evidence that this
+different main commit has linked on Windows. The
+[0.4.2 preparation notes](../releases/v0.4.2.md) record the remaining integration
+boundary. Runtime/release descriptors and existing downloadable assets have not
+been advanced by this source update.
+
 # 0.4.1 candidate verification
 
 Current source: ReRAC **0.3.8-alpha**, gameplay **0.1.6.116**, capability **92**,

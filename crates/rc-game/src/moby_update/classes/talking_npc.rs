@@ -68,7 +68,9 @@ pub fn update(w: &mut World, id: MobyId) {
             w.mm(id).update_dist = 0xff;
             p::set_i32(&mut w.mm(id).pvars, 0x44, 0);
             if w.svc.level == 1 {
-                if w.svc.interact.game.planet_unlocked.get(2).copied().unwrap_or(0) != 0 {
+                // Finding Aridia coordinates elsewhere does not buy this offer.
+                if crate::weapon_evo::randomizer::source_planet(w, 2,
+                    w.svc.interact.game.planet_unlocked.get(2).copied().unwrap_or(0) != 0) {
                     w.delete_moby(id);
                     return;
                 }
@@ -323,5 +325,38 @@ mod tests {
         w.missions = &done;
         update(&mut w, 0);
         assert!(w.svc.cinematic.requests.is_empty() && w.svc.save.checkpoint.is_none());
+    }
+}
+
+#[cfg(test)]
+mod v122_reward_guard_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    use crate::weapon_evo::{randomizer, save::Progress};
+
+    #[test]
+    fn early_aridia_coordinates_do_not_remove_the_novalis_offer() {
+        for random in [false, true] {
+            for unlocked in [false, true] {
+                for claimed in [false, true] {
+                    let mut b = Bench::new(crate::hero::testkit::floor(0.0, 0, 12, 0, 12), &CLASSES, [20.0, 20.0, 4.0]);
+                    let id = b.create(CLASSES[0]);
+                    b.table.mobys[id].pvars.resize(0x50, 0);
+                    b.svc.level = 1;
+                    b.svc.interact.game.planet_unlocked.resize(20, 0);
+                    b.svc.interact.game.planet_unlocked[2] = u8::from(unlocked);
+                    b.svc.bomb_evo.randomizer_mode = random;
+                    if random {
+                        let mut progress = Progress::default();
+                        progress.randomizer = randomizer::State::generate(122);
+                        if claimed { progress.randomizer.collect(66); }
+                        b.svc.bomb_evo.restore_progress(&progress);
+                    }
+                    let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+                    update(&mut w, id);
+                    assert_eq!(w.m(id).state >= 0x80, if random { claimed } else { unlocked });
+                }
+            }
+        }
     }
 }

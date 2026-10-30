@@ -78,7 +78,9 @@ pub fn scientist_update(w: &mut World, id: MobyId) {
     }
     match w.m(id).state {
         0 => {
-            if w.svc.interact.game.acquired.get(29).is_some_and(|&b| b != 0) {
+            // Keep the scientist's randomized check available with early boots.
+            if crate::weapon_evo::randomizer::source_owned(w, 29,
+                w.svc.interact.game.acquired.get(29).is_some_and(|&b| b != 0)) {
                 w.delete_moby(id);
                 return;
             }
@@ -177,4 +179,39 @@ pub fn scientist_update(w: &mut World, id: MobyId) {
         _ => {}
     }
     look_at_layout(w, id, &SCIENTIST_LOOK);
+}
+
+#[cfg(test)]
+mod v122_reward_guard_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    use crate::weapon_evo::{randomizer, save::Progress};
+
+    #[test]
+    fn scientist_availability_is_independent_of_early_grindboots() {
+        for random in [false, true] {
+            for native in [false, true] {
+                for claimed in [false, true] {
+                    let mut b = Bench::new(crate::hero::testkit::floor(0.0, 0, 12, 0, 12), &SCIENTIST_CLASSES, [20.0, 20.0, 4.0]);
+                    let id = b.create(SCIENTIST_CLASSES[0]);
+                    b.table.mobys[id].pvars.resize(0x180, 0);
+                    p::set_i32(&mut b.table.mobys[id].pvars, 0x160, -1);
+                    p::set_i32(&mut b.table.mobys[id].pvars, 0x164, -1);
+                    b.svc.level = REFERENCE_LEVEL;
+                    b.svc.interact.game.acquired.resize(37, 0);
+                    b.svc.interact.game.acquired[29] = u8::from(native);
+                    b.svc.bomb_evo.randomizer_mode = random;
+                    if random {
+                        let mut progress = Progress::default();
+                        progress.randomizer = randomizer::State::generate(122);
+                        if claimed { progress.randomizer.collect(29); }
+                        b.svc.bomb_evo.restore_progress(&progress);
+                    }
+                    let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+                    scientist_update(&mut w, id);
+                    assert_eq!(w.m(id).state >= 0x80, if random { claimed } else { native });
+                }
+            }
+        }
+    }
 }

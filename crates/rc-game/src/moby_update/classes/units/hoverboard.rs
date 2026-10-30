@@ -98,6 +98,12 @@ pub fn world(svc: &Services, table: &MobyTable, board: MobyId) -> Option<BoardWo
         pads: group(pv[0x48 / 4]),
         weapons: group(pv[0x4c / 4]),
         flag0: game.flags.first().is_some_and(|&f| f != 0),
+        reward_claimed: {
+            let state=svc.bomb_evo.progress().randomizer;
+            let source=match svc.level {5=>Some(48),16=>Some(31),_=>None};
+            source.filter(|&id|svc.bomb_evo.randomizer_mode && state.active() && state.reward(id).is_some())
+                .map(|id|state.collected(id))
+        },
         skill,
         pal: svc.timing.timer_scale != crate::ps2v::Pf::ONE,
     })

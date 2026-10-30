@@ -197,7 +197,9 @@ pub fn update(w: &mut World, id: MobyId) {
                     w.mm(id).state = 1;
                     to(w, FINISH);
                     w.mm(id).cmd = 0;
-                    if w.svc.interact.game.acquired.get(HOLOGUISE).copied().unwrap_or(0) == 0 {
+                    // Winning still earns the race check with an early Hologuise.
+                    if !crate::weapon_evo::randomizer::source_owned(w, HOLOGUISE,
+                        w.svc.interact.game.acquired.get(HOLOGUISE).copied().unwrap_or(0) != 0) {
                         p::set_u8(&mut w.mm(id).pvars, TB + talk::AUTO, 1);
                         jump(w, id, 4, w.counter as u32);
                     }
@@ -275,4 +277,42 @@ fn look(w: &mut World, id: MobyId) {
     if w.svc.cheats.on(crate::cheats::slot::ACTORS) { c::set_pf(w, id, pvo::HEAD + 0x70, 2.75); }
     crate::moby_update::manip::look(w, id, id, pvo::HEAD, 0, k, d);
     crate::moby_update::manip::look(w, id, id, pvo::CHEST, 1, k, d);
+}
+
+#[cfg(test)]
+mod v122_reward_guard_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    use crate::weapon_evo::{randomizer, save::Progress};
+
+    #[test]
+    fn winning_still_offers_the_check_with_an_early_hologuise() {
+        for random in [false, true] {
+            for native in [false, true] {
+                for claimed in [false, true] {
+                    let mut b = Bench::new(crate::hero::testkit::floor(0.0, 0, 12, 0, 12), &CLASSES, [20.0, 20.0, 4.0]);
+                    let id = b.create(CLASSES[0]);
+                    b.table.mobys[id].pvars.resize(LEN, 0);
+                    b.table.mobys[id].state = 3;
+                    b.table.mobys[id].cmd = 1;
+                    b.svc.level = REFERENCE_LEVEL;
+                    b.hero.group = 0x16;
+                    b.svc.interact.game.acquired.resize(37, 0);
+                    b.svc.interact.game.acquired[HOLOGUISE] = u8::from(native);
+                    b.svc.bomb_evo.randomizer_mode = random;
+                    if random {
+                        let mut progress = Progress::default();
+                        progress.randomizer = randomizer::State::generate(122);
+                        if claimed { progress.randomizer.collect(HOLOGUISE); }
+                        b.svc.bomb_evo.restore_progress(&progress);
+                    }
+                    let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+                    update(&mut w, id);
+                    let offered = p::i16(&w.m(id).pvars, TB + talk::NODE) == 4;
+                    assert_eq!(offered, if random { !claimed } else { !native });
+                    assert_eq!(w.m(id).cmd, 0);
+                }
+            }
+        }
+    }
 }

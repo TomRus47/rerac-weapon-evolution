@@ -1,3 +1,11 @@
+# Post-0.4.1 reward integration
+
+See [reward handoffs and persistent shops](RANDOMIZER_REWARD_HANDOFFS.md) for
+source-claim NPC guards, complete hero-to-host race routing and cross-planet
+vendor stock. These changes add no persistent fields. The
+[0.4.2 preparation notes](../releases/v0.4.2.md) identify earlier local changes
+still requiring the complete prepared source before packaging.
+
 # Current local v116 update
 
 For ReRAC 0.3.8-alpha, gameplay 0.1.6.116, capability 92 and launcher 0.29.5,

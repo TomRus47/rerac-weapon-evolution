@@ -52,28 +52,29 @@ fn mixed_world_weapon_unlocks_ammo_without_registering_a_shop_reward() {
 }
 
 #[test]
-fn mixed_sales_stay_on_their_source_planet_and_old_phantom_stock_cannot_reopen_them() {
+fn mixed_registered_sales_follow_the_player_and_claims_cannot_reopen_them() {
     let (vendor,mut gs,assets)=fixture();
     crate::weapon_evo::randomizer::initialize(&mut gs,true,9302);
     gs.global.owned[15]=1;gs.global.vendor.fill(0xff);
-    // Reproduce a pre-fix save: collecting the Blaster inserted its ammo stock.
+    // Level entry has registered both offers. Source ownership bits are not claims.
     gs.global.vendor[0]=15|0x40;gs.global.vendor[2]=16;gs.global.level=1;
     let offer=Entry{item:15,ammo:false,locked:false};
-    assert!(!build_list(&gs,&shop(),false).contains(&offer));
+    assert!(build_list(&gs,&shop(),false).contains(&offer));
     assert!(build_list(&gs,&shop(),false).iter().any(|e|e.item==15&&e.ammo));
+    gs.global.level=3;
+    assert!(build_list(&gs,&shop(),false).contains(&offer));
+    assert!(build_list(&gs,&shop(),false).contains(&Entry{item:16,ammo:false,locked:false}));
+    assert!(!build_list(&gs,&shop(),true).iter().any(|e|!e.ammo));
+    gs.weapon_progress.randomizer.collect(15);
+    assert!(!build_list(&gs,&shop(),false).contains(&offer));
+    // A stale transaction is rejected on every planet, with no charge/grant.
     let mut vendor=Vendor::open(vendor.tables.clone(),&gs,false,&mut VendorOut::default());
     gs.global.bolts=100000;let before=gs.global.clone();
     let items=rc_formats::save_game::ItemTables{vendor_items:[0;rc_formats::save_game::VENDOR_TABLE_LEN],records:[rc_formats::save_game::ItemRecord([0;0x18]);rc_formats::save_game::ITEM_COUNT],slot_type:[0;rc_formats::save_game::ITEM_COUNT],item_defs_addr:0};
     assert_eq!(vendor.purchase(offer,&mut gs,&items,&mut SessionState::default(),&assets,&mut Rng::new(),&mut VendorOut::default()),sound::DENIED);
     assert_eq!(gs.global,before);
-    gs.global.level=3;
-    assert!(build_list(&gs,&shop(),false).contains(&offer),"owning the weapon does not claim its distinct source reward");
-    assert!(!build_list(&gs,&shop(),false).contains(&Entry{item:16,ammo:false,locked:false}));
-    assert!(!build_list(&gs,&shop(),true).iter().any(|e|!e.ammo));
-    gs.weapon_progress.randomizer.collect(15);
-    assert!(!build_list(&gs,&shop(),false).contains(&offer));
     gs.global.level=1;gs.global.level=3;
-    assert!(!build_list(&gs,&shop(),false).contains(&offer),"revisiting cannot respawn a purchased source");
+    assert!(!build_list(&gs,&shop(),false).contains(&offer));
     gs.global.level=5;gs.global.vendor[1]=23|0x40;
     assert!(!build_list(&gs,&shop(),false).iter().any(|e|e.item==23&&!e.ammo),"RYNO's NPC check is not a Gadgetron sale");
 }
@@ -278,4 +279,87 @@ fn zero_filled_nonweapon_demo_entries_are_not_weapon_acquisition_scenes() {
     layout.demo=vec![0;37];tables.layout=Some(layout);
     assert_eq!(acquisition_demo_scene(&tables,10),Some(0));
     for item in [12,22,26,28,29,33,34,35] {assert_eq!(acquisition_demo_scene(&tables,item),None);}
+}
+
+#[test]
+fn v123_planet_entry_permanently_registers_all_eleven_shop_sources() {
+    use rc_formats::save_game::{ItemTables, ItemRecord, ITEM_COUNT, VENDOR_TABLE_LEN};
+    let (_, mut gs, _) = fixture();
+    crate::weapon_evo::randomizer::initialize(&mut gs, true, 123);
+    gs.global.vendor.fill(0xff);
+    let mut items = ItemTables {vendor_items:[0;VENDOR_TABLE_LEN],
+        records:[ItemRecord([0;0x18]);ITEM_COUNT],slot_type:[0;ITEM_COUNT],item_defs_addr:0};
+    let sources: Vec<_> = crate::weapon_evo::randomizer::catalog::locations().into_iter()
+        .filter(|l|crate::weapon_evo::randomizer::catalog::is_gadgetron_source(l.id,l.level as i32)).collect();
+    assert_eq!(sources.len(), 11);
+    for l in &sources {items.vendor_items[l.level as usize] = l.id as u32;}
+    let mut session = SessionState::default();
+    let mut registered = std::collections::BTreeSet::new();
+    for location in &sources {
+        gs.global.level = location.level as i32;
+        // Opening a vendor is not necessary: actual level-entry logic registers it.
+        gs.apply_level_start(location.level as i32, &items, &mut session);
+        registered.insert(location.id);
+        gs.global.level = 7; // A different planet, with no native weapon sale.
+        let offers: std::collections::BTreeSet<_> = build_list(&gs,&shop(),false)
+            .into_iter().filter(|e|!e.ammo).map(|e|e.item).collect();
+        assert_eq!(offers, registered);
+        assert!(!build_list(&gs,&shop(),true).iter().any(|e|!e.ammo));
+    }
+    // NG+ already preserves native stock and randomized claims. No new save field.
+    let layout = gs.weapon_progress.randomizer;
+    gs.challenge_reset(&[], |_| {});
+    assert_eq!(gs.weapon_progress.randomizer, layout);
+    assert_eq!(build_list(&gs,&shop(),false).iter().filter(|e|!e.ammo).count(), 11);
+}
+
+#[test]
+fn v123_registered_offers_survive_native_and_companion_save_reload() {
+    use rc_formats::save_game::{ChunkDesc,ChunkTables,SaveFile};
+    let (_,mut gs,_) = fixture();
+    crate::weapon_evo::randomizer::initialize(&mut gs,true,123);
+    gs.tables = ChunkTables {global: [(0,4),(10,37),(11,37),(12,12)].into_iter()
+        .map(|(id,size)|ChunkDesc {addr:1,size,id}).collect(),level:vec![]};
+    gs.global.level=3;gs.global.vendor.fill(0xff);gs.global.vendor[0]=16;gs.global.vendor[1]=15;
+    gs.weapon_progress.randomizer.collect(15);
+    let before = build_list(&gs,&shop(),false);
+    assert!(before.contains(&Entry {item:16,ammo:false,locked:false}));
+    let native=gs.to_save_file().to_bytes();
+    let companion=gs.weapon_progress.encode(&native).unwrap();
+    let card=SaveFile::parse(&native).unwrap();assert!(card.all_crcs_ok());
+    let (mut loaded,report)=GameState::from_save_file(gs.tables.clone(),&card);
+    assert_eq!(report.total(),0);
+    loaded.weapon_progress=crate::weapon_evo::save::Progress::decode(&companion,&native).unwrap();
+    assert_eq!(build_list(&loaded,&shop(),false),before);
+    loaded.global.level=12;
+    assert_eq!(build_list(&loaded,&shop(),false),before);
+}
+
+#[test]
+fn v123_cross_planet_purchase_keeps_source_price_and_claims_only_that_offer() {
+    let (template,mut gs,assets)=fixture();
+    crate::weapon_evo::randomizer::initialize(&mut gs,true,123);
+    let state=&mut gs.weapon_progress.randomizer;
+    let source=state.placements.iter().position(|&r|r==12).unwrap();
+    state.placements.swap(source,16);
+    gs.global.level=3;gs.global.vendor.fill(0xff);gs.global.vendor[0]=16;
+    gs.global.bolts=2500;gs.global.owned[16]=1;
+    let layout=gs.weapon_progress.randomizer;
+    let mut tables=template.tables.clone();tables.shop.records[16][..4].copy_from_slice(&2500i32.to_le_bytes());
+    let mut vendor=Vendor::open(tables,&gs,false,&mut VendorOut::default());
+    let offer=Entry{item:16,ammo:false,locked:false};
+    assert!(vendor.items.contains(&offer));assert_eq!(vendor.display_reward(offer),12);
+    let items=rc_formats::save_game::ItemTables{vendor_items:[0;rc_formats::save_game::VENDOR_TABLE_LEN],records:[rc_formats::save_game::ItemRecord([0;0x18]);rc_formats::save_game::ITEM_COUNT],slot_type:[0;rc_formats::save_game::ITEM_COUNT],item_defs_addr:0};
+    let mut session=SessionState::default();let mut out=VendorOut::default();
+    assert_eq!(vendor.purchase(offer,&mut gs,&items,&mut session,&assets,&mut Rng::new(),&mut out),sound::PURCHASE);
+    assert_eq!(gs.global.bolts,0);assert_eq!(gs.global.owned[12],1);
+    assert_eq!(gs.weapon_progress.randomizer.seed,layout.seed);
+    assert_eq!(gs.weapon_progress.randomizer.placements,layout.placements);
+    for i in 0..crate::weapon_evo::randomizer::SLOTS {
+        assert_eq!(gs.weapon_progress.randomizer.collected(i),layout.collected(i)||i==16);
+    }
+    for planet in [1,3,12] {
+        gs.global.level=planet;
+        assert!(!build_list(&gs,&shop(),false).contains(&offer));
+    }
 }

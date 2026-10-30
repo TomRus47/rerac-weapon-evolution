@@ -1,9 +1,15 @@
 # ReRAC Weapon Evolution 0.4.1
 
 Independent mod for **ReRAC 0.3.8-alpha**. Gameplay **0.1.6.116**, configuration
-capability **92**, standalone launcher **0.29.5**. This main-branch candidate is
-prepared as an **unpublished 0.4.1 draft**, with matching Windows and source ZIPs.
+capability **92**, standalone launcher **0.29.5**. The 0.4.1 player package is
+published; main also includes subsequent reward, vendor and input fixes.
 [Release notes](docs/releases/v0.4.1.md) · [Nanotech behavior and compatibility](docs/mod/NANOTECH_V116.md).
+
+**0.4.2 is in preparation.** [Working release notes](docs/releases/v0.4.2.md)
+distinguish the integrated changes from local test-kit changes still awaiting
+the complete prepared source. No 0.4.2 runtime or downloadable package is claimed
+yet. See [reward handoffs and persistent shops](docs/mod/RANDOMIZER_REWARD_HANDOFFS.md)
+for the latest source contracts and regression coverage.
 
 **Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to their games, characters, trademarks or game assets, and is not affiliated with their rights holders. Upstream licenses and contributor credits remain applicable. See [credits](docs/mod/CREDITS.md) and [LICENSE](LICENSE).
 

@@ -286,3 +286,52 @@ pub fn salesman_update(w: &mut World, id: MobyId) {
     }
     look_at_layout(w, id, &SALESMAN_LOOK);
 }
+
+#[cfg(test)]
+mod v122_reward_guard_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    use crate::moby_update::interact::GameWrite;
+    use crate::weapon_evo::{randomizer, save::Progress};
+
+    #[test]
+    fn rilgar_win_uses_source_history_even_with_an_early_race_prize() {
+        for random in [false, true] {
+            for native in [false, true] {
+                for claimed in [false, true] {
+                    let mut b = Bench::new(crate::hero::testkit::floor(0.0, 0, 12, 0, 12), &GIRL_CLASSES, [20.0, 20.0, 4.0]);
+                    let id = b.create(GIRL_CLASSES[0]);
+                    b.table.mobys[id].pvars.resize(0x264, 0);
+                    b.table.mobys[id].state = 1;
+                    b.table.mobys[id].cmd = 1;
+                    b.svc.level = REFERENCE_LEVEL;
+                    b.svc.interact.game.flags.resize(128, 0);
+                    b.svc.interact.game.flags[0] = u8::from(native);
+                    b.svc.bomb_evo.randomizer_mode = random;
+                    if random {
+                        let mut progress = Progress::default();
+                        progress.randomizer = randomizer::State::generate(122);
+                        if claimed { progress.randomizer.collect(48); }
+                        b.svc.bomb_evo.restore_progress(&progress);
+                    }
+                    let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+                    race_girl_update(&mut w, id);
+                    let offered = p::i16(&w.m(id).pvars, talk::NODE) == 4;
+                    assert_eq!(offered, if random { !claimed } else { !native });
+                    assert_eq!(w.m(id).cmd, 0);
+                    if random && !claimed {
+                        // The normal end-of-conversation path queues the source,
+                        // not the already-owned Zoomerator. Repeated completion
+                        // cannot enqueue a duplicate before the engine commits it.
+                        for _ in 0..2 {
+                            w.mm(id).state = 3;
+                            p::set_i16(&mut w.mm(id).pvars, talk::LAST, 4);
+                            race_girl_update(&mut w, id);
+                        }
+                        assert_eq!(w.svc.interact.writes, vec![GameWrite::RandomizerReward(48)]);
+                    }
+                }
+            }
+        }
+    }
+}
