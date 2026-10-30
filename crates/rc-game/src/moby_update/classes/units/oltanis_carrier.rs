@@ -422,7 +422,14 @@ fn route_missions_ready(w:&World,id:MobyId)->bool {
     // mission; the other two route/PDA requirements retain their native checks.
     (0..3).all(|k| {
         let mission=c::pi32(w,id,o::MISSIONS+4*k);
-        story::mission_done(w,mission) || (w.svc.bomb_evo.golden_settings.enabled
+        let state=w.svc.bomb_evo.progress().randomizer;
+        // NG+ retains claimed checks while resetting native route missions.
+        // Substitute only this authored source's mission, never item ownership.
+        let retained_morph=w.svc.level==REFERENCE_LEVEL && w.svc.bomb_evo.randomizer_mode
+            && state.active() && state.reward(21).is_some() && state.collected(21)
+            && w.svc.randomizer.anchors.iter().any(|a|a.source==21
+                && a.mission==Some(mission) && (0..16).contains(&mission));
+        story::mission_done(w,mission) || retained_morph || (w.svc.bomb_evo.golden_settings.enabled
             && w.svc.golden.native_morph_mission==Some(mission))
     })
 
@@ -528,6 +535,47 @@ mod v80_story_tests {
         w.svc.bomb_evo.golden_settings.enabled=true;assert!(route_missions_ready(&w,id));
         w.svc.golden.native_morph_mission=Some(1);assert!(!route_missions_ready(&w,id));
     }
+    #[test]
+    fn retained_claim_restores_statue_gate_without_regranting_rewards() {
+        use crate::weapon_evo::randomizer::{WorldState,State};
+        let mut b=Bench::new(crate::hero::testkit::floor(48.,0,48,0,48),&[921],[20.,20.,48.]);
+        let mut missions=crate::moby_update::services::LevelMissions::default();missions.level=14;
+        missions.done[0]=0xff;missions.done[1]=0xff;
+        let incomplete=[0,1].map(|k|{let mut m=missions.clone();m.done[k]=0;m});
+        let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,0);
+        w.svc.level=14;w.missions=&missions;
+        let id=w.create_moby(921).unwrap();w.mm(id).pvars.resize(o::SIZE,0);
+        for k in 0..3{c::set_pi32(&mut w,id,o::MISSIONS+4*k,k as i32);}
+        let mut progress=w.svc.bomb_evo.progress();progress.randomizer=State::generate(123);
+        let other=progress.randomizer.placements.iter().position(|&r|r==75).unwrap();
+        progress.randomizer.placements.swap(21,other);w.svc.bomb_evo.restore_progress(&progress);
+        w.svc.bomb_evo.randomizer_mode=true;
+        // Load the immutable source exactly as the real level loader does.
+        // Avoid depending on optional presentation fields in Anchor.
+        let mut gameplay=vec![0u8;0x110];
+        gameplay[0x44..0x48].copy_from_slice(&0x100u32.to_le_bytes());
+        gameplay[0x100..0x104].copy_from_slice(&1i32.to_le_bytes());
+        let mut native=[0u8;0x78];
+        for (offset,value) in [(0,0x78i32),(4,2),(0x18,1354),(0x58,-1)] {
+            native[offset..offset+4].copy_from_slice(&value.to_le_bytes());
+        }
+        gameplay.extend_from_slice(&native);
+        w.svc.randomizer=WorldState::from_gameplay(14,&gameplay,None,progress.randomizer);
+        assert!(!route_missions_ready(&w,id));
+        progress.randomizer.collect(21);w.svc.bomb_evo.restore_progress(&progress);
+        assert!(route_missions_ready(&w,id));
+        assert_eq!(w.svc.bomb_evo.progress().randomizer,progress.randomizer);
+        assert!(w.svc.randomizer.pending.is_empty());assert!(w.svc.interact.writes.is_empty());
+        assert_eq!(missions.done[2],0);
+        w.svc.randomizer.reset_for_reload();assert!(route_missions_ready(&w,id));
+        for m in &incomplete{w.missions=m;assert!(!route_missions_ready(&w,id));}
+        w.missions=&missions;
+        w.svc.randomizer.anchors[0].mission=Some(1);assert!(!route_missions_ready(&w,id));
+        w.svc.randomizer.anchors[0].mission=Some(2);
+        w.svc.bomb_evo.randomizer_mode=false;assert!(!route_missions_ready(&w,id));
+        w.svc.bomb_evo.randomizer_mode=true;w.svc.level=1;assert!(!route_missions_ready(&w,id));
+    }
+
     #[test]
     fn statue_missile_reaches_target_with_native_speed_even_when_rows_are_initially_zero() {
         let mut b=Bench::new(crate::hero::testkit::floor(48.,0,48,0,48),&[922],[20.,20.,48.]);

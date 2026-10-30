@@ -67,6 +67,8 @@
 //! | level05 race HUD slot 0 \| 0x10 (`0x262ae8` / `0x262b58` / `0x262f50`, data 0x13fbb4) | the boost meter, the trick-combo texts, the wrong-way warning (time trials) | [`Element::RaceMeter`] (its game part: `crate::hero::hoverboard::meter_tick`) |
 //! | level02 0x2e1fb8 counters (slots 5 / 7, icons 2000 / 2001, `0x23c990` / `0x23ccc8` / `0x23cda8`) | the sand-shark / nest counters: init the shared `FUN_L00_0023a760` (= the weapon init 0x24f368), update 0x23ccc8 (the ramp, the shown value straight from the data), draw 0x23cda8 (a stretched bar, the element's icon and the count) | [`Element::AridiaCounter`], `draw_aridia_counter`; consumer: `classes::units::aridia_story` (the agent 788) |
 
+pub mod wrench_xp;
+
 use rc_formats::font::{measure_text_width, Font, GlyphTable};
 use rc_formats::hud::{Hud, IconEntry};
 use rc_formats::strings::{self, Message};
@@ -1631,6 +1633,18 @@ impl HudState {
         let lw = (WEAPON_LEN[(s.max > 99) as usize] as f32 * sf) as i32;
         let width = 0x1c + 4 + ANCHORS[0].0 + lw + 32;
         Some((left, self.weapon_evo_ammo_y(), width))
+    }
+
+    /// Temporary melee feedback uses the current ammo span without changing
+    /// the equipped weapon, its counter, or the native weapon HUD lifecycle.
+    pub fn wrench_feedback_anchor(&self) -> Option<(i32,i32,i32)> {
+        if self.inputs.hp <= 0 || self.inputs.body != 0 || self.inputs.mode != 0
+            || self.weapon_gate != 0 || self.weapon_evo_swimming() {return None;}
+        if let Element::Weapon{item} = self.slots[0].element {
+            if let Some(panel)=self.weapon_evo_panel(item as i32) {return Some(panel);}
+        }
+        let (x,_) = self.anchor(0);
+        Some((x-0x1c,self.weapon_evo_ammo_y(),0x1c+4+ANCHORS[0].0+WEAPON_LEN[0]+32))
     }
 
     /// Outer XP frame edges match the visible ammo caps, not their transparent

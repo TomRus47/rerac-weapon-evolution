@@ -7,6 +7,8 @@ pub mod controls;
 pub mod live;
 #[path = "weapon_evo_randomizer.rs"]
 pub mod randomizer;
+#[path = "weapon_evo_orxon_shortcut.rs"]
+pub mod orxon_shortcut;
 #[path = "weapon_evo_pickup_visuals.rs"]
 pub mod pickup_visuals;
 #[path="weapon_evo_pickup_mesh.rs"]
@@ -31,6 +33,8 @@ const RELEASE_PROFILE: &str = include_str!("weapon_evo_release.ini");
 pub mod wrench;
 #[path="weapon_evo_world.rs"]
 pub mod world;
+#[path = "weapon_evo_burst.rs"]
+pub mod burst;
 #[path = "weapon_evo_discovery.rs"]
 pub mod discovery;
 #[path="weapon_evo_golden.rs"]
@@ -535,6 +539,8 @@ pub struct Evolution {
     pub golden_settings:golden::Settings,
     pub hide_ryno: bool,
     pub ng_plus: bool,
+    /// Transient accepted wrench XP events; HUD timing is independent of damage/stun.
+    pub wrench_xp_feedback_serial: u64,
     pub bolt_chain: bolt_chain::State,
     pub gold_spent: u32,
     pub refill_ammo_on_upgrade: bool,
@@ -575,7 +581,7 @@ pub struct Evolution {
 }
 impl Default for Evolution {
     fn default() -> Self {
-        Self { randomizer_bolt_multiplier:false,bolt_multiplier_max:3.,r1_experimental_max:controls::default_mode_limits(),randomizer_mode:false,control_settings:Default::default(),golden_settings:Default::default(),hide_ryno:false,ng_plus:false,bolt_chain:Default::default(),gold_spent:0,refill_ammo_on_upgrade:false,upgrade_refills:0,world_settings:Default::default(),encounter_base:None,nanotech:Default::default(),nanotech_native_max:4,nanotech_pending_heal:0,ammo_unlock_mode: false, ammo_mode_settings: Default::default(), wrench_gold_texture: false, enabled: false, level: 1, level_cap: 5, applied_level: 0,
+        Self { randomizer_bolt_multiplier:false,bolt_multiplier_max:3.,r1_experimental_max:controls::default_mode_limits(),randomizer_mode:false,control_settings:Default::default(),golden_settings:Default::default(),hide_ryno:false,ng_plus:false,wrench_xp_feedback_serial:0,bolt_chain:Default::default(),gold_spent:0,refill_ammo_on_upgrade:false,upgrade_refills:0,world_settings:Default::default(),encounter_base:None,nanotech:Default::default(),nanotech_native_max:4,nanotech_pending_heal:0,ammo_unlock_mode: false, ammo_mode_settings: Default::default(), wrench_gold_texture: false, enabled: false, level: 1, level_cap: 5, applied_level: 0,
             xp: 0.0, xp_per_damage: 1.0, real_hp: false, combat_epoch: 0, damage_hp: [[None; 8]; 37], stats: [Stats::default(); 8],
             xp_required: [6.0; 7], last_hit_xp: 0.0, pyro: PyroEvolution::default(), extras: extra_tracks(), hud: HudOptions::default(), award_once: HashSet::new(), pending_special: Default::default(), terminal_targets: HashSet::new(), state_progress: Default::default() }
     }
@@ -801,7 +807,11 @@ impl Evolution {
         // Taunter/Decoy attraction and offensive auras never level Nanotech.
         if !matches!(weapon,14|25) && self.extras.iter().any(|t|t.id==weapon&&t.enabled) {self.award_nanotech(nanotech_amount);}
         if let Some(track)=self.extras.iter_mut().find(|t|t.id==weapon&&t.enabled) {
-            track.award(amount);self.publish_max_ammo();
+            track.award(amount);
+            if weapon == 8 && track.last_hit_xp > 0. {
+                self.wrench_xp_feedback_serial = self.wrench_xp_feedback_serial.wrapping_add(1);
+            }
+            self.publish_max_ammo();
         }
         self.earned_upgrade(weapon,before);
     }
@@ -2501,5 +2511,25 @@ mod fixed_xp_nanotech_tests {
             e.award_fixed_xp(weapon,300.,6.);
             assert!((e.nanotech.xp-expected).abs()<0.001);
         }
+    }
+}
+
+#[cfg(test)]
+mod wrench_feedback_tests {
+    use super::*;
+    #[test]
+    fn only_positive_accepted_wrench_xp_signals_hud_and_caps_follow_game_mode() {
+        let mut e=Evolution::default();
+        let wrench=e.extras.iter_mut().find(|t|t.id==8).unwrap();wrench.enabled=true;wrench.xp_required=[100.;7];
+        for n in [0.,-1.,f32::NAN] {e.award_extra_xp(8,n);}
+        assert_eq!(e.wrench_xp_feedback_serial,0);
+        e.award_extra_xp(8,1.);assert_eq!(e.wrench_xp_feedback_serial,1);
+        e.award_extra_xp(15,1.);assert_eq!(e.wrench_xp_feedback_serial,1);
+        e.extras.iter_mut().find(|t|t.id==8).unwrap().level=5;
+        e.award_extra_xp(8,1.);assert_eq!(e.wrench_xp_feedback_serial,1);
+        e.configure_ng_plus(true);e.award_extra_xp(8,1.);assert_eq!(e.wrench_xp_feedback_serial,2);
+        e.extras.iter_mut().find(|t|t.id==8).unwrap().level=8;
+        e.award_extra_xp(8,1.);assert_eq!(e.wrench_xp_feedback_serial,2);
+        e.restore_progress(&save::Progress::default());assert_eq!(e.wrench_xp_feedback_serial,0);
     }
 }

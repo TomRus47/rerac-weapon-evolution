@@ -196,6 +196,7 @@ impl Evolution {
     /// Only progress is restored: balance, colours, ammo caps and Gold options
     /// always come from the current INI. Disabled tracks retain their stored XP.
     pub fn restore_progress(&mut self, progress: &Progress) {
+        self.wrench_xp_feedback_serial = 0;
         if !progress.valid() { return; }
         self.upgrade_refills=0;
         self.combat_epoch = self.combat_epoch.wrapping_add(1);

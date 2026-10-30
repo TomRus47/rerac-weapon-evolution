@@ -1,7 +1,8 @@
 """Use Cargo's reported executable and retain a previously verified GUI build.
 
 No target-layout guesses, broad executable searches or relaxed version checks.
-This module is also installed into the prepared v116 source kit for later builds.
+Prepared-source identity comes from the bundled development descriptor, so
+new patch exports cannot accidentally retain a previous version check.
 """
 from __future__ import annotations
 import hashlib
@@ -141,9 +142,17 @@ def workspace_packages(source):
 
 def validate_source_apis(source):
     """A clean cache cannot repair missing source; reject that separately."""
+    source = Path(source).resolve()
+    identity = json.loads((source / 'mod/development.json').read_text(encoding='utf-8'))
+    patch = identity.get('patch')
+    capability = identity.get('config_capability')
+    if (not isinstance(patch, str) or not re.fullmatch(r'0\.1\.6\.\d+', patch)
+            or type(capability) is not int or capability < 92):
+        raise ValueError('Invalid prepared-source development identity.')
     required = {
         'crates/rc-engine/src/disc_source.rs':
-            ('"weapon_evolution_patch":"0.1.6.116"', '"weapon_evolution_config":92'),
+            ('"weapon_evolution_patch":"' + patch + '"',
+             '"weapon_evolution_config":' + str(capability)),
         'crates/rc-game/src/weapon_evo.rs': ('pubmodhealth_test;',),
         'crates/rc-game/src/hud.rs': ('pubmodnanotech;', 'Nanotech16{'),
         'crates/rc-game/src/weapon_evo_notice.rs': ('[u16;37]',),
@@ -153,7 +162,7 @@ def validate_source_apis(source):
         text = re.sub(r'\s+', '', (source / name).read_text(encoding='utf-8'))
         for marker in markers:
             if marker not in text:
-                raise ValueError('Prepared v116 source is incomplete: ' + name + ' (missing ' + marker + ')')
+                raise ValueError('Prepared ' + patch + ' source is incomplete: ' + name + ' (missing ' + marker + ')')
 
 
 def build_engine(source, target, validate):
@@ -183,7 +192,7 @@ def build_engine(source, target, validate):
     try:
         validate(identity)
     except ValueError as error:
-        raise ValueError('Fresh workspace runtime fails the v116 identity check. '
+        raise ValueError('Fresh workspace runtime fails the declared identity check. '
                          'No playable files were replaced. Actual identity: ' + json.dumps(identity)) from error
     if identity.get('data_format') != 1:
         raise ValueError('Unexpected runtime data format; no playable files were replaced.')

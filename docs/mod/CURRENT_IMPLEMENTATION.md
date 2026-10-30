@@ -1,10 +1,13 @@
-# Post-0.4.1 reward integration
+# 0.4.2 integration
 
 See [reward handoffs and persistent shops](RANDOMIZER_REWARD_HANDOFFS.md) for
 source-claim NPC guards, complete hero-to-host race routing and cross-planet
-vendor stock. These changes add no persistent fields. The
-[0.4.2 preparation notes](../releases/v0.4.2.md) identify earlier local changes
-still requiring the complete prepared source before packaging.
+vendor stock. The complete supplied v123 source now includes all preceding local
+v117–v122 changes. These changes add no persistent fields. See the
+[0.4.2 release notes](../releases/v0.4.2.md),
+[combat/pickups](COMBAT_PICKUPS_V117.md), [Orxon shortcut](ORXON_SHORTCUT_V118.md),
+[Oltanis/Orxon follow-up](LOCAL_TEST_V120.md) and
+[Novalis burst tracking](NOVALIS_BURST_TRACKING.md).
 
 # Current local v116 update
 
@@ -15,7 +18,7 @@ Normal new games retain four starting HP. The explicit Veldin II test starts at
 
 # Current implementation map
 
-Main is an unreleased ReRAC 0.3.7-alpha development snapshot, gameplay 0.1.6.110 and launcher 0.29.3. `mod/development.json` is authoritative for this snapshot. `mod/release.json` and versioned release notes still describe the previous published package.
+Main is the Weapon Evolution 0.4.2 draft candidate on ReRAC 0.3.8-alpha, gameplay 0.1.6.123 and launcher 0.29.6. `mod/development.json` is authoritative for this snapshot. The separate `mod/draft.json` requests a checked, unpublished build; historical published-release metadata is retained.
 
 | Area | Primary source | Responsibilities |
 | --- | --- | --- |

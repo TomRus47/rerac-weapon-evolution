@@ -663,10 +663,12 @@ fn shoot(w: &mut World, id: MobyId, t: &target::Target) {
     let jp = w.joint_point(id, 0);
     let mut v = c::set_len3(c::sub(t.aim, jp), c::DT * 6.0);
     v[2] *= 0.5;
+    let tracking=crate::weapon_evo::burst::enabled(w,id);
+    if tracking {v=crate::weapon_evo::burst::velocity(w,id,t.moby,jp,v);}
     let mut h = c::atan(v[0], v[1]);
     let dh = c::sub_rot(h, c::yaw(w, id));
     let lim = std::f32::consts::FRAC_PI_6;
-    if lim < dh || dh < -lim {
+    if !tracking && (lim < dh || dh < -lim) {
         h = c::add_rot(c::yaw(w, id), if lim < dh { lim } else { -lim });
         let (cs, sn) = c::cs(h);
         v = [cs * c::DT * 6.0, sn * c::DT * 6.0, 0.0, v[3]];

@@ -1,3 +1,15 @@
+## 0.4.2 / v123 integration
+
+See [release notes](docs/releases/v0.4.2.md),
+[combat and pickups](docs/mod/COMBAT_PICKUPS_V117.md),
+[Orxon shortcut](docs/mod/ORXON_SHORTCUT_V118.md) and
+[reward handoffs](docs/mod/RANDOMIZER_REWARD_HANDOFFS.md).
+New focused modules are `hud/wrench_xp.rs`, `weapon_evo_burst.rs` and
+`weapon_evo_orxon_shortcut.rs` under `crates/rc-game/src/`.
+`tools/mod/rust_build_tools.py`, `rust_download.py` and `verified_artifacts.py`
+handle scoped compiler recovery and verified local build artifacts.
+The machine-readable source map includes all new implementation/test files.
+
 ## v116 compact Nanotech
 
 See [v116](docs/mod/NANOTECH_V116.md). Runtime packing, cap arithmetic and local
@@ -12,7 +24,7 @@ At most 50 recolored native Nanotech spheres represent up to 300 actual HP. The 
 
 # Weapon Evolution source map
 
-Unreleased development snapshot: gameplay 0.1.6.106, launcher 0.28.9, ReRAC 0.3.6-alpha. The complete supplied workspace is included; the reviewed entries cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
+Current 0.4.2 draft snapshot: gameplay 0.1.6.123, launcher 0.29.6, ReRAC 0.3.8-alpha. The complete supplied workspace is included; the reviewed entries cover mod code, integrations, maintenance and base synchronization. A file being indexed does not attribute its upstream code to the mod author.
 
 Start with the [current implementation](docs/mod/CURRENT_IMPLEMENTATION.md), [saved controls](docs/mod/SAVED_CONTROLS.md), [developer guide](docs/mod/DEVELOPER_GUIDE.md) and [credits](docs/mod/CREDITS.md). Machine-readable hashes are in [mod/source-map.json](mod/source-map.json). The historical snapshot patch remains an account of the original export, not a complete current delta.
 

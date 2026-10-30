@@ -393,7 +393,7 @@ fn pre_tick(
                     // scene player poses its own streamed actors and camera;
                     // Ratchet keeps his position, inventory and health.
                     if mm.state.mode==Mode::Gameplay && p.game.hero.health>0
-                        && !rc_game::weapon_evo::golden::is_swimming(&p.game.hero) {
+                        && rc_game::weapon_evo::golden::pickup_cutaway_allowed(&p.game.hero) {
                         let lump=match request {
                             Request::PickupDemo{scene}=>usize::try_from(scene).ok().and_then(demo_lump),
                             Request::PickupNative{level,scene}=>crate::pickup_presentation::cached(&crate::level_load::extracted_root(),level,scene)

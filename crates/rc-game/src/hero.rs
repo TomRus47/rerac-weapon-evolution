@@ -459,6 +459,8 @@ pub struct Hero {
     pub fx: fx::HeroFx,
     /// Optional modern L2 combat movement; never a first-person/hide flag.
     pub combat_strafe: bool,
+    /// Kalebo weapon-test camera owns pitch; weapons must aim horizontally.
+    pub fixed_combat_aim: bool,
     /// Brief movement/body handoff after releasing L2.
     pub combat_release: bool,
     /// Native flip animation on a combat jump; latched until the next jump entry.
@@ -570,7 +572,7 @@ impl Hero {
             carry: platform::Carry::default(), surf: surface::Surf::default(),
             owned: Owned::default(), back_slot: idle::BackSlot::default(), feet_slot: idle::ItemSlot::default(), head_slot: idle::ItemSlot::default(), worn: worn::Worn::default(), packs: packs::Packs::default(), wall_ahead: [0.0; 2], edge: (false, 0.0, 0.0), boots: boots::Boots::default(),
             gadgets: gadgets::Gadgets::default(), swing: swingshot::Swing::default(), fx: fx::HeroFx::default(),
-            combat_strafe: false, combat_release: false, combat_jump: false, combat_flip: false, combat_yaw: z, combat_move_yaw: z,
+            combat_strafe: false, fixed_combat_aim: false, combat_release: false, combat_jump: false, combat_flip: false, combat_yaw: z, combat_move_yaw: z,
             f13f5: 0, f13ff: 0, weapons: weapons::Weapons::default(), comet: comet::Comet::default(), loop_in: Default::default(),
             joint_targets: Default::default(), help: Default::default(), walloper: Default::default(), bodies: bodies::Bodies::default(), glow: glow::HeroGlow::default(), env_base: None,
             cheats: Default::default(), cheat_moves: Default::default(), board: hoverboard::Board::default(),

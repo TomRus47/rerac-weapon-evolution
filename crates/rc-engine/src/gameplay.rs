@@ -2438,6 +2438,7 @@ fn tick(
     // The view of the last rendered frame (0x16d140, `FastBSphereCheck`): the main camera as last drawn.
     let tans = particles.as_deref().map_or_else(|| crate::particle_render::view_tans(None), |s| s.view_tan);
     let view_cull = cams.iter().next().map(|t| crate::particle_render::bsphere_view(t, tans));
+    p.game.hero.fixed_combat_aim = rc_game::moby_update::classes::units::kalebo_arena::fixed_weapon_camera(p.level, &p.game.mobys);
     let level_index = p.level;
     // The scene form of the tick (crate::scene_render: mode 2).
     let scene_frame = p.game.camera_paused;
@@ -2764,7 +2765,8 @@ fn tick(
                     let equip=p.game.hero.mode==0 && !rc_game::weapon_evo::golden::is_swimming(&p.game.hero);
                     if let Some(reward)=rc_game::weapon_evo::randomizer::grant(&mut gs.0,&mut s.0,&t,source,equip) {
                         if matches!(reward,52|53){p.game.hero.health=gs.0.global.max_hp;p.svc.counters.max_hp=gs.0.global.max_hp;}
-                        randomizer_feedback(p,&root,index,t.item_defs_addr,reward,equip);
+                        let cutaway=equip && !p.svc.randomizer.anchors.iter().any(|a|a.source==source && a.no_cutaway);
+                        randomizer_feedback(p,&root,index,t.item_defs_addr,reward,cutaway);
                         p.svc.bomb_evo.commit_randomizer(gs.0.weapon_progress.randomizer);
                         p.svc.cinematic.requests.push(rc_game::cinematic::EngineRequest::Save);
                     }
@@ -3165,6 +3167,7 @@ fn write_visible(play: Option<ResMut<Play>>, occl: Option<Res<MobyOcclusion>>, a
 /// Missing demo resources preserve the successful reward and its ordinary
 /// localized banner. Underwater pickups never enter this path.
 fn request_acquisition_demo(play:&Play,root:&std::path::Path,index:u32,item_defs:u32,item:usize) {
+    if !rc_game::weapon_evo::golden::pickup_cutaway_allowed(&play.game.hero) {request_pickup_jingle(root);return;}
     if let Some((level,scene))=rc_game::weapon_evo::randomizer::acquisition_scene(item) {
         crate::travel_render::request_native_pickup(level,scene);return;
     }
@@ -3183,6 +3186,7 @@ fn request_acquisition_demo(play:&Play,root:&std::path::Path,index:u32,item_defs
 }
 
 fn randomizer_feedback(play:&mut Play,root:&std::path::Path,index:u32,item_defs:u32,reward:u16,equip:bool){
+    let equip=equip && rc_game::weapon_evo::golden::pickup_cutaway_allowed(&play.game.hero);
     let text=if reward<37 {
         let name=play.svc.gold_shop.names.get(&(reward as usize)).cloned()
             .unwrap_or_else(||golden_item_name(reward as usize,item_defs,root,index,&play.svc.interact.messages));

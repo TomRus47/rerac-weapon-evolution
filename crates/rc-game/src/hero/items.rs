@@ -289,6 +289,16 @@ impl HeroItems {
 /// slot loop 0x231088), after the transitions and the write-back.
 #[allow(clippy::too_many_arguments)]
 pub fn items_update(hero: &mut Hero, g: &mut ItemGlobals, table: &mut MobyTable, anim: &dyn AnimCtl, rng: &mut Rng, env: &ItemEnv, hits: &mut dyn HitSink) {
+    // Weapon-test rooms own the real camera. Give all weapon launch/preview
+    // paths one horizontal aim ray without modifying the displayed camera.
+    let mut level_env=*env;
+    if hero.fixed_combat_aim && super::combat_strafe::active(hero) {
+        let yaw=hero.rot[2].to_f32();
+        level_env.camera=Some((super::physics::to_f32x3(hero.body_point),[yaw.cos(),yaw.sin(),0.]));
+        level_env.camera_up=Some([0.,0.,1.]);
+    }
+    let env=&level_env;
+
     let gameplay_pad = crate::weapon_evo::controls::hero_gameplay_pad(
         env.pad, hero, crate::weapon_evo::controls::active(),
         crate::weapon_evo::controls::settings().dpad,

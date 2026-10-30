@@ -403,6 +403,7 @@ impl Scheduler {
     /// `FUN_002792d0`: the load pass. Returns the number of mobys run.
     pub fn load_pass(&mut self, w: &mut World) -> usize {
         self.targets.clear();
+        crate::weapon_evo::orxon_shortcut::prepare(w);
         let templates=if w.svc.bomb_evo.world_settings.extra_enemies_per_level>0 {
             crate::weapon_evo::world::templates(w.table)
         } else {Default::default()};
@@ -441,6 +442,7 @@ impl Scheduler {
         part_hits(w);
         // The Hoverboard hero code's stores of the last hero update (classes::units::hoverboard).
         classes::units::hoverboard::apply(w);
+        crate::weapon_evo::orxon_shortcut::prepare(w);
         let settings=w.svc.bomb_evo.world_settings;
         let pursuit=settings.enemy_perception_multiplier*settings.enemy_chase_range_multiplier;
         let (list, targets) = build_active_list_scaled(w.table, w.camera, &w.svc.groups, |m| {

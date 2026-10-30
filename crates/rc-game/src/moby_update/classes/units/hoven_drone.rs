@@ -560,6 +560,11 @@ fn intake(w: &mut World, id: MobyId) {
 
 /// Level12 `0x2ecce8(yaw, speed, 0, vel, pos, owner, life)` (module doc).
 pub fn spawn_shot(w: &mut World, yaw: f32, speed: f32, vel: [f32; 4], pos: [f32; 4], owner: Option<MobyId>, life: i32) -> Option<MobyId> {
+    let target=owner.filter(|&o|crate::weapon_evo::burst::enabled(w,o))
+        .and_then(|o|c::target::acquire(w,o,100.).moby);
+    let vel=owner.map_or(vel,|o|crate::weapon_evo::burst::velocity(w,o,target,pos,vel));
+    let yaw=if owner.is_some_and(|o|crate::weapon_evo::burst::enabled(w,o)) && target.is_some()
+        {atan(vel[0],vel[1])}else{yaw};
     let id = w.create_moby(SHOT)?;
     crate::moby_update::story::pvars(w, id, so::LEN);
     {

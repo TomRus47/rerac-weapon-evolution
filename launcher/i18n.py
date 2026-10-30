@@ -814,3 +814,17 @@ HELP_TEXT['nanotech_progression_max_health']=dict(zip(LANGUAGES,(
     'Comprend les 4 PV de départ et les améliorations par XP (4-206). Premium ajoute 1 PV et Ultra ajoute 3 PV au-delà de cette limite : 210 au total. Les 30 sphères du HUD changent de couleur par couches. Réduire la limite conserve la progression.',
     'Umfasst die 4 Start-LP und EP-Verbesserungen (4-206). Premium fügt 1 LP und Ultra 3 LP zusätzlich hinzu: insgesamt höchstens 210. Die 30 HUD-Kugeln wechseln schichtweise ihre Farbe. Ein niedrigeres Limit erhält den Fortschritt.',
     'Incluye los 4 PV iniciales y las mejoras por XP (4-206). Premium añade 1 PV y Ultra añade 3 PV por encima de este límite: hasta 210 en total. Las 30 esferas del HUD cambian de color por capas. Reducir el límite conserva el progreso.')))
+
+
+FIELD_LABELS['enemy_burst_tracking']=dict(zip(LANGUAGES,(
+    'Track Ratchet during firing bursts',
+    'Segui Ratchet durante le raffiche',
+    'Suivre Ratchet pendant les rafales',
+    'Ratchet während Feuerstößen verfolgen',
+    'Seguir a Ratchet durante las ráfagas')))
+HELP_TEXT['enemy_burst_tracking']=dict(zip(LANGUAGES,(
+    'Off preserves native aim. On re-aims each new direct burst shot at the current target, including decoys. No homing after launch. Scripted shots, boss patterns and the Hoven turret mission retain native aim.',
+    'Off mantiene la mira originale. On aggiorna la mira di ogni nuovo colpo della raffica verso il bersaglio attuale, incluse le esche. I colpi già sparati non inseguono. Colpi di scena, attacchi dei boss e missione della torretta di Hoven mantengono la mira originale.',
+    'Off conserve la visée native. On réoriente chaque nouveau tir de rafale vers la cible actuelle, leurres compris. Aucun guidage après le tir. Tirs scénarisés, attaques des boss et mission de la tourelle de Hoven restent inchangés.',
+    'Off behält das ursprüngliche Zielen bei. On richtet jeden neuen Schuss auf das aktuelle Ziel aus, einschließlich Ködern. Keine Lenkung nach dem Abschuss. Skriptschüsse, Bossmuster und Hovens Geschützmission bleiben unverändert.',
+    'Off mantiene la puntería original. On apunta cada nuevo disparo a su objetivo actual, incluidos señuelos. Sin seguimiento tras disparar. Los disparos de escenas, patrones de jefes y misión de la torreta de Hoven no cambian.')))

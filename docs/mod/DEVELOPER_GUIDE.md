@@ -5,14 +5,15 @@ For post-0.4.1 reward/vendor work, start with
 In Randomizer All, original source completion and actual item ownership are
 different states. Race tests must follow the hero finish command through the
 host and receipt, rather than testing only an injected host command. The
-[0.4.2 preparation notes](../releases/v0.4.2.md) record the source reconciliation
-still required before a complete release build.
+[0.4.2 release notes](../releases/v0.4.2.md) summarize the complete v117–v123
+integration. Historical local-kit instructions describe those kits; the complete
+repository builds directly with the root scripts.
 
-This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. It describes the v0.1.6.110 gameplay implementation and v0.29.3 launcher included in this repository. The gameplay, configuration and save contracts below are implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead.
+This guide is for a developer changing Weapon Evolution, rather than a player editing a preset. The current snapshot is gameplay 0.1.6.123 and launcher 0.29.6 on ReRAC 0.3.8-alpha. The gameplay, configuration and save contracts below describe implemented code; the upstream `docs/plan/mods.md` describes future upstream mod support instead. Versioned examples are historical where the current implementation and release notes specify different limits.
 
 Current model, palette and steering behavior is described in [MODELS_AND_STATIC_PAGES_V58.md](MODELS_AND_STATIC_PAGES_V58.md); its old page-cache implementation is historical. The current launcher builds all 17 page trees before showing the window, keeps each Canvas and its child form together, and coalesces scroll repaint work. See [launcher lifecycle](LAUNCHER_LIFECYCLE.md) before changing this code. The shared percentage for alternative mine models is explained in [FLAME_MINE_MODEL_SCALE.md](FLAME_MINE_MODEL_SCALE.md). See [build layout](BUILD_LAYOUT.md) and [credits](CREDITS.md).
 
-Current additions and changed contracts are mapped in [CURRENT_IMPLEMENTATION.md](CURRENT_IMPLEMENTATION.md) and [SAVED_CONTROLS.md](SAVED_CONTROLS.md). The base is ReRAC 0.3.7-alpha; V6 is an NG+ Gold purchase for weapons, followed by V7/V8 XP. Save companions now use v9 and retain v1–v8 decoding. Older versioned examples below are historical where these current documents specify different limits.
+Current additions and changed contracts are mapped in [CURRENT_IMPLEMENTATION.md](CURRENT_IMPLEMENTATION.md) and [SAVED_CONTROLS.md](SAVED_CONTROLS.md). The base is ReRAC 0.3.8-alpha; V6 is an NG+ Gold purchase for weapons, followed by V7/V8 XP. Save companions now use v9 and retain v1–v8 decoding. Older versioned examples below are historical where these current documents specify different limits.
 
 ## 1. Start here
 

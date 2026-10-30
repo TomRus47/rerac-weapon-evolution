@@ -1,15 +1,17 @@
-# ReRAC Weapon Evolution 0.4.1
+# ReRAC Weapon Evolution 0.4.2
 
-Independent mod for **ReRAC 0.3.8-alpha**. Gameplay **0.1.6.116**, configuration
-capability **92**, standalone launcher **0.29.5**. The 0.4.1 player package is
-published; main also includes subsequent reward, vendor and input fixes.
-[Release notes](docs/releases/v0.4.1.md) · [Nanotech behavior and compatibility](docs/mod/NANOTECH_V116.md).
+Independent mod for **ReRAC 0.3.8-alpha**. Gameplay **0.1.6.123**, configuration
+capability **93**, standalone launcher **0.29.6**. This is an **unpublished 0.4.2
+draft candidate**; the existing 0.4.1 release and downloads remain unchanged.
+[Release notes](docs/releases/v0.4.2.md) · [Nanotech behavior and compatibility](docs/mod/NANOTECH_V116.md).
 
-**0.4.2 is in preparation.** [Working release notes](docs/releases/v0.4.2.md)
-distinguish the integrated changes from local test-kit changes still awaiting
-the complete prepared source. No 0.4.2 runtime or downloadable package is claimed
-yet. See [reward handoffs and persistent shops](docs/mod/RANDOMIZER_REWARD_HANDOFFS.md)
-for the latest source contracts and regression coverage.
+The complete prepared v123 source has been reconciled with main, including
+the preceding local v117–v122 fixes. See
+[combat and pickup changes](docs/mod/COMBAT_PICKUPS_V117.md),
+[the scoped Orxon shortcut](docs/mod/ORXON_SHORTCUT_V118.md) and
+[reward handoffs and persistent shops](docs/mod/RANDOMIZER_REWARD_HANDOFFS.md).
+The checked Windows workflow builds the player and exact-commit source ZIPs
+before attaching them to the private draft. It never publishes that draft.
 
 **Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to their games, characters, trademarks or game assets, and is not affiliated with their rights holders. Upstream licenses and contributor credits remain applicable. See [credits](docs/mod/CREDITS.md) and [LICENSE](LICENSE).
 

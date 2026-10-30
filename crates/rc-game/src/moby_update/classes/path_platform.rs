@@ -189,14 +189,15 @@ fn run(w: &mut World, id: MobyId, v: Copy) {
         p::set_i32(&mut m.pvars, 0xc4, -1);
     }
 
+    let initial_hold=crate::weapon_evo::orxon_shortcut::hold_initial_lower(w,id);
     match w.m(id).cmd {
         // Waiting at t = 1: go when called from the first end or ridden.
-        0 if active => {
+        0 if active && !initial_hold => {
             let ridden = p::i16(&w.m(id).pvars, 0xb8) != 0 && w.hero_on_moby(id);
             if ridden || dist3(hero, first) < dist3(hero, last) { depart(w, id, -1.0, gaspar); }
         }
         // Waiting at t = 0.
-        1 if active => {
+        1 if active && !initial_hold => {
             let ridden = p::i16(&w.m(id).pvars, 0xb8) != 0 && w.hero_on_moby(id);
             if ridden || dist3(hero, last) < dist3(hero, first) { depart(w, id, 1.0, gaspar); }
         }
@@ -531,4 +532,33 @@ mod tests {
         assert_eq!(p::i32(&m.pvars, 0xcc), -1);
         assert_eq!(m.mode & mode::HIDDEN, 0);
     }
+    #[test]
+    fn early_mask_opens_only_orxon_shortcut_without_completing_clank_checks() {
+        let (mut table,mut svc,classes)=setup(|pv| {p::set_i32(pv,0xc0,7);p::set_i32(pv,0xcc,8);});
+        table.mobys[1].o_class=1141;
+        let mut boots=Moby::init_instance(2,18,None);boots.position=[0.,0.,10.,0.];table.mobys.push(boots);
+        let other=table.mobys[1].clone();table.mobys.push(other);
+        p::set_i32(&mut table.mobys[3].pvars,0xb4,1);
+        let far=vec![[100.,100.,0.,0.],[100.,100.,20.,0.]];
+        svc.splines.push(far.into_iter().map(|p|p.map(f32::to_bits)).collect());
+        svc.level=10;svc.bomb_evo.randomizer_mode=true;
+        let mut progress=svc.bomb_evo.progress();
+        progress.randomizer=crate::weapon_evo::randomizer::State::generate(17);
+        if progress.randomizer.placements[28]==0 {
+            let source=progress.randomizer.placements.iter().enumerate().find(|(i,v)|*i!=65&&**v!=0).unwrap().0;
+            progress.randomizer.placements.swap(28,source);
+        }
+        svc.bomb_evo.restore_progress(&progress);
+        let mut hero=hero_at([10.,0.,0.]);hero.owned.0[6]=1;
+        let mut rng=Rng::new();
+        let before=svc.bomb_evo.progress();let gates=table.mobys[3].pvars.clone();
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,0);
+        crate::moby_update::scheduler::Scheduler::new().load_pass(&mut w);
+        assert_eq!(w.m(1).position,[10.,0.,0.,-1.]);
+        assert_eq!(p::i32(&w.m(1).pvars,0xc0),-1);assert_eq!(p::i32(&w.m(1).pvars,0xcc),-1);
+        assert_eq!(w.m(3).pvars,gates);assert_eq!(w.svc.bomb_evo.progress(),before);
+        assert!(w.svc.save.death.is_empty());
+        assert!(!crate::weapon_evo::randomizer::travel_mask(before.randomizer,10,true));
+    }
+
 }

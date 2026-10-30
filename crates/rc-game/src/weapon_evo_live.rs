@@ -35,6 +35,7 @@ impl Evolution {
         base.enemy_chase_range_multiplier=next.world_settings.enemy_chase_range_multiplier;
         base.enemy_projectile_speed_multiplier=next.world_settings.enemy_projectile_speed_multiplier;
         base.enemy_projectile_range_multiplier=next.world_settings.enemy_projectile_range_multiplier;
+        base.enemy_burst_tracking=next.world_settings.enemy_burst_tracking;
         base.nanotech_upgrade_sound=next.world_settings.nanotech_upgrade_sound;
         base.nanotech_random_healing=next.world_settings.nanotech_random_healing;
         self.encounter_base=Some(base);self.world_settings=base.for_ng_plus(self.ng_plus);

@@ -20,6 +20,8 @@ pub struct Settings {
     pub enemy_speed_multiplier: f32,
     pub enemy_projectile_speed_multiplier: f32,
     pub enemy_projectile_range_multiplier: f32,
+    /// Re-aim eligible burst shots at launch, without homing in-flight shots.
+    pub enemy_burst_tracking: bool,
 
     pub nanotech_xp_per_upgrade: f32,
     /// Internal XP bonus cap. The public base-plus-XP limit subtracts four.
@@ -44,6 +46,7 @@ impl Default for Settings {
             enemy_speed_multiplier: 1.,
             enemy_projectile_speed_multiplier: 1.,
             enemy_projectile_range_multiplier: 1.,
+            enemy_burst_tracking: false,
 
             nanotech_xp_per_upgrade: 1000.,
             nanotech_max_health: 20,
@@ -107,6 +110,7 @@ impl Settings {
             | "extra_enemy_prefer_small"
             | "extra_enemy_prefer_medium"
             | "extra_enemy_prefer_large"
+            | "enemy_burst_tracking"
             | "enemy_damage_by_health"
             | "enemy_damage_include_bosses"
             | "nanotech_upgrade_sound"
@@ -121,6 +125,7 @@ impl Settings {
                     "extra_enemy_prefer_small" => self.extra_enemy_prefer_small = v,
                     "extra_enemy_prefer_medium" => self.extra_enemy_prefer_medium = v,
                     "extra_enemy_prefer_large" => self.extra_enemy_prefer_large = v,
+                    "enemy_burst_tracking" => self.enemy_burst_tracking = v,
                     "enemy_damage_by_health" => self.enemy_damage_by_health = v,
                     // Accept old presets without letting this retired switch bypass boss damage.
                     "enemy_damage_include_bosses" => {},

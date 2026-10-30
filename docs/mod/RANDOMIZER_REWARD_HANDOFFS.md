@@ -53,12 +53,12 @@ through actual planet entry, travel without opening the original vendor,
 cross-planet purchase at the source price, duplicate/stale transactions, native
 and companion save reload, NG+ retention and the ammo-only PDA policy.
 
-## Integration boundary
+## Integration and compatibility
 
-This main-branch update includes the reviewed reward/vendor/race fixes. It does
-not substitute a host test shim for the complete local v117–v123 implementation.
-Reconcile that prepared source before creating the 0.4.2 runtime descriptor and
-draft build. Keep saves, native files and personal reports out of source exports.
+The 0.4.2 source reconciles the complete prepared v123 workspace and the previous
+main-branch fixes. Transient race, shortcut and HUD state remain outside save
+storage. Native stock and source claims retain their existing formats. Keep
+saves, native files and personal reports out of source exports.
 
 See [credits](CREDITS.md) for mod-only authorship, original-game rights and upstream
 license attribution.

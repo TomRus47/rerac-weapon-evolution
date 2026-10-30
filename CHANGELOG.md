@@ -1,3 +1,19 @@
+# Weapon Evolution 0.4.2 — unpublished draft
+
+ReRAC **0.3.8-alpha**, gameplay **0.1.6.123**, capability **93**, launcher **0.29.6**.
+[Complete changes since 0.4.1](docs/releases/v0.4.2.md).
+
+- Reconcile complete local v117–v123 source with main. Retain all approved default
+  values and add only optional enemy burst tracking, initially Off.
+- Preserve rail pickup flow, rearm retained Morph-o-Ray enemy lives, flatten
+  locked aim in Kalebo weapon-test rooms and replace Quartu's randomized source.
+- Show accepted wrench XP with an eight-second fading HUD lease and grade caps.
+- Scope the early-O2 Clank shortcut on Orxon and retain Oltanis' NG+ statue gate.
+- Correct affected flame-wave enemy alert/perception and optional Novalis volleys.
+- Include the reward, persistent shop, race, R2 gadget and tank fixes below.
+- Prepare separate Windows/source archives in a private draft. Existing releases,
+  saves, seeds, placements, personal presets and upstream attribution are retained.
+
 # Unreleased — Randomizer mission rewards and persistent shops
 
 - Retain Pokitaru, Blarg Station and Novalis rewards when their native items or

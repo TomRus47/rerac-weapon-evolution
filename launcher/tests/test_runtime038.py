@@ -14,7 +14,7 @@ import runtime038_test as update
 class Runtime038Tests(unittest.TestCase):
     identity = {'name': 'rerac', 'game': 'rac1', 'version': '0.3.8',
                 'weapon_evolution_patch': update.PATCH,
-                'weapon_evolution_config': 92,
+                'weapon_evolution_config': 93,
                 'weapon_evolution_audio_diagnostics': False}
 
     def fixture(self, root):

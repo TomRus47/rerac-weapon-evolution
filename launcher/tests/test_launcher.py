@@ -47,7 +47,7 @@ Path('observed.json').write_text(json.dumps({'args':sys.argv[1:],'env':dict(os.e
     def test_all_approved_values_and_every_color_have_metadata(self):
         from schema import LABELS, COLORS
         doc = c.checked_document(self.raw)
-        self.assertEqual(len(doc.sections), 146); self.assertEqual(len(doc.entries), 2592)
+        self.assertEqual(len(doc.sections), 146); self.assertEqual(len(doc.entries), 2593)
         self.assertEqual(doc.render(), self.raw)
         self.assertEqual({key for _, key in doc.entries}-{*LABELS}, set())
         self.assertTrue(all(key in COLORS for _, key in doc.entries if key.endswith('_color')))

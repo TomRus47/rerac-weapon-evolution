@@ -54,6 +54,14 @@ pub mod pv {
     pub const SIZE: usize = 0x28;
 }
 
+/// Only camera-owning weapon-test controllers flatten combat aim. Other
+/// scripted views and non-camera arena triggers keep their normal pitch.
+pub fn fixed_weapon_camera(level: u32, table: &crate::moby_runtime::MobyTable) -> bool {
+    level == REFERENCE_LEVEL && table.mobys.iter().any(|m|m.o_class == 654
+        && matches!(m.state, 2 | 3) && m.pvars.len() >= pv::SIZE
+        && i32::from_le_bytes(m.pvars[pv::SPLINE..pv::SPLINE+4].try_into().unwrap()) >= 0)
+}
+
 fn group(w: &World, g: i32) -> Vec<MobyId> {
     usize::try_from(g).ok().and_then(|g| w.svc.groups.lists.get(g).cloned().flatten()).unwrap_or_default().into_iter().map(usize::from).filter(|&k| k < w.table.mobys.len()).collect()
 }
@@ -197,5 +205,20 @@ pub fn update(w: &mut World, id: MobyId) {
             flag(w, id);
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod fixed_camera_tests {
+    use super::*;
+    use crate::moby_runtime::{Moby,MobyTable};
+    #[test]
+    fn only_active_camera_arenas_on_kalebo_are_flattened() {
+        let mut m=Moby::init_instance(0,654,None);m.pvars=vec![0;pv::SIZE];m.state=2;
+        let mut t=MobyTable::new(vec![m],0);
+        assert!(fixed_weapon_camera(16,&t));assert!(!fixed_weapon_camera(15,&t));
+        t.mobys[0].state=6;assert!(!fixed_weapon_camera(16,&t));
+        t.mobys[0].state=3;t.mobys[0].pvars[pv::SPLINE..pv::SPLINE+4].copy_from_slice(&(-1i32).to_le_bytes());
+        assert!(!fixed_weapon_camera(16,&t));
     }
 }

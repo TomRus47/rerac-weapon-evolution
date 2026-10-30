@@ -472,10 +472,12 @@ MOTION_DEFAULTS = {
     'enemy_projectile_speed_multiplier':'1',
 }
 WORLD_DEFAULTS.update(MOTION_DEFAULTS)
+WORLD_DEFAULTS['enemy_burst_tracking']='false'
+BOOLEANS.add('enemy_burst_tracking')
 _WORLD_ORDER = (
     'enemy_health_multiplier','enemy_health_include_bosses',
     'enemy_damage_by_health','enemy_damage_multiplier','enemy_speed_multiplier',
-    'enemy_projectile_range_multiplier','enemy_projectile_speed_multiplier',
+    'enemy_projectile_range_multiplier','enemy_projectile_speed_multiplier','enemy_burst_tracking',
     'enemy_perception_multiplier','enemy_chase_range_multiplier','extra_enemies_per_level',
     'extra_enemy_prefer_small','extra_enemy_prefer_medium','extra_enemy_prefer_large',
     'nanotech_xp_per_upgrade','nanotech_progression_max_health','nanotech_upgrade_sound','nanotech_random_healing')
@@ -487,12 +489,14 @@ GLOBAL_STANDARD_DEFAULTS['golden_bolts_one_weapon_per_planet']='false'
 BOOLEANS.add('golden_bolts_one_weapon_per_planet')
 LABELS.update({
     'enemy_speed_multiplier':'Enemy action speed multiplier',
+    'enemy_burst_tracking':'Track Ratchet during firing bursts',
     'enemy_projectile_range_multiplier':'Enemy projectile range multiplier',
     'enemy_projectile_speed_multiplier':'Enemy projectile speed multiplier',
     'golden_bolts_one_weapon_per_planet':'At most one weapon per planet',
 })
 HELP.update({
     'enemy_speed_multiplier':'Native movement, animations and action cadence for enemies and bosses. 1 is original speed; 2 runs twice as fast. Collision is checked at each simulation step. Does not accelerate Ratchet, friendly companions or cutscenes. Range: 0.1-4.',
+    'enemy_burst_tracking':'Off preserves native burst aim. On lets eligible direct-fire enemies re-aim each new shot at their current target during a burst. Decoys remain valid targets; shots already in flight do not home. Scripted destruction shots, boss patterns and the Hoven turret mission keep native aim.',
     'enemy_projectile_speed_multiplier':'Speed of hostile shots, bombs, missiles and boss projectile actors. Independent of enemy action speed and projectile reach. Native collision checks run at every step. Ballistic trajectories run faster, including gravity and fuses. Range: 0.1-4.',
     'enemy_projectile_range_multiplier':'Scales native shot reach, straight-shot lifetime or ballistic horizontal travel. Terrain impacts, locked target points and world boundaries still stop shots. Does not enlarge explosions or increase damage. Range: 0.1-10.',
     'golden_bolts_one_weapon_per_planet':'New games only: distribute the 15 weapons across 15 different planets, choosing one candidate location on each. Explosive-wall, Visibomb and Taunter access rules still apply. Existing saves keep their stored layout.',

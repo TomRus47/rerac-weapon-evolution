@@ -61,6 +61,10 @@ fn owner_class(w: &World, id: MobyId) -> i16 { owner(w, id).map_or(-1, |o| w.m(o
 
 /// Level12 `0x2d4150(owner, pos, vel, life)` (module doc).
 pub fn spawn(w: &mut World, own: MobyId, pos: [f32; 4], vel: [f32; 4], life: i32) -> Option<MobyId> {
+    let target = if crate::weapon_evo::burst::enabled(w,own) {
+        c::target::acquire(w,own,100.).moby
+    } else {None};
+    let vel=crate::weapon_evo::burst::velocity(w,own,target,pos,vel);
     let id = w.create_moby(CLASS)?;
     crate::moby_update::story::pvars(w, id, pvo::LEN);
     c::set_pi32(w, id, pvo::OWNER, own as i32 + 1);

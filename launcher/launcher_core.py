@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.29.5'
+VERSION = '0.29.6'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -627,3 +627,9 @@ _required_config_before_compact_nanotech = required_config
 def required_config(doc):
     previous=_required_config_before_compact_nanotech(doc)
     return max(92,previous) if ('general','nanotech_progression_max_health') in doc.entries else previous
+
+
+_required_config_before_burst_tracking = required_config
+def required_config(doc):
+    previous=_required_config_before_burst_tracking(doc)
+    return max(93,previous) if doc.entries.get(('general','enemy_burst_tracking'),'false').lower() in {'true','on','1'} else previous

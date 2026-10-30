@@ -251,6 +251,7 @@ pub(super) fn muzzle_flash(w: &mut World, id: MobyId, p: V) {
 
 /// `0x2cc1b8(scale, v, p, owner, target, life)`: a shot.
 pub(super) fn shot(w: &mut World, scale: f32, v: V, p: V, owner: MobyId, target: Option<MobyId>, life: i32) {
+    let v=crate::weapon_evo::burst::velocity(w,owner,target,p,v);
     let Some(m) = w.create_moby(SHOT) else { return };
     story::pvars(w, m, 0x40);
     let hp = w.hero_point();

@@ -2096,6 +2096,23 @@ impl<'a> World<'a> {
         Some(id)
     }
 
+    /// Renew only a consumed enemy that native code has made alive/targetable again.
+    /// Morph's keep byte remains 2 until its owner handles the consumed life;
+    /// ordinary stagger, partial healing and repeated callbacks cannot rearm it.
+    pub fn renew_retained_enemy(&mut self, id: MobyId) -> bool {
+        if !self.svc.bomb_evo.target_is_terminal(id) { return false; }
+        let Some(m) = self.table.mobys.get(id) else { return false; };
+        if !crate::moby_update::real_hp::donor(m) || m.mode & crate::moby_runtime::mode::TARGETABLE == 0
+            || !crate::targeting::record_health(m).is_some_and(|hp|hp.is_finite()&&hp>0.) {return false;}
+        let record=crate::moby_update::creature::header(self,id).damage;
+        if record.is_some_and(|o|self.m(id).pvars.get(o+0xe)==Some(&2)) {return false;}
+        let class=self.m(id).o_class;
+        self.svc.bomb_evo.forget_special_target(id);
+        self.svc.hits.forget_doom_target(id);
+        self.svc.hits.real_hp.on_spawn(id,class);
+        true
+    }
+
     /// `DeleteMoby` 0x2636c0: state 0xfd / 0xfe, the reuse tick, and the grid removal
     /// (`UpdateMobyGrids(moby, 0x80807f7f)`).
     pub fn delete_moby(&mut self, id: MobyId) {

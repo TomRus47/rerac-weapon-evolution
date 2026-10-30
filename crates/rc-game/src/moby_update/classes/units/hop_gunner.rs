@@ -602,6 +602,10 @@ fn hop_state(w: &mut World, id: MobyId, tgt: Option<MobyId>, hop: Option<usize>)
 /// State 5: the burst.
 fn fire(w: &mut World, id: MobyId, tgt: Option<MobyId>, _hop: Option<usize>) {
     let t = target_pos(w, tgt);
+    if crate::weapon_evo::burst::enabled(w,id) {
+        let d=c::sub(t,c::pos(w,id));
+        w.mm(id).rotation[2]=c::atan(d[0],d[1]);
+    }
     if c::dist2(c::pos(w, id), t) < k::CLUB_RANGE {
         c::set_pi32(w, id, pv::SHOT_T, 0);
         return to_club(w, id);
@@ -642,6 +646,7 @@ pub mod shot {
 /// `0x307190(vel, pos, shooter, target, life, index)`: a shot 1292 (update distance 0xff, draw distance 0x7e, state 1,
 /// drawn), yaw and pitch along the velocity, its matrix built.
 pub fn spawn_shot(w: &mut World, v: c::V, pos: c::V, shooter: MobyId, target: Option<MobyId>, life: i32, index: i32) -> Option<MobyId> {
+    let v=crate::weapon_evo::burst::velocity(w,shooter,target,pos,v);
     let s = w.create_moby(SHOT_CLASSES[0])?;
     let t = w.ticks(life);
     {

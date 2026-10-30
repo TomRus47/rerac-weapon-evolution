@@ -1,4 +1,4 @@
-"""Build bundled v116 sources and transactionally update an existing playable mod.
+"""Build bundled v120 sources and transactionally update an existing playable mod.
 
 The old source checkout is never patched. Player INIs, presets and saves are
 retained. The working GUI icon is recovered before rebuilding the editor. Both
@@ -20,7 +20,7 @@ from verified_artifacts import build_engine, checked_launcher
 
 SOURCE = Path(__file__).resolve().parents[2]
 BUNDLE = SOURCE.parent
-PATCH = '0.1.6.116'
+PATCH = '0.1.6.123'
 
 
 def sha(data):
@@ -50,7 +50,7 @@ def safe(root, name):
 def verify_sources(source=SOURCE, bundle=BUNDLE):
     manifest = json.loads((bundle / 'source-files.json').read_text(encoding='utf-8'))
     if manifest['patch'] != PATCH or manifest['runtime_base'] != '0.3.8-alpha':
-        raise ValueError('This is not the v116 / ReRAC 0.3.8 source kit.')
+        raise ValueError('This is not the v120 / ReRAC 0.3.8 source kit.')
     for name, digest in manifest['files'].items():
         path = safe(source, name)
         if not path.is_file() or sha(path.read_bytes()) != digest:
@@ -59,10 +59,10 @@ def verify_sources(source=SOURCE, bundle=BUNDLE):
 
 def validate_identity(identity):
     expected = {'name': 'rerac', 'game': 'rac1', 'version': '0.3.8',
-                'weapon_evolution_patch': PATCH, 'weapon_evolution_config': 92,
+                'weapon_evolution_patch': PATCH, 'weapon_evolution_config': 93,
                 'weapon_evolution_audio_diagnostics': False}
     if any(identity.get(key) != value for key, value in expected.items()):
-        raise ValueError('Expected editable Weapon Evolution v116 / ReRAC 0.3.8.')
+        raise ValueError('Expected editable Weapon Evolution v120 / ReRAC 0.3.8.')
 
 
 def probe(exe):
@@ -103,7 +103,7 @@ def install_runtime(source, playable, launcher, identity, bundle=BUNDLE, executa
         changes[playable / 'runtime/assets/shaders' / path.name] = path.read_bytes()
     changes[playable / 'runtime/build-info.json'] = (json.dumps({
         'mode': 'editable', 'version': identity['version'], 'mod_version': PATCH,
-        'launcher_version': '0.29.5'}, indent=2) + '\n').encode()
+        'launcher_version': '0.29.6'}, indent=2) + '\n').encode()
     if launcher_executable is not None:
         changes[launcher]=launcher_executable.read_bytes()
         licenses=launcher_executable.parent/'licenses'
@@ -205,7 +205,7 @@ def main():
         print('Playable ZIP: ' + str(archive))
         return
     verify_sources()
-    print('Weapon Evolution v116 / ReRAC 0.3.8-alpha. No GitHub operations.')
+    print('Weapon Evolution v120 / ReRAC 0.3.8-alpha. Orxon shortcut fix 118. No GitHub operations.')
     playable = args.playable or Path(input('EXISTING playable mod folder (launcher EXE, weapons.ini and runtime): ').strip().strip('"'))
     playable = playable.expanduser().resolve()
     launcher = (playable / args.launcher).resolve()
@@ -221,12 +221,16 @@ def main():
         raise ValueError('Close the mod launcher before updating its EXE.')
     from windows_build_env import ensure_build_environment
     ensure_build_environment()
+    from verified_artifacts import validate_source_apis
+    from rust_build_tools import ensure_rust_compiler
+    validate_source_apis(SOURCE)
+    ensure_rust_compiler(SOURCE,BUNDLE)
     caches = [BUNDLE.parent / 'rerac/target', Path('C:/ReRAC-Mod/rerac/target')]
     target = (args.target_dir or next((p for p in caches if p.is_dir()), SOURCE / 'target')).resolve()
     print('Compiling bundled source: ' + str(SOURCE))
     print('Cargo cache: ' + str(target))
     common = ['--release', '--locked', '--no-default-features', '--target-dir', str(target)]
-    # v116.2: build_engine rebuilds and tests the local workspace.
+    # v120.2: build_engine rebuilds and tests the local workspace.
     exe = build_engine(SOURCE, target, validate_identity)
     # Build from a private stage: preserve the actual installed EXE icon without
     # mutating reviewed sources, INIs or the working GUI before all checks pass.
@@ -246,7 +250,7 @@ def main():
     if gui is None:
         gui = build_launcher_exe.build(stage)
     backup = install_runtime(SOURCE, playable, launcher, probe(exe), executable=exe,launcher_executable=gui)
-    print('Runtime, matching shaders and launcher 0.29.5 updated. INI, presets and saves retained.')
+    print('Runtime, matching shaders and launcher 0.29.6 updated. INI, presets and saves retained.')
     print('Backup: ' + str(backup))
     print('Open this same launcher: ' + str(launcher))
     try:

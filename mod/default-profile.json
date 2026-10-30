@@ -1,9 +1,9 @@
 {
   "source": "User-supplied player ZIP, root weapons.ini (2026-10-29)",
   "source_sha256": "38f5662e41ac3fd7851def000752dd07c4570dfbdbb58c98ce5eb03cc5aa6cef",
-  "public_sha256": "f51dc0149d8324b27291c24fb7a574c7a1c78cd27dbed3e1314fcdf5c1477e62",
-  "values_sha256": "24125c457d9ec5bc94126382775850be956209d1afae8ff081c189343b910c2c",
-  "values": 2592,
+  "public_sha256": "ec1ac794d9e4d889dda8f50ca76289186b323e28bb41a88635543cbf0b05dcab",
+  "values_sha256": "6f573d92f5f4c9cb7f5f5bdeeaa4f9ebe634b57711659bfe9883286fd0e36d2b",
+  "values": 2593,
   "sections": 146,
-  "changes": "Every authored setting is preserved. Only the stale runtime compatibility comment changes from ReRAC 0.3.7-alpha to 0.3.8-alpha. No logs, session copies, executable binaries or personal launcher settings are imported."
+  "changes": "Every authored setting is preserved. Only the stale runtime compatibility comment changes from ReRAC 0.3.7-alpha to 0.3.8-alpha. No logs, session copies, executable binaries or personal launcher settings are imported. v117 adds only enemy_burst_tracking=false; every preceding authored balance value is retained."
 }

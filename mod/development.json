@@ -1,10 +1,10 @@
 {
-  "public_mod_version": "0.4.1",
-  "status": "draft candidate; not released",
+  "public_mod_version": "0.4.2",
+  "status": "unpublished draft candidate",
   "runtime_base": "0.3.8-alpha",
-  "patch": "0.1.6.116",
-  "config_capability": 92,
-  "launcher": "0.29.5",
+  "patch": "0.1.6.123",
+  "config_capability": 93,
+  "launcher": "0.29.6",
   "release_created": false,
-  "notes": "docs/releases/v0.4.1.md"
+  "notes": "docs/releases/v0.4.2.md"
 }

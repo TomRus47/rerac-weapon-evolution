@@ -362,12 +362,15 @@ pub fn ship_available(state:State,level:u32)->bool{level!=1||state.collected(67)
 pub fn travel_mask(state:State,level:u32,actual:bool)->bool{
     if state.active()&&level==10&&[28,75].iter().any(|&s|state.reward(s).is_some()&&!state.collected(s)){false}else{actual}
 }
-#[derive(Clone,Debug)]pub struct Anchor{pub source:usize,pub position:[f32;3],pub mission:Option<i32>,pub infobot:bool,pub shown:bool}
+#[derive(Clone,Debug)]pub struct Anchor{pub source:usize,pub position:[f32;3],pub mission:Option<i32>,pub infobot:bool,pub shown:bool,pub no_cutaway:bool}
 #[derive(Clone,Debug,Default)]pub struct WorldState{
+    pub orxon_shortcut_lowered:bool,
+    /// Transient initial wait, not persisted in the randomizer seed/save.
+    pub orxon_shortcut_waiting:Option<crate::moby_runtime::MobyId>,
     pub anchors:Vec<Anchor>,pub pending:Vec<usize>,pub ready:std::collections::HashSet<usize>,pub elapsed:u64,
 }
 impl WorldState {
-    pub fn reset_for_reload(&mut self){self.pending.clear();self.elapsed=0;for a in &mut self.anchors{a.shown=!a.infobot;}}
+    pub fn reset_for_reload(&mut self){self.orxon_shortcut_lowered=false;self.orxon_shortcut_waiting=None;self.pending.clear();self.elapsed=0;for a in &mut self.anchors{a.shown=!a.infobot;}}
     pub fn from_gameplay(level:u32,bytes:&[u8],gemlik:Option<[f32;3]>,state:State)->Self{
         if !state.active(){return Self::default();}let mut out=Self::default();
         if let (Ok(ms),Ok(vars))=(rc_formats::gameplay::parse_moby_instances(bytes),rc_formats::gameplay::parse_pvars(bytes)){
@@ -378,16 +381,17 @@ impl WorldState {
                     1120 if level==4=>Some(9),1354 if level==14=>Some(21),
                     1005 if level==2=>Some(26),1016 if level==6=>Some(22),
                     18 if level==10=>Some(28),1428 if level==17=>Some(50),1290 if level==9=>Some(7),
+                    1388 if level==15=>Some(34),
                     _=>None,
                 };
                 if let Some(source)=source.filter(|&s|state.reward(s).is_some()){
-                    if !out.anchors.iter().any(|a|a.source==source){out.anchors.push(Anchor{source,position:m.position,mission:Some(i32::from(m.unknown_4 as u8)),infobot:m.o_class==750,shown:m.o_class!=750});}
+                    if !out.anchors.iter().any(|a|a.source==source){out.anchors.push(Anchor{source,position:m.position,mission:Some(i32::from(m.unknown_4 as u8)),infobot:m.o_class==750,shown:m.o_class!=750,no_cutaway:m.o_class==1134 && m.pvar(&vars).and_then(|v|v.get(12..14)).is_some_and(|v|v!=[0,0])});}
                 }
             }
         }
         for site in super::golden::locations::all_for_level(level,gemlik){
             let source=176+site.slot-80;
-            if state.reward(source).is_some(){out.anchors.push(Anchor{source,position:site.base,mission:None,infobot:false,shown:true});}
+            if state.reward(source).is_some(){out.anchors.push(Anchor{source,position:site.base,mission:None,infobot:false,shown:true,no_cutaway:false});}
         }out
     }
     pub fn visuals(&self,state:State,alive:bool)->Vec<(usize,super::discovery::Visual)>{
@@ -436,7 +440,7 @@ pub fn replace_physical(w:&mut World,id:crate::moby_runtime::MobyId)->bool {
     if !w.svc.bomb_evo.randomizer_mode{return false;}
     let source=match (w.svc.level,w.m(id).o_class){
         (4,1120)=>9,(14,1354)=>21,(2,1005)=>26,(6,1016)=>22,
-        (10,18)=>28,(17,1428)=>50,(9,1290)=>7,_=>return false,
+        (10,18)=>28,(17,1428)=>50,(9,1290)=>7,(15,1388)=>34,_=>return false,
     };
     if !w.svc.randomizer.anchors.iter().any(|a|a.source==source){return false;}
     // Actor identity remains available to mission references. Rendering and
@@ -762,7 +766,7 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
         let mut b=Bench::new(pool(10.,-10.),&[],[20.,20.,10.]);b.hero.health=4;
         b.svc.bomb_evo.randomizer_mode=true;b.svc.bomb_evo.state_progress.randomizer=State::generate(8411);
         let source=b.svc.bomb_evo.state_progress.randomizer.placements.iter().enumerate().find(|(id,r)|**r!=0&&*id!=65).unwrap().0;
-        b.svc.randomizer.anchors.push(Anchor{source,position:[20.,20.,10.],mission:None,infobot:false,shown:true});
+        b.svc.randomizer.anchors.push(Anchor{source,position:[20.,20.,10.],mission:None,infobot:false,shown:true,no_cutaway:false});
         let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,0);
         tick(&mut w);assert!(w.svc.interact.writes.is_empty());
         w.svc.randomizer.ready.insert(source);tick(&mut w);

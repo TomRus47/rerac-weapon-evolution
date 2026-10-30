@@ -185,8 +185,13 @@ pub fn update(w: &mut World, id: MobyId) {
             jet_exhaust(w, id, old);
         }
         6 => {
+            // Turning was previously restricted to the idle/recovery states.
+            // Keep native animation and volley timing; only update the firing direction.
+            if burst_tracks(w, &tg) {
+                turn::spring_turn2_pvar(w, id, c::atan(t[0] - pos[0], t[1] - pos[1]), 0.02, 0.3, 0.1, TURN_V);
+            }
             if c::pf(w, id, KEY_PREV) < 14.0 && 14.0 <= key {
-                fire(w, id, t);
+                fire(w, id, t, burst_tracks(w, &tg));
                 if st(w, id) != 6 { return end(w, id, key); }
             }
             if key < 2.0 {
@@ -590,12 +595,19 @@ fn hop_to(w: &mut World, id: MobyId, next: i32) {
 
 /// State 6 at key 14: a glob from the muzzle (joint list 0) towards the aim point 4 ahead (the yaw, or the direction to
 /// Ratchet when within 5 of it), unless the muzzle is inside a wall (then state 1).
-fn fire(w: &mut World, id: MobyId, t: c::V) {
+/// A missing target (cutscene hold, for example) must never aim at world origin.
+fn burst_tracks(w: &World, t: &target::Target) -> bool {
+    w.svc.bomb_evo.world_settings.enemy_burst_tracking && t.kind != 2 && t.moby.is_some()
+}
+
+fn fire(w: &mut World, id: MobyId, t: c::V, tracking: bool) {
     let mut yaw = c::yaw(w, id);
     let j = w.joint_point(id, 0);
     c::set_pv4(w, id, AIM, j);
     let a = c::atan(t[0] - j[0], t[1] - j[1]);
-    if c::diff_rots(a, yaw) < DEG5 { yaw = a; }
+    // Every newly emitted glob uses the current target, even after it has moved
+    // outside the native five-degree correction cone. Existing globs stay ballistic.
+    if tracking || c::diff_rots(a, yaw) < DEG5 { yaw = a; }
     let d = c::pf(w, id, AIM_DIST);
     let mut aim = j;
     aim[0] += yaw.cos() * d;
@@ -856,4 +868,96 @@ pub fn shot_update(w: &mut World, id: MobyId) {
 /// `ticks(20)`, 1.5·size for `ticks(29)`) and no shake (`fx::SHOT_BURST`, docs/plan/explosions.md §C).
 fn shot_burst(w: &mut World, size: f32, id: MobyId, p: c::V, sound: i32) {
     fx::spark_burst(w, &fx::SHOT_BURST, size, 0.0, Some(id), p, sound);
+}
+
+#[cfg(test)]
+mod v121_burst_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    use crate::moby_update::services::pf;
+
+    fn bench() -> (Bench, MobyId) {
+        let mut b = Bench::new(crate::hero::testkit::floor(0.0, 0, 12, 0, 12),
+            &[CLASSES[0], SHOT_CLASS], [35.0, 20.0, 4.0]);
+        let id = b.create(CLASSES[0]);
+        let m = &mut b.table.mobys[id];
+        m.pvars.resize(0x240, 0);
+        m.position = [20.0, 20.0, 4.0, 1.0];
+        m.rotation[2] = 0.0;
+        m.state = 6;
+        (b, id)
+    }
+
+    /// Exercise actual emission, not just an angle helper. A single volley must
+    /// follow changing target positions without changing its count/speed/lifetime.
+    fn volley(enabled: bool) -> Vec<c::V> {
+        let (mut b, id) = bench();
+        b.svc.bomb_evo.world_settings.enemy_burst_tracking = enabled;
+        let mut out = Vec::new();
+        for y in [20.0, 28.0, 12.0] {
+            b.table.mobys[0].position[1] = y;
+            b.hero.pos[1] = pf(y);
+            let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+            w.coll = Some(&b.coll);
+            c::set_pf(&mut w, id, AIM_DIST, 4.0);
+            c::set_pf(&mut w, id, RANGE, 40.0);
+            let t = target::acquire(&w, id, 40.0);
+            assert_eq!(t.kind, 0);
+            assert_eq!(t.moby, Some(0));
+            let count = w.table.mobys.iter().filter(|m| m.o_class == SHOT_CLASS && m.state < 0xfd).count();
+            let tracking = burst_tracks(&w, &t);
+            fire(&mut w, id, t.pos, tracking);
+            let shots: Vec<_> = w.table.mobys.iter().enumerate()
+                .filter(|(_, m)| m.o_class == SHOT_CLASS && m.state < 0xfd).collect();
+            assert_eq!(shots.len(), count + 1);
+            let shot = shots.last().unwrap().0;
+            let v = c::pv4(&w, shot, 0);
+            assert!((c::len3(v) - SHOT_SPEED * c::DT).abs() < 1e-5);
+            assert_eq!(c::pi32(&w, shot, 0x10), id as i32);
+            assert_eq!(c::pi16(&w, id, SHOTS), out.len() as i16 + 1);
+            assert_eq!(st(&w, id), 6);
+            out.push(v);
+        }
+        out
+    }
+
+    #[test]
+    fn enabled_retargets_each_glob_beyond_the_old_cone() {
+        let v = volley(true);
+        assert!(v[0][1].abs() < 1e-5);
+        assert!(v[1][1] > 0.1);
+        assert!(v[2][1] < -0.1);
+    }
+
+    #[test]
+    fn disabled_retains_the_native_fixed_volley() {
+        let v = volley(false);
+        assert_eq!(v[0], v[1]);
+        assert_eq!(v[0], v[2]);
+    }
+
+    #[test]
+    fn no_target_and_cutscene_hold_do_not_enable_tracking() {
+        let (mut b, id) = bench();
+        b.svc.bomb_evo.world_settings.enemy_burst_tracking = true;
+        b.hero.state = 0x72;
+        let w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+        assert!(!burst_tracks(&w, &target::acquire(&w, id, 40.0)));
+        assert!(!burst_tracks(&w, &target::Target { kind: 0, moby: None, ..Default::default() }));
+    }
+
+    #[test]
+    fn firing_body_turns_only_when_tracking_is_enabled() {
+        for enabled in [false, true] {
+            let (mut b, id) = bench();
+            b.svc.bomb_evo.world_settings.enemy_burst_tracking = enabled;
+            b.table.mobys[0].position[1] = 28.0;
+            b.hero.pos[1] = pf(28.0);
+            let mut w = World::new(&mut b.table, &b.hero, &mut b.rng, &b.ct, &mut b.svc, 1);
+            c::set_pf(&mut w, id, RANGE, 40.0);
+            for _ in 0..3 { update(&mut w, id); }
+            assert_eq!(c::yaw(&w, id) > 0.0, enabled);
+            assert_eq!(c::pi16(&w, id, SHOTS), 0, "turning must not emit extra shots");
+        }
+    }
 }

@@ -1324,3 +1324,50 @@ fn morph_chain_reused_dynamic_enemy_slot_has_a_new_life() {
     assert!(react::morph_target(&mut w,reused).is_some());
     assert_eq!(w.svc.bomb_evo.bolt_chain.kills,2);
 }
+
+#[test]
+fn kalebo_recycled_life_rearms_morph_but_not_its_wait_or_duplicate_callback() {
+    use crate::moby_update::classes::units::kalebo_trooper as robot;
+    let mut s=evolution_sim(541,2.);enable_special_tracks(&mut s);
+    s.svc.bomb_evo.configure_ng_plus(true);
+    s.table.mobys[1].mode|=crate::moby_runtime::mode::TARGETABLE | PVAR_HEADER;
+    s.table.mobys[1].state=2;
+    s.table.mobys[1].pvars[0x2e]=1;
+    s.table.mobys[1].pvars[robot::pv::LIVES..robot::pv::LIVES+4].copy_from_slice(&3i32.to_le_bytes());
+    let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
+    assert!(react::morph_target(&mut w,1).is_some());
+    let first=special_xp(&w,21);
+    assert!(react::morph_target(&mut w,1).is_none());
+    // The actual controller consumes the morph marker and hides this life.
+    robot::update(&mut w,1);
+    assert_eq!(w.m(1).state,0xb);
+    assert!(!w.renew_retained_enemy(1));
+    assert_eq!(special_xp(&w,21),first);
+    set_pi32(&mut w,1,robot::pv::TIMER,1);
+    robot::update(&mut w,1);
+    assert_eq!(w.m(1).state,2);
+    assert!(w.m(1).mode & crate::moby_runtime::mode::TARGETABLE != 0);
+    assert!(react::morph_target(&mut w,1).is_some());
+    assert!(special_xp(&w,21)>first);
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills,2);
+    assert!(react::morph_target(&mut w,1).is_none());
+    assert_eq!(w.svc.bomb_evo.bolt_chain.kills,2);
+}
+
+#[test]
+fn burst_launch_option_preserves_speed_decoys_and_native_hoven_turret_exception() {
+    use crate::weapon_evo::burst;
+    let mut s=evolution_sim(1023,3.);
+    let mut decoy=Moby::init_instance(2,203,None);decoy.position=[120.,130.,12.4,0.];decoy.state=3;
+    s.table.mobys[2]=decoy;
+    s.hero.body_point=v4(130.,120.,13.);
+    let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,1);
+    w.hero_moby=Some(0);
+    let origin=[120.,120.,13.,0.];let native=[1.,0.,0.,0.];
+    assert_eq!(burst::velocity(&w,1,Some(2),origin,native),native);
+    w.svc.bomb_evo.world_settings.enemy_burst_tracking=true;
+    assert_eq!(burst::velocity(&w,1,Some(2),origin,native),[0.,1.,0.,0.]);
+    assert_eq!(burst::velocity(&w,1,Some(0),origin,native),native);
+    assert_eq!(burst::velocity(&w,1,None,origin,native),native);
+    w.svc.game_mode=2;assert_eq!(burst::velocity(&w,1,Some(2),origin,native),native);
+}

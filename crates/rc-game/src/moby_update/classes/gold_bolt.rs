@@ -254,7 +254,7 @@ fn presentation(m:&crate::moby_runtime::Moby)->bool {
 /// Present an already granted randomized bolt with the real bolt animation and
 /// camera. This actor can never grant a second/native location reward.
 pub fn present_reward(w:&mut World)->bool {
-    if w.hero.health<=0 || crate::weapon_evo::golden::is_swimming(w.hero)
+    if !crate::weapon_evo::golden::pickup_cutaway_allowed(w.hero)
         || w.classes.info(CLASSES[0]).is_none()
         || w.svc.creatures.cutscene
         || w.table.mobys.iter().any(|m|!m.is_deleted()&&presentation(m)) {return false;}
@@ -356,7 +356,8 @@ fn idle(w: &mut World, id: MobyId) {
     if w.hero.health == 0 { return; }
     let hmode = w.body();
     if hmode != 0 && hmode != 3 { return; }
-    if p::i16(&w.m(id).pvars, pv::NO_CUTAWAY) != 0 {
+    if p::i16(&w.m(id).pvars, pv::NO_CUTAWAY) != 0
+        || !crate::weapon_evo::golden::pickup_cutaway_allowed(w.hero) {
         award(w, id);
         cinematic::save(w);
         w.delete_moby(id);

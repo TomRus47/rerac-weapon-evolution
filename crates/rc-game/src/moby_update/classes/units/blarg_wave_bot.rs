@@ -338,14 +338,15 @@ fn hits(w: &mut World, id: MobyId) {
     }
     w.mm(id).hit_slot = 0xff;
     flash::update(w, id, pv::F);
-    let sight = SIGHT + if alerted(w, id) { 6.0 } else { 0.0 };
+    let native_sight = SIGHT + if alerted(w, id) { 6.0 } else { 0.0 };
+    let sight = crate::weapon_evo::world::perception_range(w,id,native_sight);
     c::set_pf(w, id, pv::SIGHT, sight);
     let reg = usize::try_from(c::pi32(w, id, pv::REGION)).ok();
     let t = target::acquire_in(w, id, sight, reg);
     c::set_pv4(w, id, pv::TGT_REC, t.pos);
     c::set_pi32(w, id, pv::TGT, t.moby.map_or(0, |m| m as i32 + 1));
     let mut kind = t.kind as i32;
-    if kind != 2 && (crate::weapon_evo::world::chase_range(w,id,sight) < c::dist2(c::pv4(w, id, pv::HOME), t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs()) { kind = 2; }
+    if kind != 2 && (crate::weapon_evo::world::chase_range(w,id,native_sight) < c::dist2(c::pv4(w, id, pv::HOME), t.pos) || 3.0 < (c::pos(w, id)[2] - t.pos[2]).abs()) { kind = 2; }
     c::set_pi32(w, id, pv::KIND, kind);
     if c::pi32(w, id, pv::TGT) == 0 {
         let h = w.hero_moby.map_or(0, |m| m as i32 + 1);
@@ -394,11 +395,14 @@ pub fn update(w: &mut World, id: MobyId) {
             if c::pi32(w, id, pv::PATH) != -1 {
                 let cub = c::pi32(w, id, pv::WAIT_CUBOID);
                 if cub != -1 {
-                    if w.in_cuboid(w.hero_point(), cub) {
+                    // A Taunter alert must wake the authored entrance path too,
+                    // instead of being discarded by the separate waiting gate.
+                    if w.in_cuboid(w.hero_point(), cub) || alerted(w,id) {
                         set(w, id, 0xe);
                         return;
                     }
-                    if 7.0 < c::dist2(c::pos(w, id), tgt_pos(w, id)) { return; }
+                    let wake_range=crate::weapon_evo::world::perception_range(w,id,7.0);
+                    if wake_range < c::dist2(c::pos(w, id), tgt_pos(w, id)) { return; }
                 }
             }
             face(w, id);
@@ -549,5 +553,36 @@ pub fn update(w: &mut World, id: MobyId) {
             w.delete_moby(id);
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod v120_alert_tests {
+    use super::*;
+    use crate::moby_update::classes::bomb_water::tests::Bench;
+    #[test]
+    fn perception_scales_waiting_and_taunter_starts_the_authored_entrance() {
+        for (perception,taunt,expected) in [(1.,false,1),(3.,false,2),(1.,true,0xe)] {
+            let mut b=Bench::new(crate::hero::testkit::floor(48.,0,48,0,48),&[1068],[35.,20.,48.]);
+            b.hero.rot[2]=Pf::f(std::f32::consts::PI);
+            b.ct.classes.get_mut(&1068).unwrap().0.ty=5;
+            let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,0);
+            w.hero_moby=Some(0);w.svc.level=10;
+            w.svc.bomb_evo.world_settings.enemy_perception_multiplier=perception;
+            let id=w.create_moby(1068).unwrap();w.mm(id).pvars.resize(pv::SIZE,0);
+            w.mm(id).position=[20.,20.,48.,1.];w.mm(id).mode|=0x20;
+            c::set_pi32(&mut w,id,0,pv::D as i32);
+            c::set_pi32(&mut w,id,pv::PATH,0);c::set_pi32(&mut w,id,pv::WAIT_CUBOID,999);
+            c::set_pi32(&mut w,id,pv::REGION,-1);init(&mut w,id);
+            if taunt {
+                let mut crates=0;
+                let (lured,_)=crate::hero::taunter::lure(&mut w,&[id],[35.,20.,48.],30.,&mut crates);
+                assert!(lured.contains(&id));
+            }
+            update(&mut w,id);
+            assert_eq!(st(&w,id),expected,"perception {perception}, taunt {taunt}");
+            assert_eq!(c::pf(&w,id,pv::SIGHT),if taunt{26.}else{20.*perception});
+            assert_eq!(c::pi32(&w,id,pv::PATH),0); // Native entrance is preserved.
+        }
     }
 }

@@ -1,26 +1,109 @@
-# Post-0.4.1 reward/vendor verification — 2026-10-30
+# 0.4.2 candidate verification — 2026-10-30
 
-The main-branch reward integration passed **43 distinct targeted rc-game tests**
-on the preparation host: 31 vendor tests and 12 additional NPC/race tests. The
-15-test `v12` selection includes three of those vendor tests; overlapping runs
-are not counted as additional coverage. Tests use locked offline dependencies,
-no default features, the release profile with host optimization disabled.
+Runtime base **ReRAC 0.3.8-alpha**, gameplay **0.1.6.123**, capability **93**,
+launcher **0.29.6**. The author supplied a complete prepared v123 kit: every one
+of its **1,416 inventoried source files** matched its SHA-256 before import.
+Unlisted Python caches, kit logs and installation state were excluded. The
+current main-branch reward/vendor/race fixes were retained during reconciliation.
 
-The integration was compiled against a clean checkout of the existing main
-commit, without the local-kit-only enemy-tracking setting or any compatibility
-shim. Scope covers persistent source stock, actual cross-planet purchase,
-save/companion and NG+ retention, early-native-item NPC guards, and real hero
-race-finish command dispatch through host dialogue to a one-time reward.
-No source save files or personal seed reports are included in the repository.
+- **1,422 rc-game library tests passed**, locked offline dependencies, no default
+  features, release profile with host optimization disabled. This includes the
+  full thousand-layout randomizer survey and the actual race-command, reward,
+  persistent-vendor, shortcut, retained-enemy and burst-tracking tests.
+- **223 Python tests passed**, covering profiles, localization, source identity,
+  scoped Rust recovery, packaging and draft-only release behavior. The final run
+  used matching development/draft descriptors; an earlier run during descriptor
+  preparation is not counted as a successful validation.
+- Direct comparison of unnormalized INI documents confirms **all 2,592 existing
+  default settings are unchanged**. The only added key is the neutral
+  general.enemy_burst_tracking = false. The default/example, optional embedded
+  profile and default-profile fingerprint remain consistent.
+- The supplied Windows v123 log independently records 162 passing format tests
+  (one ignored), 1,422 passing game-library tests, native rc-engine linking and
+  actual EXE patch 123/capability 93. It describes the supplied local build, not
+  the later release commit's independent build.
 
-This is not a complete v123 source reconciliation, Windows engine/GUI build or
-GPU playtest. The earlier local v122 Windows build log is not evidence that this
-different main commit has linked on Windows. The
-[0.4.2 preparation notes](../releases/v0.4.2.md) record the remaining integration
-boundary. Runtime/release descriptors and existing downloadable assets have not
-been advanced by this source update.
+The checked draft workflow reruns Windows tests, builds the runtime and frozen
+launcher, and attaches player/source ZIPs, checksums and release-build.json from
+one exact commit. Its completed run is authoritative for those binaries. These
+host results do not claim a GPU playtest or universal randomizer solvability.
+Native saves, matching companions, seeds, placements and personal profiles are
+preserved. No game assets or player save/log files enter the source export.
 
-# 0.4.1 candidate verification
+Historical local verification follows.
+
+---
+
+# v118 local test verification
+
+ReRAC **0.3.8-alpha**, gameplay **0.1.6.118**, configuration capability **93**,
+launcher **0.29.6**. Changes: [Orxon shortcut](ORXON_SHORTCUT_V118.md).
+No GitHub operations. Balance, launcher implementation and save formats remain
+unchanged from v117; the existing 117.3 Rust download recovery is retained.
+
+The v118 regressions use Orxon's real alias class 1141 through the scheduler,
+not only a Novalis-class synthetic fixture. Scope checks cover absent O2,
+ordinary games, Weapons-only mode, another planet, inactive layouts and completed
+Clank checks. The hidden lift starts below, waits until boarded, and retains
+native movement afterward. An existing rider is not snapped; transient state
+resets on reload. Source-anchor fallback survives pickup actor reuse.
+
+Python verification also covers reuse of a verified compiler cache from a sibling
+mod test kit, avoiding another download after the successful 117.3 recovery.
+**1,396 rc-game library tests passed**, with no warnings.
+**223 Python tests passed**; the updated marked-cache filter also passed its
+eight focused build-tool tests. Source inventory, source hashes and kit
+preflight checks are run again on the exported package.
+The host still lacks Windows/GPU/game assets and full engine dependencies, so
+Windows runtime linking, GUI execution and the user's actual Orxon scene must be
+verified by the local installer and gameplay test.
+
+## Inherited v117 verification and installer history
+
+# v117 local test verification
+
+ReRAC **0.3.8-alpha**, gameplay **0.1.6.117**, configuration capability **93**,
+launcher **0.29.6**. This package is a local source test; no GitHub push or release
+operation was performed.
+
+- **1,393 rc-game library tests passed**, with no Rust warnings. New coverage
+  includes rail collection policy, retained Kalebo robot lives, fixed-room camera
+  scope/aim, Orxon shortcut isolation, burst launch vectors and wrench XP timing/caps.
+- **222 Python tests passed**, covering launcher schema/localization, neutral
+  migration, balance preservation, installer integrity/rollback and packaging.
+  Release upload tests use mocks and do not contact GitHub.
+- Source inventory and reviewed hashes passed `tools/mod/check_source.py`.
+  The 2,592 preceding author-supplied values remain unchanged; the only additional
+  default is `enemy_burst_tracking = false` (2,593 values in 146 sections).
+- Complete source export is integrity-checked against its bundled SHA-256 map;
+  native binaries, private settings, saves, build outputs and disc assets are excluded.
+
+Host limits: rc-engine checking could not start because the host's offline Cargo
+cache lacks engine dependencies (first missing package: ab_glyph). This host has
+no Windows GUI/display or extracted game assets. Consequently this is not a
+Windows runtime/GUI build or a gameplay verification. The local installer runs
+fresh Rust checks, compiles the exact bundled engine, verifies its reported EXE
+identity, and tests the standalone GUI before replacing the playable installation.
+The Orxon geometric lift match needs the in-game check described in
+[COMBAT_PICKUPS_V117.md](COMBAT_PICKUPS_V117.md); ambiguous geometry fails closed.
+
+Installer revision **117.1** fixes only the stale preflight version check.
+Five new tests cover the exact pre-Cargo validator and export guard. Gameplay
+and launcher source match the first v117 kit byte for byte.
+
+Installer revision **117.2** adds seven regression tests for compiler
+preflight/recovery, verified-cache reuse, environment isolation and blocked
+execution. The metadata probe also passed against an actual host Rust compiler.
+Downloading/executing the separate Windows toolchain still requires the user's
+Windows test; automated failure/recovery tests use controlled subprocess mocks.
+
+Installer revision **117.3** adds seven transport-fallback tests, including an
+actual child process stream/exit check. Network success/failure cases use
+controlled subprocess mocks; connectivity from the user's Windows network and
+support for the optional cURL backend cannot be established on this host.
+
+## Previous candidate evidence
+
 
 Current source: ReRAC **0.3.8-alpha**, gameplay **0.1.6.116**, capability **92**,
 launcher **0.29.5**. The v116 local validation passed **1,382 rc-game library

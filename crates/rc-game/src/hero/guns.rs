@@ -137,6 +137,9 @@ mod tests {
 /// Third-person combat aim converges from the real muzzle to the camera ray.
 /// The normal muzzle/world collision checks still run in each weapon's update.
 pub fn combat_direction(hero: &Hero, env: &ItemEnv, muzzle: [f32; 3], range: f32) -> [f32; 3] {
+    if hero.fixed_combat_aim && hero.combat_strafe {
+        return [hero.rot[2].to_f32().cos(), hero.rot[2].to_f32().sin(), 0.];
+    }
     let fallback = super::physics::to_f32x3(hero.moby_rows[0]);
     let Some((eye, forward)) = env.camera else { return fallback };
     let end = add3(eye, with_len(forward, range));
@@ -146,4 +149,22 @@ pub fn combat_direction(hero: &Hero, env: &ItemEnv, muzzle: [f32; 3], range: f32
     let aim = sub3(point, muzzle);
     // A wall behind the muzzle must never make a shot travel backwards.
     if dot3(aim, forward) <= 0.05 { with_len(forward, 1.0) } else { with_len(aim, 1.0) }
+}
+
+#[cfg(test)]
+mod fixed_combat_tests {
+    use super::*;
+    #[test]
+    fn weapon_test_room_aim_stays_level_without_changing_other_camera_aim() {
+        let mut hero=Hero::new();hero.combat_strafe=true;hero.fixed_combat_aim=true;
+        hero.rot[2]=crate::ps2v::Pf::f(std::f32::consts::FRAC_PI_2);
+        let data=super::super::items::ItemData::default();
+        let pad=crate::pad::PadState::default();
+        let env=ItemEnv{data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,mobys:None,
+            camera:Some(([20.,30.,40.],[0.5,0.,-0.5])),camera_up:None,targets:&[]};
+        let d=combat_direction(&hero,&env,[0.,0.,0.],20.);
+        assert!(d[0].abs()<0.0001 && (d[1]-1.).abs()<0.0001);assert_eq!(d[2],0.);
+        hero.fixed_combat_aim=false;
+        assert!(combat_direction(&hero,&env,[0.,0.,0.],20.)[2].abs()>0.01);
+    }
 }

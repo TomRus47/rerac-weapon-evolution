@@ -310,6 +310,13 @@ pub fn grant_with_equip(gs:&mut GameState,session:&mut SessionState,items:&ItemT
     }
     true
 }
+/// Scripted collection must never take control away from a live grind ride.
+/// The native no-cutaway location flag remains an additional independent gate.
+pub fn pickup_cutaway_allowed(hero: &crate::hero::Hero) -> bool {
+    hero.health > 0 && !is_swimming(hero) && hero.group != 0xf
+        && !matches!(hero.state, 0x28 | 0x29 | 0x2b | 0x42)
+}
+
 pub fn is_swimming(hero:&crate::hero::Hero)->bool {
     hero.in_water!=0 || matches!(hero.state,0x33..=0x37|0x6a|0x73)
         || matches!(hero.group,0x11|0x12)
@@ -495,3 +502,15 @@ mod tests {
 #[cfg(test)]
 #[path="weapon_evo_golden/tests.rs"]
 mod expanded_tests;
+
+#[cfg(test)]
+mod rail_feedback_tests {
+    #[test]
+    fn rail_swim_and_dead_pickups_never_take_control() {
+        let mut h=crate::hero::Hero::new();h.health=4;
+        assert!(super::pickup_cutaway_allowed(&h));
+        for state in [0x28,0x29,0x2b,0x42] {h.state=state;assert!(!super::pickup_cutaway_allowed(&h));}
+        h.state=0;h.group=0xf;assert!(!super::pickup_cutaway_allowed(&h));
+        h.group=0;h.health=0;assert!(!super::pickup_cutaway_allowed(&h));
+    }
+}

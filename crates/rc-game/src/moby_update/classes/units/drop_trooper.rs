@@ -654,6 +654,7 @@ pub fn drop(w: &mut World, id: MobyId, wait: i32) {
 
 /// `0x2a7a98(m, v, p)` (module table).
 pub fn spawn_shot(w: &mut World, owner: MobyId, v: c::V, p: c::V) -> Option<MobyId> {
+    let v=crate::weapon_evo::burst::velocity(w,owner,link(w,owner,pv::T_MOBY),p,v);
     let s = w.create_moby(SHOT)?;
     let (light, ambient) = (w.m(owner).light, w.m(owner).ambient);
     let life = w.ticks(0xf0);

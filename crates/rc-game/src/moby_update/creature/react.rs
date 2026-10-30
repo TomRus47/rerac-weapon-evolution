@@ -169,6 +169,7 @@ pub const VELDIN_749: Wrappers = Wrappers { held: 9, release: 5, start_only: Non
 
 /// `0x2defb0(target)`: the Morph-o-Ray's morph (a spawn and a delete: `crate::moby_update::classes::chicken::morph`).
 pub fn morph_target(w: &mut World, target: MobyId) -> Option<MobyId> {
+    w.renew_retained_enemy(target);
     let source=w.table.mobys.get(target)?;
     // Repeated callbacks must not transform a corpse, an already consumed
     // retained actor, or the chicken created by the previous conversion.

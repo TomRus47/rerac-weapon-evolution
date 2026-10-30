@@ -255,6 +255,7 @@ pub(crate) fn frozen_damage(w: &mut World, id: MobyId) -> bool {
 /// `0x26f378` for moby `id`, damage record at pvar `d`, the hit `hit` (the record `MobyGetHitMessage` returned),
 /// caller flags `flags4`, column `col` (4 = the record's own +0x08).
 pub fn resolve(w: &mut World, id: MobyId, hit: Option<HitRecord>, d: usize, flags4: u32, col: i32) -> Resolved {
+    w.renew_retained_enemy(id);
     // An ignored result must never survive into a later hit or another target.
     w.evolution_hit = None;
     let mut r = Resolved { reaction: 0, out5: 0, damage: 0.0, class: -1, kind: None, hit };

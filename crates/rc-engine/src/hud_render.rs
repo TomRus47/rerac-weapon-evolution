@@ -720,6 +720,7 @@ struct HudRuntime {
     game: Inputs,
     /// v0.1.5 evolution notice state, scoped to the current level/HUD runtime.
     evo_notice: rc_game::weapon_evo::notice::State,
+    wrench_xp: rc_game::hud::wrench_xp::Lease,
     /// The last pickup banner shown (`rc_game::moby_update::classes::pickup::Banner::seq`).
     banner_seq: u32,
     /// The last `rc_game::cinematic::Cinematic::banner` call shown.
@@ -1072,6 +1073,7 @@ fn setup(
         // Until the first frame reads the game state (Persistent / Session / HeldWeapon): 4/4, no bolts, no slot.
         game: Inputs { lang: lh.lang, ..Default::default() },
         evo_notice: rc_game::weapon_evo::notice::State::default(),
+        wrench_xp: Default::default(),
         banner_seq: 0,
         cine_banner_seq: 0,
         reset: 0,
@@ -1226,6 +1228,8 @@ fn tick_and_build(
         if evo.world_settings.enemy_damage_by_health {levels[0]=(evo.nanotech.bonus+1).min(301) as u16;}
         let duration=(evo.hud.level_up_popup_duration_seconds*60.0).round().max(1.0) as u64;
         let alive=p.game.hero.health>0 && !matches!(p.game.hero.state,0x7b|0x7f);
+        rt.wrench_xp.update(p.game.counter,evo.wrench_xp_feedback_serial,
+            evo.weapon_level(8).unwrap_or(1),evo.ng_plus,alive);
         let started=rt.evo_notice.update(p.game.counter,alive,evo.hud.level_up_popup || evo.world_settings.enemy_damage_by_health,levels,duration);
         evo_notice_sound=started && if rt.evo_notice.popup().is_some_and(|p|p.0==0){evo.world_settings.nanotech_upgrade_sound}else{evo.hud.level_up_sound};
     }
@@ -1301,20 +1305,31 @@ fn tick_and_build(
                 let draws=rc_game::hud::xp_bar::draws(left,top,width,nanotech_height,fraction,alpha,maxed);
                 crate::text_render::execute(&mut rt.hud2d,&mut st,&rt.glyphs,&draws);
             }
-            let item = rt.state.weapon_evo_display_item(true).unwrap_or(0);
+            let wrench_fade = rt.wrench_xp.alpha();
+            let wrench_feedback = wrench_fade > 0. && evo.weapon_hud_enabled(8);
+            let item = if wrench_feedback {8} else {rt.state.weapon_evo_display_item(true).unwrap_or(0)};
             let without_ammo=ui.show_for_weapons_without_ammo || (item==8 && evo.weapon_hud_enabled(8));
             let gold = p.game.hero.weapons.gold.get(item as usize).is_some_and(|&g| g != 0);
             let label = if evo.weapon_hud_enabled(item) {evolution_native_name(rt,item,gold).and_then(|name|evo.equipped_title(item,name))}else{None};
-            if let (Some((name_x, y, _)), Some(label)) =
-                (rt.state.weapon_evo_anchor(item, without_ammo), label) {
+            let anchor = if wrench_feedback {rt.state.wrench_feedback_anchor()}
+                else {rt.state.weapon_evo_anchor(item, without_ammo)};
+            if let (Some((name_x, y, panel_width)), Some(label)) = (anchor, label) {
                 let height = ui.xp_bar_height_px;
                 let (panel_top,bottom_y)=rc_game::hud::xp_bar::weapon_rows(y,height,ui.weapon_bar_alternative_position);
-                let fade = if item==8 && evo.wrench_quickselect_only(){rt.state.weapon_evo_quickselect_fade()}else{rt.state.weapon_evo_fade(item, without_ammo)};
+                let fade = if item==8 {
+                    let native = if evo.wrench_quickselect_only(){rt.state.weapon_evo_quickselect_fade()}
+                        else {rt.state.weapon_evo_fade(item,without_ammo)};
+                    native.max(wrench_fade)
+                } else {rt.state.weapon_evo_fade(item,without_ammo)};
                 let alpha_bar = (128.0 * fade) as u32;
                 if alpha_bar > 0 {
-                    if let Some((left, _, outer_width)) = rt.state.weapon_evo_xp_anchor(
-                        item, without_ammo, rt.evo_bar_cap_inset,
-                    ) {
+                    let xp_anchor = if wrench_feedback {
+                        let inset=rt.evo_bar_cap_inset.clamp(0,31);
+                        let left=(name_x+inset).max(-rt.extra);
+                        let right=(name_x+panel_width-inset).min(512+rt.extra);
+                        (right-left>=3).then_some((left,y,right-left))
+                    } else {rt.state.weapon_evo_xp_anchor(item,without_ammo,rt.evo_bar_cap_inset)};
+                    if let Some((left, _, outer_width)) = xp_anchor {
                         // The border is inside the panel span; legacy INI inset only
                         // keeps its old name position, it cannot misalign the XP bar.
                         let draws=rc_game::hud::xp_bar::draws(left,bottom_y,outer_width,height,

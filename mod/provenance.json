@@ -160,5 +160,14 @@
   },
   "latest_mod_delta": "v109.1 test kit supplied by the mod author; SOURCE_CHANGES.patch applied to main 69aadb075942a5dfd923758ad300c26c30a5a7c8. Original supplied upstream baseline hash remains historical.",
   "upstream_previous_revision": "89c87e98f9d8296187df2a6310c67b32144090d3",
-  "local_mod_base": "e2269eb4afd5574d3f70c9d19a612d52c771102e"
+  "local_mod_base": "e2269eb4afd5574d3f70c9d19a612d52c771102e",
+  "local_v123_integration": {
+    "runtime_base": "0.3.8-alpha",
+    "patch": "0.1.6.123",
+    "source": "Author-supplied complete prepared v123 test kit",
+    "verified_source_files": 1416,
+    "inventory_sha256": "8ad33af9db17be64d38134689ceb7e554d7e9eeefa364af811ff24fea84c902f",
+    "reconciliation_base": "f5c95d6f75e4e353bcb45983d03d221f372cf224",
+    "notes": "All inventoried files verified before import. Main reward/vendor/race fixes retained; caches, kit logs, installation state and player saves excluded. Existing default values preserved; only enemy_burst_tracking=false added."
+  }
 }
