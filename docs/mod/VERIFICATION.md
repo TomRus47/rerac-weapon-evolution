@@ -30,6 +30,12 @@ host results do not claim a GPU playtest or universal randomizer solvability.
 Native saves, matching companions, seeds, placements and personal profiles are
 preserved. No game assets or player save/log files enter the source export.
 
+The first draft CI attempt exposed Windows TEMP's short 8.3 alias in three Rust
+recovery fixtures. The fixtures now resolve their roots, matching production's
+existing canonical paths, including the sibling-cache mock. Production recovery
+and gameplay code are unchanged. Draft build revision 2 reruns those checks;
+the failed first attempt did not create or publish a release.
+
 Historical local verification follows.
 
 ---

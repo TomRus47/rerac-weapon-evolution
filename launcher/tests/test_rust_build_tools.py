@@ -11,7 +11,8 @@ import rust_build_tools as tools
 
 class RustBuildToolsTests(unittest.TestCase):
     def fixture(self,folder):
-        root=Path(folder);source=root/'source';source.mkdir();bundle=root/'kit';bundle.mkdir()
+        # Windows TEMP may use an 8.3 alias; production resolves kit roots.
+        root=Path(folder).resolve();source=root/'source';source.mkdir();bundle=root/'kit';bundle.mkdir()
         return source,bundle
 
     def test_working_global_compiler_needs_no_download(self):
@@ -56,8 +57,8 @@ class RustBuildToolsTests(unittest.TestCase):
     def test_sibling_test_kit_verified_compiler_is_reused_without_download(self):
         with tempfile.TemporaryDirectory() as folder,patch.dict(os.environ,{'PATH':'original'},clear=True):
             source,bundle=self.fixture(folder)
-            for i in range(40):(Path(folder)/f'ReRAC_Weapon_Evolution_v999_{i}').mkdir()
-            old=Path(folder)/'ReRAC_Weapon_Evolution_v117_3_Download_Recovery'/'build-tools'
+            for i in range(40):(bundle.parent/f'ReRAC_Weapon_Evolution_v999_{i}').mkdir()
+            old=bundle.parent/'ReRAC_Weapon_Evolution_v117_3_Download_Recovery'/'build-tools'
             old.mkdir(parents=True);(old/'verified-rust.json').write_text('{"root":"rustup-1173"}')
             def check(rustup,env,source):
                 if env.get('RUSTUP_HOME')!=str(old/'rustup-1173'):raise ValueError('not the working cache')

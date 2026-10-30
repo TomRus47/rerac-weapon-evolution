@@ -3409,7 +3409,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "6b7e623cf659597788f02e79167479a3d9710d12b5ee05245ff799d5358b44e2"
+      "sha256": "2456f00de5b5cbe1301da65c3c891d124ea036ca959504c95ba20d4dc6c6f323"
     },
     {
       "path": "docs/mod/VERIFICATION_V115.md",
@@ -3871,7 +3871,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "40f92cdf6a484c07ef9312594bc20ab112879f4d7da1528651a198fda802f0ec"
+      "sha256": "5af46996a26b6ccf07268563cce15211265d96d9992ba919a64ce6565daa9024"
     },
     {
       "path": "launcher/tests/test_rust_download.py",
@@ -4039,7 +4039,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "d4576266f05da2e7f3fcddbec8c96f4f76d6a6b0d6ef3c4c39da29a69f0ba013"
+      "sha256": "0cab17fb122089b44c41bf0b6b9f41177703bd783090ca49ec8339b1c6cee41d"
     },
     {
       "path": "mod/provenance.json",
