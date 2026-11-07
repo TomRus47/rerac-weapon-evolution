@@ -62,5 +62,5 @@ fn defeat_keeps_the_native_corpse_visible_and_never_spawns_a_render_projectile()
     fire(&mut h,&mut t,&mut s,2,&mut anim);
     assert!(!h.gadget_combat.holding);assert!(s.svc.gadget_combat.drill.is_none());
     assert_eq!(t.mobys.len(),length);assert_eq!(t.mobys[1].mode&mode::HIDDEN,0);
-    assert!(t.mobys[1].has_collision,"native death update owns collision removal");
+    assert!(!t.mobys[1].has_collision,"a defeated capture must not regain body collision");
 }

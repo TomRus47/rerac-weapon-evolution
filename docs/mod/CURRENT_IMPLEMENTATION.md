@@ -1,3 +1,10 @@
+# Current v138 gadget follow-up
+
+ReRAC 0.3.8-alpha; gameplay 0.1.6.138; capability 97; launcher 0.30.2 retained.
+See [temporary capture collision and native frost audio](LOCAL_TEST_V138.md).
+Native damage/XP, saves, seeds and balance remain unchanged. Previous sections
+below retain their original version-specific scope. No release is created.
+
 # Current v137 gadget follow-up
 
 ReRAC 0.3.8-alpha; gameplay 0.1.6.137; capability 97; launcher 0.30.2 retained.

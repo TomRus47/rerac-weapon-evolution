@@ -1,3 +1,10 @@
+## Local development v138 — ReRAC 0.3.8-alpha
+
+- Temporarily remove a captured Trespasser victim's physical collision so it cannot push Ratchet and break capture. Restore the prior state when releasing a living victim; never restore an old lease onto a dead or reused slot.
+- Start the Trespasser motor only with a living captured enemy. Stop on release, defeat, interruption or lost allocation, including world cleanup before the item update.
+- Play the native Hoven freeze one-shot once at each Freezer detonation, not once per affected enemy. Import missing sound definitions on the level loader and reuse the existing audio cache; no impact-time disc reads or sound actors.
+- Retain the existing launcher/icon, author INI values, damage/XP accounting, saves, seed generation and gameplay defaults. Supply a standalone runtime-only test/update and playable-ZIP packaging kit.
+
 ## Local development v137 — ReRAC 0.3.8-alpha
 
 - Restore native run/walk after early Swingshot release; do not force idle while moving.

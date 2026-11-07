@@ -190,3 +190,21 @@ pub(crate) fn install_companion_audio(root:&Path,a:&mut rc_game::audio::LevelAud
     rc_game::audio::import::class_sounds(a,&source,&[1818,1633]).map_err(anyhow::Error::msg)?;
     Ok(())
 }
+
+/// Make the native freeze one-shot available on planets whose bank omits it.
+/// Use the existing loader-only cache; never read the disc during an impact.
+pub(crate) fn install_freezer_audio(root:&Path,a:&mut rc_game::audio::LevelAudio)->Result<()> {
+    let live=std::env::var_os("RC_WEAPON_LIVE_DIR").is_some();
+    // Audio can load before the active gameplay registry is published.
+    let requested=live||rc_game::weapon_evo::inspect_profile().is_some_and(|e|e.gadget_settings.ice_enabled);
+    if !requested{return Ok(());}
+    let class=i32::from(rc_game::hero::damage::ICE_CLASS);
+    let present=|audio:&rc_game::audio::LevelAudio|audio.sounds.def(
+        rc_formats::sound_bank::SoundOwner::Class(class),0)
+        .is_some_and(|d|d.index!=0xffff&&(d.index as usize)<audio.bank.sounds.len());
+    if present(a){return Ok(());}
+    let source=reference_audio(root,12)?; // Hoven, where Ratchet freezes in the water.
+    rc_game::audio::import::class_sounds(a,&source,&[class]).map_err(anyhow::Error::msg)?;
+    anyhow::ensure!(present(a),"missing native Hoven freeze sound after import");
+    Ok(())
+}

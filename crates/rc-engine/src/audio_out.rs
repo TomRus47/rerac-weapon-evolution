@@ -73,6 +73,7 @@ pub fn load(root: &Path, index: u32, core_index: &[u8], core: &LevelCore, core_d
     match run() {
         Ok(mut a) => {
             if let Err(e)=crate::companion_assets::install_companion_audio(root,&mut a){eprintln!("audio: companion import failed; native audio preserved: {e:#}");}
+            if let Err(e)=crate::companion_assets::install_freezer_audio(root,&mut a){eprintln!("audio: Freezer import failed; native audio preserved: {e:#}");}
             let names: Vec<&str> = a.music.iter().flatten().map(|m| m.name.as_str()).collect();
             println!(
                 "audio: {} sounds, {} samples, {} level defs, {} sound instances, music {:?}; load {:.1} ms (RC_AUDIO=0 disables, RC_AUDIO_WAV=path records 10 s)",

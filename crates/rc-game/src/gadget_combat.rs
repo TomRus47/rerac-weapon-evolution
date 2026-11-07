@@ -107,13 +107,17 @@ impl Lease {
 struct Frozen {lease:Lease,until:u64,ice_until:u64,rotation:[f32;4],ambient:Option<[u8;4]>,color:Option<u32>,drill:bool,keep_rows:bool,saved_rows:[[f32;4];3]}
 #[derive(Clone,Debug)]
 struct Cable {target:Option<Lease>,point:V,tip:V,phase:u8,age:u16}
+/// Only the physical collision presence is borrowed by capture. Primitive
+/// masks, targetability and native damage intake remain owned by the enemy.
+#[derive(Clone,Debug)]
+struct DrillCollision {lease:Lease,enabled:bool}
 #[derive(Clone,Debug)]
 struct Upright {lease:Lease,base:[f32;4],start:f32,left:u8,yaw:f32}
 #[derive(Clone,Debug)]
 struct Ice {pos:V,vel:V,travel:f32,age:u16,settings:Settings}
 #[derive(Clone,Debug,Default)]
 pub struct Runtime {
-    upright:Vec<Upright>,frozen:HashMap<MobyId,Frozen>,cable:Option<Cable>,drill:Option<Lease>,drill_pivot:Option<(Lease,V,f32)>,
+    upright:Vec<Upright>,frozen:HashMap<MobyId,Frozen>,cable:Option<Cable>,drill:Option<Lease>,drill_pivot:Option<(Lease,V,f32)>,drill_collision:Option<DrillCollision>,
     ice:Vec<Ice>,
     pub ice_ammo:Option<u16>,pub ice_visit:Option<u32>,next_ice:u64,spin:f32,sound:Option<(MobyId,i32)>,
     pub drawn_ice:Vec<(V,f32,u32)>,
@@ -164,6 +168,13 @@ fn hold(rt:&mut Runtime,w:&World,id:MobyId,until:u64,color:Option<u32>,drill:boo
 }
 fn sound_stop(rt:&mut Runtime,w:&mut World){if let Some((id,slot))=rt.sound.take(){w.release_sound(slot,id);}}
 fn release_drill(rt:&mut Runtime,w:&mut World,throw:bool){
+    sound_stop(rt,w);
+    if let Some(saved)=rt.drill_collision.take(){
+        // A dead or recycled actor must never regain collision from an old grip.
+        if saved.lease.valid(w)&&enemy(w,saved.lease.id){
+            w.mm(saved.lease.id).has_collision=saved.enabled;
+        }
+    }
     rt.drill_pivot=None;
     if let Some(lease)=rt.drill.take(){
         if lease.valid(w){
@@ -201,6 +212,9 @@ pub fn frozen(w:&World,id:MobyId)->bool{w.svc.gadget_combat.frozen.get(&id)
 pub fn world_tick(w:&mut World){
     let mut rt=std::mem::take(&mut w.svc.gadget_combat);clear_tint(w,&mut rt);
     rt.recharge.tick(&mut rt.ice_ammo,w.svc.bomb_evo.gadget_settings,w.counter,w.hero.health>0&&w.svc.game_mode==0);
+    if rt.drill.is_some_and(|lease|!lease.valid(w)||!enemy(w,lease.id)){
+        release_drill(&mut rt,w,false);
+    }
     if w.hero.health<=0{
         for f in rt.frozen.values(){if f.lease.valid(w){restore_frozen_transform(w,f);}}
         sound_stop(&mut rt,w);release_drill(&mut rt,w,false);rt.frozen.clear();rt.upright.clear();rt.cable=None;rt.ice.clear();rt.drawn_ice.clear();rt.frost_bursts.clear();rt.frost_mist.clear();}
@@ -234,6 +248,7 @@ pub fn world_tick(w:&mut World){
             let color=i.settings.explosion_color;
             rt.frost_bursts.push(crate::weapon_evo::wrench::SlamVisual{centre:i.pos,radius:i.settings.ice_radius,
                 color:((color&255)<<16)|(color&0xff00)|((color>>16)&255),born:w.counter});
+            frost_impact_sound(w,i.pos);
             // One coherent radial frost puff, not an active bomb/damage actor.
             for n in 0..12{let a=n as f32*std::f32::consts::TAU/12.;mist(w,add(i.pos,[a.cos()*i.settings.ice_radius*0.5,a.sin()*i.settings.ice_radius*0.5,0.3]),i.settings.explosion_color,0.8);}
             false
@@ -242,6 +257,15 @@ pub fn world_tick(w:&mut World){
     w.svc.gadget_combat=rt;
 }
 
+/// Native Hoven sinking-death ice: class 0x52a, sound 0 (hero::fx::Ice).
+/// A fixed-position one-shot needs neither a visible ice actor nor a loop slot.
+fn frost_impact_sound(w:&mut World,point:V){
+    let Some(owner)=w.hero_moby else{return};
+    let event=crate::moby_update::services::SoundEvent{index:0,flags:0,moby:owner,
+        o_class:w.m(owner).o_class,sound_class:crate::hero::damage::ICE_CLASS,pos:point,tick:w.counter};
+    w.svc.sounds.push(event);
+    if let Some(sound)=w.sound.as_deref_mut(){sound.play_class_sound(&event,w.rng);}
+}
 fn drill_hit(w:&World,dps:f32)->HitTemplate{HitTemplate{attacker:w.hero_moby,flags:0x10000,b18:0,b19:1,h1a:188,
     damage:Pf::f(dps/100.),dir:[Pf::ZERO,Pf::ZERO,Pf::ONE,Pf::b(0x45af_df66)],w20:1|DRILL_HIT}}
 fn mist(w:&mut World,point:V,color:u32,size:f32){
@@ -284,13 +308,10 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:
         }
         if drill_grounded&&fire&&id==26&&s.drill_enabled&&!native_drill{
             rt.spin=(rt.spin+s.drill_spin.to_radians()*DT)%std::f32::consts::TAU;
-            if rt.sound.is_none(){if let Some(owner)=w.hero_moby{
-                // Portable native motor loop; no external audio files or probes.
-                let slot=w.play_sound_as(2,4,owner,crate::hero::suck_cannon::CLASS);if slot>=0{rt.sound=Some((owner,slot));}
-            }}
             if rt.drill.is_none(){if let Some(target)=seek(w,start,direction,s.drill_range,false).filter(|&i|!crate::weapon_evo::world::boss(w.m(i).o_class)){
                 let lease=Lease::of(w,target);let (pivot,radius)=drill_bounds(w,target);
                 rt.drill=Some(lease);rt.drill_pivot=Some((lease,pivot,radius));
+                rt.drill_collision=Some(DrillCollision{lease,enabled:w.m(target).has_collision});
                 // Capture one real idle pose when available, without touching AI state.
                 let m=w.mm(target);m.anim.seq_a=0;m.anim.seq_b=0;m.anim.frame_a=0;m.anim.frame_b=0;m.anim.t=0.;
             }}
@@ -304,6 +325,9 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:
                     // Native HP intake owns death, drops and XP. No replacement actor.
                     release_drill(&mut rt,w,false);
                 }else{
+                    // Remove body collision before the next hero-scene snapshot;
+                    // direct drill hits still use native accepted-damage intake.
+                    w.mm(lease.id).has_collision=false;
                     hold(&mut rt,w,lease.id,w.counter+2,None,true);
                     let (pivot,radius)=rt.drill_pivot.filter(|(p,_,_)|*p==lease).map(|(_,p,r)|(p,r)).unwrap_or(([0.,0.,0.7],0.5));
                     let anchor=add(start,scale(direction,(radius*0.65).clamp(0.2,1.)));
@@ -312,6 +336,12 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:
                 }
             }
         }
+        if out.holding{
+            if rt.sound.is_none(){if let Some(owner)=w.hero_moby{
+                let slot=w.play_sound_as(2,4,owner,crate::hero::suck_cannon::CLASS);
+                if slot>=0{rt.sound=Some((owner,slot));}
+            }}
+        }else{sound_stop(&mut rt,w);}
         if !can||id!=12||!s.swing_enabled||native_swing{rt.cable=None;}
         if can&&id==12&&s.swing_enabled&&!native_swing{
             if rt.cable.is_none()&&env.pad.pressed&(button::CIRCLE|button::R2)!=0{
@@ -718,3 +748,7 @@ mod v136_tests;
 #[cfg(test)]
 #[path="gadget_combat_v137_tests.rs"]
 mod v137_tests;
+
+#[cfg(test)]
+#[path="gadget_combat_v138_tests.rs"]
+mod v138_tests;

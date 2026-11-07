@@ -1,3 +1,31 @@
+# v138 capture collision and frost audio verification
+
+- 1,510 rc-game library tests passed; three unchanged large historical seed
+  surveys were filtered out. Eight new regressions cover temporary physical
+  collision ownership, original false/mask preservation, native collision-query
+  rejection while held and acceptance after release, empty/captured motor audio,
+  defeat/recycled-slot cleanup, jump/unequip/disabled/death interruptions,
+  world-tick cleanup, accepted HP/Nanotech XP with collision absent and one native
+  Hoven sound event at the actual frost impact per detonation.
+- All 287 Python launcher/tool tests passed, including full-source v138 export,
+  runtime identity, CRLF scripts, retained GUI and source-integrity checks.
+- Audio tests use a SoundSink implementation that allocates a voice slot and
+  records its release, rather than treating a refused play as an active loop.
+  The frost test checks exact class/index/flags and position, freezes a real
+  enemy and confirms that no actor is allocated to own the one-shot.
+- Existing native audio importer tests pass. Cross-planet stock Hoven bank
+  availability, audible output and engine linking require the included Windows
+  test; the host has no disc assets, GPU playthrough or Windows linker.
+- All INIs, approved default descriptor, save-format code, randomizer generator,
+  launcher/icon, public release metadata and manual-only draft workflow remain
+  byte-identical to v137. No new launcher fields or save schema are introduced.
+- Exported source is checked by SHA256, including a separately extracted kit;
+  the source API validator also checks the prepared engine identity/interfaces.
+- Main synchronization creates no tag, release, draft or GitHub asset. Existing
+  original-game rights notices, ReRAC credits and licenses are retained.
+
+Earlier records below retain their version-specific scope.
+
 # v137 gadget input, animation and pivot verification
 
 - 1,502 rc-game library tests passed; three unchanged large historical seed

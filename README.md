@@ -1,4 +1,4 @@
-> Current development v137: [grapple locomotion, centred drill capture and Freezer equip gating](docs/mod/LOCAL_TEST_V137.md). Complete standalone source; existing launcher, icon, balance and saves retained. No release or draft is created.
+> Current development v138: [collision-safe Trespasser capture and native Freezer impact audio](docs/mod/LOCAL_TEST_V138.md). Complete standalone source; existing launcher, icon, balance and saves retained. No release or draft is created.
 
 > Local v135: [gadget pose fixes and Freezer HUD/recharge](docs/mod/LOCAL_TEST_V135.md). Includes a matching launcher update. Local testing only; no public release.
 
