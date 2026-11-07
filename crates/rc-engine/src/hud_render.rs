@@ -1306,11 +1306,12 @@ fn tick_and_build(
                 crate::text_render::execute(&mut rt.hud2d,&mut st,&rt.glyphs,&draws);
             }
             let wrench_fade = rt.wrench_xp.alpha();
-            let wrench_feedback = wrench_fade > 0. && evo.weapon_hud_enabled(8);
+            let wrench_feedback = wrench_fade > 0. && evo.weapon_hud_enabled(8) && p.game.hero.items.slot.id!=22;
             let item = if wrench_feedback {8} else {rt.state.weapon_evo_display_item(true).unwrap_or(0)};
             let without_ammo=ui.show_for_weapons_without_ammo || (item==8 && evo.weapon_hud_enabled(8));
             let gold = p.game.hero.weapons.gold.get(item as usize).is_some_and(|&g| g != 0);
-            let label = if evo.weapon_hud_enabled(item) {evolution_native_name(rt,item,gold).and_then(|name|evo.equipped_title(item,name))}else{None};
+            let freezer = (item==22).then(||p.svc.gadget_combat.freezer_hud(evo.gadget_settings)).flatten();
+            let label = if item==22 {Some(rc_game::gadget_combat::freezer::name(language()).to_vec())}else if evo.weapon_hud_enabled(item) {evolution_native_name(rt,item,gold).and_then(|name|evo.equipped_title(item,name))}else{None};
             let anchor = if wrench_feedback {rt.state.wrench_feedback_anchor()}
                 else {rt.state.weapon_evo_anchor(item, without_ammo)};
             if let (Some((name_x, y, panel_width)), Some(label)) = (anchor, label) {
@@ -1333,7 +1334,8 @@ fn tick_and_build(
                         // The border is inside the panel span; legacy INI inset only
                         // keeps its old name position, it cannot misalign the XP bar.
                         let draws=rc_game::hud::xp_bar::draws(left,bottom_y,outer_width,height,
-                            evo.weapon_fraction(item).unwrap_or(0.0),alpha_bar,evo.weapon_at_cap(item));
+                            freezer.map_or_else(||evo.weapon_fraction(item).unwrap_or(0.0),|hud|hud.fraction),
+                            alpha_bar,freezer.map_or_else(||evo.weapon_at_cap(item),|hud|hud.full()));
                         crate::text_render::execute(&mut weapon_xp_batch,&mut st,&rt.glyphs,&draws);
                     }
                 }
@@ -1356,7 +1358,7 @@ fn tick_and_build(
                         rt.hud2d.sprite(middle, text_x, panel_top, text_width, panel_height, panel_alpha, Rot::None);
                         rt.hud2d.sprite(cap, text_x + text_width, panel_top, padding, panel_height, panel_alpha, Rot::R180);
                         crate::text_render::font_print(&mut rt.hud2d, &mut st, &rt.glyphs[font as usize],
-                            font, text_x, panel_top, (alpha_name << 24) | rc_game::hud::xp_bar::weapon_name_rgb(evo.weapon_level(item).unwrap_or(1)),
+                            font, text_x, panel_top, (alpha_name << 24) | rc_game::hud::xp_bar::weapon_name_rgb(if freezer.is_some_and(|hud|hud.full()){5}else{evo.weapon_level(item).unwrap_or(1)}),
                             &label, label.len() as i32);
                     }
                 }
@@ -1450,6 +1452,14 @@ fn hero_inputs(g: &mut Inputs, p: &crate::gameplay::Play) {
     (g.race_best_time, g.race_best_score) = (r.best_time, r.best_score);
     let b = &h.board;
     (g.race_lap, g.race_place, g.race_ticks, g.race_score) = (b.lap as i32, b.place, b.race_ticks, b.score);
+    // Independent gadget ammo; native ownership and shop tables stay unchanged.
+    g.freezer=p.svc.gadget_combat.freezer_hud(p.svc.bomb_evo.gadget_settings);
+    if let Some(hud)=g.freezer {
+        g.ammo[22]=hud.ammo as i32;
+        if h.items.slot.id==22&&h.items.slot.state==2&&h.mode==0&&h.health>0&&!h.in_water_groups() {
+            g.weapon=Some((22,hud.ammo as i32,hud.maximum as i32));
+        }
+    }
     g.race_won = p.svc.interact.game.flags.first().is_some_and(|&f| f != 0);
     g.race_weapons = b.weapons;
     g.race_meter = rc_game::hero::hoverboard::MeterView { meter: b.meter, wrong_way: b.wrong_way, fuel: b.fuel };

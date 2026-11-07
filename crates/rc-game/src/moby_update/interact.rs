@@ -680,13 +680,31 @@ pub fn talk_register_at(w: &mut World, id: MobyId, base: usize) -> i32 {
 }
 
 /// The condition of node `nd` (0x27b7e0..0x27b8c8).
-fn condition(w: &World, nd: &TalkNode) -> bool {
+/// NPC prices belong to the authored payment item, not the randomized reward
+/// or its location ID. Scope the one requested exception to Rilgar's salesman.
+fn npc_bolt_price(w:&World,id:MobyId,payment_item:usize)->i32 {
+    if w.svc.bomb_evo.randomizer_mode && w.svc.level==5
+        && w.m(id).o_class==925 && payment_item==23 {15_000}
+    else {w.svc.interact.tables.shop.price(payment_item)}
+}
+
+/// Resolve the payment node that owns this offer. A condition argument may be
+/// a flag or a pseudo-item, so never query ShopTable with a randomizer source.
+fn offer_bolt_price(w:&World,id:MobyId,nd:&TalkNode,nodes:&[TalkNode],source:usize)->Option<i32> {
+    if nd.kind==1 {return Some(npc_bolt_price(w,id,nd.item.max(0) as usize));}
+    if nd.kind==6 {return Some(w.svc.interact.tables.shop.gold_price(nd.item.max(0) as usize) as i32);}
+    nodes.iter().find(|n|n.kind==1 &&
+        crate::weapon_evo::randomizer::talk_source(w.svc.level,n.item.max(0) as usize)==Some(source))
+        .map(|payment|npc_bolt_price(w,id,payment.item.max(0) as usize))
+}
+
+fn condition(w: &World, id:MobyId, nd: &TalkNode) -> bool {
     let g = &w.svc.interact.game;
     let it = nd.item.max(0) as usize;
     let bolts = w.svc.counters.bolts;
     let byte = |v: &Vec<u8>| v.get(it).copied().unwrap_or(0) != 0;
     match nd.kind {
-        1 => w.svc.interact.tables.shop.price(it) <= bolts,
+        1 => npc_bolt_price(w,id,it) <= bolts,
         2 => if w.svc.bomb_evo.randomizer_mode && crate::weapon_evo::randomizer::catalog::locations().iter().any(|l|l.id==it&&l.level==w.svc.level) {
             crate::weapon_evo::randomizer::source_owned(w,it,w.hero.owned.has(it))
         }else{w.hero.owned.has(it)},
@@ -713,9 +731,13 @@ fn node_text(w: &World, id:MobyId, base:usize, nd: &TalkNode) -> Vec<u8> {
             if let Some(reward)=state.reward(source) {
                 let new=crate::weapon_evo::randomizer::reward_name(reward,w.svc.interact.lang,&w.svc.gold_shop.names);
                 let old=w.svc.gold_shop.names.get(&source).map_or(&[][..],Vec::as_slice);
-                let price=w.svc.interact.tables.shop.price(source);
-                return crate::weapon_evo::randomizer::offer_text(&t,old,&new,w.svc.interact.lang,
-                    (nd.kind==1 || price>0).then_some(price),source==35 && w.svc.level==11);
+                let price=offer_bolt_price(w,id,nd,nodes,source);
+                // Native RYNO dialogue embeds its old numeric price. Use the
+                // localized generated offer for this scoped exception rather
+                // than retaining a contradictory amount in the original text.
+                let override_price=w.svc.level==5 && w.m(id).o_class==925 && source==23;
+                return crate::weapon_evo::randomizer::offer_text(&t,if override_price {&[]}else{old},&new,w.svc.interact.lang,
+                    price,source==35 && w.svc.level==11);
             }
         }
     }
@@ -766,7 +788,7 @@ pub fn talk_refresh_at(w: &mut World, id: MobyId, base: usize, advance: bool) {
         w.svc.interact.talk_shown = false;
     }
     if nd.kind == 0 { return; }
-    let c = condition(w, &nd);
+    let c = condition(w, id, &nd);
     let to = if c { nd.yes } else { nd.no };
     if to != p::i16(&w.m(id).pvars, base + talk::NODE) {
         let counter = w.counter as u32;
@@ -855,7 +877,7 @@ pub fn talk_update_at(w: &mut World, id: MobyId, base: usize) -> bool {
         let it = nd.item.max(0) as usize;
         match nd.kind {
             1 => {
-                let price = w.svc.interact.tables.shop.price(it);
+                let price = npc_bolt_price(w,id,it);
                 w.svc.counters.bolts -= price;
             }
             4 => {
@@ -1044,5 +1066,95 @@ mod tests {
         b[14..16].copy_from_slice(&1i16.to_le_bytes());
         b[16..18].copy_from_slice(&0xcu16.to_le_bytes());
         assert_eq!(TalkNode::parse(&b), TalkNode { msg: 1011, scene: 1, next: 3, kind: 1, item: 37, yes: 2, no: 1, flags: 0xc });
+    }
+}
+
+#[cfg(test)]
+mod v132_npc_prices {
+    use super::*;
+    use crate::{hero::testkit,moby_update::{classes::bomb_water::tests::Bench,services::World},ps2v::Pf};
+    use rc_formats::strings::Message;
+    fn fixture(level:u32,class:i16,item:usize,price:i32,bolts:i32,random:bool)->(Bench,MobyId) {
+        let mut b=Bench::new(testkit::floor(0.,0,12,0,12),&[class],[3.,0.,0.]);
+        b.hero.health=4;b.hero.rot[2]=Pf::f(std::f32::consts::PI);
+        let id=b.create(class);let m=&mut b.table.mobys[id];
+        m.position=[0.,0.,0.,1.];m.rotation[2]=0.;m.pvars.resize(0x400,0);
+        p::set_u8(&mut m.pvars,talk::REGISTERED,1);
+        p::set_i32(&mut m.pvars,talk::TABLE,1);
+        p::set_ff(&mut m.pvars,talk::RADIUS,1.9);
+        let condition=TalkNode{kind:1,item:item as i16,yes:1,no:2,msg:1,scene:-1,next:0,flags:0};
+        let pay=TalkNode{flags:8,scene:1,next:0,..condition};
+        let denied=TalkNode{kind:0,item:0,yes:2,no:2,msg:2,scene:-1,next:0,flags:0};
+        let mut records=vec![[0;0x18];SHOP_RECORDS];records[item][..4].copy_from_slice(&price.to_le_bytes());
+        b.svc.interact.tables=Arc::new(TalkTables{tables:vec![vec![condition,pay,denied]],shop:ShopTable{records},..Default::default()});
+        b.svc.interact.messages=Arc::new(vec![Message{id:1,text:b"Native offer".to_vec(),help_audio:-1},Message{id:2,text:b"Cannot afford".to_vec(),help_audio:-1}]);
+        b.svc.interact.pressed=crate::pad::button::TRIANGLE;
+        b.svc.counters.bolts=bolts;b.svc.level=level;b.svc.bomb_evo.randomizer_mode=random;
+        if random {
+            let mut saved=crate::weapon_evo::save::Progress::default();
+            saved.randomizer=crate::weapon_evo::randomizer::State::generate(9701);
+            let source=crate::weapon_evo::randomizer::talk_source(level,item).unwrap();
+            let at=saved.randomizer.placements.iter().position(|&r|r==6).unwrap();
+            saved.randomizer.placements.swap(source,at);
+            b.svc.bomb_evo.restore_progress(&saved);
+            b.svc.gold_shop.names.insert(6,b"O2 Mask".to_vec());
+        }
+        (b,id)
+    }
+    #[test]
+    fn novalis_plumber_charges_500_and_does_not_use_the_free_randomized_o2_price() {
+        for wallet in [499,500,501] {
+            let (mut b,id)=fixture(1,774,37,500,wallet,true);
+            let prices=b.svc.interact.tables.shop.clone();
+            let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,100);
+            assert!(talk_update(&mut w,id));
+            assert_eq!(w.svc.counters.bolts,if wallet>=500{wallet-500}else{wallet});
+            assert_eq!(w.svc.interact.tables.shop,prices);
+            if wallet>=500 {
+                let nodes=w.svc.interact.tables.nodes(0);let nd=nodes[1];
+                assert_eq!(offer_bolt_price(&w,id,&nd,nodes,66),Some(500));
+                assert!(String::from_utf8_lossy(&node_text(&w,id,0,&nd)).contains("500 bolts"));
+            }
+        }
+    }
+    #[test]
+    fn rilgar_ryno_uses_15000_for_the_prompt_funds_gate_and_actual_debit_only_in_all_mode() {
+        for random in [false,true] {for wallet in [14999,15000,15001,149999,150000] {
+            let (mut b,id)=fixture(5,925,23,150000,wallet,random);
+            let prices=b.svc.interact.tables.shop.clone();
+            let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,100);
+            let price=if random {15000}else{150000};
+            assert!(talk_update(&mut w,id));
+            assert_eq!(w.svc.counters.bolts,if wallet>=price{wallet-price}else{wallet});
+            assert_eq!(w.svc.interact.tables.shop,prices,"do not rewrite global weapon prices");
+            if random {for lang in 0..=5 {
+                w.svc.interact.lang=lang;
+                let nd=w.svc.interact.tables.nodes(0)[1];
+                let text=node_text(&w,id,0,&nd);let text=String::from_utf8_lossy(&text);
+                assert!(text.contains("15000 bolts"));assert!(!text.contains("150000"));
+            }}
+        }}
+    }
+    #[test]
+    fn every_other_native_npc_payment_record_and_free_or_trade_offer_is_preserved() {
+        for item in 0..SHOP_RECORDS {
+            let (mut b,id)=fixture(5,925,23,150000,200000,true);
+            Arc::make_mut(&mut b.svc.interact.tables).shop.records[item][..4].copy_from_slice(&(500+item as i32).to_le_bytes());
+            let w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,100);
+            assert_eq!(npc_bolt_price(&w,id,item),if item==23{15000}else{500+item as i32});
+        }
+        for (level,class) in [(1,774),(5,774),(8,925)] {
+            let (mut b,id)=fixture(level,class,23,98765,200000,false);
+            b.svc.bomb_evo.randomizer_mode=true;
+            let w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,100);
+            assert_eq!(npc_bolt_price(&w,id,23),98765);
+            let free=TalkNode{kind:0,item:0,..Default::default()};
+            assert_eq!(offer_bolt_price(&w,id,&free,&[free],66),None);
+            let unrelated=TalkNode{kind:1,item:23,..Default::default()};
+            assert_eq!(offer_bolt_price(&w,id,&free,&[free,unrelated],66),None,
+                "a free offer must not inherit another offer's price");
+            let trade=TalkNode{kind:4,item:1,..Default::default()};
+            assert_eq!(offer_bolt_price(&w,id,&trade,&[trade],35),None);
+        }
     }
 }

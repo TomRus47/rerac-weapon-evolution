@@ -71,7 +71,7 @@ def smoke_test(exe, report=None):
             report.write_text(json.dumps({'ok':False,'phase':'EXE verification','error':str(error),
                 'traceback':traceback.format_exc()},indent=2)+'\n',encoding='utf-8')
         raise
-    if (not value.get('experimental_overrides_ui') or not value.get('scroll_repaint_ui') or not value.get('preloaded_pages_ui') or not value.get('saved_controls_ui') or not value.get('wrench_trail_ui') or not value.get('ngplus_difficulty_ui') or not value.get('eight_grade_ui') or not value.get('additive_nanotech_ui') or not value.get('frozen') or not value.get('gui_ok') or value.get('launcher_version')!=core.VERSION
+    if (not value.get('freezer_recharge_ui') or not value.get('dual_quick_select_ui') or not value.get('experimental_overrides_ui') or not value.get('scroll_repaint_ui') or not value.get('preloaded_pages_ui') or not value.get('saved_controls_ui') or not value.get('wrench_trail_ui') or not value.get('ngplus_difficulty_ui') or not value.get('eight_grade_ui') or not value.get('additive_nanotech_ui') or not value.get('frozen') or not value.get('gui_ok') or value.get('launcher_version')!=core.VERSION
             or Path(value.get('application_folder','')).resolve()!=exe.parent.resolve()
             or not value.get('tcl_version') or not value.get('tk_version')
             or not value.get('nanotech_xp_bar_ui') or not value.get('encounter_motion_ui') or not value.get('pursuit_ui') or not value.get('location_test_ui')):

@@ -1,9 +1,8 @@
 name: Build unpublished runtime-upgrade draft
 
 on:
-  push:
-    branches: [main]
-    paths: [mod/draft.json]
+  # Development pushes must not create or modify any release draft.
+  workflow_dispatch:
 
 permissions:
   contents: read

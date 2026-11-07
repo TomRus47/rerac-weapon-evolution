@@ -55,4 +55,29 @@ On Windows, compile the engine and test visual borders/caption, native equipment
 
 Weapon Evolution is an unofficial independent mod by TomRus47; the mod author does not develop ReRAC or the original games and owns no rights to their games, characters, trademarks or assets. Upstream licenses and contributor credits remain applicable.
 
-Current WEVO v9 appends the mixed-randomizer state after the v8 fields. It decodes v1–v8 without discarding weapon, Nanotech or equipment progression. Preserve the native `saveN.bin` together with its entire matching content-addressed companion folder when backing up or reporting a run; never pair companions from a different native save.
+WEVO v9 appends the mixed-randomizer state after the v8 fields. Current v10 appends the second eight-slot ring and the active ring index. It decodes v1–v9 without discarding weapon, Nanotech, seed or equipment progression. Legacy saves start with an empty second ring and keep their native first ring. Preserve the native `saveN.bin` together with its entire matching content-addressed companion folder when backing up or reporting a run; never pair companions from a different native save.
+
+
+## Two native-style rings and optional world pause
+
+Triangle opens the last selected eight-slot ring. Press R2 once to cycle between
+the two rings; release/press R2 again to cycle back. The pause Quick Select editor
+uses the same R2 page control and saved active index. Editing commits the current
+bank before switching pages, and an item cannot occupy both rings after an
+assignment. Ring one remains in the native save; the second ring and active index
+are encoded in the content-addressed WEVO v10 companion. Both persist through
+reload, death, travel and NG+, and are isolated between slots. New Game resets them.
+
+`pause_on_quick_select` is a standard global Off/On field (default Off). On stops
+the gameplay tick and the external visual/RNG clocks while Ratchet's radial is
+open. Engine `menu_render` keeps a separate physical pad history, using the menu
+frame clock to process release, R2 edges, R1 mode changes and menu fades without
+mutating the paused hero pad. GameTick drops its frame budget; it never accumulates
+world work to replay later. The flag resets at level setup and on mode exit, and
+does not freeze Clank command pages or replace the native frontend mode.
+
+Relevant paths: `weapon_evo_quick_select.rs`, `weapon_evo_save.rs`,
+`menus/quick_select.rs`, `menus/pause/pages.rs`, engine `menu_render.rs`,
+`gameplay.rs`, and the water/particle/animation/sky fixed-step gates. Keep physical
+R2 available to both menu views and consume its gameplay fire alias while Triangle
+is held. Do not swap the native first-ring array with the second page in place.

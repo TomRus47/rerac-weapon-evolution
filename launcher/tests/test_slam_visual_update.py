@@ -10,14 +10,15 @@ class SlamUpdateTests(unittest.TestCase):
         (play/'runtime/rerac.exe').write_bytes(b'previous runtime');(play/'weapons.ini').write_bytes(b'personal settings')
         launcher=play/'Custom launcher.exe';launcher.write_bytes(b'previous launcher')
         data=json.loads((ROOT/'tools/mod/v106_slam_manifest.json').read_text())
-        # Reverse the exact-block edits against this checkout to obtain the
-        # supported previous interface, preserving unrelated source comments.
+        # This exercises the historical v105 -> v106 installer, not the current
+        # renderer. Keep its input interfaces in the immutable v106 manifest:
+        # later additive passes (for example frost) legitimately change them.
         for name in {row['path'] for row in data['edits']}:
-            text=(ROOT/name).read_text().replace('\"weapon_evolution_config\":'+str(json.loads((ROOT/'mod/development.json').read_text())['config_capability']),'\"weapon_evolution_config\":89').replace(json.loads((ROOT/'mod/development.json').read_text())['patch'],'0.1.6.106')
-            for row in reversed(data['edits']):
-                if row['path']==name:
-                    self.assertEqual(text.count(row['after']),row['count'])
-                    text=text.replace(row['after'],row['before'])
+            rows=[row for row in data['edits'] if row['path']==name]
+            text='\n'.join(row['after'] for row in rows for _ in range(row['count']))
+            for row in reversed(rows):
+                self.assertEqual(text.count(row['after']),row['count'])
+                text=text.replace(row['after'],row['before'])
             target=source/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(text+'\n// Unrelated local comment.\n')
         (bundle/'payload').mkdir()
         for row in data['files']:

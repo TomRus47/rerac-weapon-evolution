@@ -39,6 +39,7 @@ pub mod pad;
 pub mod moby_runtime;
 pub mod moby_update;
 pub mod hero;
+pub mod gadget_combat;
 pub mod weapon_evo;
 pub mod follow_camera;
 pub mod tick;

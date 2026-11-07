@@ -365,16 +365,18 @@ fn run_native_moby(w: &mut World, id: MobyId) {
     w.svc.enemies.observe(id,&w.table.mobys[id]);
     let o_class = w.m(id).o_class;
     // MobyAnimAdvance with its sound triggers and loop sound (crate::moby_update::anim_sound).
-    if w.m(id).mode & mode::NO_ANIM == 0 { crate::moby_update::anim_sound::advance(w, id); }
+    let gadget_frozen=crate::gadget_combat::frozen(w,id);
+    if !gadget_frozen && w.m(id).mode & mode::NO_ANIM == 0 { crate::moby_update::anim_sound::advance(w, id); }
     // A Taunter stun pauses creature behaviour, not animation, collision or
     // rendering. The normal class update resumes after its absolute expiry tick.
-    let frozen = w.svc.evo_stuns.frozen(id, o_class, w.counter);
-    if frozen {
+    let frozen = gadget_frozen || w.svc.evo_stuns.frozen(id, o_class, w.counter);
+    if frozen && !gadget_frozen {
         if let Some(mut movement)=w.svc.evo_stuns.launch_step(id) {
             super::creature::walker::move_collide(w,id,0.5,0.3,0.02,&mut movement,0);
         }
     }
-    let lethal_while_frozen = frozen && super::creature::damage::frozen_damage(w, id);
+    let boss_intake=gadget_frozen && crate::gadget_combat::frozen_boss_damage(w,id);
+    let lethal_while_frozen = frozen && !boss_intake && super::creature::damage::frozen_damage(w, id);
     if !frozen || lethal_while_frozen {
     if w.svc.bomb_evo.real_hp_enabled() { w.svc.hits.publish_real_head(w.table,id); }
     if let Some(addr) = w.m(id).update_fn {
@@ -429,6 +431,7 @@ impl Scheduler {
     /// number of mobys in the list. The free-slot pass 0x263300 (`MobyTable::free_slot_pass`) is the tick's
     /// first call and belongs to the caller (`rc_game::tick::Game::tick`).
     pub fn tick(&mut self, w: &mut World) -> usize {
+        crate::gadget_combat::world_tick(w);
         super::feedback::before(w);
         // The race cameras' stores of the last camera update (its `rand` draw before the frame's draw callbacks'):
         // classes::units::oltanis_rail_bot.
@@ -457,6 +460,7 @@ impl Scheduler {
         crate::weapon_evo::golden::tick(w);
         crate::weapon_evo::randomizer::tick(w);
         super::feedback::after(w);
+        crate::gadget_combat::draw_status(w);
         // The points the moby-riding particles (types 26 / 55) follow in the UpdateParts that comes next.
         w.refresh_particle_anchors();
         // `HudBoltAlertShow` 0x227d90 (the hero's frame, after the moby pass): classes::buried_bolts.

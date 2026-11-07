@@ -322,8 +322,30 @@ fn do_lure(hero: &mut Hero, table: &mut MobyTable, env: &ItemEnv, hits: &mut dyn
 
 /// `0x2cc830(range, taunter)` (module doc) with the Taunter at `from` (the lure moby: Ratchet's, [L]); `crates` is its
 /// pvar +0x14. Returns the lured mobys and the crate hit's `ticks(rand_range(5, 45))` for the Taunter's +0x10.
+/// Read one coherent grade/profile snapshot. Pure-lure mode must not depend on
+/// a stale published registry or erase the player's offensive tuning.
+#[derive(Clone, Copy)]
+struct OffensiveSettings { enabled:bool, stun_range:f32, duration:u64,
+    efficiency:f32, launch:f32, damage_range:f32, damage_per_second:f32 }
+impl OffensiveSettings {
+    fn configured(evo:&crate::weapon_evo::Evolution)->Self {
+        let values=evo.extras.iter().find(|t|t.id==14 && t.enabled)
+            .map(|t|&t.params[t.level.saturating_sub(1).min(7)]);
+        let value=|key:&str,default|values.and_then(|p|p.get(key)).copied().unwrap_or(default);
+        let enabled=if evo.control_settings.r1 {
+            evo.controls().mode_limited(14,evo.r1_mode_max(14))==Some(1)
+        } else {value("offensive_taunt_enabled",1.)>=0.5};
+        Self {enabled,stun_range:value("stun_range",0.),
+            duration:value("stun_duration_ticks",0.).round().clamp(0.,600.) as u64,
+            efficiency:value("stun_efficiency_percent",100.).clamp(0.,100.),
+            launch:value("stun_launch_distance",0.),damage_range:value("damage_range",0.),
+            damage_per_second:value("damage_per_second",0.)}
+    }
+}
+
 pub fn lure(w: &mut World, list: &[MobyId], from: [f32; 3], range: f32, crates: &mut i32) -> (Vec<MobyId>, Option<i32>) {
     let Some(me) = w.hero_moby else { return (Vec::new(), None) };
+    let offensive=OffensiveSettings::configured(&w.svc.bomb_evo);
     let pick = w.rng.randi((*crates).max(1));
     *crates = 0;
     let hp = w.hero.pos.map(|x| f32::from_bits(x.0));
@@ -362,14 +384,13 @@ pub fn lure(w: &mut World, list: &[MobyId], from: [f32; 3], range: f32, crates: 
                     let frac = crate::weapon_evo::extra(14, "xp_attract_fraction", 1.0 / 3.0);
                     let class = w.m(m).o_class;
                     w.svc.bomb_evo.award_attraction_once(14, m, class, enemy_hp, frac);
+                    if offensive.enabled {
                     // Taunter's actual stun: a percentage roll once per cooldown,
                     // then a temporary suspension of this creature's AI update.
                     // Its native animation/collision keeps running throughout.
-                    let stun_range = crate::weapon_evo::extra(14, "stun_range", 0.0);
-                    let duration = crate::weapon_evo::extra(14, "stun_duration_ticks", 0.0)
-                        .round().clamp(0.0, 600.0) as u64;
-                    let efficiency = crate::weapon_evo::extra(14, "stun_efficiency_percent", 100.0)
-                        .clamp(0.0, 100.0);
+                    let stun_range = offensive.stun_range;
+                    let duration = offensive.duration;
+                    let efficiency = offensive.efficiency;
                     let moby_class = w.m(m).o_class;
                     let now = w.counter;
                     if stun_range > 0.0 && d < stun_range && duration > 0 && efficiency > 0.0
@@ -379,7 +400,7 @@ pub fn lure(w: &mut World, list: &[MobyId], from: [f32; 3], range: f32, crates: 
                         if w.svc.evo_stuns.attempt(m, moby_class, now, duration, success) {
                             // One native, damage-free recoil, only at the moment
                             // the real stun starts (not every four ticks).
-                            let distance=crate::weapon_evo::extra(14,"stun_launch_distance",0.0);
+                            let distance=offensive.launch;
                             if distance>0.0 {
                                 let mut delta=c::sub(p,at);delta[2]=0.0;delta[3]=0.0;
                                 let delta=c::set_len3(delta,distance);
@@ -389,9 +410,9 @@ pub fn lure(w: &mut World, list: &[MobyId], from: [f32; 3], range: f32, crates: 
                             attack::hit_moby(w, m, me, 0.0, 0x10000, [hp[0], hp[1], hp[2], 0.0], push);
                         }
                     }
-                    // V5 offensive aura is separately ranged from attraction and stun.
-                    let hit_range = crate::weapon_evo::extra(14, "damage_range", 0.0);
-                    let dps = crate::weapon_evo::extra(14, "damage_per_second", 0.0) / if w.svc.bomb_evo.real_hp_enabled() { 100.0 } else { 1.0 };
+                    // Offensive aura is separately ranged from attraction and stun.
+                    let hit_range = offensive.damage_range;
+                    let dps = offensive.damage_per_second / if w.svc.bomb_evo.real_hp_enabled() { 100.0 } else { 1.0 };
                     if hit_range > 0.0 && d < hit_range && dps > 0.0 && w.counter % 60 == 0 {
                         let push = c::set_len3(c::sub(p, at), 0.1);
                         if w.svc.bomb_evo.real_hp_enabled() && crate::moby_update::real_hp::donor(w.m(m)) {
@@ -406,6 +427,7 @@ pub fn lure(w: &mut World, list: &[MobyId], from: [f32; 3], range: f32, crates: 
                             w.svc.bomb_evo.award_extra_damage(14, dealt);
                         }
                     }
+                    } // Offensive mode; pure attraction never delivers recoil or damage.
                 }
             }
         }

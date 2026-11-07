@@ -104,10 +104,7 @@ impl Stream {
             let remaining = (drop.settings.range - drop.travelled).max(0.0);
             let fraction = if distance > 0.0 { (remaining / distance).min(1.0) } else { 1.0 };
             let intended = std::array::from_fn(|i| start[i] + delta[i] * fraction);
-            let collision = match hits.probe(table, from_f32x3(start), from_f32x3(intended), 2, Some(env.hero_moby)) {
-                Some(result) => result,
-                None => env.coll.and_then(|world| line_world(world, from_f32x3(start), from_f32x3(intended), 2)).map(|hit| hit.point),
-            };
+            let collision = solid_hit(table,env,hits,start,intended);
             let end = collision.unwrap_or(intended);
             let actual = sub(end, start);
             // Clip before delivering: the stream must never damage through a wall.
@@ -116,7 +113,7 @@ impl Stream {
                 damage: Pf::f(drop.damage.damage_hp_per_second / 100.0),
                 dir: [Pf::f(direction[0]), Pf::f(direction[1]), Pf::ONE, Pf::b(0x45af_df66)], w20: 1 };
             hits.stream_snapshot(Some(drop.damage));
-            let direct = hits.line(table, from_f32x3(start), from_f32x3(end), 2, Some(env.hero_moby), &tmpl).is_some();
+            let _direct = hits.line(table, from_f32x3(start), from_f32x3(end), 2, Some(env.hero_moby), &tmpl).is_some();
             let steps = ((norm(actual) / (drop.settings.radius() * 0.75)).ceil() as usize).clamp(1, 32);
             let mut contact = false;
             for sample in 1..=steps {
@@ -129,7 +126,8 @@ impl Stream {
             drop.travelled += norm(actual);
             drop.age += 1;
             drop.pos = end;
-            let alive = collision.is_none() && !direct && !contact && fraction >= 1.0
+            let _ = contact;
+            let alive = collision.is_none() && fraction >= 1.0
                 && drop.travelled < drop.settings.range && drop.age < MAX_AGE;
             if !alive {
                 impacts.push(vec![RenderPoint { pos: start, settings: drop.settings }, RenderPoint { pos: end, settings: drop.settings }]);
@@ -154,10 +152,7 @@ impl Stream {
                 let limit = ((norm(drop.velocity).max(norm(next.velocity)) * DT * 3.0)
                     + drop.settings.radius() + next.settings.radius()).clamp(0.5, 8.0);
                 if norm(sub(drop.pos, next.pos)) > limit { return false; }
-                match hits.probe(table, from_f32x3(drop.pos), from_f32x3(next.pos), 2, Some(env.hero_moby)) {
-                    Some(hit) => hit.is_none(),
-                    None => env.coll.and_then(|world| line_world(world, from_f32x3(drop.pos), from_f32x3(next.pos), 2)).is_none(),
-                }
+                solid_hit(table,env,hits,drop.pos,next.pos).is_none()
             });
             if !joins_next {
                 chain.push(RenderPoint { pos: drop.previous, settings: drop.settings });
@@ -275,6 +270,25 @@ mod tests {
         fn sphere(&mut self, _: &mut MobyTable, _:Pf, centre:[Pf;4], _:u32, _:Option<usize>, _: &HitTemplate) -> Option<usize> {
             self.samples.push(centre[0].to_f32()); None
         }
+    }
+
+    #[test]
+    fn creature_contact_delivers_damage_without_deleting_or_splitting_the_stream(){
+        struct CreatureContact {lines:usize,spheres:usize}
+        impl HitSink for CreatureContact {
+            fn class_type(&self,_:i16)->Option<u8>{Some(5)}
+            fn probe_moby(&mut self,_:&mut MobyTable,a:[Pf;4],b:[Pf;4],_:u32,_:Option<usize>)->Option<Option<super::super::items::Probe>>{
+                let point=std::array::from_fn(|i|(a[i].to_f32()+b[i].to_f32())*0.5);
+                Some(Some(super::super::items::Probe{moby:Some(0),point,normal:[1.,0.,0.],surface:0}))
+            }
+            fn line(&mut self,_:&mut MobyTable,_:[Pf;4],_:[Pf;4],_:u32,_:Option<usize>,_:&HitTemplate)->Option<Option<usize>>{self.lines+=1;Some(Some(0))}
+            fn sphere(&mut self,_:&mut MobyTable,_:Pf,_:[Pf;4],_:u32,_:Option<usize>,_:&HitTemplate)->Option<usize>{self.spheres+=1;Some(0)}
+        }
+        let mut stream=Stream::default();let mut table=MobyTable::new(vec![crate::moby_runtime::Moby{o_class:577,state:1,..Default::default()}],0);
+        let mut sink=CreatureContact{lines:0,spheres:0};let data=ItemData::default();let pad=PadState::default();let mut parts=Vec::new();
+        for _ in 0..10{stream.launch([0.;3],[1.,0.,0.],straight(),damage());stream.step(&mut table,&environment(&data,&pad),&mut sink,&mut parts);}
+        assert_eq!(stream.droplets.len(),10);assert_eq!(stream.strips.len(),1);assert!(sink.lines>=10&&sink.spheres>=10);
+        assert!(parts.is_empty(),"body contact is not an impact/gap in the lava ribbon");
     }
     #[test]
     fn terrain_clips_sweep_before_delivery_and_clears_snapshot_scope() {
@@ -464,4 +478,16 @@ mod tests {
         assert!(hp.iter().all(|loss| (loss-120.0).abs()<0.001),"both targets get base DPS, not triple DPS: {hp:?}");
     }
 
+}
+
+/// Ignore creature bodies for flight, but always test terrain independently:
+/// an enemy touching a thin wall must never hide that wall from the stream.
+fn solid_hit(table:&mut MobyTable,env:&ItemEnv,hits:&mut dyn HitSink,a:[f32;3],b:[f32;3])->Option<[f32;3]>{
+    let dynamic=match hits.probe_moby(table,from_f32x3(a),from_f32x3(b),2,Some(env.hero_moby)) {
+        Some(hit)=>hit.filter(|hit|!hit.moby.and_then(|id|table.mobys.get(id))
+            .is_some_and(|m|hits.class_type(m.o_class)==Some(5)||crate::moby_update::real_hp::donor(m))).map(|h|h.point),
+        None=>hits.probe(table,from_f32x3(a),from_f32x3(b),2,Some(env.hero_moby)).flatten(),
+    };
+    let world=env.coll.and_then(|mesh|line_world(mesh,from_f32x3(a),from_f32x3(b),2)).map(|h|h.point);
+    [dynamic,world].into_iter().flatten().min_by(|x,y|norm(sub(*x,a)).total_cmp(&norm(sub(*y,a))))
 }

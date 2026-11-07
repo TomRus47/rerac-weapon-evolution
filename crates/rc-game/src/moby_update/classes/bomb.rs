@@ -816,6 +816,7 @@ fn exploding(w: &mut World, id: MobyId) {
 pub fn create_from_hero(table: &mut crate::moby_runtime::MobyTable, svc: &mut sv::Services, classes: &dyn sv::ClassData, o_class: i16, counter: u64) -> Option<MobyId> {
     let info = classes.info(o_class);
     let id = table.create(o_class, info.as_ref(), counter)?;
+    svc.gadget_lifetimes.spawned(id);
     svc.hits.forget_doom_target(id);
     svc.hits.real_hp.on_spawn(id, o_class);
     if svc.snapshots.len() <= id { svc.snapshots.resize(id + 1, None); }

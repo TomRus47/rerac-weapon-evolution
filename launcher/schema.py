@@ -544,11 +544,13 @@ HELP['ngplus_multiplier'] = ('NG+ only: multiplies enemy health, damage, action 
 
 # Saved player controls are standard global options, outside encounter/survival
 # tuning. Runtime mode choices never rewrite the per-grade INI switches.
-CONTROL_DEFAULTS={'dpad_quick_select':'false','r1_experimental':'false'}
+CONTROL_DEFAULTS={'dpad_quick_select':'false','r1_experimental':'false','pause_on_quick_select':'false'}
 GLOBAL_STANDARD_DEFAULTS.update(CONTROL_DEFAULTS)
 BOOLEANS.update(CONTROL_DEFAULTS)
 LABELS['dpad_quick_select']='D-pad Quick Select'
 LABELS['r1_experimental']='R1_Experimental'
+LABELS['pause_on_quick_select']='Pause while Quick Select is open'
+HELP['pause_on_quick_select']='Freeze the world while holding Triangle to select equipment. R2 cycles two eight-slot rings; the last ring and its bindings are saved per game. Release Triangle to equip and resume. Off keeps gameplay running. Clank commands and native non-gameplay screens are unchanged.'
 HELP['dpad_quick_select']=('Reserves the physical D-pad for four saved equipment shortcuts; movement uses the left stick. '
     'In the paused Weapons/Gadgets grids hold L1 and press a D-pad direction to assign the highlighted owned item. '
     'L1 freezes cursor navigation, including the stick. Borders: Up green, Right red, Down blue, Left pink. '
@@ -595,7 +597,7 @@ def global_field_groups(doc):
 
 # R1 gates are per grade. They never enable launcher-only enhancements.
 R1_MAX_KEY='r1_experimental_max'
-R1_MODE_MAX={'pyrocitor':1,'mine_glove':1,'visibomb':1,'ryno':2}
+R1_MODE_MAX={'pyrocitor':1,'mine_glove':1,'visibomb':1,'ryno':2,'taunter':1}
 def r1_mode_options(section):
     weapon=section.split('.')[1] if section.startswith('weapon.') else ''
     return tuple(str(n) for n in range(R1_MODE_MAX.get(weapon,0)+1))
@@ -704,3 +706,89 @@ HELP.update({'lava_damage_bonus_percent':
 
 LABELS['nanotech_progression_max_health']='Maximum Nanotech before Premium/Ultra'
 HELP['nanotech_progression_max_health']='Includes the 4 starting HP and XP upgrades (4-206). Premium adds 1 HP and Ultra adds 3 HP, independently of this limit. At the maximum: 206 + 1 + 3 = 210 total HP. The 30 HUD orbs change color in layers. Lowering the cap preserves earned progress.'
+
+# Taunter mode 0 preserves pure lure; mode 1 adds the configured offensive aura.
+# Existing values keep their keys and are moved together into the experiment frame.
+TAUNTER_OFFENSIVE_FIELDS = ('damage_per_second', 'damage_range', 'stun_range',
+    'stun_duration_ticks', 'stun_efficiency_percent', 'stun_launch_distance')
+EXPERIMENTAL_ENABLERS['taunter'] = ('offensive_taunt_enabled',)
+EXPERIMENTAL_DEFAULTS['taunter']['offensive_taunt_enabled'] = 'true'
+for _key in TAUNTER_OFFENSIVE_FIELDS:
+    EXPERIMENTAL_DEFAULTS['taunter'][_key] = STANDARD_DEFAULTS.get('taunter', {}).pop(_key,
+        {'damage_per_second':'0', 'damage_range':'0', 'stun_range':'0',
+         'stun_duration_ticks':'45', 'stun_efficiency_percent':'55', 'stun_launch_distance':'0'}[_key])
+EXTRA[14] += ' offensive_taunt_enabled'
+BOOLEANS.add('offensive_taunt_enabled')
+LABELS['offensive_taunt_enabled'] = 'Offensive taunt'
+HELP['offensive_taunt_enabled'] = ('Adds the configured damage, stun and launch to attraction. '
+    'Off only lures enemies. With R1 Experimental enabled, mode 0 is pure attraction and mode 1 is offensive; '
+    'the current grade R1_Experimental max must be 1 to allow switching.')
+HELP.update({
+    'damage_range': 'Radius of the Taunter offensive damage aura. Used only with offensive taunt enabled.',
+    'stun_range': 'Radius in which offensive taunt can attempt a stun; pure attraction never stuns.',
+    'stun_duration_ticks': 'Duration of an accepted offensive Taunter stun. Pure attraction ignores it.',
+    'stun_efficiency_percent': 'Chance of an offensive Taunter stun attempt succeeding, from 0 to 100.',
+})
+
+# Only new All seeds consult these six flags. Saved masks/placements win on load.
+RANDOMIZER_EXTRA_KEYS = tuple('randomizer_extra_' + planet for planet in
+    ('gemlik', 'kerwan', 'orxon', 'pokitaru', 'hoven', 'novalis'))
+RANDOMIZER_SITE_DEFAULTS = {'randomizer_bolt_pack_value':'5000',
+    **{key:'true' for key in RANDOMIZER_EXTRA_KEYS}}
+GLOBAL_STANDARD_DEFAULTS.update(RANDOMIZER_SITE_DEFAULTS)
+BOOLEANS.update(RANDOMIZER_EXTRA_KEYS)
+INTEGER.add('randomizer_bolt_pack_value')
+WORLD_RANGES['randomizer_bolt_pack_value'] = (0,1000000)
+LABELS['randomizer_bolt_pack_value'] = 'Bolt pack value'
+HELP['randomizer_bolt_pack_value'] = ('Standard bolts awarded once by a grey Gold Bolt at an unused All randomizer location. '
+    'Default 5000; does not grant a Gold Bolt, weapon XP or Nanotech XP. Only All mode uses these packs.')
+for _key,_planet in zip(RANDOMIZER_EXTRA_KEYS,('Gemlik Base','Kerwan','Orxon','Pokitaru','Hoven','Novalis')):
+    LABELS[_key] = 'Extra location: ' + _planet
+    HELP[_key] = ('Include the additional location on ' + _planet + ' when creating a new All seed. '
+        'The six extra locations are on Gemlik Base, Kerwan, Orxon, Pokitaru, Hoven and Novalis. '
+        'Changing this does not alter existing seeds or NG+ continuations. '
+        'If all six switches are Off, the Hoven extra location stays enabled for new seeds, keeping every reward in the pool.')
+_random_sites_global_groups=global_field_groups
+def global_field_groups(doc):
+    base,mode=_random_sites_global_groups(doc)
+    return base,mode
+
+# Gadgets have one configuration page each; they are not XP weapon tracks.
+GADGET_DEFAULTS = {
+ 'swingshot': {'enabled':'false','pull_range':'20','pull_speed':'16','stun_seconds':'2',
+    'surface_grapple_enabled':'false','grapple_range':'25','grapple_speed':'18'},
+ 'trespasser': {'enabled':'false','damage_per_second':'50','drill_range':'5','rotation_degrees_per_second':'720'},
+ 'hydrodisplacer': {'enabled':'false','max_ammo':'10','recharge_seconds':'10','fire_interval_ticks':'60','freeze_radius':'6','freeze_seconds':'4',
+    'projectile_range':'50','projectile_speed':'18','projectile_gravity':'18','ice_size_percent':'100',
+    'ice_color':'C0EEFF','mist_color':'80CCFF','explosion_color':'80DCFF','frozen_enemy_color':'408CFF'},
+ 'hologuise': {'enabled':'false','movement_multiplier':'1','animation_multiplier':'1'},
+}
+GADGET_NAMES={'swingshot':'Swingshot','trespasser':'Trespasser','hydrodisplacer':'Hydrodisplacer','hologuise':'Hologuise'}
+EDITOR_WEAPONS.update({key:(item,GADGET_NAMES[key]) for key,item in [('swingshot',12),('trespasser',26),('hydrodisplacer',22),('hologuise',31)]})
+GADGET_RANGES = {'pull_range':(1,100),'pull_speed':(1,60),'stun_seconds':(0,30),
+ 'grapple_range':(1,100),'grapple_speed':(1,60),'drill_range':(0.5,20),'rotation_degrees_per_second':(0,3600),
+ 'damage_per_second':(0,1_000_000),'max_ammo':(0,999),'fire_interval_ticks':(1,600),
+ 'recharge_seconds':(0.1,3600),'freeze_radius':(0.1,50),'freeze_seconds':(0,60),'projectile_range':(1,100),'projectile_speed':(1,100),
+ 'projectile_gravity':(0,100),'ice_size_percent':(10,500),'movement_multiplier':(0.1,10),'animation_multiplier':(0.1,10)}
+BOOLEANS.update({'enabled','surface_grapple_enabled'})
+COLORS.update({'ice_color','mist_color','frozen_enemy_color'})
+LABELS.update({'enabled':'Enable gadget combat','pull_range':'Enemy pull range','pull_speed':'Enemy pull speed',
+ 'stun_seconds':'Stun after pulling (seconds)','surface_grapple_enabled':'Surface grapple',
+ 'grapple_range':'Surface grapple range','grapple_speed':'Surface grapple speed','drill_range':'Drill capture range',
+ 'rotation_degrees_per_second':'Drill and enemy rotation (degrees/second)', 'freeze_radius':'Freeze radius',
+ 'freeze_seconds':'Freeze duration (seconds)','projectile_range':'Projectile maximum range','projectile_speed':'Projectile speed',
+ 'projectile_gravity':'Projectile gravity','ice_size_percent':'Ice crystal size (%)','ice_color':'Ice crystal color',
+ 'mist_color':'Ice mist color','frozen_enemy_color':'Frozen enemy color','movement_multiplier':'Movement speed',
+ 'animation_multiplier':'Animation speed','recharge_seconds':'Ammo recharge time (seconds)'})
+GADGET_HELP={
+ 'swingshot':'Native Swingshot targets always have priority. Pull ordinary enemies toward Ratchet, then stun them. Ships and bosses cannot be pulled. Surface grapple additionally pulls Ratchet to walls, ceilings or crates, never to floors and never into a hanging state.',
+ 'trespasser':'Native Trespasser pads always have priority. Hold Circle or R2 while grounded to run the motor and rotate a captured enemy. Jumping stops capture and sound. The red tip stays still. Accepted HP damage is counted once per contact tick. Release to free the enemy; at zero HP it dies normally without a replacement projectile. Bosses cannot be captured.',
+ 'hydrodisplacer':'Native water pads always have priority. Freezer fires ice with an empty or full tank and freezes enemy animation and AI, not existing projectiles. Recover one shot per recharge interval below capacity, even while another item is equipped. Its HUD bar shows recharge progress and turns yellow at full capacity. Planet arrival refills ammo; shops, pickups and checkpoint deaths do not.',
+ 'hologuise':'Adjust native disguised movement and walk animation independently. Collision and story interactions remain native.'}
+
+def gadget_field_groups(name,keys):
+ experimental={'surface_grapple_enabled','grapple_range','grapple_speed'} if name=='swingshot' else set()
+ standard=[k for k in keys if k not in experimental]
+ # Preserve the explicit ammo/damage/range ordering; colors finish their frame.
+ standard.sort(key=lambda k:(k.endswith('_color'),list(GADGET_DEFAULTS[name]).index(k)))
+ return standard,[k for k in GADGET_DEFAULTS[name] if k in experimental and k in keys]

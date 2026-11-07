@@ -133,6 +133,8 @@ pub struct MenuPrims;
 /// The mode globals and the main-loop frame counter (read by `gameplay::tick`).
 #[derive(Resource, Default, Debug)]
 pub struct MenuMode {
+    /// Only the world clock stops; radial input and its fade use the menu clock.
+    pub quick_select_paused: bool,
     pub state: ModeState,
     /// Main-loop frames so far (the index of the frame being run while `gameplay::tick` runs).
     pub loop_frame: u64,
@@ -146,8 +148,15 @@ pub struct MenuMode {
     pub replay: i32,
 }
 
+/// Shared gate for auxiliary world clocks that normally run outside GameTick.
+/// Menus, HUD building, live configuration and device sampling keep running.
+pub(crate) fn quick_select_world_runs(mode: Option<Res<MenuMode>>) -> bool {
+    mode.is_none_or(|mode| !mode.quick_select_paused)
+}
+
 #[derive(Resource)]
 struct MenuRt {
+    qs_pad: rc_game::pad::PadState,
     assets: MenuAssets,
     qs: Option<QuickSelect>,
     menu: Option<PageMenu>,
@@ -272,7 +281,7 @@ fn setup(
     (mut mm, mut fer): (ResMut<MenuMode>, ResMut<crate::saves::FrontEndRt>),
 ) {
     // Once per level (crate::level_switch: a runtime level change runs it again).
-    if generation.is_changed() { *done = false; }
+    if generation.is_changed() { *done = false; mm.quick_select_paused = false; }
     if *done { return; }
     *done = true;
     let Some(lh) = level.0.hud.as_ref() else {
@@ -391,6 +400,7 @@ fn setup(
     // The global `all_text` in the game's language (the Help Log page's message table, `MenuTextLoad`).
     assets.all_text = load_all_text(&root, lh.lang);
     commands.insert_resource(MenuRt {
+        qs_pad: rc_game::pad::PadState::default(),
         assets,
         qs,
         menu,
@@ -648,7 +658,8 @@ fn menu_frame(
     }
     let mode = mm.state.mode;
     let counter = play.game.counter;
-    if mode == Mode::Gameplay && rt.last_counter == Some(counter) { return; }
+    if mode == Mode::Gameplay && !mm.quick_select_paused && rt.last_counter == Some(counter) { return; }
+    if mode != Mode::Gameplay { mm.quick_select_paused = false; }
     // The menu was entered on an earlier tick of this frame (a frame that catches up runs several fixed ticks): as on
     // the PS2, where the mode switch takes effect next frame, the frame still renders as the gameplay frame the
     // snapshot is taken of (not the menu's first panels at their start positions) and the menu's first tick is the
@@ -668,9 +679,21 @@ fn menu_frame(
     let trace = rt.trace;
     match mode {
         Mode::Gameplay => {
-            let inp = MenuInput::from_pad(&play.game.pad, true);
+            // GameTick deliberately does not read or mutate the hero pad while
+            // frozen. Keep a separate physical pad history so a held R2 is one
+            // edge, analog selection works and release can close the ring.
+            if mm.quick_select_paused {
+                let input = match &rt.script {
+                    Some(script) => script.at(mm.loop_frame),
+                    None if *source == crate::game_camera::CameraSource::Play => pad.0,
+                    None => rc_game::pad::PadInput::neutral(),
+                };
+                rt.qs_pad.lock = 0;
+                rt.qs_pad.update(Some(&input.bytes()), gs.options().mirror);
+            } else { rt.qs_pad = play.game.pad.clone(); }
+            let inp = MenuInput::from_pad(&rt.qs_pad, true);
             let control_settings=play.svc.bomb_evo.control_settings;
-            let raw_edges=rc_game::weapon_evo::controls::physical_edges(&play.game.pad,gs.options().mirror);
+            let raw_edges=rc_game::weapon_evo::controls::physical_edges(&rt.qs_pad,gs.options().mirror);
             // 0x15f594 as the hero update saw it: a context-prompt owner blocks the ring (the vendor's △, Blarg's
             // button are not also a ring open). 0x1403fc the hand swap; 0x1413fc no control (the scripted holds
             // 0x72 / 0x32 / 0x78: the camera runs, the tube ride) and 0x1413f7 unless 0x1413f4 = 1 or 0x13f502;
@@ -688,7 +711,13 @@ fn menu_frame(
             };
             if let Some(qs) = rt.qs.as_mut() {
                 let listeners = play.svc.units.bot_listeners;
+                qs.set_ring(gs.weapon_progress.quick_select.ring, rc_game::weapon_evo::quick_select::slots(gs));
                 let h = qs.hero(&inp, &gate, &mut gs.global, sess);
+                if rc_game::weapon_evo::quick_select::cycle_on_press(
+                    &mut gs.weapon_progress.quick_select, qs.open, qs.command_page, inp.held_u, raw_edges) {
+                    qs.set_ring(gs.weapon_progress.quick_select.ring, rc_game::weapon_evo::quick_select::slots(gs));
+                    if let Some(a) = audio.as_deref_mut() { play_menu_sounds(&mut play, a, &[MenuSound::Confirm]); }
+                }
                 let u = qs.update(&inp, &gate, &mut gs.global, sess, vsync, listeners);
                 if u.lock_pad { play.game.pad.lock = 2; }
                 // Clank's command menu: 0x141610 for the gadgetbots and HeroUpdateAlt (next tick).
@@ -761,7 +790,7 @@ fn menu_frame(
             // infobot: the Start that skipped the movie also opened the pause menu).
             let media_pending = play.svc.interact.handoffs.iter().any(|h| matches!(h, rc_game::moby_update::interact::Handoff::Scene { .. } | rc_game::moby_update::interact::Handoff::Movie { .. }))
                 || play.svc.cinematic.requests.iter().any(|r| matches!(r, rc_game::cinematic::EngineRequest::StartScene { .. } | rc_game::cinematic::EngineRequest::StartMovie { .. } | rc_game::cinematic::EngineRequest::MovieB { .. }));
-            match rc_game::menus::mode::in_level_trigger(&t).filter(|_| !media_pending) {
+            match rc_game::menus::mode::in_level_trigger(&t).filter(|_| !media_pending && !(control_settings.pause_quick_select && rt.qs.as_ref().is_some_and(|qs| qs.open))) {
                 Some(rc_game::menus::mode::Trigger::Menu(k)) if rt.menu.is_some() => open_menu(rt, &mut mm, &mut play, gs, audio.as_deref_mut(), k, frame),
                 Some(rc_game::menus::mode::Trigger::Freeze(k)) => open_freeze(rt, &mut mm, &mut play, audio.as_deref_mut(), k, 0, frame),
                 _ => {}
@@ -782,7 +811,7 @@ fn menu_frame(
             // L00 0x297f78: the save notice, once auto-save is on (crate::saves).
             if mm.state.mode == Mode::Gameplay {
                 let gate = rc_game::menus::freeze::NoticeGate { frames_in_mode: mm.state.frames_in_mode, dying: play.game.hero.fell_out != 0, hp: sess.hp, tick: play.game.counter };
-                if crate::saves::with_card(|c| rc_game::menus::freeze::save_notice_due(c, gs, &gate)).unwrap_or(false) {
+                if !(control_settings.pause_quick_select && rt.qs.as_ref().is_some_and(|qs| qs.open)) && crate::saves::with_card(|c| rc_game::menus::freeze::save_notice_due(c, gs, &gate)).unwrap_or(false) {
                     gs.global.flags[0x10] = 1;
                     open_freeze(rt, &mut mm, &mut play, audio.as_deref_mut(), rc_game::menus::freeze::KIND_SAVE_NOTICE, 0, frame);
                 }
@@ -973,7 +1002,7 @@ fn menu_frame(
     }
     crate::interact_render::feed_release(&play, &mut feed);
     // The "use" system after a gameplay tick: the vendor's hand-off, the prompt for the HUD.
-    if mode == Mode::Gameplay && mm.state.mode == Mode::Gameplay {
+    if mode == Mode::Gameplay && mm.state.mode == Mode::Gameplay && !mm.quick_select_paused {
         crate::interact_render::feed_idle(&mut feed);
         crate::interact_render::after_tick(&mut vr, &mut play, gs, &mut mm.state, frame, Some(&mut feed), audio.as_deref_mut(), Some(&rt.assets));
     }
@@ -985,6 +1014,11 @@ fn menu_frame(
     if mm.state.mode != Mode::Freeze && crate::saves::with_card(|c| c.take_freeze_request()).unwrap_or(false) {
         open_freeze(rt, &mut mm, &mut play, audio.as_deref_mut(), rc_game::menus::freeze::KIND_CARD, 0, frame);
     }
+    mm.quick_select_paused = rt.qs.as_ref().is_some_and(|qs|
+        rc_game::weapon_evo::quick_select::pause_world(
+            play.svc.bomb_evo.control_settings.pause_quick_select,
+            mm.state.mode == Mode::Gameplay && play.svc.game_mode == 0 && !play.death_pending,
+            qs.open, qs.command_page, sess.hp > 0));
     mm.state.end_frame();
     mm.loop_frame += 1;
 }

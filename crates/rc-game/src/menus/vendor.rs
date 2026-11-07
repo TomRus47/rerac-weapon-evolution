@@ -645,7 +645,7 @@ impl Vendor {
                 self.set_ticker(&t);
                 out.selection_changed = true;
             }
-            if edge(button::SQUARE) && inp.pressed_u & button::TRIANGLE==0 && !self.remote {
+            if edge(button::SQUARE) && inp.pressed_u & button::TRIANGLE==0 {
                 self.reload_all(gs,assets,out);
             } else if edge(button::CROSS) && self.current().is_some_and(|e| !e.locked) {
                 self.buy = 1;

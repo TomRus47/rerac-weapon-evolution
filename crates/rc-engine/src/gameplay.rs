@@ -328,7 +328,8 @@ pub struct Persistent(pub GameState);
 /// call, so those frames do not count (the PAL +10 per 50 frames does not apply, NTSC only). After the menu frame, so
 /// it sees that frame's flag. The save slots show it as `hh:mm` (rc_game::menus::pause::saves); without it they
 /// stayed at 00:00 (GitHub #8).
-fn elapsed_frame(state: Option<ResMut<Persistent>>, play: Option<ResMut<Play>>) {
+fn elapsed_frame(state: Option<ResMut<Persistent>>, play: Option<ResMut<Play>>, mode: Option<Res<crate::menu_render::MenuMode>>) {
+    if mode.is_some_and(|mode| mode.quick_select_paused) { return; }
     let hold = play.is_some_and(|mut p| std::mem::take(&mut p.svc.elapsed_hold));
     if hold { return; }
     if let Some(mut s) = state { s.0.global.elapsed = s.0.global.elapsed.wrapping_add(1); }
@@ -756,6 +757,11 @@ pub(crate) fn prepare_level_tables(root: &std::path::Path, index: u32) {
     let _ = menu_overlay_for(root, index);
     // Pause-map callbacks are labeled with the reference level's records.
     let _ = menu_overlay_for(root, 1);
+    // The first Thruster-Pack draw used to read and relocate two full overlays
+    // on the render thread. Reuse the worker's parsed overlays before clearing
+    // their instruction indexes, without changing the active planet.
+    crate::thruster_render::prepare_tables(index,
+        parsed_overlay(root, index).as_deref(), parsed_overlay(root, 1).as_deref());
     // Recognition maps can be much larger than their final tables. Do not
     // retain one full instruction index for every visited planet.
     for overlay in PARSED_OVERLAYS.iter().filter_map(|cell| cell.get().and_then(Option::as_ref)) {
@@ -2373,6 +2379,12 @@ fn tick(
     (mut held, ammo, mut audio, mut hud_feed): HudAudio,
 ) {
     let Some(mut play) = play else { return };
+    // The input/menu clock continues independently. Drop this frame's budget
+    // rather than accumulating simulation work to replay when Triangle closes.
+    if mode.as_ref().is_some_and(|mode| mode.quick_select_paused) {
+        budget.0 = 0;
+        return;
+    }
     // Mode 5's world frames (crate::interact_render: substates 0 / 2) run one tick in the scene form.
     let world_frame = mode.as_ref().is_some_and(|m| !m.state.mode.advances_tick() && m.world_tick);
     if mode.as_ref().is_some_and(|m| !m.state.mode.advances_tick()) && !world_frame { return; }
@@ -2446,6 +2458,12 @@ fn tick(
     // vendor list 0x15edd0; the owned items and ammo come from Ratchet's mirrors inside the moby hook.
     let slots: Vec<i32> = p.item_data.as_ref().map_or_else(Vec::new, |d| d.defs.iter().map(|d| d.slot).collect());
     let item_base = rc_game::moby_update::classes::pickup::ItemTables::new(&p.svc.interact.tables.shop.records, state.as_deref().map_or([0xff; 12], |s| s.0.global.vendor)).with_slots(&slots);
+    if p.svc.gadget_combat.ice_visit.is_none() {
+        let remaining=session.as_ref().and_then(|s|s.0.hydro_combat_ammo).filter(|(level,_)|*level==level_index as u32).map(|(_,ammo)|ammo);
+        let settings=p.svc.bomb_evo.gadget_settings;
+        p.svc.gadget_combat.sync_ammo(level_index as u32,remaining,settings);
+        if remaining.is_some(){p.svc.gadget_combat.recharge.restore(session.as_ref().map_or(0,|s|s.0.hydro_recharge_ticks));}
+    }
     let parts_cell = RefCell::new(particles.as_deref_mut());
     let svc_cell = RefCell::new(&mut p.svc);
     let (sched, classes_arc, emitters, missions) = (&mut p.sched, &p.classes, &p.emitters, &p.missions);
@@ -2665,6 +2683,12 @@ fn tick(
     if rc_game::weapon_evo::bolt_chain::broken_by_hero_tick(&p.game.hero,health_before,loss_before) {
         svc_cell.borrow_mut().bomb_evo.reset_reward_chain(state.as_deref_mut().map(|s| &mut s.0.weapon_progress));
     }
+    if let Some(s)=session.as_mut() {
+        if let Some(ammo)=svc_cell.borrow().gadget_combat.ice_ammo {
+            s.0.hydro_combat_ammo=Some((level_index as u32,ammo));
+            s.0.hydro_recharge_ticks=svc_cell.borrow().gadget_combat.recharge.elapsed();
+        }
+    }
     // Resolve XP for read-only target acquisition after the mutating game tick.
     svc_cell.borrow_mut().bomb_evo.drain_special();
     if let Some(gs)=state.as_ref() {
@@ -2763,7 +2787,13 @@ fn tick(
                     .and_then(|(elf,ov)|ItemTables::load(&elf,&ov).ok());
                 if let (Some(t),Some(s))=(tables,session.as_mut()) {
                     let equip=p.game.hero.mode==0 && !rc_game::weapon_evo::golden::is_swimming(&p.game.hero);
-                    if let Some(reward)=rc_game::weapon_evo::randomizer::grant(&mut gs.0,&mut s.0,&t,source,equip) {
+                    if let Some(reward)=rc_game::weapon_evo::randomizer::grant_with_pack(&mut gs.0,&mut s.0,&t,source,equip,p.svc.bomb_evo.randomizer_bolt_pack_value) {
+                        // The live counters are authoritative at the end of this
+                        // frame. Preserve bolts collected earlier in the same tick.
+                        if reward==rc_game::weapon_evo::randomizer::PACK_REWARD {
+                            p.svc.counters.bolts=p.svc.counters.bolts.saturating_add(p.svc.bomb_evo.randomizer_bolt_pack_value.min(1_000_000) as i32);
+                            gs.0.global.bolts=p.svc.counters.bolts;
+                        }
                         if matches!(reward,52|53){p.game.hero.health=gs.0.global.max_hp;p.svc.counters.max_hp=gs.0.global.max_hp;}
                         let cutaway=equip && !p.svc.randomizer.anchors.iter().any(|a|a.source==source && a.no_cutaway);
                         randomizer_feedback(p,&root,index,t.item_defs_addr,reward,cutaway);
@@ -2820,8 +2850,10 @@ fn tick(
     if let (Some(gs),Some(s))=(state.as_mut(),session.as_mut()) {
         if gs.0.weapon_progress.randomizer.active() {
             let (root,index)=(crate::level_load::extracted_root(),crate::level_load::level_index());
-            let notices=std::mem::take(&mut s.0.randomizer_notices);
-            for reward in notices.into_iter().filter(|&r|r!=0){randomizer_feedback(p,&root,index,0,reward,!rc_game::weapon_evo::golden::is_swimming(&p.game.hero));}
+            let menu_mode=mode.as_ref().map_or(0,|m|m.state.mode.raw());
+            if let Some(reward)=s.0.next_randomizer_notice(menu_mode,p.svc.game_mode,p.game.hero.health>0 && p.game.hero.state!=0x64) {
+                randomizer_feedback(p,&root,index,0,reward,!rc_game::weapon_evo::golden::is_swimming(&p.game.hero));
+            }
             p.svc.bomb_evo.commit_randomizer(gs.0.weapon_progress.randomizer);
         }
     }
@@ -2977,7 +3009,9 @@ fn upload(
     // modifiers (head look, lean, eyelids: the moby +0x64 list, rc_game::hero::idle) over it.
     let hm = &p.game.mobys.mobys[p.hero_id];
     let layers = p.ratchet.posed_layers(&p.game.hero.weapons.layers, &p.layer_joints);
-    let f = moby_anim::evaluate_posed_yaw(class, &p.ratchet.state, p.ratchet.snapshot.as_ref(), &layers, &hm.joint_mods, &p.ratchet.legs.yaws);
+    let body_mods = rc_game::hero::walloper::body_draw_modifiers(p.game.hero.mode,
+        p.game.hero.items.slot.id, &hm.joint_mods);
+    let f = moby_anim::evaluate_posed_yaw(class, &p.ratchet.state, p.ratchet.snapshot.as_ref(), &layers, &body_mods, &p.ratchet.legs.yaws);
     for (k, b) in f.iter().take(p.slots as usize).flat_map(|r| r.iter().flatten().flat_map(|v| v.to_le_bytes())).enumerate() { palette[k] = b; }
     let rows = rows_bits(&hm.rows);
     // His light words +0x38 / +0x3c as `HeroEnvLighting` left them (the fog zone's light sets, the static light's ambient).
@@ -3187,7 +3221,10 @@ fn request_acquisition_demo(play:&Play,root:&std::path::Path,index:u32,item_defs
 
 fn randomizer_feedback(play:&mut Play,root:&std::path::Path,index:u32,item_defs:u32,reward:u16,equip:bool){
     let equip=equip && rc_game::weapon_evo::golden::pickup_cutaway_allowed(&play.game.hero);
-    let text=if reward<37 {
+    let text=if reward==rc_game::weapon_evo::randomizer::PACK_REWARD {
+        request_pickup_jingle(root);
+        rc_game::weapon_evo::randomizer::pack_notice(play.svc.interact.lang)
+    } else if reward<37 {
         let name=play.svc.gold_shop.names.get(&(reward as usize)).cloned()
             .unwrap_or_else(||golden_item_name(reward as usize,item_defs,root,index,&play.svc.interact.messages));
         if equip {request_acquisition_demo(play,root,index,item_defs,reward as usize);}else{request_pickup_jingle(root);}

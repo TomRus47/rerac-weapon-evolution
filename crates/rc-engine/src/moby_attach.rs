@@ -750,7 +750,8 @@ fn update(
         }
         for item in a.items.iter_mut().filter(|i| i.attach.slot == Slot::Hook) {
             // `0x2dccd8`: hidden with the Swingshot (first person) and while the gold bolt's pickup hides the hand (0x1413ff).
-            item.visible = hook.is_some() && !fp && !hand_off;
+            let custom_hook=play.as_ref().is_some_and(|p|p.game.hero.gadget_combat.cable_pose!=0);
+            item.visible = hook.is_some() && (!fp||custom_hook) && !hand_off;
             if let Some(k) = hook.as_ref() {
                 // The claws' animation as the hook's update (`0x2dccd8`, rc_game::hero::swingshot) left it.
                 item.state = k.anim;

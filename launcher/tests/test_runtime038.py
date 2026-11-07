@@ -4,9 +4,11 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'launcher'))
 sys.path.insert(0, str(ROOT / 'tools/mod'))
 import runtime038_test as update
 
@@ -14,7 +16,7 @@ import runtime038_test as update
 class Runtime038Tests(unittest.TestCase):
     identity = {'name': 'rerac', 'game': 'rac1', 'version': '0.3.8',
                 'weapon_evolution_patch': update.PATCH,
-                'weapon_evolution_config': 93,
+                'weapon_evolution_config': 97,
                 'weapon_evolution_audio_diagnostics': False}
 
     def fixture(self, root):
@@ -37,6 +39,30 @@ class Runtime038Tests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
         return source, play, bundle, play / 'ReRAC_Weapon_Evolution.exe', old
+
+    def test_runtime_only_build_preserves_the_gui_without_running_a_gui_builder(self):
+        import os
+        with tempfile.TemporaryDirectory() as folder:
+            source,play,bundle,launcher,old=self.fixture(Path(folder))
+            exe=source/'target/release/rerac.exe'
+            with patch.object(sys,'argv',['runtime038_test.py','build','--runtime-only',
+                    '--playable',str(play),'--target-dir',str(source/'target')]), \
+                    patch.object(update,'SOURCE',source),patch.object(update,'BUNDLE',bundle), \
+                    patch.object(update,'os',SimpleNamespace(name='nt',replace=os.replace,startfile=lambda _:None)), \
+                    patch.object(update,'verify_sources'), \
+                    patch.object(update.subprocess,'run',return_value=SimpleNamespace(stdout='')), \
+                    patch('windows_build_env.ensure_build_environment'), \
+                    patch('rust_build_tools.ensure_rust_compiler'), \
+                    patch('verified_artifacts.validate_source_apis'), \
+                    patch.object(update,'build_engine',return_value=exe), \
+                    patch.object(update,'probe',return_value=self.identity), \
+                    patch.object(update,'checked_launcher') as gui:
+                update.main()
+            gui.assert_not_called()
+            self.assertEqual(launcher.read_bytes(),old[launcher.name])
+            self.assertEqual((play/'runtime/rerac.exe').read_bytes(),b'new executable')
+            self.assertEqual((play/'weapons.ini').read_bytes(),old['weapons.ini'])
+            self.assertEqual((play/'presets/custom.ini').read_bytes(),old['presets/custom.ini'])
 
     def test_update_changes_only_runtime_and_matching_shaders(self):
         with tempfile.TemporaryDirectory() as folder:

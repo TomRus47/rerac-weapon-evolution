@@ -153,6 +153,7 @@ match (p,i) {
 (9,1)=>&[&[2,12],&[3,12]],
 (10,0)=>&[&[6,12,13,28,3]],
 (10,1)=>&[&[6,12,28,3]],
+// This surveyed native route requires both packs and the Swingshot.
 (11,0)=>&[&[2,3,12]],
 (12,0)=>&[&[]],
 (12,1)=>&[&[2,22],&[3,22]],
@@ -204,6 +205,18 @@ mod route_tests {
         assert!(can(179,&[]));
         assert!(!can(140,&[2,12]));assert!(!can(140,&[3,12]));assert!(can(140,&[2,3,12]));
     }
+    #[test]
+    fn pokitaru_native_bolt_requires_all_three_surveyed_gadgets() {
+        for mask in 0..8 {
+            let mut inventory=vec![4,6]; // Water upgrades cannot replace this route's gadgets.
+            for (bit,id) in [2,3,12].into_iter().enumerate() {
+                if mask & (1<<bit) != 0 { inventory.push(id); }
+            }
+            assert_eq!(can(140,&inventory),mask==7,"missing route gadget, mask {mask}");
+            assert!(can(179,&inventory),"the added seabed check is independent");
+        }
+    }
+
     #[test]
     fn surveyed_novalis_ids_do_not_share_sibling_requirements() {
         assert!(can(100,&[]));

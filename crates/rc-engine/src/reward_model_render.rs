@@ -99,7 +99,7 @@ fn image(level:&crate::level_load::LoadedLevel,key:TextureKey,images:&mut Assets
 /// Draw the actual class topology, never a glow quad or inventory icon.
 #[allow(clippy::too_many_arguments)]
 pub fn spawn(commands:&mut Commands,level:&crate::level_load::LoadedLevel,
-    class:&LevelMobyClass,fog:TfragFog,meshes:&mut Assets<Mesh>,images:&mut Assets<Image>,
+    class:&LevelMobyClass,fog:TfragFog,grey:bool,meshes:&mut Assets<Mesh>,images:&mut Assets<Image>,
     materials:&mut Assets<RewardMaterial>)->Result<Vec<Entity>,String>{
     let batches=display_batches(class)?;
     // Resolve every required image BEFORE spawning anything; a partial body
@@ -126,7 +126,7 @@ pub fn spawn(commands:&mut Commands,level:&crate::level_load::LoadedLevel,
         for base in gs_state::draws(gs_state::AREF_WORLD,alpha,AlphaRange::OPAQUE){
             let pass=if metal{match base{GsPass::OpaqueTested{aref}=>GsPass::LateTested{aref},p=>p}}else{base};
             let material=materials.add(RewardMaterial{texture:texture.clone(),fog,
-                surface:Surface{values:Vec4::new(if metal{1.}else{0.},0.,0.,0.)},pass});
+                surface:Surface{values:Vec4::new(if metal{1.}else{0.},if grey{1.}else{0.},0.,0.)},pass});
             entities.push(commands.spawn((Mesh3d(mesh.clone()),MeshMaterial3d(material),
                 Transform::IDENTITY,Visibility::Hidden,NoFrustumCulling,
                 Name::new(format!("Standalone native reward class {} {key:?} {pass:?}",class.o_class)))).id());

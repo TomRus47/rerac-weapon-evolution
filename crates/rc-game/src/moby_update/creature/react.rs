@@ -578,9 +578,11 @@ pub fn slot_swallow(w: &mut World, id: MobyId, point: V) -> i32 {
 
 /// Slot +0x08 `(height, moby, vel, target)`: fired out of the cannon.
 pub fn slot_fire(w: &mut World, id: MobyId, height: f32, vel: V, target: Option<MobyId>) -> i32 {
+    if crate::moby_update::classes::cannon_crate::marked(w.m(id)) {
+        return crate::moby_update::classes::cannon_crate::fire_out(w, id, vel, target);
+    }
     let Some(x) = wrappers(w, id) else { return 0 };
     let r = fire_out(w, id, height, vel, target);
-    if r != 0 { crate::moby_update::classes::cannon_crate::fired(w, id); }
     let r2 = wrap_state(w, id, &x, r);
     if let (Some(s), Some(rr)) = (x.bounce_sound, record(w, id)) {
         if rs(w, rr, id, rec::STATE) == 6 { w.play_sound(s, 0, id); }

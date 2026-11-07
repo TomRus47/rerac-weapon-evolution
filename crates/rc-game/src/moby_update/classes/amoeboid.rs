@@ -666,13 +666,13 @@ mod evolution_stage_tests {
                 assert_eq!(c::pf(w, 2, D), 1.5);
                 let xp = if weapon == 16 { w.svc.bomb_evo.pyro.xp }
                     else { w.svc.bomb_evo.extras.iter().find(|t| t.id == 19).unwrap().xp };
-                assert!((xp - 300.0).abs() < 0.001, "weapon {weapon}: {xp}");
+                assert!((xp - 30.0).abs() < 0.001, "weapon {weapon}: {xp}");
                 assert!(hit(w, 2, weapon, 1.5));
                 assert_eq!((c::pf(w, 4, D), c::pf(w, 5, D)), (1.0, 1.0));
                 assert!(hit(w, 4, weapon, 1.0));
                 assert!(w.m(4).state >= 0x80);
                 let after=if weapon==16 {w.svc.bomb_evo.pyro.xp} else {w.svc.bomb_evo.extras.iter().find(|t|t.id==19).unwrap().xp};
-                assert!((after-300.).abs()<0.001,"split descendants awarded XP");
+                assert!((after-30.).abs()<0.001,"split descendants awarded XP");
                 assert!(split_descendant(w.m(2)));assert!(split_descendant(w.m(4)));
                 assert_eq!(damage::special_health(w,3),None,"lure/suction cannot farm split XP");
             });
@@ -686,13 +686,13 @@ mod evolution_stage_tests {
                 w.mm(1).o_class=class;c::set_pf(w,1,D,hp);
                 assert!(!split_descendant(w.m(1)));
                 hit(w,1,16,hp);
-                assert!((w.svc.bomb_evo.pyro.xp-hp*100.).abs()<0.001);
+                assert!((w.svc.bomb_evo.pyro.xp-hp*10.).abs()<0.001);
             });
         }
     }
 
     #[test]
-    fn fixed_weapon_budget_keeps_nanotech_on_configured_hp_rate() {
+    fn damage_credits_both_tracks_at_the_configured_hp_rate() {
         with_world(|w| {
             w.svc.bomb_evo.xp_per_damage=0.37;
             w.svc.bomb_evo.world_settings.enemy_health_multiplier=2.;
@@ -701,12 +701,12 @@ mod evolution_stage_tests {
             assert_eq!(c::pf(w,1,D),3.);
             for _ in 0..6 {hit(w,1,16,1.);}
             assert_eq!(c::pf(w,1,D),0.);
-            assert!((w.svc.bomb_evo.pyro.xp-300.).abs()<0.001);
+            assert!((w.svc.bomb_evo.pyro.xp-222.).abs()<0.001);
             assert!((w.svc.bomb_evo.nanotech.xp-222.).abs()<0.001);
             assert_eq!(c::pf(w,2,D),2.);
             for _ in 0..4 {hit(w,2,16,1.);}
             for _ in 0..2 {hit(w,4,16,1.);}
-            assert!((w.svc.bomb_evo.pyro.xp-300.).abs()<0.001);
+            assert!((w.svc.bomb_evo.pyro.xp-222.).abs()<0.001);
             assert!((w.svc.bomb_evo.nanotech.xp-222.).abs()<0.001);
         });
     }
@@ -719,7 +719,7 @@ mod evolution_stage_tests {
             assert_eq!((c::pf(w, 2, D), c::pf(w, 3, D)), (2.0, 2.0));
             assert_eq!(st(w, 4), 0xc);
             let xp = w.svc.bomb_evo.extras.iter().find(|t| t.id == 20).unwrap().xp;
-            assert!((xp - 300.0).abs() < 0.001);
+            assert!((xp - 30.0).abs() < 0.001);
         });
     }
     /// Exercise delivery, resolver and HP-write attribution, not just XP helpers.
@@ -762,14 +762,14 @@ mod evolution_stage_tests {
                     w.counter=frame;w.svc.hits.real_hp.begin_frame(frame);
                     w.deliver_hit(1,&t);pre(w,1);
                     assert_eq!(c::pf(w,1,D),2.5,"one wrench instance, frame {frame}");
-                    assert!((weapon_xp(w,8)-50.).abs()<0.001);
+                    assert!((weapon_xp(w,8)-6.).abs()<0.001);
                     assert!((w.svc.bomb_evo.nanotech.xp-6.).abs()<0.001);
                 }
                 w.svc.hits.real_hp.wrench_serial=2;
                 w.counter+=1;w.svc.hits.real_hp.begin_frame(w.counter);
                 w.deliver_hit(1,&t);pre(w,1);
                 assert_eq!(c::pf(w,1,D),2.);
-                assert!((weapon_xp(w,8)-100.).abs()<0.001);
+                assert!((weapon_xp(w,8)-12.).abs()<0.001);
                 assert!((w.svc.bomb_evo.nanotech.xp-12.).abs()<0.001);
             });
         }
@@ -789,7 +789,7 @@ mod evolution_stage_tests {
                         // Duplicate collision primitives are still one instance.
                         for _ in 0..10 {w.deliver_hit(1,&t);}
                         pre(w,1);
-                        assert!((weapon_xp(w,weapon)-hp*100.).abs()<0.001,"weapon {weapon}, size {hp}");
+                        assert!((weapon_xp(w,weapon)-hp*scale*100.*0.12).abs()<0.001,"weapon {weapon}, size {hp}");
                         let expected=if matches!(weapon,14|25) {0.}else{hp*scale*100.*0.12};
                         assert!((w.svc.bomb_evo.nanotech.xp-expected).abs()<0.001,
                             "weapon {weapon}, size {hp}, scale {scale}: {}",w.svc.bomb_evo.nanotech.xp);
@@ -800,7 +800,7 @@ mod evolution_stage_tests {
     }
 
     #[test]
-    fn swallow_and_morph_keep_weapon_budget_but_never_bypass_nanotech_conversion() {
+    fn swallow_and_morph_use_the_same_hp_conversion_as_damage() {
         for weapon in [9,21] {
             with_world(|w| {
                 enable_nanotech(w);
@@ -808,7 +808,7 @@ mod evolution_stage_tests {
                 w.svc.bomb_evo.world_settings.enemy_health_multiplier=2.;
                 let reward=damage::special_reward(w,1).unwrap();
                 for _ in 0..20 {reward.award(&mut w.svc.bomb_evo,weapon,1);}
-                assert!((weapon_xp(w,weapon)-300.).abs()<0.001);
+                assert!((weapon_xp(w,weapon)-72.).abs()<0.001);
                 assert!((w.svc.bomb_evo.nanotech.xp-72.).abs()<0.001);
                 hit(w,1,20,100.);
                 assert!(damage::special_reward(w,2).is_none());
@@ -816,6 +816,53 @@ mod evolution_stage_tests {
                 assert!(damage::special_reward(w,4).is_none());
             });
         }
+    }
+
+    #[test]
+    fn all_placed_sizes_obey_zero_custom_rates_health_scaling_and_one_chain_factor() {
+        for weapon in [8,9,10,11,13,14,15,16,17,18,19,20,23,24,25] {
+            for rate in [0.,0.01,0.12,1.] {
+                for (class,hp) in [(866,1.),(865,2.),(572,3.)] {
+                    with_world(|w| {
+                        enable_nanotech(w);
+                        w.svc.bomb_evo.xp_per_damage=rate;
+                        w.svc.bomb_evo.world_settings.enemy_health_multiplier=2.;
+                        w.svc.bomb_evo.configure_ng_plus(true);
+                        w.svc.bomb_evo.bolt_chain.kills=30;
+                        let scale=w.svc.bomb_evo.world_settings.health_scale(class);
+                        let factor=w.svc.bomb_evo.reward_factor();
+                        w.mm(1).o_class=class;c::set_pf(w,1,D,hp);
+                        let t=attack_template(w,weapon,10000.);
+                        for _ in 0..10 {w.deliver_hit(1,&t);}
+                        pre(w,1);
+                        let expected=hp*scale*100.*rate*factor;
+                        assert!((weapon_xp(w,weapon)-expected).abs()<0.01,
+                            "weapon {weapon}, hp {hp}, rate {rate}");
+                        let health=if matches!(weapon,14|25) {0.}else{expected};
+                        assert!((w.svc.bomb_evo.nanotech.xp-health).abs()<0.01);
+                    });
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn attraction_uses_remaining_real_hp_once_without_inverse_xp_rate() {
+        for weapon in [14,25] {for rate in [0.,0.01,0.12,1.] {with_world(|w| {
+            enable_nanotech(w);
+            w.svc.bomb_evo.xp_per_damage=rate;
+            w.svc.bomb_evo.world_settings.enemy_health_multiplier=2.;
+            c::set_pf(w,1,D,1.5);
+            let hp=damage::attraction_health(w,1).unwrap();
+            assert_eq!(hp,3.);
+            for _ in 0..20 {w.svc.bomb_evo.enqueue_attraction(weapon,1,572,hp,0.25);}
+            w.svc.bomb_evo.drain_special();
+            assert!((weapon_xp(w,weapon)-300.*rate*0.25).abs()<0.001);
+            assert_eq!(w.svc.bomb_evo.nanotech.xp,0.);
+            assert_eq!(damage::attraction_health(w,2),Some(4.));
+            hit(w,1,20,100.);
+            assert_eq!(damage::attraction_health(w,2),None);
+        });}}
     }
 
 }

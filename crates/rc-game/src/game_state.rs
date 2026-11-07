@@ -288,6 +288,9 @@ pub struct SessionState {
     /// Native save equipment and the v8 shortcut bindings remain authoritative.
     pub shortcut_back_cycle: Option<(usize, i32, i32)>,
     pub randomizer_notices:[u16;32],
+    pub hydro_combat_ammo:Option<(u32,u16)>,
+    /// Partial recharge survives a checkpoint death within this planet visit.
+    pub hydro_recharge_ticks:u32,
     /// 0x1415f8: hit points (= max HP at level start).
     pub hp: i32,
     /// 0x141408: hand item to show (GiveItem with equip, slot type 0).
@@ -308,13 +311,26 @@ pub struct SessionState {
 }
 
 impl Default for SessionState {
-    fn default() -> Self { SessionState { randomizer_notices:[0;32],shortcut_back_cycle: None, hp: 0, temp_hand: 0, temp_feet: 0, temp_head: 0, temp_back: 0, clank_hidden: 0, tick_scale: 1.0, drone: false } }
+    fn default() -> Self { SessionState { hydro_recharge_ticks:0,hydro_combat_ammo:None,randomizer_notices:[0;32],shortcut_back_cycle: None, hp: 0, temp_hand: 0, temp_feet: 0, temp_head: 0, temp_back: 0, clank_hidden: 0, tick_scale: 1.0, drone: false } }
 }
 
 impl SessionState {
+    /// Menu purchases can run world ticks while their shop closes. Keep their
+    /// receipts queued through every non-gameplay mode and consume only one per
+    /// normal frame, allowing a movie/cutaway to take control before the next.
+    /// Removal precedes playback: skipping a movie cannot replay its receipt.
+    pub fn next_randomizer_notice(&mut self, menu_mode:i32, world_mode:i32, hero_ready:bool)->Option<u16> {
+        if menu_mode!=0 || world_mode!=0 || !hero_ready {return None;}
+        let at=self.randomizer_notices.iter().position(|&reward|reward!=0)?;
+        let reward=self.randomizer_notices[at];
+        self.randomizer_notices.copy_within(at+1..,at);
+        *self.randomizer_notices.last_mut().unwrap()=0;
+        Some(reward)
+    }
+
     /// Hero init 0x226b70: the hero block (0x13f350..0x141660) is cleared and HP = max HP.
     pub fn hero_init(&mut self, max_hp: i32) {
-        *self = SessionState { hp: max_hp, tick_scale: self.tick_scale, ..SessionState::default() };
+        *self = SessionState { hydro_recharge_ticks:self.hydro_recharge_ticks,hydro_combat_ammo:self.hydro_combat_ammo, hp: max_hp, tick_scale: self.tick_scale, ..SessionState::default() };
     }
     /// `fun_001f96f8`: `(int)((float)t · scale + 0.5)` in PS2 float arithmetic.
     pub fn scale_ticks(&self, t: i32) -> i32 { (Pf::from_i32(t) * Pf::f(self.tick_scale) + Pf::b(0x3f00_0000)).to_i32() }
@@ -824,5 +840,53 @@ mod tests {
     fn scale_ticks_ntsc_is_identity() {
         let s = SessionState::default();
         for t in [0, 1, 599, 600, 123_456, 16_777_215] { assert_eq!(s.scale_ticks(t), t); }
+    }
+}
+
+#[cfg(test)]
+mod v132_shop_receipts {
+    use super::*;
+    use crate::menus::mode::Mode;
+    use rc_formats::save_game::{ChunkTables,ItemRecord,ITEM_COUNT,VENDOR_TABLE_LEN};
+    #[test]
+    fn a_real_randomized_purchase_waits_through_shop_closing_and_plays_once_after_skip() {
+        let mut gs=GameState::zeroed(ChunkTables{global:vec![],level:vec![]});
+        gs.weapon_progress.randomizer=crate::weapon_evo::randomizer::State::generate(9701);
+        // Buy Novalis's Pyrocitor offer, whose actual reward is Metal Detector.
+        let at=gs.weapon_progress.randomizer.placements.iter().position(|&r|r==27).unwrap();
+        gs.weapon_progress.randomizer.placements.swap(16,at);
+        assert!(gs.weapon_progress.randomizer.valid());
+        let items=ItemTables{vendor_items:[0;VENDOR_TABLE_LEN],records:[ItemRecord([0;0x18]);ITEM_COUNT],slot_type:[0;ITEM_COUNT],item_defs_addr:0};
+        let mut session=SessionState::default();
+        gs.give_item(16,true,&items,&mut session);
+        assert_eq!(gs.global.owned[27],1);
+        let queued=session.randomizer_notices;
+        for _ in 0..20 {
+            assert_eq!(session.next_randomizer_notice(Mode::Vendor.raw(),0,true),None);
+            assert_eq!(session.randomizer_notices,queued);
+        }
+        // Only the fully cleaned-up gameplay state can start the tutorial.
+        assert_eq!(session.next_randomizer_notice(0,2,true),None);
+        assert_eq!(session.next_randomizer_notice(0,0,false),None);
+        assert_eq!(session.next_randomizer_notice(0,0,true),Some(27));
+        assert_eq!(session.next_randomizer_notice(Mode::Movie.raw(),0,true),None);
+        // Natural completion and skipping both return to Gameplay. The receipt
+        // was consumed before either path, so it cannot restart a vendor/video.
+        assert_eq!(session.next_randomizer_notice(0,0,true),None);
+        gs.give_item(16,true,&items,&mut session);
+        assert_eq!(session.next_randomizer_notice(0,0,true),None);
+    }
+    #[test]
+    fn multiple_purchases_are_presented_serially_without_losing_or_replaying_receipts() {
+        let mut session=SessionState::default();
+        session.randomizer_notices[..4].copy_from_slice(&[27,0,5,31]);
+        for expected in [27,5,31] {
+            for mode in 1..=7 {assert_eq!(session.next_randomizer_notice(mode,0,true),None);}
+            assert_eq!(session.next_randomizer_notice(0,0,true),Some(expected));
+            assert_eq!(session.next_randomizer_notice(1,0,true),None);
+        }
+        assert!(session.randomizer_notices.iter().all(|&r|r==0));
+        assert_eq!(session.next_randomizer_notice(0,0,true),None);
+        let replacement=SessionState::default();assert!(replacement.randomizer_notices.iter().all(|&r|r==0));
     }
 }

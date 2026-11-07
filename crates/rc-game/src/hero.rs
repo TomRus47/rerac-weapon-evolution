@@ -453,6 +453,7 @@ pub struct Hero {
     pub boots: boots::Boots,
     /// The hand-item mechanism's pending item update ([`gadgets`], package P6).
     pub gadgets: gadgets::Gadgets,
+    pub gadget_combat: crate::gadget_combat::HeroOutput,
     /// The Swingshot fields 0x13fcb0..0x13fd1c and its hand item's ([`swingshot`], package P6).
     pub swing: swingshot::Swing,
     /// The hero's requests of other systems (camera shakes, …) queued for the tick ([`fx`]).
@@ -571,7 +572,7 @@ impl Hero {
             idle: idle::Idle::new(), back: None, back_classes: None, swim: swim::Swim::new(),
             carry: platform::Carry::default(), surf: surface::Surf::default(),
             owned: Owned::default(), back_slot: idle::BackSlot::default(), feet_slot: idle::ItemSlot::default(), head_slot: idle::ItemSlot::default(), worn: worn::Worn::default(), packs: packs::Packs::default(), wall_ahead: [0.0; 2], edge: (false, 0.0, 0.0), boots: boots::Boots::default(),
-            gadgets: gadgets::Gadgets::default(), swing: swingshot::Swing::default(), fx: fx::HeroFx::default(),
+            gadgets: gadgets::Gadgets::default(), gadget_combat:Default::default(), swing: swingshot::Swing::default(), fx: fx::HeroFx::default(),
             combat_strafe: false, fixed_combat_aim: false, combat_release: false, combat_jump: false, combat_flip: false, combat_yaw: z, combat_move_yaw: z,
             f13f5: 0, f13ff: 0, weapons: weapons::Weapons::default(), comet: comet::Comet::default(), loop_in: Default::default(),
             joint_targets: Default::default(), help: Default::default(), walloper: Default::default(), bodies: bodies::Bodies::default(), glow: glow::HeroGlow::default(), env_base: None,
@@ -922,6 +923,7 @@ pub(crate) fn hero_update_with_combat_mode(
     if hero.mode == 0 { hero.idle_updates(env, &*anim, counter, rng); }
     combat_strafe::face_camera(hero);
     if combat_strafe::active(hero) { hero.rows = physics::euler_rows(hero.rot); }
+    crate::gadget_combat::apply_hero_pose(hero,anim,rng);
     combat_legs::clean_run_modifiers(hero);
     anim.combat_pose(hero);
     hero.write_back(moby);

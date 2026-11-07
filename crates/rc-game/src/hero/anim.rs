@@ -85,6 +85,13 @@ pub trait AnimCtl {
     fn view(&self) -> AnimView;
     /// Frame count of sequence `seq` of Ratchet's class (0 when absent).
     fn frame_count(&self, seq: u8) -> u8;
+    /// Custom gadget poses need real keys, not only a nonzero sequence header.
+    fn gadget_sequence_valid(&self,seq:u8)->bool {self.frame_count(seq)>0}
+    /// Recover a missing source snapshot before blending a custom gadget pose.
+    /// Native SetAnim callers retain their original behavior.
+    fn prepare_gadget_pose(&mut self,seq:u8,frame:u8)->bool {
+        self.gadget_sequence_valid(seq)&&frame<self.frame_count(seq)
+    }
     /// `0x247cb8(start, end)`: loop key B between `start` and `end` (re-entry at rate 1/3) until cleared;
     /// ignored unless `start ≥ 0` and `end` < the frame count of sequence B.
     fn set_loop(&mut self, start: i32, end: i32);
@@ -535,6 +542,8 @@ impl AnimCtl for HeroAnimCtl<'_> {
     fn refresh_loop_sound(&mut self, moby: &crate::moby_runtime::Moby, rng: &mut crate::rng::Rng, sounds: &mut dyn super::HeroSounds) { self.with(|a| a.refresh_loop_sound(moby, rng, sounds)) }
     fn view(&self) -> AnimView { self.r().view() }
     fn frame_count(&self, seq: u8) -> u8 { self.r().frame_count(seq) }
+    fn gadget_sequence_valid(&self,seq:u8)->bool {gadget_sequence_valid(self.r().class,seq)}
+    fn prepare_gadget_pose(&mut self,seq:u8,frame:u8)->bool {self.with(|a|a.prepare_gadget_pose(seq,frame))}
     fn set_loop(&mut self, start: i32, end: i32) { self.with(|a| a.set_loop(start, end)) }
     fn clear_loop(&mut self) { self.with(|a| a.clear_loop()) }
     fn exit_loop(&mut self, to: i32) { self.with(|a| a.exit_loop(to)) }
@@ -586,6 +595,12 @@ impl AnimCtl for HeroAnimCtl<'_> {
     }
 }
 
+/// A complete decoded sequence is required for the native advance's next key.
+fn gadget_sequence_valid(class:&MobyAnimClass,seq:u8)->bool {
+    class.sequence(seq).is_some_and(|s|s.header.frame_count>0
+        &&s.frames.len()>=s.header.frame_count as usize
+        &&s.frames.iter().take(s.header.frame_count as usize).all(|f|f.header.rate.is_finite()&&f.header.rate>=0.))
+}
 impl AnimCtl for RatchetAnimCtl<'_> {
     fn combat_pose(&mut self, hero: &super::Hero) {
         // A locked run must not keep a snapshot of the previous turn, landing
@@ -742,6 +757,23 @@ impl AnimCtl for RatchetAnimCtl<'_> {
     fn view(&self) -> AnimView { self.r().view() }
 
     fn frame_count(&self, seq: u8) -> u8 { self.r().frame_count(seq) }
+    fn gadget_sequence_valid(&self,seq:u8)->bool {gadget_sequence_valid(self.class,seq)}
+    fn prepare_gadget_pose(&mut self,seq:u8,frame:u8)->bool {
+        if !gadget_sequence_valid(self.class,seq)||self.class.frame(seq,frame).is_none(){return false;}
+        if self.r().pose_frame().is_some(){return true;}
+        // Repeated transitions can otherwise keep snapshot-seq 0xff with no
+        // source key forever: the renderer returns identity matrices (T-pose).
+        let key=self.class.frame(seq,frame).unwrap();let a=&mut *self.a;
+        a.snapshot=None;a.state.seq_a=seq;a.state.seq_b=seq;
+        a.state.frame_a=frame;a.state.frame_b=frame;a.state.t=0.;
+        a.flags=0;a.state.flags=0;a.curve=-1;a.curve_pos=0;
+        a.rate=Pf::f(key.header.rate);a.state.rate=key.header.rate;a.state.speed=1.;
+        a.loop_range=None;a.exit=false;a.jump=false;
+        a.frame=RatchetAnim::key_time(Some(key))*Pf::f(0.0625);a.frame_step=Pf::ZERO;
+        a.loop_sound=self.class.sequence(seq).unwrap().header.loop_sound;
+        true
+    }
+
 
     fn set_loop(&mut self, start: i32, end: i32) {
         let fc = self.frame_count(self.a.state.seq_b) as i32;

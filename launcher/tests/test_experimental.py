@@ -12,21 +12,22 @@ class ExperimentalTests(unittest.TestCase):
     def setUp(self): self.raw=(ROOT/'weapons.default.ini').read_bytes()
     def test_old_profiles_gain_only_missing_fields_at_all_five_grades(self):
         keys={k for fields in EXPERIMENTAL_DEFAULTS.values() for k in fields}
-        old=b''.join(line for line in self.raw.splitlines(True) if line.split(b'=',1)[0].strip().decode() not in keys)
+        old=b''.join(line for line in self.raw.splitlines(True) if line.split(b'=',1)[0].strip().decode() not in keys or line.split(b'=',1)[0].strip()==b'damage_per_second')
         before=core.checked_document(old);result,_=convert(old);after=core.checked_document(result)
         for key,value in before.entries.items(): self.assertEqual(after.entries[key],value)
-        self.assertEqual(len(after.entries)-len(before.entries),sum(len(f)*8 for f in EXPERIMENTAL_DEFAULTS.values()))
+        self.assertEqual(len(after.entries)-len(before.entries),sum(len(f)*8 for f in EXPERIMENTAL_DEFAULTS.values())-8)
         for weapon,fields in EXPERIMENTAL_DEFAULTS.items():
             for grade in range(1,9):
                 for key,value in fields.items():
                     expected=before.entries[f'weapon.{weapon}.level{grade}','capacity' if weapon=='suck_cannon' else 'max_ammo'] if key=='experimental_max_ammo' else value
+                    if key=='damage_per_second': expected=before.entries.get((f'weapon.{weapon}.level{grade}',key),value)
                     if key in {'flame_mine_max_active_mines','flame_mine_lifetime_seconds'}:
                         standard='max_active_mines' if key=='flame_mine_max_active_mines' else 'mine_lifetime_seconds'
                         expected=before.entries[f'weapon.{weapon}.level{grade}',standard]
                     self.assertEqual(after.entries[f'weapon.{weapon}.level{grade}',key],expected)
         self.assertEqual(convert(result)[0],result)
-        self.assertEqual(core.required_config(before),92)
-        self.assertEqual(core.required_config(after),92)
+        self.assertEqual(core.required_config(before),95)
+        self.assertEqual(core.required_config(after),95)
     def test_custom_behavior_and_balance_survive_bom_crlf_and_preset_round_trip(self):
         doc=core.checked_document(self.raw)
         changed=doc.render({('weapon.bomb_glove.level3','cluster_bombs_enabled'):'true',
@@ -55,7 +56,7 @@ class ExperimentalTests(unittest.TestCase):
             info=dict(name='rerac',game='rac1',version='0.3.4',data_format=1,weapon_evolution_config=40)
             with patch.object(core.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(info))):
                 with self.assertRaises(ValueError):core.probe_exe(exe,core.required_config(doc))
-            info['weapon_evolution_config']=92
+            info['weapon_evolution_config']=95
             with patch.object(core.subprocess,'run',return_value=SimpleNamespace(stdout=json.dumps(info))):
                 self.assertEqual(core.probe_exe(exe,core.required_config(doc)),info)
 

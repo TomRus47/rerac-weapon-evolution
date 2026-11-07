@@ -43,7 +43,10 @@ pub fn projectile(m:&Moby)->bool {
         || m.o_class==435 && matches!(m.state,1|2|5)
 }
 pub fn enemy(m:&Moby)->bool {
-    !projectile(m) && (crate::moby_update::real_hp::donor_class(m.o_class)
+    // The shared Veldin beam manager is in the legacy donor catalog, but is
+    // not an enemy AI. A second update consumes its just-published beam lease
+    // and releases every slot before rendering. Its owner alone runs faster.
+    m.o_class != 1471 && !projectile(m) && (crate::moby_update::real_hp::donor_class(m.o_class)
         || matches!(m.o_class,1126|1454|1394|1274|1584|733))
 }
 /// Hoven's turret defense keeps its authored flight speeds while mounted.
@@ -175,6 +178,32 @@ pub fn run(w:&mut World,id:MobyId,native:fn(&mut World,MobyId)) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn veldin_beam_manager_publishes_once_at_every_enemy_and_projectile_speed() {
+        use crate::moby_update::classes::{bomb_water::tests::Bench,units::veldin_beamer};
+        use crate::moby_update::services::World;
+        for speed in [0.5,1.,1.25,2.,4.] {
+            let mut b=Bench::new(crate::hero::testkit::floor(0.,0,12,0,12),&[1440,1471],[20.,20.,5.]);
+            let owner=b.create(1440);b.table.mobys[owner].state=5;
+            let manager=b.create(1471);b.table.mobys[manager].state=1;
+            b.svc.bomb_evo.world_settings.enemy_speed_multiplier=speed;
+            b.svc.bomb_evo.world_settings.enemy_projectile_speed_multiplier=speed;
+            b.svc.units.veldin_beams.slots[0]=veldin_beamer::Slot {owner:Some(owner),state:2,
+                matrix:[[1.,0.,0.,0.],[0.,1.,0.,0.],[0.,0.,1.,0.],[20.,20.,5.,1.]],
+                end:[25.,20.,5.,1.],..Default::default()};
+            let mut w=World::new(&mut b.table,&b.hero,&mut b.rng,&b.ct,&mut b.svc,1);
+            assert!(enemy(w.m(owner)));assert!(!enemy(w.m(manager)));
+            run(&mut w,manager,veldin_beamer::manager);
+            let slot=&w.svc.units.veldin_beams.slots[0];
+            assert_eq!(slot.owner,Some(owner),"speed {speed} must not consume a fresh beam twice");
+            assert_eq!(slot.state,4);
+            assert!((slot.phase[0]-f32::from_bits(0x3e32_b8c2)).abs()<0.00001);
+            assert!(slot.strands.iter().flatten().flatten().all(|v|v.is_finite()));
+            // No subsequent aim: retain the native cleanup on the next tick.
+            w.counter=2;run(&mut w,manager,veldin_beamer::manager);
+            assert_eq!(w.svc.units.veldin_beams.slots[0].owner,None);
+        }
+    }
     #[test] fn native_collision_projectile_runs_separate_speed_and_range_clocks() {
         use crate::moby_runtime::{ClassInfo,MobyTable};
         use crate::moby_update::{services::{Services,ClassTable},classes::path_enemy,scheduler};
@@ -297,5 +326,42 @@ mod v80_story_tests {
         w.svc.level=8;w.mm(1).o_class=435;w.mm(1).pvars.resize(0x98,0);
         for state in [0,3,4]{w.mm(1).state=state;assert!(story_flight(&w,1));}
         for state in [1,2,5]{w.mm(1).state=state;assert!(!story_flight(&w,1));assert_eq!(range(&w,1,10.),20.);}
+    }
+}
+
+#[cfg(test)]
+mod v130_station {
+    use super::*;
+    use crate::moby_update::{classes::{bomb_water::tests::Bench,units::{blarg_trooper as t,blarg_wave_bot as b,blarg_crawler as c}},services::World};
+    #[test]
+    fn ngplus_station_actors_advance_native_ai_timers_at_fractional_speeds() {
+        // Exercise real class updates in stable waiting/attack phases. Entrance
+        // animations/paths are intentionally not simulated by this headless floor.
+        for speed in [1.,1.25,2.,4.] {
+            for (class,timer,kind,health,update) in [
+                (1048,t::pv::TIMER,t::pv::KIND,t::pv::D,t::update as fn(&mut World,usize)),
+                (1068,b::pv::TIMER,b::pv::KIND,b::pv::D,b::update as fn(&mut World,usize))] {
+                let mut bench=Bench::new(crate::hero::testkit::floor(0.,0,12,0,12),&[class],[20.,20.,1.]);
+                let id=bench.create(class);
+                bench.table.mobys[id].pvars.resize(0x400,0);bench.table.mobys[id].position=[10.,10.,1.,1.];
+                bench.table.mobys[id].state=if class==1048 {7}else{4};
+                let settings=&mut bench.svc.bomb_evo.world_settings;
+                settings.enemy_speed_multiplier=1.;settings.ngplus_multiplier=speed;
+                bench.svc.bomb_evo.configure_ng_plus(true);
+                let mut w=World::new(&mut bench.table,&bench.hero,&mut bench.rng,&bench.ct,&mut bench.svc,1);
+                w.hero_moby=Some(0);p::set_i32(&mut w.mm(id).pvars,timer,200);
+                p::set_i32(&mut w.mm(id).pvars,kind,1);p::set_ff(&mut w.mm(id).pvars,health,4.);
+                for tick in 1..=4 {w.counter=tick;run(&mut w,id,update);}
+                assert_eq!(p::i32(&w.m(id).pvars,timer),200-(4.*speed) as i32,"class {class} at {speed}");
+            }
+        }
+        // Crawlers on the other side of the native Ratchet/Clank map must
+        // retain their authored sleep gate; speed must never initialize them.
+        let mut bench=Bench::new(crate::hero::testkit::floor(0.,0,12,0,12),&[827],[20.,20.,1.]);
+        let id=bench.create(827);bench.table.mobys[id].pvars.resize(0x400,0);
+        p::set_i16(&mut bench.table.mobys[id].pvars,c::pv::SIDE,1);
+        bench.svc.bomb_evo.world_settings.enemy_speed_multiplier=1.25;
+        let mut w=World::new(&mut bench.table,&bench.hero,&mut bench.rng,&bench.ct,&mut bench.svc,1);
+        run(&mut w,id,c::update);assert_eq!(w.m(id).state,0);
     }
 }

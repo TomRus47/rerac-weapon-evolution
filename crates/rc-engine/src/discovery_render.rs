@@ -131,7 +131,7 @@ fn setup(
         }
     }
     for key in wanted {
-        let item=if key>=1000{play.svc.bomb_evo.progress().randomizer.reward(key-1000).unwrap_or(0) as usize}else{key};
+        let item=if key>=1000{play.svc.bomb_evo.progress().randomizer.world_reward(key-1000).unwrap_or(0) as usize}else{key};
         if let Some(data) = name_table.as_ref().filter(|_|item<37) {
             let name = crate::gameplay::golden_item_name(
                 item,
@@ -283,7 +283,7 @@ fn setup(
         let (extra,entities)=if key>=1000 {
             let fog=fog.as_ref().map(|f|f.uniform)
                 .unwrap_or_else(||crate::game_camera::TfragFog::new(&level.0.fog));
-            match crate::reward_model_render::spawn(&mut commands,&level.0,class,fog,
+            match crate::reward_model_render::spawn(&mut commands,&level.0,class,fog,item==rc_game::weapon_evo::randomizer::PACK_REWARD as usize,
                 &mut meshes,&mut images,&mut reward_materials){
                 Ok(entities)=>(None,entities),
                 Err(error)=>{eprintln!("world reward: source {} standalone model failed: {error}",key-1000);continue;}

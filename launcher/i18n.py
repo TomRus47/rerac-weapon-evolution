@@ -153,7 +153,8 @@ def tr(source, **values):
     return result.format(**values) if values else result
 
 def weapon_name(key):
-    from schema import WEAPONS
+    from schema import WEAPONS, GADGET_NAMES
+    if key in GADGET_NAMES: return GADGET_LOCAL_NAMES[key].get(_language,GADGET_NAMES[key])
     return 'OmniWrench 8000' if key=='wrench' and _language=='en' else WEAPON_NAMES[WEAPONS[key][1]][_language]
 
 def boolean_display(value):
@@ -828,3 +829,119 @@ HELP_TEXT['enemy_burst_tracking']=dict(zip(LANGUAGES,(
     'Off conserve la visée native. On réoriente chaque nouveau tir de rafale vers la cible actuelle, leurres compris. Aucun guidage après le tir. Tirs scénarisés, attaques des boss et mission de la tourelle de Hoven restent inchangés.',
     'Off behält das ursprüngliche Zielen bei. On richtet jeden neuen Schuss auf das aktuelle Ziel aus, einschließlich Ködern. Keine Lenkung nach dem Abschuss. Skriptschüsse, Bossmuster und Hovens Geschützmission bleiben unverändert.',
     'Off mantiene la puntería original. On apunta cada nuevo disparo a su objetivo actual, incluidos señuelos. Sin seguimiento tras disparar. Los disparos de escenas, patrones de jefes y misión de la torreta de Hoven no cambian.')))
+
+
+FIELD_LABELS['pause_on_quick_select'] = dict(zip(LANGUAGES, (
+    'Pause while Quick Select is open', 'Pausa durante la selezione rapida',
+    'Pause pendant la sélection rapide', 'Pause bei geöffneter Schnellauswahl',
+    'Pausar durante la selección rápida')))
+HELP_TEXT['pause_on_quick_select'] = dict(zip(LANGUAGES, (
+    'Freeze the world while holding Triangle to select equipment. R2 cycles two eight-slot rings; the last ring and its bindings are saved per game. Release Triangle to equip and resume. Off keeps gameplay running. Clank commands and native non-gameplay screens are unchanged.',
+    'Ferma il mondo mentre tieni Triangolo per scegliere l’equipaggiamento. R2 alterna due anelli da otto slot; l’ultimo anello e le assegnazioni vengono salvati per partita. Rilascia Triangolo per equipaggiare e riprendere. Off lascia il gioco in movimento. I comandi di Clank e le altre schermate mantengono il comportamento originale.',
+    'Fige le monde en maintenant Triangle pour choisir l’équipement. R2 alterne deux anneaux de huit emplacements ; le dernier anneau et les affectations sont sauvegardés par partie. Relâcher Triangle pour équiper et reprendre. Off laisse le jeu actif. Les commandes de Clank et les autres écrans restent inchangés.',
+    'Hält die Spielwelt beim Auswählen mit gehaltenem Dreieck an. R2 wechselt zwischen zwei Ringen mit je acht Plätzen; Ring und Belegung werden pro Spielstand gespeichert. Dreieck loslassen, um auszurüsten und fortzufahren. Off lässt die Welt weiterlaufen. Clank-Befehle und andere Bildschirme bleiben unverändert.',
+    'Detiene el mundo al mantener Triángulo para elegir equipo. R2 alterna dos anillos de ocho espacios; el último anillo y las asignaciones se guardan por partida. Suelta Triángulo para equipar y continuar. Off mantiene el juego activo. Los comandos de Clank y las demás pantallas no cambian.')))
+
+FIELD_LABELS['offensive_taunt_enabled'] = dict(zip(LANGUAGES, (
+    'Offensive taunt', 'Provocazione offensiva', 'Provocation offensive',
+    'Offensive Provokation', 'Provocación ofensiva')))
+HELP_TEXT['offensive_taunt_enabled'] = dict(zip(LANGUAGES, (
+    'Off only attracts enemies. On adds this grade’s damage, stun and launch settings. With global R1 Experimental On, mode 0 is pure attraction and mode 1 is offensive. Set R1_Experimental max to 1 for each grade that permits switching.',
+    'Off attira soltanto i nemici. On aggiunge danno, stun e spinta impostati per questo grado. Con R1 Experimental globale On, mode 0 è sola attrazione e mode 1 è offensivo. Imposta R1_Experimental max a 1 nei gradi che consentono lo switch.',
+    'Off attire seulement les ennemis. On ajoute les dégâts, l’étourdissement et la projection de ce niveau. Avec R1 Experimental global On, le mode 0 attire seulement et le mode 1 est offensif. Régler R1_Experimental max sur 1 pour les niveaux autorisant le changement.',
+    'Off lockt Gegner nur an. On ergänzt Schaden, Betäubung und Rückstoß dieser Stufe. Bei globalem R1 Experimental On lockt Modus 0 nur an, Modus 1 ist offensiv. R1_Experimental max für jede umschaltbare Stufe auf 1 setzen.',
+    'Off solo atrae enemigos. On añade el daño, aturdimiento y empuje de este nivel. Con R1 Experimental global On, el modo 0 solo atrae y el modo 1 es ofensivo. Ajusta R1_Experimental max a 1 en los niveles que permitan cambiar.')))
+
+FIELD_LABELS['randomizer_bolt_pack_value'] = dict(zip(LANGUAGES, (
+    'Bolt pack value', 'Valore del bolt pack', 'Valeur du pack de boulons',
+    'Wert des Bolt-Pakets', 'Valor del paquete de guitones')))
+HELP_TEXT['randomizer_bolt_pack_value'] = dict(zip(LANGUAGES, (
+    'Unused All randomizer locations contain a grey Gold Bolt. Collecting it grants this many standard bolts once; default 5000. It does not count as a Gold Bolt and gives no weapon or Nanotech XP.',
+    'Le location vuote della randomizer All contengono un bolt d’oro grigio. Raccoglierlo assegna una sola volta questo numero di bolt normali; default 5000. Non conta come bolt d’oro e non dà XP alle armi o al Nanotech.',
+    'Les emplacements inutilisés du randomizer All contiennent un boulon en or gris. Il accorde ce nombre de boulons ordinaires une seule fois ; défaut 5000. Il ne compte pas comme boulon en or et ne donne aucun XP d’arme ou de Nanotech.',
+    'Unbenutzte Fundorte in All enthalten einen grauen Gold-Bolt. Er gewährt einmal diese Anzahl normaler Bolts; Standard 5000. Er zählt nicht als Gold-Bolt und gibt keine Waffen- oder Nanotech-XP.',
+    'Las ubicaciones vacías de All contienen un guitón de oro gris. Otorga esta cantidad de guitones normales una sola vez; por defecto 5000. No cuenta como guitón de oro ni da EXP de armas o Nanotech.')))
+for _key,_planet in zip(('randomizer_extra_gemlik','randomizer_extra_kerwan','randomizer_extra_orxon',
+                         'randomizer_extra_pokitaru','randomizer_extra_hoven','randomizer_extra_novalis'),
+                        ('Gemlik Base','Kerwan','Orxon','Pokitaru','Hoven','Novalis')):
+    FIELD_LABELS[_key] = dict(zip(LANGUAGES, (
+        'Extra location: '+_planet, 'Location extra: '+_planet, 'Emplacement supplémentaire : '+_planet,
+        'Zusätzlicher Fundort: '+_planet, 'Ubicación extra: '+_planet)))
+    HELP_TEXT[_key] = dict(zip(LANGUAGES, (
+        'Include this planet’s extra location only when creating a new All seed. Extra locations are on Gemlik Base, Kerwan, Orxon, Pokitaru, Hoven and Novalis. Saved seeds and NG+ keep their original choices. If all six switches are Off, Hoven stays enabled for new seeds so every reward can be placed.',
+        'Include la location extra di questo pianeta solo quando si crea un nuovo seed All. Le location extra sono su Base Gemlik, Kerwan, Orxon, Pokitaru, Hoven e Novalis. I seed salvati e NG+ mantengono le scelte originali. Se tutti e sei gli interruttori sono Off, Hoven rimane attiva per i nuovi seed per poter distribuire tutte le ricompense.',
+        'Inclut l’emplacement supplémentaire de cette planète uniquement pour un nouveau seed All. Les emplacements sont sur Base Gemlik, Kerwan, Orxon, Pokitaru, Hoven et Novalis. Les sauvegardes et NG+ conservent leurs choix. Si les six options sont Off, Hoven reste actif pour les nouvelles graines afin de conserver toutes les récompenses.',
+        'Nimmt den zusätzlichen Fundort dieses Planeten nur in neue All-Seeds auf. Die Fundorte liegen auf Gemlik Base, Kerwan, Orxon, Pokitaru, Hoven und Novalis. Gespeicherte Seeds und NG+ behalten ihre ursprüngliche Auswahl. Sind alle sechs Optionen Off, bleibt Hoven für neue Seeds aktiv, damit alle Belohnungen Platz finden.',
+        'Incluye la ubicación extra de este planeta solo al crear una semilla All nueva. Están en Base Gemlik, Kerwan, Orxon, Pokitaru, Hoven y Novalis. Las partidas guardadas y NG+ mantienen su selección original. Si las seis opciones están en Off, Hoven sigue activa para semillas nuevas para conservar todas las recompensas.')))
+
+GADGET_LOCAL_NAMES={
+ 'swingshot':{'en':'Swingshot','it':'Swingshot','fr':'Grappin','de':'Swingshot','es':'Balanceador'},
+ 'trespasser':{'en':'Trespasser','it':'Trapassatore','fr':'Crocheteur','de':'Trespasser','es':'Intruso'},
+ 'hydrodisplacer':{'en':'Hydrodisplacer','it':'Idrosostitutore','fr':'Hydro-déplaceur','de':'Hydrodisplacer','es':'Hidrodesplazador'},
+ 'hologuise':{'en':'Hologuise','it':'Olomaschera','fr':'Holo-déguisement','de':'Hologuise','es':'Holodisfraz'}}
+
+# Gadget captions share the existing UI translation mechanism.
+TEXT.setdefault('Enable gadget combat',{}).update({'it': 'Attiva funzioni gadget', 'fr': 'Activer les fonctions du gadget', 'de': 'Gadget-Funktionen aktivieren', 'es': 'Activar funciones del gadget'})
+TEXT.setdefault('Enemy pull range',{}).update({'it': 'Distanza di attrazione nemici', 'fr': 'Portée de traction des ennemis', 'de': 'Reichweite für Gegnerzug', 'es': 'Alcance de atracción de enemigos'})
+TEXT.setdefault('Enemy pull speed',{}).update({'it': 'Velocità di attrazione nemici', 'fr': 'Vitesse de traction des ennemis', 'de': 'Zuggeschwindigkeit der Gegner', 'es': 'Velocidad de atracción'})
+TEXT.setdefault('Stun after pulling (seconds)',{}).update({'it': 'Stordimento dopo attrazione (secondi)', 'fr': 'Étourdissement après traction (secondes)', 'de': 'Betäubung nach dem Zug (Sekunden)', 'es': 'Aturdimiento tras atraer (segundos)'})
+TEXT.setdefault('Surface grapple',{}).update({'it': 'Aggancio alle superfici', 'fr': 'Accrochage aux surfaces', 'de': 'An Oberflächen ziehen', 'es': 'Enganche a superficies'})
+TEXT.setdefault('Surface grapple range',{}).update({'it': 'Distanza di aggancio alle superfici', 'fr': 'Portée d’accrochage', 'de': 'Oberflächen-Reichweite', 'es': 'Alcance de enganche'})
+TEXT.setdefault('Surface grapple speed',{}).update({'it': 'Velocità verso le superfici', 'fr': 'Vitesse de traction vers les surfaces', 'de': 'Zuggeschwindigkeit zu Oberflächen', 'es': 'Velocidad hacia superficies'})
+TEXT.setdefault('Drill capture range',{}).update({'it': 'Distanza di presa del trapano', 'fr': 'Portée de capture de la perceuse', 'de': 'Bohrer-Greifreichweite', 'es': 'Alcance de captura del taladro'})
+TEXT.setdefault('Drill and enemy rotation (degrees/second)',{}).update({'it': 'Rotazione trapano e nemico (gradi/secondo)', 'fr': 'Rotation perceuse et ennemi (degrés/seconde)', 'de': 'Bohrer- und Gegnerrotation (Grad/Sekunde)', 'es': 'Rotación del taladro y enemigo (grados/segundo)'})
+TEXT.setdefault('Freeze radius',{}).update({'it': 'Raggio di congelamento', 'fr': 'Rayon de gel', 'de': 'Gefrierradius', 'es': 'Radio de congelación'})
+TEXT.setdefault('Freeze duration (seconds)',{}).update({'it': 'Durata del congelamento (secondi)', 'fr': 'Durée du gel (secondes)', 'de': 'Gefrierdauer (Sekunden)', 'es': 'Duración de congelación (segundos)'})
+TEXT.setdefault('Projectile maximum range',{}).update({'it': 'Distanza massima proiettile', 'fr': 'Portée maximale du projectile', 'de': 'Maximale Projektilreichweite', 'es': 'Alcance máximo del proyectil'})
+TEXT.setdefault('Projectile gravity',{}).update({'it': 'Gravità del proiettile', 'fr': 'Gravité du projectile', 'de': 'Projektilschwerkraft', 'es': 'Gravedad del proyectil'})
+TEXT.setdefault('Ice crystal size (%)',{}).update({'it': 'Dimensione cristallo di ghiaccio (%)', 'fr': 'Taille du cristal de glace (%)', 'de': 'Größe des Eiskristalls (%)', 'es': 'Tamaño del cristal de hielo (%)'})
+TEXT.setdefault('Ice crystal color',{}).update({'it': 'Colore cristallo di ghiaccio', 'fr': 'Couleur du cristal de glace', 'de': 'Farbe des Eiskristalls', 'es': 'Color del cristal de hielo'})
+TEXT.setdefault('Ice mist color',{}).update({'it': 'Colore nebbia ghiacciata', 'fr': 'Couleur de la brume glacée', 'de': 'Farbe des Eisnebels', 'es': 'Color de la niebla helada'})
+TEXT.setdefault('Frozen enemy color',{}).update({'it': 'Colore nemico congelato', 'fr': 'Couleur de l’ennemi gelé', 'de': 'Farbe gefrorener Gegner', 'es': 'Color del enemigo congelado'})
+TEXT.setdefault('Movement speed',{}).update({'it': 'Velocità di movimento', 'fr': 'Vitesse de déplacement', 'de': 'Bewegungsgeschwindigkeit', 'es': 'Velocidad de movimiento'})
+TEXT.setdefault('Animation speed',{}).update({'it': 'Velocità di animazione', 'fr': 'Vitesse d’animation', 'de': 'Animationsgeschwindigkeit', 'es': 'Velocidad de animación'})
+
+from schema import GADGET_DEFAULTS as _gadget_defaults, LABELS as _gadget_labels
+for _defaults in _gadget_defaults.values():
+    for _key in _defaults:
+        if _key in _gadget_labels and _gadget_labels[_key] in TEXT:
+            FIELD_LABELS.setdefault(_key,{}).update(TEXT[_gadget_labels[_key]])
+
+for _source,_values in TEXT.items():
+    _values.setdefault("en",_source)
+for _key,_values in FIELD_LABELS.items():
+    _values.setdefault("en",_gadget_labels.get(_key,_key))
+
+from schema import GADGET_HELP as _gadget_help
+TEXT[_gadget_help['swingshot']]={'en': 'PLACEHOLDER', 'it': 'I bersagli Swingshot originali hanno sempre precedenza. Attira i nemici comuni e poi li stordisce; navi e boss sono esclusi. L’aggancio alternativo porta Ratchet verso muri, soffitti o casse, mai verso pavimenti e senza restare appeso.', 'fr': 'Les cibles Swingshot d’origine sont prioritaires. Attire puis étourdit les ennemis ordinaires, sauf les vaisseaux et boss. L’accrochage alternatif tire Ratchet vers les murs, plafonds ou caisses, jamais vers le sol et sans suspension.', 'de': 'Originale Swingshot-Ziele haben Vorrang. Zieht normale Gegner heran und betäubt sie; Schiffe und Bosse sind ausgeschlossen. Der alternative Haken zieht Ratchet zu Wänden, Decken oder Kisten, nie zum Boden und ohne Hängenbleiben.', 'es': 'Los objetivos originales del Balanceador tienen prioridad. Atrae y aturde enemigos normales, excepto naves y jefes. El enganche alternativo lleva a Ratchet hacia paredes, techos o cajas, nunca al suelo ni permite quedar colgado.'}
+TEXT[_gadget_help['swingshot']]["en"]=_gadget_help['swingshot']
+TEXT[_gadget_help['trespasser']]={'en': 'PLACEHOLDER', 'it': 'Le pedane originali hanno precedenza. Tieni Cerchio o R2 per azionare il trapano e trattenere un nemico vicino. Il danno effettivo viene contato una sola volta per tick di contatto. Rilascia per liberarlo; a zero HP muore normalmente, senza generare proiettili. Non cattura i boss.', 'fr': 'Les socles d’origine sont prioritaires. Maintenez Rond ou R2 pour faire tourner la perceuse et retenir un ennemi proche. Les dégâts réels sont comptés une fois par tick de contact. Relâchez pour le libérer ; à zéro PV, il meurt normalement sans créer de projectile. Les boss sont exclus.', 'de': 'Originale Trespasser-Plattformen haben Vorrang. Kreis oder R2 halten, um den Bohrer zu drehen und einen nahen Gegner festzuhalten. Tatsächlicher Schaden zählt einmal pro Kontakttick. Loslassen befreit ihn; bei null HP stirbt er normal, ohne ein Projektil zu erzeugen. Keine Bosse.', 'es': 'Las plataformas originales tienen prioridad. Mantén Círculo o R2 para girar el taladro y retener un enemigo cercano. El daño real cuenta una vez por tick de contacto. Suelta para liberarlo; con cero PV muere normalmente, sin crear un proyectil. No captura jefes.'}
+TEXT[_gadget_help['trespasser']]["en"]=_gadget_help['trespasser']
+TEXT[_gadget_help['hydrodisplacer']]={'en': 'PLACEHOLDER', 'it': 'Le pedane dell’acqua originali hanno precedenza. Spara cristalli con serbatoio vuoto o pieno. Il congelamento ferma animazioni e IA nemiche, ma non i proiettili già sparati. Si ricarica solo arrivando sul pianeta: niente negozi, raccolte, cambi gadget o morti al checkpoint.', 'fr': 'Les socles d’eau d’origine sont prioritaires. Tire des cristaux avec le réservoir vide ou plein. Le gel arrête les animations et l’IA ennemies, pas les projectiles déjà tirés. Recharge uniquement à l’arrivée sur une planète, pas dans les boutiques, avec les ramassages, changements de gadget ou morts au checkpoint.', 'de': 'Originale Wasserplattformen haben Vorrang. Eiskristalle bei leerem oder vollem Tank abfeuern. Einfrieren stoppt Gegneranimation und KI, nicht bereits abgefeuerte Projektile. Nachladen nur bei der Planetenankunft, nicht durch Shops, Funde, Gadgetwechsel oder Checkpoint-Tode.', 'es': 'Las plataformas de agua originales tienen prioridad. Dispara cristales con el depósito vacío o lleno. Congelar detiene animación e IA enemigas, no los proyectiles ya disparados. Solo recarga al llegar al planeta, no en tiendas, recogidas, cambios de gadget ni muertes en checkpoints.'}
+TEXT[_gadget_help['hydrodisplacer']]["en"]=_gadget_help['hydrodisplacer']
+TEXT[_gadget_help['hologuise']]={'en': 'PLACEHOLDER', 'it': 'Modifica separatamente movimento e animazione di camminata del travestimento. Collisioni e interazioni della storia restano quelle originali.', 'fr': 'Modifie séparément le déplacement et l’animation de marche du déguisement. Les collisions et interactions de l’histoire restent celles d’origine.', 'de': 'Bewegung und Laufanimation der Verkleidung getrennt anpassen. Kollisionen und Story-Interaktionen bleiben unverändert.', 'es': 'Ajusta por separado el movimiento y la animación al caminar disfrazado. Las colisiones y las interacciones de la historia siguen siendo las originales.'}
+TEXT[_gadget_help['hologuise']]["en"]=_gadget_help['hologuise']
+
+_gadget_previous_help=help_text
+def help_text(section,key):
+    if section.startswith('gadget.') and section[7:] in _gadget_help:
+        return f'[{section}] {key}\n'+label(key)+' — '+tr(_gadget_help[section[7:]])
+    return _gadget_previous_help(section,key)
+
+# Freezer recharge is ammunition regeneration, never an XP track.
+FIELD_LABELS['recharge_seconds']=dict(zip(LANGUAGES,(
+    'Ammo recharge time (seconds)','Tempo di ricarica munizioni (secondi)',
+    'Temps de recharge des munitions (secondes)','Munitionsladezeit (Sekunden)',
+    'Tiempo de recarga de munición (segundos)')))
+TEXT[_gadget_help['hydrodisplacer']]=dict(zip(LANGUAGES,(
+    _gadget_help['hydrodisplacer'],
+    'Le pedane originali dell’acqua hanno precedenza. Il Congelatore spara con serbatoio vuoto o pieno e blocca animazioni e IA nemiche, non i proiettili già sparati. Recupera un colpo per intervallo sotto il massimo, anche con un altro oggetto equipaggiato. La barra indica la ricarica e diventa gialla a munizioni piene. Arrivare su un pianeta ricarica; negozi, raccolte e morti al checkpoint no.',
+    'Les socles d’eau d’origine sont prioritaires. Le Glaceur tire avec le réservoir vide ou plein et gèle les animations et l’IA, pas les projectiles déjà tirés. Récupère un tir par intervalle sous la capacité maximale, même avec un autre objet équipé. La barre indique la recharge et devient jaune à pleine capacité. L’arrivée sur une planète recharge ; ni boutiques, ramassages ni morts au checkpoint.',
+    'Originale Wasserplattformen haben Vorrang. Der Froster schießt bei leerem oder vollem Tank und stoppt Gegneranimationen und KI, nicht abgefeuerte Projektile. Unter der Kapazität wird pro Intervall ein Schuss geladen, auch mit anderem ausgerüsteten Gegenstand. Der Balken zeigt den Ladevorgang und wird bei voller Munition gelb. Planetenankunft füllt auf; Shops, Funde und Checkpoint-Tode nicht.',
+    'Las plataformas de agua originales tienen prioridad. El Congelador dispara con el depósito vacío o lleno y congela animación e IA, no los proyectiles ya lanzados. Recupera un disparo por intervalo bajo el máximo, incluso con otro objeto equipado. La barra muestra la recarga y se vuelve amarilla al llenarse. Llegar al planeta recarga; tiendas, recogidas y muertes en checkpoints no.')))
+TEXT[_gadget_help['trespasser']]=dict(zip(LANGUAGES,(
+    _gadget_help['trespasser'],
+    'Le pedane originali hanno precedenza. Tieni Cerchio o R2 a terra per azionare il motore e ruotare il nemico catturato. Saltare interrompe presa e suono. La punta rossa resta ferma. Il danno effettivo conta una volta per tick di contatto. Rilascia per liberare il nemico; a zero HP muore normalmente, senza generare proiettili. Boss esclusi.',
+    'Les socles d’origine sont prioritaires. Maintenez Rond ou R2 au sol pour activer le moteur et faire tourner l’ennemi capturé. Sauter arrête la capture et le son. La pointe rouge reste fixe. Les dégâts réels comptent une fois par tick de contact. Relâchez pour libérer l’ennemi ; à zéro PV, il meurt normalement sans créer de projectile. Boss exclus.',
+    'Originale Plattformen haben Vorrang. Kreis oder R2 am Boden halten, um den Motor zu starten und den gefangenen Gegner zu drehen. Springen beendet Griff und Ton. Die rote Spitze bleibt still. Tatsächlicher Schaden zählt einmal pro Kontakttick. Loslassen befreit den Gegner; bei null HP stirbt er normal, ohne ein Projektil zu erzeugen. Keine Bosse.',
+    'Las plataformas originales tienen prioridad. Mantén Círculo o R2 en el suelo para activar el motor y girar al enemigo capturado. Saltar detiene captura y sonido. La punta roja queda fija. El daño real cuenta una vez por tick de contacto. Suelta para liberarlo; con cero PV muere normalmente, sin crear un proyectil. No captura jefes.')))

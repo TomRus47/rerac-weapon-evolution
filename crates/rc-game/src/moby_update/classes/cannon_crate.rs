@@ -15,6 +15,8 @@ const ORIGINAL_MODE: usize = 0x1b8;
 const ORIGINAL_SCALE: usize = 0x1bc;
 const NATIVE_DAMAGE: usize = 0x1c0;
 const SAVED_COLLISION: usize = 0x1c4;
+const ORIGINAL_DRAW_DIST: usize = 0x1c8;
+const ORIGINAL_UPDATE_DIST: usize = 0x1cc;
 pub const CARRIED: u8 = 0x40;
 
 pub fn marked(m: &Moby) -> bool {
@@ -68,6 +70,8 @@ fn start_pull(w: &mut World, id: MobyId, mouth: [f32; 4]) -> bool {
         p::set_u32(&mut m.pvars, ORIGINAL_MODE, m.mode as u32);
         p::set_ff(&mut m.pvars, ORIGINAL_SCALE, m.scale);
         p::set_i32(&mut m.pvars, SAVED_COLLISION, m.has_collision as i32);
+        p::set_i32(&mut m.pvars, ORIGINAL_DRAW_DIST, m.draw_dist as i32);
+        p::set_i32(&mut m.pvars, ORIGINAL_UPDATE_DIST, m.update_dist as i32);
         p::set_i32(&mut m.pvars, 0xa0, 0);p::set_i32(&mut m.pvars, 0xa4, 0);p::set_i32(&mut m.pvars, 0xf0, 0);
         p::set_i16(&mut m.pvars, RECORD + rec::SLOT, slot as i16);
         p::set_i16(&mut m.pvars, RECORD + rec::STATE, 3);
@@ -76,6 +80,11 @@ fn start_pull(w: &mut World, id: MobyId, mouth: [f32; 4]) -> bool {
         m.state = CARRIED;
         m.has_collision = false;
         m.mode &= !(mode::NO_UPDATE | mode::TARGETABLE);
+        // These are intact crate meshes, not carried creatures. Preserve the
+        // native pose and keep flight active beyond the stationary crate's LOD.
+        m.mode |= mode::NO_ANIM;
+        m.draw_dist = 0xff;
+        m.update_dist = 0xff;
         w.svc.creatures.react.slots[slot] = id as u32 + 1;
         w.svc.creatures.react.coming += 1;
     }
@@ -88,7 +97,7 @@ fn start_pull(w: &mut World, id: MobyId, mouth: [f32; 4]) -> bool {
 
 /// The normal slot_fire path supplies its native velocity and homing target.
 /// Snapshot this grade's HP before destruction can level the weapon up.
-pub fn fired(w: &mut World, id: MobyId) {
+fn fired(w: &mut World, id: MobyId) {
     if !marked(w.m(id)) { return; }
     let factor = if w.m(id).o_class == 502 { 2.0 } else { 1.0 };
     let native = 2.0 * crate::weapon_evo::extra(9, "shot_damage_multiplier", 1.0) * factor;
@@ -99,7 +108,25 @@ pub fn fired(w: &mut World, id: MobyId) {
     m.scale = p::ff(&m.pvars, ORIGINAL_SCALE);
     m.visible = 1;
     m.mode &= !(mode::HIDDEN | mode::NO_UPDATE | mode::KEEP_MATRIX | mode::KEEP_ROWS | 0x80);
+    m.mode |= mode::NO_ANIM;
     m.has_collision = false;
+    // Hero fire runs after some crates' scheduled update. Publish the restored
+    // scale/rotation/bounds immediately, rather than a zero-scale held matrix.
+    w.build_matrix(id);
+}
+
+/// A crate has no creature firing sequence. Bypass react::fire_out's blend and
+/// bounce poses entirely; only reuse the cannon's velocity and target snapshot.
+pub fn fire_out(w: &mut World, id: MobyId, vel: [f32; 4], target: Option<MobyId>) -> i32 {
+    if !swallowed(w.m(id)) || w.m(id).state != CARRIED { return 0; }
+    let timer = w.ticks(300);
+    let m = w.mm(id);
+    p::set_v4f(&mut m.pvars, RECORD + rec::VEL, vel);
+    p::set_i32(&mut m.pvars, RECORD + rec::TARGET, target.map_or(0, |t| t as i32 + 1));
+    p::set_i32(&mut m.pvars, RECORD + rec::TIMER, timer);
+    p::set_i16(&mut m.pvars, RECORD + rec::STATE, 5);
+    fired(w, id);
+    2
 }
 
 fn template(w: &World, id: MobyId) -> HitTemplate {
@@ -164,6 +191,8 @@ fn release(w: &mut World,id:MobyId) {
     let m=w.mm(id);
     m.state=1;m.visible=1;m.scale=p::ff(&m.pvars,ORIGINAL_SCALE);
     m.mode=p::u32(&m.pvars,ORIGINAL_MODE) as u16;
+    m.draw_dist=p::i32(&m.pvars,ORIGINAL_DRAW_DIST) as i16;
+    m.update_dist=p::i32(&m.pvars,ORIGINAL_UPDATE_DIST) as u8;
     m.has_collision=p::i32(&m.pvars,SAVED_COLLISION)!=0;
     p::set_i16(&mut m.pvars,RECORD+rec::STATE,0);
     p::set_u32(&mut m.pvars,TAG,0);
@@ -281,6 +310,48 @@ mod tests {
         assert!(!marked(w.m(1)));assert_eq!(w.m(1).state,1);
         assert!(w.m(1).has_collision);assert_eq!(w.m(1).scale,1.0);
         assert_eq!(w.svc.creatures.react.slots[0],0);assert!(w.svc.save.death.is_empty());
+    }
+
+    #[test]
+    fn firing_every_crate_preserves_its_native_pose_and_immediately_restores_its_bounds() {
+        use rc_formats::moby_anim::{MobyAnimClass,MobyFrame,MobyFrameHeader,MobySequence,MobySequenceHeader};
+        for class in super::super::crate_::CLASSES {
+            let (mut table,hero,mut rng,mut classes,mut svc)=setup(class);
+            let frame=MobyFrame {header:MobyFrameHeader {rate:0.25,..Default::default()},
+                quats:vec![],scales:vec![],trans:vec![],payload:vec![]};
+            let seq=MobySequence {header:MobySequenceHeader {frame_count:2,
+                sphere:[0.,0.,0.,512.],..Default::default()},frames:vec![frame.clone(),frame],triggers:vec![]};
+            classes.classes.get_mut(&class).unwrap().1=Some(MobyAnimClass {joint_count:0,
+                skeleton:vec![],rest:vec![],parent_word:vec![],sequences:vec![Some(seq.clone()),Some(seq)]});
+            let m=&mut table.mobys[1];
+            m.anim.seq_a=1;m.anim.seq_b=1;m.anim.frame_b=1;m.anim.speed=0.75;
+            m.scale=1.25;m.draw_dist=1;m.update_dist=1;
+            let pose=m.anim;
+            let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+            assert!(start_pull(&mut w,1,[100.,100.,50.,1.]));update(&mut w,1);
+            assert!(swallowed(w.m(1)));assert_eq!(w.m(1).scale,0.);
+            assert_eq!(react::slot_fire(&mut w,1,0.5,[0.,1.,0.,0.],None),2);
+            assert_eq!(w.m(1).anim,pose,"class {class} must not blend to a creature fire pose");
+            assert_eq!(w.m(1).scale,1.25);
+            assert_eq!((w.m(1).draw_dist,w.m(1).update_dist),(255,255));
+            assert_ne!(w.m(1).mode&mode::NO_ANIM,0);
+            assert_eq!(w.m(1).mode&(mode::HIDDEN|mode::KEEP_MATRIX|mode::KEEP_ROWS),0);
+            assert!(w.m(1).bsphere.iter().all(|v|v.is_finite()));
+            assert!(w.m(1).bsphere[3]>0.,"restored bounds, class {class}");
+            assert_eq!(react::slot_fire(&mut w,1,0.5,[9.,0.,0.,0.],None),0,"one launch per crate");
+        }
+    }
+
+    #[test]
+    fn canceled_pull_restores_native_render_flags_and_distances() {
+        let (mut table,hero,mut rng,classes,mut svc)=setup(500);
+        table.mobys[1].draw_dist=17;table.mobys[1].update_dist=23;
+        let before=table.mobys[1].clone();
+        let mut w=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);
+        start_pull(&mut w,1,[110.,100.,50.,1.]);w.counter=10;update(&mut w,1);
+        assert_eq!((w.m(1).draw_dist,w.m(1).update_dist),(17,23));
+        assert_eq!(w.m(1).mode,before.mode);assert_eq!(w.m(1).anim,before.anim);
+        assert!(w.svc.save.death.is_empty());
     }
     #[test]
     fn explosive_crate_blast_owns_suck_cannon_damage_without_a_contact_double_hit() {

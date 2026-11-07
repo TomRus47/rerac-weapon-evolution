@@ -395,13 +395,21 @@ pub fn slots_enter(m: &mut PageMenu, w: u32, gs: &GameState) {
 
 /// `0x290468`: the slots back to 0x141ea0.
 pub fn slots_leave(m: &mut PageMenu, w: u32, gs: &mut GameState) {
-    if let Some(Data::Slots { slots, .. }) = m.widgets.get(&w).map(|x| &x.data) { gs.global.quick_select = *slots; }
+    if let Some(Data::Slots { slots, .. }) = m.widgets.get(&w).map(|x| &x.data) { crate::weapon_evo::quick_select::set_slots(gs, *slots); }
 }
 
 /// `fun_0021c7a0` (0x2901a8).
 pub fn slots_update(m: &mut PageMenu, w: u32, inp: &MenuInput, gs: &mut GameState, out: &mut MenuOut) -> i32 {
     let item = gadgets::focused_item(m).unwrap_or(0);
     let Some(Data::Slots { slots, cursor }) = m.widgets.get_mut(&w).map(|x| &mut x.data) else { return 0 };
+    if inp.pressed_u & button::R2 != 0 {
+        crate::weapon_evo::quick_select::set_slots(gs, *slots);
+        gs.weapon_progress.quick_select.cycle();
+        *slots = crate::weapon_evo::quick_select::slots(gs);
+        *cursor = slots.iter().position(|&id| id == 0).unwrap_or(0) as i32;
+        out.sounds.push(MenuSound::Confirm);
+        return 0;
+    }
     let old = *cursor;
     if inp.pressed_u & button::R1 != 0 { *cursor = (*cursor + 1).rem_euclid(8); }
     if inp.pressed_u & button::L1 != 0 { *cursor = (*cursor + 7).rem_euclid(8); }
@@ -410,6 +418,7 @@ pub fn slots_update(m: &mut PageMenu, w: u32, inp: &MenuInput, gs: &mut GameStat
         let (level, t) = (gs.global.level, gs.global.play_time);
         crate::help::bump(&mut gs.global.move_help[21], level, t);
         if let Some(k) = slots.iter().position(|&s| s == item) { slots[k] = 0; }
+        crate::weapon_evo::quick_select::remove_other_binding(gs, item);
         slots[*cursor as usize] = item;
         *cursor = (*cursor + 1).rem_euclid(8);
     }
@@ -459,6 +468,10 @@ pub fn slots_draw(m: &mut PageMenu, w: u32, a: &MenuAssets, gs: &GameState, vsyn
     sprite(out, tab, ww - 10, 0x27, -0x20, -0x20, 0x80);
     text(out, Font::Regular, 0x28, 0xf, LIGHT_BLUE, b"\x14");
     text(out, Font::Regular, ww - 0x3c, 0xf, LIGHT_BLUE, b"\x15");
+    let page = format!("\x17 {}/2", gs.weapon_progress.quick_select.ring + 1);
+    let page_font = if a.width(Font::Small, b"\x17") > 0 { Font::Small } else { Font::Regular };
+    let width = a.width(page_font, page.as_bytes());
+    text(out, page_font, (ww - width)/2, 0xf, LIGHT_BLUE, page.as_bytes());
     2
 }
 

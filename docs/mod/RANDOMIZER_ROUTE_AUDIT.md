@@ -26,7 +26,7 @@ Corrected rules:
 | 178 | Added Orxon laboratory alcove | O2 Mask and either pack |
 | 181 | Added Novalis upstream dead-end | Hydro-Pack, no O2 Mask |
 | 179 | Added Pokitaru seabed | No water gadget requirement |
-| 140 | Original Pokitaru hidden Gold Bolt route | Swingshot and either pack; no O2/Hydro requirement |
+| 140 | Original Pokitaru hidden Gold Bolt route | Swingshot, Heli-Pack and Thruster-Pack together; no O2/Hydro requirement |
 
 The original Pokitaru hidden route is distinct from the added underwater site:
 it includes a Versa-target and a high ledge. Removing water requirements from the
@@ -132,3 +132,10 @@ NPC affordability, combat success or every possible live mission state.
 Weapon Evolution is an independent mod by TomRus47. The author develops this mod
 only, not ReRAC or the original games, and owns no original-game rights or assets.
 Original credits and licenses remain applicable.
+
+
+The v125 audit confirms that native source 140 already requires all three gadget
+IDs `[2, 3, 12]`, not an alternative between the packs. The earlier prose in this
+document incorrectly described an OR condition. A complete subset regression
+checks all eight combinations, with O2/Hydro present as unrelated extras. This
+clarification changes neither the generator nor any existing seed/placement.

@@ -1,13 +1,14 @@
 {
-  "gameplay_version": "0.1.6.123",
-  "launcher_version": "0.29.6",
+  "gameplay_version": "0.1.6.136",
+  "launcher_version": "0.30.2",
   "files": [
     {
       "path": ".github/workflows/draft-release.yml",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ],
-      "sha256": "ac13492b479538ef6f926769a4c1022796b52c263c97b247694d866c528c1dad"
+      "sha256": "bd694a3e88b77b28d121913592e228ee21a5c8c0abfa752bbc51edb87fb96ec5"
     },
     {
       "path": ".github/workflows/windows-release.yml",
@@ -54,9 +55,16 @@
     {
       "path": "README.md",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ],
-      "sha256": "dd8a71b53a0b53cf33f423aa63382d1d1b2973506dbda237ba461cef9f3e989f"
+      "sha256": "0439b402204c2f83c01b2f1044c62969e5410785213ffc7b7ade8bee980a86d1"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -101,6 +109,13 @@
       "sha256": "93d5be4bee4f9cf62019f1ca38a0c6b773454fdba3b6edb7790087c0578730fd"
     },
     {
+      "path": "crates/rc-engine/assets/shaders/water.wgsl",
+      "reasons": [
+        "v126 equipment, water and skill-point integration"
+      ],
+      "sha256": "881f74a94a42a2265ec110c954930baae97da7a27252c2e8d37c37dfbaa604b8"
+    },
+    {
       "path": "crates/rc-engine/assets/shaders/world_lights.wgsl",
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
@@ -112,7 +127,7 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "c910612b232bf48f8f9914236fced9406e812265ee85232f4aa55a8e63c0eb78"
+      "sha256": "8a6d5b9e6df1c651a295024f4c2e86db61592c2713ae06b2dfbbc442b1f9429e"
     },
     {
       "path": "crates/rc-engine/src/companion_assets.rs",
@@ -130,18 +145,26 @@
     },
     {
       "path": "crates/rc-engine/src/disc_source.rs",
-      "sha256": "fbbfd4912e6631ed1d174e7e5f9bf0da64b6e8493e6746ed7feab1536ca08671",
+      "sha256": "e5948cfdfc957ef5d1fcaa9ef2b878255c19f5c54ce7b9f2d243e9943536728a",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ]
     },
     {
       "path": "crates/rc-engine/src/discovery_render.rs",
       "reasons": [
-        "ReRAC 0.3.6-alpha supplied base synchronization"
+        "ReRAC 0.3.6-alpha supplied base synchronization",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "62440107a5aea0917bb6b9de718f7fb100e188ae72d6e747ce7d2f9de22260b8"
+      "sha256": "1e34a8e42dd3e3f116d955b96c8cd73f46463ccc9b958918fd6477abf4260147"
     },
     {
       "path": "crates/rc-engine/src/display.rs",
@@ -176,7 +199,7 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "5a1ceb4522f8cb3292f97bc79bc5c2a86699307c31cd84ea55ed47e765c86ae3"
+      "sha256": "4fa6ba325c3dc0dab3eb92d2bbe2ad8c8b22891bcb07e601479cf154abc4755b"
     },
     {
       "path": "crates/rc-engine/src/frame_log.rs",
@@ -195,17 +218,22 @@
     {
       "path": "crates/rc-engine/src/fx_draw.rs",
       "reasons": [
-        "ReRAC 0.3.6-alpha supplied base synchronization"
+        "ReRAC 0.3.6-alpha supplied base synchronization",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ],
-      "sha256": "614cfdc980bce2f32fe32d3bb9c77d2cc5dca301298114ecb0eed8a6f96b6e94"
+      "sha256": "67ba851143d36ee34bf78a949af279c8e5922a77773dcd964ca0872db19d412c"
     },
     {
       "path": "crates/rc-engine/src/gameplay.rs",
-      "sha256": "2eca082e44ade01d65a127f9c00fb79c1b1e79ee70e7c7a45dacdd13f36af3e6",
+      "sha256": "b226caf7a875d0aa458eb0fc0586715817f010967a75c857b08dfca316d19105",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
-        "original mod integration backup exists in supplied snapshot"
+        "original mod integration backup exists in supplied snapshot",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
@@ -224,11 +252,12 @@
     },
     {
       "path": "crates/rc-engine/src/hud_render.rs",
-      "sha256": "6cab1646ce2adb3e25e5b0e93553377983327cf1fc5104328d1504fcb2393d2b",
+      "sha256": "4425c91aaca92957465da102adcb78eac32492a671597ec990ee714ead638e1a",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
-        "original mod integration backup exists in supplied snapshot"
+        "original mod integration backup exists in supplied snapshot",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
@@ -283,7 +312,7 @@
     },
     {
       "path": "crates/rc-engine/src/menu_render.rs",
-      "sha256": "e1b825fc4e5f16695950fd57813694828505ea109791457c70c6a361f2536041",
+      "sha256": "06afc1a338324949945ed0b19ae9aa860e3bb06adb4d3bcd541473d3aa7d37f3",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -293,13 +322,14 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "31bfcd4110db674128864d2e6b6470cd7b94fc47fa4f03d723c5a371ade4ea05"
+      "sha256": "6fe61b2fbc7cdfff71f0e40141b16750ccc8d89748e86ea758a60eab612aa277"
     },
     {
       "path": "crates/rc-engine/src/moby_attach.rs",
-      "sha256": "77bb08eef2257409496aed514803e0c75d23afc5bb1a032ab1afc128776c68a8",
+      "sha256": "078f378f6183bb5f916ea9fe215ad1d5cbe59dc7565e08da061bb61e307695a7",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
       ]
     },
     {
@@ -335,7 +365,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "ab1b050453c2860887648e9ae2596e21d51c1bab5c0df3f709daf698bf9066f8"
+      "sha256": "c646dcf1e2bd86bffb04e7cb17728e5d3c877e7fadec6f8f702e545a3b406286"
     },
     {
       "path": "crates/rc-engine/src/pickup_presentation.rs",
@@ -375,23 +405,27 @@
     {
       "path": "crates/rc-engine/src/reactive_render.rs",
       "reasons": [
-        "ReRAC 0.3.6-alpha supplied base synchronization"
+        "ReRAC 0.3.6-alpha supplied base synchronization",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ],
-      "sha256": "a677b91cd155991927d600466f878360c1e126266b7dd1d2fdf92d84b550a115"
+      "sha256": "7453c8a362100fd883d05800517d23ed9c5488c033afbc839b2a3757f5b7fd17"
     },
     {
       "path": "crates/rc-engine/src/reward_model.wgsl",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "e00eb0d9e9b40a83190843b7ccb4ea7b8c990f9ce42889342280c1d9fdc0a845"
+      "sha256": "84a0570b0a2df73d87721b7677f7bbc83ef082b30d5f18e56e026de2f3eae1f9"
     },
     {
       "path": "crates/rc-engine/src/reward_model_render.rs",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "81fe1f51d1265dff3890f5c445a00aeb57f6a312963a34ad6bba05d245aa4fc6"
+      "sha256": "72b6d44deef95457257dc981e54fbd2187430e3f86c1d21698420bd0ee295b54"
     },
     {
       "path": "crates/rc-engine/src/reward_render_probe.rs",
@@ -422,6 +456,13 @@
       "sha256": "216e7b6bde6cb66199048ce98870b01e49c9d5d8ecff542cb3343dddf54bd448"
     },
     {
+      "path": "crates/rc-engine/src/sea_render.rs",
+      "reasons": [
+        "Local v128 rendering or build integration"
+      ],
+      "sha256": "7782de1bc48cc896963a14fe7fe7645b227099fb201a2d74a3719544f1fa8afe"
+    },
+    {
       "path": "crates/rc-engine/src/shrub_billboard.rs",
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
@@ -443,6 +484,13 @@
       "sha256": "add9a21a43871b154a4b3957dfe5943eb7d2050e4f7be353c495d167f03deaa2"
     },
     {
+      "path": "crates/rc-engine/src/sky_stars.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "94c9d061f74fbae5fbd807a292d7d73d6dcba0fe0a6d1301315a62defb19002c"
+    },
+    {
       "path": "crates/rc-engine/src/tesla_render.rs",
       "sha256": "3c7ea721ee5b24bcdcd97054ca04765ce3b05b060f4cbf1a2604e0a829c531dc",
       "reasons": [
@@ -462,6 +510,13 @@
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
       "sha256": "c2017ee73ec65f89d7a59e7db0b2f9e30c014f80d963a9d1a09383865f065957"
+    },
+    {
+      "path": "crates/rc-engine/src/thruster_render.rs",
+      "reasons": [
+        "Local v128 rendering or build integration"
+      ],
+      "sha256": "aea7c033bd6e5c80eaeaade45b892ef9f546a5777b9e422b10048f35c24203fe"
     },
     {
       "path": "crates/rc-engine/src/tie_lod.rs",
@@ -494,9 +549,10 @@
     {
       "path": "crates/rc-engine/src/upgrade_wave_render.rs",
       "reasons": [
-        "ReRAC 0.3.6-alpha supplied base synchronization"
+        "ReRAC 0.3.6-alpha supplied base synchronization",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
       ],
-      "sha256": "03eb56c92a0681a6b7a34c1e09cc77a6aefda13577cb5b672b5308be8171654b"
+      "sha256": "229192edb30556e9cbdfd65234706242ebd72433356a61c24007c0fbedf32caa"
     },
     {
       "path": "crates/rc-engine/src/vendor_render.rs",
@@ -517,7 +573,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "f89869ab282690a5ca005bdbdebde4aeb6fa1998be35e36390c5e9b4e9d8824c"
+      "sha256": "e7e1d76fff63a0f5dad4b78d1bedc3c122df86138f64364fb36e543287a4b137"
     },
     {
       "path": "crates/rc-engine/src/wrench_swing_render.rs",
@@ -738,7 +794,7 @@
     },
     {
       "path": "crates/rc-game/src/audio.rs",
-      "sha256": "2b79f10399d579e22372b6bb15f5257bec32ced1f46d6e7daab263a5ce39d2c0",
+      "sha256": "3163fae01875ad8ca51df3ae92ba1de32d101f39a2186e0dad4caa049959898c",
       "reasons": [
         "v40 combat correction or audio diagnosis"
       ]
@@ -809,19 +865,65 @@
       ]
     },
     {
+      "path": "crates/rc-game/src/gadget_combat.rs",
+      "reasons": [
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+      ],
+      "sha256": "56c93199b8f20c5ee8e029eb8706565f380c2a06a5c3d924af874ca3c520292c"
+    },
+    {
+      "path": "crates/rc-game/src/gadget_combat_freezer.rs",
+      "reasons": [
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
+      ],
+      "sha256": "788715cc62e90160a9ade8b3b5a0da89bfec871d3e520119d917ad7d37f781f9"
+    },
+    {
+      "path": "crates/rc-game/src/gadget_combat_v134_tests.rs",
+      "reasons": [
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+      ],
+      "sha256": "4181b1ea0635405181fe17fe929ce80e71d9a0e49ad0977be451d7d5914d2b90"
+    },
+    {
+      "path": "crates/rc-game/src/gadget_combat_v135_tests.rs",
+      "reasons": [
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+      ],
+      "sha256": "1ca6b034c182b32f525f6e4266a93cf341370723079feb684132d86d2361dee9"
+    },
+    {
+      "path": "crates/rc-game/src/gadget_combat_v136_tests.rs",
+      "reasons": [
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+      ],
+      "sha256": "654dee5a4781c5e92db19f6ba9694b9e8e2e96db442662886d04f1e053abde9e"
+    },
+    {
       "path": "crates/rc-game/src/game_state.rs",
-      "sha256": "e20fd46a2f2279f80ede38f91e3ddfc2b3fb2e70505d6813d12c4a7cc5aa68ae",
+      "sha256": "c0154ef96b8dd22ea09621e389e1013e435053aa1b0fd937d86667edbbff4d55",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
       "path": "crates/rc-game/src/hero.rs",
-      "sha256": "a99d411eaddbe8f849300c914c365e3814a974c41cf0c9723564e0bdb17075d6",
+      "sha256": "dfa0a21c5b2f53b5dd341f383f9254712ae8efd842a0499e7b8736d6de431d25",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ]
     },
     {
@@ -833,10 +935,11 @@
     },
     {
       "path": "crates/rc-game/src/hero/anim.rs",
-      "sha256": "95affd8b93416a2cb2cc80a2192721bc31e6ea902365e1cd4266dbcc8a40cc89",
+      "sha256": "a001e75ded26eb8af5aff840c576a1db4a2fb10fca6432e7bfa2647834e1f53b",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ]
     },
     {
@@ -853,6 +956,13 @@
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
       "sha256": "df926fbdb6e8ca741b1a989efe6f7a3b9799f7eed2ac53944c05ad301d5f3b02"
+    },
+    {
+      "path": "crates/rc-game/src/hero/bodies/disguise.rs",
+      "reasons": [
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
+      ],
+      "sha256": "b71f623be35abd50a86d6e6afc6e89de14cfc6fd4425647c865fdaa745c8f2b2"
     },
     {
       "path": "crates/rc-game/src/hero/bodies/giant.rs",
@@ -878,10 +988,11 @@
     },
     {
       "path": "crates/rc-game/src/hero/combat_strafe.rs",
-      "sha256": "99e3fcba9867c3cba85460254ca299d18afe0e53ea030f52d5f3aca035f133b8",
+      "sha256": "b0319b691f3493af7afd2d01d22e1ece32cc809a7528f93a13770ef91464825f",
       "reasons": [
         "added since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -912,6 +1023,14 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "3e163cb0131598133444fe1a00edd8e7257ccc8bbcd35641310d160f1ea6fba3"
+    },
+    {
+      "path": "crates/rc-game/src/hero/gadgets.rs",
+      "reasons": [
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
+      ],
+      "sha256": "abaa1104b16ed45545c79f18330c6d5e2956779fe0a1d9bf635d5fb87fb1d093"
     },
     {
       "path": "crates/rc-game/src/hero/gloves.rs",
@@ -1006,10 +1125,12 @@
     },
     {
       "path": "crates/rc-game/src/hero/physics.rs",
-      "sha256": "e9655ba5bbd97d70049f9fd6368b68ae63a72c17ea96fbfc38659fc141ff28df",
+      "sha256": "53c1e7119f1aff60d3423564ecce1c3d0fea8b809de5598827ef0eb173e2b9d6",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
       ]
     },
     {
@@ -1022,9 +1143,10 @@
     {
       "path": "crates/rc-game/src/hero/pyro_lava.rs",
       "reasons": [
-        "ReRAC 0.3.6-alpha supplied base synchronization"
+        "ReRAC 0.3.6-alpha supplied base synchronization",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ],
-      "sha256": "bd05f8d685a4bb5f607be32f06f100cfe9d0c716e113095fffaa9d6a476e2d8c"
+      "sha256": "0f2a5f3df76588f8ba2c55a6ad70a057cba18b55d1eb49ffd620f4dd6b26a6aa"
     },
     {
       "path": "crates/rc-game/src/hero/pyrocitor.rs",
@@ -1080,10 +1202,11 @@
     },
     {
       "path": "crates/rc-game/src/hero/taunter.rs",
-      "sha256": "e535a02c5c7f9ca9f10bc246753258abce15b4a524349c50e757a3e8b42d0c56",
+      "sha256": "05b12310ff0a4b8adf2d18c637131a7441f6a43f0218983a9a42dbe27776d794",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
@@ -1111,7 +1234,7 @@
     },
     {
       "path": "crates/rc-game/src/hero/walloper.rs",
-      "sha256": "c537dc81bdcda22b6f11f8b0d2789a319a3a38f8a817f22710bf238c8035df50",
+      "sha256": "763c746d041798c0f7007d2c919a6b11ff171a632fc7e17d0e65b81bb5af6f4b",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -1134,10 +1257,11 @@
     },
     {
       "path": "crates/rc-game/src/hud.rs",
-      "sha256": "096f393ec9a5a1b724acb9c3c269479cba1d1bf458a10096b10c3fd2ae0cea88",
+      "sha256": "ad268c0ec3c2ae2345ff154704784f9175bb40da06283c92ff90dfbc9a4ff756",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
@@ -1177,10 +1301,11 @@
     },
     {
       "path": "crates/rc-game/src/lib.rs",
-      "sha256": "a1c9703e9cd98343b1796a1c1842a2c3576c9451ee02d8e3cd2fdcfc52a557d3",
+      "sha256": "ac389f498717b4ea970d284bb8b99f5e66aee0acd346e0c0ca0c52bb49f4816c",
       "reasons": [
         "Weapon Evolution implementation or integration",
-        "original mod integration backup exists in supplied snapshot"
+        "original mod integration backup exists in supplied snapshot",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -1221,9 +1346,10 @@
     },
     {
       "path": "crates/rc-game/src/menus/pause.rs",
-      "sha256": "b12defb5ecdb952664a5ded8abf39c898712669e451c8bf48988ab047d31ea90",
+      "sha256": "699986d5b93ed518235fd6eca27d18b5075559a3302783a21eab1e289ed11b19",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
@@ -1242,7 +1368,7 @@
     },
     {
       "path": "crates/rc-game/src/menus/pause/pages.rs",
-      "sha256": "050926d1840af771c6ac136529abaf44400928253e5640b3be09759b3ad99352",
+      "sha256": "b0ec30527357de2792ba0998c610b6c61bfdc52398002aa13586aceb5d3321aa",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -1280,42 +1406,47 @@
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization"
       ],
-      "sha256": "c076dcafacbbcedad1568c7f10c1d3d33f9cf02f2ef1a3f83ec7a621d450d213"
+      "sha256": "60fa0ed741d5aba864ff95ac674fc9d59572ce2bd696772e197069d673d2f6e1"
     },
     {
       "path": "crates/rc-game/src/menus/pause/weapon_xp.rs",
-      "sha256": "6c8ecdbdd2e1e5a28b8141aa937658ba358fcdf1499c348c515f37112b4a20be",
+      "sha256": "a8efa7d3198c8ff9d7b2e49e991d6ba44b03f383cdfdabab673ec7876e83da9b",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "crates/rc-game/src/menus/quick_select.rs",
-      "sha256": "99f975674dc16c95106a47ca3f009838100c595c34e768d8c62138fa4cae4552",
+      "sha256": "f46a4c3fc0b7d1a543e916f7df7bb605aedf960314d7f18433ded7286212a591",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "crates/rc-game/src/menus/vendor.rs",
-      "sha256": "0322c86862991b0335b40806b9f3368136b7406a16fa6771cfd1413c8234a696",
+      "sha256": "45514c3e271de252fa3570c35bcbbf3b1448676b1a51b017355e0aaabb18e9e6",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "crates/rc-game/src/menus/vendor/reload_all.rs",
       "reasons": [
-        "ReRAC 0.3.6-alpha supplied base synchronization"
+        "ReRAC 0.3.6-alpha supplied base synchronization",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "bb36f1351d2eef84a223e61a229eebcdb9b016b9c844c715f63b48d330ffb901"
+      "sha256": "b1444e9208536b3b7597ed716d8510511ac373de00dd9f0072cbc2ba7a23d925"
     },
     {
       "path": "crates/rc-game/src/menus/vendor/reload_tests.rs",
       "reasons": [
-        "ReRAC 0.3.6-alpha supplied base synchronization"
+        "ReRAC 0.3.6-alpha supplied base synchronization",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "84a914c0d657753d6e9ee3c6215066e2793dd30805a0225c949f68f266c313e0"
+      "sha256": "8640a9850cef84671ec60fe35a725235230243e08e3a4eb5e3d857937503e99f"
     },
     {
       "path": "crates/rc-game/src/menus/vendor/tests.rs",
@@ -1334,7 +1465,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/amoeboid.rs",
-      "sha256": "f75ac8108ff8d5c22fa897ed2a7007b1f3b6ada6ac8e752a286f271e7e74a9c2",
+      "sha256": "2621fa88b76e583430556f2e483d633d39bd91e30501ded4ebd9008abc013473",
       "reasons": [
         "changed since supplied snapshot"
       ]
@@ -1356,11 +1487,12 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/bomb.rs",
-      "sha256": "dca896185aa463dc7c40b8461af309c56830e1182f2a90777abcbf8ea37c7f8b",
+      "sha256": "5b9a22f536a0d0e358c32f024eca36f54633d2a9b2bddee6a247af9142816a1d",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
-        "original mod integration backup exists in supplied snapshot"
+        "original mod integration backup exists in supplied snapshot",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
       ]
     },
     {
@@ -1372,7 +1504,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/cannon_crate.rs",
-      "sha256": "33f8f89dfbda7015d264c3da8256e24086347a7a28d656d9954d9fe6e3a402b3",
+      "sha256": "438a76c3883aa73a6db0398520bbc2f421191e9a5ca35b7abf7a0466dd58ceea",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -1651,10 +1783,18 @@
       ]
     },
     {
-      "path": "crates/rc-game/src/moby_update/classes/units/blarg_boss.rs",
-      "sha256": "a14efa77f0e026b2396943f82f8fa17671cac684bf5d0befa15e1dd6dffd336d",
+      "path": "crates/rc-game/src/moby_update/classes/units/batalia_turret.rs",
       "reasons": [
-        "changed since supplied snapshot"
+        "v126 equipment, water and skill-point integration"
+      ],
+      "sha256": "5cc3387337a18f3abd57d290037483f379713c8d8fb0cdaeeaedf76f55deb248"
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/classes/units/blarg_boss.rs",
+      "sha256": "83a251cf24bb6587bc564cb6e42b76210fab9213802939ba68ced5836b9e68ed",
+      "reasons": [
+        "changed since supplied snapshot",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -1708,7 +1848,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/units/drop_trooper.rs",
-      "sha256": "d40a36e5979beae3eda9c75ffea750ab8b6c423e37895c8e2634cb38e63f9356",
+      "sha256": "063523774080654fb28006972d0f614986b23f3d57b2db4060dfd70dc0d0f9ea",
       "reasons": [
         "changed since supplied snapshot"
       ]
@@ -2273,9 +2413,10 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/units/qwark_ship.rs",
-      "sha256": "acd2d021c676d24e5abca2800ffda0bfde189feec2ed7624451e3121018caf57",
+      "sha256": "f270e60ba61de95a4d3512838dc6a2e44b18fe65fa60602d48e6e9c4599964d8",
       "reasons": [
-        "changed since supplied snapshot"
+        "changed since supplied snapshot",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -2332,10 +2473,11 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/units/umbris_beast.rs",
-      "sha256": "f7337bd80499f4a77234c3605b922eaafe4d041038c609198265dd192a0756ec",
+      "sha256": "e5f27435b5b51c64a61e6f98bbd085640933d8a355fbf801880ef26c1c1c10a0",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -2376,9 +2518,10 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/classes/units/veldin_beamer.rs",
-      "sha256": "82a03cc554ff36ea0ce7e47bf93c8ba08c4d6e2a0e968578f73fda914b830a71",
+      "sha256": "b8312713bf8a82982e9fe767c62636f19022ce146dc50c685fc5adf443761871",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -2433,10 +2576,11 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/creature/damage.rs",
-      "sha256": "6af7225eddf009e2df6aab47c2360d52297dec93ff478c34915cc519a85e1e19",
+      "sha256": "8672c36330be22197ca415120e1bfcc3089320df02dcb2222f481c4b885daced",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -2469,7 +2613,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/creature/react.rs",
-      "sha256": "bd60fa243b5cd43d5820d25ec4e1ca700567e649e6d16a2fd9c72f8456e12c7b",
+      "sha256": "dc873b099c5b9ff2efbe87441f5eb6495f9569a34af3cd63f78b952ea8c27963",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration"
@@ -2485,10 +2629,11 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/creature/tests.rs",
-      "sha256": "30a28407846a81ff815d7474a5aa47b7e502fc52f98e53529b77b9f35f613f1d",
+      "sha256": "5038cf2512049f922c55d7b5d889d3c70eccdbdae4f7c5d61e5c43329e1a5c1d",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
@@ -2500,33 +2645,38 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/interact.rs",
-      "sha256": "ca7c571dfe69b487aa9d4e003c05a0c6564bf7e11f4c700027c65aa28ab78ec7",
+      "sha256": "71bd3c6a461dc7941ea5b7e6d27ca533796f51932c68b2707c365edd9fde48d5",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception"
       ]
     },
     {
       "path": "crates/rc-game/src/moby_update/real_hp.rs",
-      "sha256": "932eb1caa077c6330ca1d5755cfc19adb7912281e648d716b09af38fa89e9697",
+      "sha256": "cd125f672b144c322a7b9a75d6dbc456244a1ad3fada1ad7537fac4d6d2396b8",
       "reasons": [
-        "added since supplied snapshot"
+        "added since supplied snapshot",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
       "path": "crates/rc-game/src/moby_update/scheduler.rs",
-      "sha256": "68c3842c2abc8fbd65ed927defd7af99eff8edd70531e9709863c1a52ae9dc05",
+      "sha256": "f41232b85361faa87d1a5b044a4d29bf885aa62d93796594c65aebccab0995ab",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
       "path": "crates/rc-game/src/moby_update/services.rs",
-      "sha256": "36b4dd8ee9b61cf2f0c85c631311cbbaa358e9f4f66ed0dba05fd7a85b64a305",
+      "sha256": "f7dad3535091760be5b9ee7779c5662c9bdc48407c2221757c8fdc13c6c09cf7",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
-        "original mod integration backup exists in supplied snapshot"
+        "original mod integration backup exists in supplied snapshot",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
       ]
     },
     {
@@ -2610,9 +2760,10 @@
     {
       "path": "crates/rc-game/src/tick.rs",
       "reasons": [
-        "ReRAC 0.3.6-alpha supplied base synchronization"
+        "ReRAC 0.3.6-alpha supplied base synchronization",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ],
-      "sha256": "6e40af5160906b6066973f265d519ac56a3a5b176f199745fc237eef32372604"
+      "sha256": "d9f9360dfb48008468e57251418140bbdbc4eda4631a6b61b933f705f4dcec85"
     },
     {
       "path": "crates/rc-game/src/travel/cards.rs",
@@ -2651,11 +2802,13 @@
     },
     {
       "path": "crates/rc-game/src/weapon_evo.rs",
-      "sha256": "71cbf4f447567984900906630cadd916759ce4465e25901ce4ac6eee71bcf8ad",
+      "sha256": "688382a5e65d9bc6f0cc7550c60434e852275cde1717c4e04ade00ec84fa0d27",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
-        "Weapon Evolution configuration or module"
+        "Weapon Evolution configuration or module",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -2663,7 +2816,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "3aaa39b98429b6a834061d1cf8aac122b0adedb989396f92c8895576c987187e"
+      "sha256": "4dea575aa19f2796df3d8eb2bf8fc3f12f27d5e444b4dd0f03799ba59c55dc4b"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_bolt_chain.rs",
@@ -2682,16 +2835,19 @@
     {
       "path": "crates/rc-game/src/weapon_evo_controls.rs",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ],
-      "sha256": "cbbc2e986504b1babd9426cbe1505a80e6ef0eab9d76a676857f233d133e6c83"
+      "sha256": "a53d6ca3b832e6129c436e4bc2dffafcd4384b59575b150f887c7b26158d9f13"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_controls_tests.rs",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "00e1de69a8481c7995e7102985668bfe9629fd069fe0139c4a03e24f3182a773"
+      "sha256": "ca60c8624c6da5caee65ea1355a76c3c13c954baae7f6c1e69ec8f18a76bebf2"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_discovery.rs",
@@ -2759,9 +2915,10 @@
     {
       "path": "crates/rc-game/src/weapon_evo_live.rs",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "e1a72929a01fd7db890725a1e1536de80cc55b995e9499cb8e75fa390633beee"
+      "sha256": "7154c95fa1a23b821b5529be28a1db133b1f331699b66425741f1cd2f82cb92c"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_location_test.rs",
@@ -2773,9 +2930,10 @@
     {
       "path": "crates/rc-game/src/weapon_evo_motion.rs",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "1c0e4041cbc6a8cbbe834a91e1d05d846e6454f48e11768cd5654189c71245bc"
+      "sha256": "a293547c13ebc61f5c5412cddb9028075e5970cf12bedb5142aa7bf592bc6c5a"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_notice.rs",
@@ -2817,37 +2975,44 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "dbb7adf3b46fba28b3af239d2c067ffbd40ed4870fe7fe8c26db7c616da8277e"
+      "sha256": "478a5681bbd1d1f150e36b931503a5cc6244351f335ad32f2e63e1ca617af185"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_randomizer.rs",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility"
       ],
-      "sha256": "091d44bc45b3c860459b5c0ae870fac9ca87689d8aafad72d5ee3a61a29b921b"
+      "sha256": "d626223f6bc6fcd77d2e3acdc0b605b5fb4ea7dcb02dcd7040387f01ce254791"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_randomizer/catalog.rs",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "889f791a45f49d191236b639acb4368af345f0138ad1c6d1262e2723f518d1d7"
+      "sha256": "e04489b8b937e36535f3b25614bf246a0ca3419577fa8fea485c698096b4e161"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_release.ini",
-      "sha256": "04e76072b43e990afc50df67366473cca732ef0ff34165970d3a42bb1bff4f87",
+      "sha256": "e1cc2f0c5d25779aadffb9f41727a3508c62efa8983f6008168b646635b4591e",
       "reasons": [
         "added since supplied snapshot",
-        "Weapon Evolution configuration or module"
+        "Weapon Evolution configuration or module",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
       "path": "crates/rc-game/src/weapon_evo_save.rs",
-      "sha256": "2c9d232840224e8dbc41f66c22b468acd7af4ff92f9a08875cec8df3eea04f2c",
+      "sha256": "434dc5af5020ca1b7622acf2fb76fa0b8b27dc3639b9622e7122a30136aee19b",
       "reasons": [
         "added since supplied snapshot",
         "Weapon Evolution implementation or integration",
-        "Weapon Evolution configuration or module"
+        "Weapon Evolution configuration or module",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
@@ -2874,9 +3039,10 @@
     {
       "path": "crates/rc-game/src/weapon_evo_v76_tests.rs",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "79276f92e634ab6c625a948e0eeae3430ae97f849aa23f92b6bfc8efdeb327a8"
+      "sha256": "dc98ecd4ebc1b1ce38b7c743a2e8edb1c0e90241d2d3c13a79da7d372a4e56a8"
     },
     {
       "path": "crates/rc-game/src/weapon_evo_v77_tests.rs",
@@ -3192,7 +3358,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "4922325de0bee13f5129c016193ead581780cf111fee34594976ff735941fd10"
+      "sha256": "8cf9050a355ffde6e0e97ea1df3ae6759b40c4e3969af7420258abc86add0b82"
     },
     {
       "path": "docs/mod/CREDITS.md",
@@ -3204,9 +3370,10 @@
     {
       "path": "docs/mod/CURRENT_IMPLEMENTATION.md",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "767fdfd0c4a65987edbba7c550124ff5a86deee362df95e51075f8053e6355d1"
+      "sha256": "95d6d845ea7041d13a98d0c6b2cf47524cd0bac69a902f6c19ba056284a723ea"
     },
     {
       "path": "docs/mod/DEVELOPER_GUIDE.md",
@@ -3284,6 +3451,90 @@
         "Local v120 implementation and verification"
       ],
       "sha256": "21c4e57a59c3e4dd25011472ea8208e0e5cf59d76820f5e3d14f4c38ce182e55"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V124.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "b10d09fdb524be6809c4af0f0b5980df69fd1bbfc6592bb0814905822f024219"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V125.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "b556035076b321b0468503ddd08bed8d91df05d3b670a8f578a8d372051db984"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V126.md",
+      "reasons": [
+        "v126 equipment, water and skill-point integration"
+      ],
+      "sha256": "2e29b6ccef24dfcc739dc69ffe2e4c417ea63a87e0b9168b3f85509048a871fc"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V128.md",
+      "reasons": [
+        "Local v128 rendering or build integration"
+      ],
+      "sha256": "012adaf06f19cd093c5d438915144da905cc7ca2c1d5a1c84cc0a6012b904e8a"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V129.md",
+      "reasons": [
+        "Local v129 audio/water integration, verification or standalone build"
+      ],
+      "sha256": "c2450361e63eb1d0a1b7e21d8fb2e0748be15e7104a4150bcd14d69f17cd4e75"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V130.md",
+      "reasons": [
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
+      ],
+      "sha256": "5d8728639e485db25f80da69fbfa34bf570370e3922404a8580f7cec5f2a4d40"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V131.md",
+      "reasons": [
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility"
+      ],
+      "sha256": "edbf2f1d7827a63b26a5078fabc1f827f63d7dce59c145e456ab842b377df539"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V132.md",
+      "reasons": [
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception"
+      ],
+      "sha256": "1cb8b711e22e3b3cd6544526d60c8d8bb53c11e25e18299de1a75c84ad89acc5"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V133.md",
+      "reasons": [
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
+      ],
+      "sha256": "5016ad4a4f396903185e6844956e0712662ed23093295565ce29805e5e555ee2"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V134.md",
+      "reasons": [
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
+      ],
+      "sha256": "22f7ca25dd4dff328dfbcc4fdc24a88fb16e5311834b95f4d57ee501b524fc71"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V135.md",
+      "reasons": [
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
+      ],
+      "sha256": "f5d0f2374d62a7fa5d677a3170a3a34a1adb5042e3aa119af7d41636a4fac618"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V136.md",
+      "reasons": [
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+      ],
+      "sha256": "a8294bfc6a37a48f2af7b43f4c0ccdba224d39e2f02adfd2f4eb1da312583781"
     },
     {
       "path": "docs/mod/MINE_AMMO_UI_V57.md",
@@ -3374,7 +3625,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "632c3dfccd084fdc9c90697fd5af7f2ad78483c702c7b493c40ea2dd6745a646"
+      "sha256": "e2ae679aeb5cef24bc8863d2eaaed7a12412062b221cc7e5e9f4a20298d766cc"
     },
     {
       "path": "docs/mod/RUNTIME_037.md",
@@ -3395,7 +3646,7 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "e8493918d2430ce4ca104112ecbeb228d380ed457a4d38db3cfe7cc7f78cd4f0"
+      "sha256": "c25f5c863d7cdad2c21c9f1d0a6aa1b2803f423b268fb08ce1bad057f40eb0ba"
     },
     {
       "path": "docs/mod/SLAM_VISUAL_V106.md",
@@ -3407,9 +3658,16 @@
     {
       "path": "docs/mod/VERIFICATION.md",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ],
-      "sha256": "2456f00de5b5cbe1301da65c3c891d124ea036ca959504c95ba20d4dc6c6f323"
+      "sha256": "0d20b0edf2dac584fef42a82d52414da202676251941efd291c27a5abf77828b"
     },
     {
       "path": "docs/mod/VERIFICATION_V115.md",
@@ -3577,21 +3835,21 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "31678f5cc897aa913ac9b0188b3003c399555bb82fda9435bf18f6bd4fefd300"
+      "sha256": "3ba514e3feb36980cf536c242eb5f08cdb51592114a3dad0251027df9f31d9f4"
     },
     {
       "path": "launcher/CREA_LAUNCHER_EXE.bat",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "31678f5cc897aa913ac9b0188b3003c399555bb82fda9435bf18f6bd4fefd300"
+      "sha256": "3ba514e3feb36980cf536c242eb5f08cdb51592114a3dad0251027df9f31d9f4"
     },
     {
       "path": "launcher/Editor.bat",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "86a7744d02909d132fd08fe4a9feba469e44947b3a6edbcf165686a816a4cb1c"
+      "sha256": "41ffcdb787d1d508aea10f47794d6dd4f3dbc883f417238347b77edd9996538d"
     },
     {
       "path": "launcher/LEGGIMI.txt",
@@ -3602,9 +3860,10 @@
     },
     {
       "path": "launcher/build_launcher_exe.py",
-      "sha256": "7d283646b86fedf4e4655f5d3d3d0f1b4d2f3b3d8d142de1646140fb070901bd",
+      "sha256": "cd6a0638d0179d897e1be0a6477d74ef39468f34872b99f3f5bd605ee2fc41d5",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
@@ -3631,9 +3890,14 @@
     {
       "path": "launcher/i18n.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ],
-      "sha256": "fc7ae77aec22253781982e7781c66e4e230f435be26d7ac04dff5095dd688d6a"
+      "sha256": "54db7e73053dada6dea40fe4f529c57e00ddcebcde3993652ef0fe20f7d5d8be"
     },
     {
       "path": "launcher/icon_assets.py",
@@ -3651,23 +3915,33 @@
     },
     {
       "path": "launcher/launcher.py",
-      "sha256": "d2f109946d7fba06f80b5c48cbe2504fb76170b612e5933c872ab1427e9c8573",
+      "sha256": "f7b50b12a9c65b661c97413176b707fa64b2db15c6fc560b9a9c6c495372d99f",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
       "path": "launcher/launcher_core.py",
-      "sha256": "c334c64ed69e359a80b3f9b5cac7f3e47046f00e07fc665cb41e53c1b1aea86c",
+      "sha256": "150e157aa1d26519afaf8851ec2901ea45f50e26c17125ecbc830f0d3b2ec512",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ]
     },
     {
       "path": "launcher/migrate_ini.py",
-      "sha256": "df4fa02937e026529e18f141eaf4001e42946cfb2b5c4088b6786b0c3dd4a60a",
+      "sha256": "c2f5e8591ab8002747a3f7009418d7bcde6cb880229cd045ccc9e34a870356bd",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
@@ -3680,9 +3954,10 @@
     {
       "path": "launcher/page_smoke.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ],
-      "sha256": "e1e796ab8dfb9cdcd73536f5fbeee3d9f3e3cc3a0ca0a7ee5730752a6b67ec3d"
+      "sha256": "3defd044f14d2b81febcb80026a0cb5a61fb9bc79319a3c1c64aacc657f71cfd"
     },
     {
       "path": "launcher/page_views.py",
@@ -3693,9 +3968,14 @@
     },
     {
       "path": "launcher/schema.py",
-      "sha256": "cb0eb0f5357fc4efa7ee97320b1b576ac901bd3c7225e6960f384cd5f9963e7f",
+      "sha256": "2eb783179b7bb9618e223b50dea04f36e4f5eda20aa2c7a53ff190336823d0b5",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ]
     },
     {
@@ -3708,29 +3988,35 @@
     {
       "path": "launcher/tests/test_additive_nanotech.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "59193975955d1a39113630c63540a5a4176e4e2cea6b5be7e3205f9f339a2e09"
+      "sha256": "81de27b76a0e41aa592b0968d312c0e24202441d33ed7e7fb31eaae583ec6aa2"
     },
     {
       "path": "launcher/tests/test_alternate_overrides.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "e769a67be6b9a5fbfe6b17abb500325bab32c791d2ba87c688a0560ee9df4e83"
+      "sha256": "b066f6bad66262bde4c7259a4f57b0b8bd66bf48dd0d6c9f41f7ff717936a2ea"
     },
     {
       "path": "launcher/tests/test_combat117.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "d2e55252349f0a3f666877a5354571a7daff43bcd07d5443bb8d9625f6b59557"
+      "sha256": "25e6d68da1cfa91119b07d1aa480e89e0bb8698cd12d54e2864039597ea9123c"
     },
     {
       "path": "launcher/tests/test_conversion.py",
-      "sha256": "cab50a8e1d6f9a14b86cd7cb601b8b6f12a4a3d4841e97f7bdea9697f3f178c9",
+      "sha256": "58953c09d1cb97c4e77572a3b90d42704e904098f1fc0254ca9ff5b977739960",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
@@ -3741,32 +4027,43 @@
       "sha256": "dd2ce6e173a1031020d73ea1ada267ce72a26a7a4ef7b4f3fdc9cfada47becfd"
     },
     {
+      "path": "launcher/tests/test_dual_quick_select.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "0792a5f8f0730f962f3d6665efec1924a272974841cb3a0bfbc6325109e8f18a"
+    },
+    {
       "path": "launcher/tests/test_eight_grades.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "e39789df8d3c5897af7ea83097b165ba39bed792d21c912c0d6c6f79c4f50ab9"
+      "sha256": "6fa91f5cc85f9eed0d353431e110eda91927a04729615d481789a6687e8265cd"
     },
     {
       "path": "launcher/tests/test_encounter_ui.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "5fd2cdb8cee990c318c714ab90f04462e111b85ac225d679a3674f73aaa05478"
+      "sha256": "bb301e58a9f6c5258b68b355a14a51250d9be4af5614be38cc444c477774ef7e"
     },
     {
       "path": "launcher/tests/test_experimental.py",
-      "sha256": "216bbf7a88fd1af7ce877e3d0184233f538a983f146a400f64f1bd00a4f16c45",
+      "sha256": "5cacfaf2fdc1091a30f721fd88290141bfc6a417f8d42e8583f27ab547eca60c",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "launcher/tests/test_feedback_hud.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "7a215b8929cb581bb561b60931c6b2220071bd9589023ff012cd1365d1db0a36"
+      "sha256": "3eb60268605d94c31efa144c31c23ac6ddd82481992ee21307013e4efb7ea0e5"
     },
     {
       "path": "launcher/tests/test_feedback_update.py",
@@ -3776,17 +4073,46 @@
       "sha256": "0d60b1431444406eb11e84ffcc8567d6f89990733106d537da6d34dd302503c1"
     },
     {
-      "path": "launcher/tests/test_intervals.py",
-      "sha256": "7415635b9356e898925f9cb2f6a96197e70b2647e47294ac6bfaaadd3f88ab49",
+      "path": "launcher/tests/test_freezer_v135.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
+      ],
+      "sha256": "c860f8cdae629ef7f772a646b0c053ace659ca570a3bb197e169c343f053d9e2"
+    },
+    {
+      "path": "launcher/tests/test_gadget_combat.py",
+      "reasons": [
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
+      ],
+      "sha256": "ad5119f2c6fbe0537d756c68c76f8d6d0057621f855b831e4275183db41ecbeb"
+    },
+    {
+      "path": "launcher/tests/test_gadget_source_contract.py",
+      "reasons": [
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+      ],
+      "sha256": "0379c16bdcb7efdbea5e41970ccc0e3d6755714b2aff1caba967c0a0be83506a"
+    },
+    {
+      "path": "launcher/tests/test_intervals.py",
+      "sha256": "1ed76b202b7f08eeebf8fc00d10f5d44a6767a9900fee783c6000a263ec3b574",
+      "reasons": [
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "launcher/tests/test_launcher.py",
-      "sha256": "47deb4eaf05045b8ecd8819d85dfc2faa8e699fd522e3a1f9b696363152aa52f",
+      "sha256": "049455c60d0d69c857907a48c51054176b1da5fb49abb78b7a832a5ae32f3e77",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
@@ -3799,16 +4125,18 @@
     {
       "path": "launcher/tests/test_nanotech_ui.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "ba8c1ec5537d4f5c8c6acbb0c08d675a12ff0ee30cd0348bdb216170700cf261"
+      "sha256": "1fde2d75ee14cf27d300b07867c61f58a82371c8bdc88b539f2ea67d3b497a21"
     },
     {
       "path": "launcher/tests/test_ngplus_ui.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "af19e848901b03cdaff50699b0f565f4d59ba7b41cf3f6da406463d62128f0d7"
+      "sha256": "6026ec2e0d623d77a8bcd8fb9ddd4967554724da620566ea682f76566e7cd514"
     },
     {
       "path": "launcher/tests/test_prepared_source_identity.py",
@@ -3820,22 +4148,33 @@
     {
       "path": "launcher/tests/test_pursuit_ui.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "4cf26246e10e6ed0889055da6760e8d77f654cb52157e1044e7f68cba4c5ccf8"
+      "sha256": "abec20d725d508996c989a36552646ae7f2e808afa9d1b80ee4d3520edbd0b4c"
     },
     {
       "path": "launcher/tests/test_randomizer_schema.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "b8ba5441db56450b7c1fcd26f35cc2d4d8a2613dc8664cc26d5dbcfbf4b9b448"
+      "sha256": "8b41678617b4a96759ed830de1d6731ffc35b42789bc0e4057447d46e13e0bb7"
+    },
+    {
+      "path": "launcher/tests/test_randomizer_sites.py",
+      "reasons": [
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility"
+      ],
+      "sha256": "367f98d5ddb1429d68e37ccce137c16f95b2a76af3fd3169cd2c6ed4648e1c79"
     },
     {
       "path": "launcher/tests/test_release_behaviour.py",
-      "sha256": "f5eac0888a4b2994f22f548b48408aa74b1ab8584e33836cb88b9738b19fae87",
+      "sha256": "64edae79234a540cc2fb8fd7f67d24ca0a4b1511ae9be94d7bb0f1156a1bba7b",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
       ]
     },
     {
@@ -3862,16 +4201,19 @@
     {
       "path": "launcher/tests/test_runtime038.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ],
-      "sha256": "66e9ba97ce7b6372e57c2bfa2a0a2a66fa477905c509ecc88e193b4df9a6b5d2"
+      "sha256": "c2c18050486a8900bdd8300a41cdc508a4d7f32dee0e42cf2ccf5dcc3b3acbaa"
     },
     {
       "path": "launcher/tests/test_rust_build_tools.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "5af46996a26b6ccf07268563cce15211265d96d9992ba919a64ce6565daa9024"
+      "sha256": "5bbfb42981f184e84d1512b5011bad154d47421e0ea71bae8a150d3b0f44401b"
     },
     {
       "path": "launcher/tests/test_rust_download.py",
@@ -3883,93 +4225,169 @@
     {
       "path": "launcher/tests/test_saved_controls.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "f5d0420216c786fefcb8218f98cab69ee1373b35e7b644906985aad441001f52"
+      "sha256": "3b60921ef010e2572cb32c1119c8374494cc741cb9fe1350f665e06c6b930dd5"
     },
     {
       "path": "launcher/tests/test_slam_visual_update.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
       ],
-      "sha256": "2167f61edcb5ddb8a76edc892046132751e0b6ed59b6fe0fa9819211de34642c"
+      "sha256": "76fc88f54a9e5efe352e64269c2421fa7e8eda118dc05326eb9f255924313ca4"
     },
     {
       "path": "launcher/tests/test_standalone.py",
-      "sha256": "52a274182c4098e36aa7acb438e4b86f19d643497fdf355ec812f3c5f67e0244",
+      "sha256": "57e2f545d5b6744031fd277306eaff1c18acc91e2b9dcbe9e9d5ab83d93dc2a5",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
-      "path": "launcher/tests/test_v44.py",
-      "sha256": "2e752505cfd0ded968419211367602c2f3d315c116a25d5c4006f82f4cce9204",
+      "path": "launcher/tests/test_taunter_modes.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
+      ],
+      "sha256": "b1638e616ac7ec9c4954bfd3483ebf5e880f9770d15d864861f382ef1016c895"
+    },
+    {
+      "path": "launcher/tests/test_v129_export.py",
+      "reasons": [
+        "Local v129 audio/water integration, verification or standalone build"
+      ],
+      "sha256": "2abaad4d2dfd63d3353ec78db90b89c5f073a77f2311aa1026fc89aec93556f9"
+    },
+    {
+      "path": "launcher/tests/test_v130_export.py",
+      "reasons": [
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
+      ],
+      "sha256": "bbacd877a53cfaaee3c421283a16043ca11bb7e4fd3aa26020027a5e3fc40cf9"
+    },
+    {
+      "path": "launcher/tests/test_v131_export.py",
+      "reasons": [
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility"
+      ],
+      "sha256": "a74a7a33b5fbbecaaedfdd59c64ee67f551f15970379921806f59151525dfeb3"
+    },
+    {
+      "path": "launcher/tests/test_v132_export.py",
+      "reasons": [
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception"
+      ],
+      "sha256": "49962aba8ccabbb62490160d54b354c9a019ac95f3025cf6f7b360978fce2e41"
+    },
+    {
+      "path": "launcher/tests/test_v133_export.py",
+      "reasons": [
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
+      ],
+      "sha256": "802340694ab089918e65d3bac2cb2944504d12467c7b8254e1e4b665bf3b1133"
+    },
+    {
+      "path": "launcher/tests/test_v134_export.py",
+      "reasons": [
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
+      ],
+      "sha256": "39cf693fb66f2c837f1a8991439f6166f670ab3e692e72cbfb33d762d30179cd"
+    },
+    {
+      "path": "launcher/tests/test_v135_export.py",
+      "reasons": [
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
+      ],
+      "sha256": "4a707ffbf9fa1ec97eca75a394e84aadf4501d590dcc8d5825479b38d06319a3"
+    },
+    {
+      "path": "launcher/tests/test_v136_export.py",
+      "reasons": [
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+      ],
+      "sha256": "1b3b9d0b78385df1685cc8549402f5031732d18c2ede6604499902c729696806"
+    },
+    {
+      "path": "launcher/tests/test_v44.py",
+      "sha256": "7d2770b5f3a0e28ffc42ee9cac2d90cfb24c81821e3956c4fc17560fc26cddf3",
+      "reasons": [
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "launcher/tests/test_v45.py",
-      "sha256": "1107e1554ccc9762805504f447818054776c86ec17eff92b7821b0724ac58b1b",
+      "sha256": "f0bbd9937f064c09794403ff03480ef45f0cfc3cd3b7516f97cfac42ea900bec",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "launcher/tests/test_v46.py",
-      "sha256": "8daad03ef9406e728798d95986d56ee2bdec75ef4ddb897fd3a94dedeef9e770",
+      "sha256": "cfdba9712f3bca55d391915be7c9cac5c698a202fca7cd195f96da0d45e79d0e",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "launcher/tests/test_v48.py",
-      "sha256": "771574b7e0c661ad99142355307d2bca4db76e26f0c7baefaef2e1cad40d1c1c",
+      "sha256": "e06d32234f40c9c85535474643fedcc6060f8d9ec07b97f549fffea57096d172",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
     },
     {
       "path": "launcher/tests/test_v51.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "e4a80dd7e11595eee8174186645558071831a7aab921045bbb4f068059476876"
+      "sha256": "330cb17b269564fe3630ce09992980d87d30a779f1e143c0a3bc6123c287673d"
     },
     {
       "path": "launcher/tests/test_v52.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "f86db0b9cfcb0c38322371d7e3dc32747215660dad6dab26b55269eaf0d8405d"
+      "sha256": "8211d377fd0a595b313391eb741323960723a5882f1bba80461d039487291a46"
     },
     {
       "path": "launcher/tests/test_v53.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "5bb48c6b641f4f674db0b7478afa566c95aefc77e15a760751f938db6403e0ea"
+      "sha256": "c6700bc15e38bce26d19231144fc0a84e40fd72bdd12aae821d67a5cfc3ae3ea"
     },
     {
       "path": "launcher/tests/test_v54.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "913f7352d964113d27833ca06297931444616869d5465d6c21fec254e50640f3"
+      "sha256": "2f1b4a2827c12ccc39a22108f5029fedd8be4a64b78fe80b30895841cc264ea8"
     },
     {
       "path": "launcher/tests/test_v55.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "43cdae5b7f61cf47854026f67efd679c5538899f45f25bba2fa1c235127bc354"
+      "sha256": "734d1a3d4ca267c8dfcfc85737a5e7dd475680b2b66d4dec5655bba4d1eabc4e"
     },
     {
       "path": "launcher/tests/test_v56.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "c79fbceeb7470819bbeb4b256d6990affffeb70ef95270027d9a0df84b75e70d"
+      "sha256": "e7c3cc5a45b5e24ac7c6fe3636187bacf793fd1b2ba3fcdd85615ec1a5576ccb"
     },
     {
       "path": "launcher/tests/test_v57.py",
@@ -3981,9 +4399,10 @@
     {
       "path": "launcher/tests/test_v58.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "cdf273a914306400e763f60d1db6e9472c9325f32402ec746b953ce95b78b5f3"
+      "sha256": "50f85628caa9487ab401b48cdb1a10cca7db19df7ade8e977286e56e49b3d83d"
     },
     {
       "path": "launcher/tests/test_v58_1.py",
@@ -3995,51 +4414,79 @@
     {
       "path": "launcher/tests/test_wrench_trail.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "2dcaed91fca33e48df48605fac9c1b72bffbe19a9c312560f14c977b773abc1e"
+      "sha256": "4d0ffaa93408380c4849026975b7e83431f041fdf2b4d56ff5ba7f2725c0b30f"
     },
     {
       "path": "launcher/weapons.default.ini",
-      "sha256": "ec1ac794d9e4d889dda8f50ca76289186b323e28bb41a88635543cbf0b05dcab",
+      "sha256": "7045fa5e3329e65b5d5ef40288ba558cc0c1a9e47542f24d0980de8350311e79",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
       "path": "launcher/weapons.example.ini",
-      "sha256": "ec1ac794d9e4d889dda8f50ca76289186b323e28bb41a88635543cbf0b05dcab",
+      "sha256": "7045fa5e3329e65b5d5ef40288ba558cc0c1a9e47542f24d0980de8350311e79",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ]
     },
     {
       "path": "launcher/windows_entry.py",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ],
-      "sha256": "55aa655fad7560002bf8d54a0931cf1d12be3fcf140be260cb48e0d5cc960a9a"
+      "sha256": "3380248b1a4ba0b7589dea3f75f71397a6dd165bc826620cb95212def361f01e"
     },
     {
       "path": "mod/default-profile.json",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
       ],
-      "sha256": "95a390fb895e77ba5fe3c18e94ac0f3cf8250dea19de9d32a12d435f2e40e7b2"
+      "sha256": "97439ba2f0190d08b97e2a16fcdc73fe3b90e2d16073db8f7b85834ff3eda7b7"
     },
     {
       "path": "mod/development.json",
       "reasons": [
-        "Weapon Evolution implementation, integration or documentation"
+        "Weapon Evolution implementation, integration or documentation",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ],
-      "sha256": "f208ea6c7136646b61d0a91d9e3bbc6f11f727ece6634331e1f7e2fb27039a45"
+      "sha256": "e848342e19ac51e92bf43bef2562afb90ef17d95b3b0b06d080936054264e114"
     },
     {
       "path": "mod/draft.json",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ],
-      "sha256": "0cab17fb122089b44c41bf0b6b9f41177703bd783090ca49ec8339b1c6cee41d"
+      "sha256": "1d0826e03bc8abb30df95f877065de07a4c09e35df2357760a713a13aebb61be"
     },
     {
       "path": "mod/provenance.json",
@@ -4112,6 +4559,13 @@
       ]
     },
     {
+      "path": "tools/mod/create_audio_water129_kit.py",
+      "reasons": [
+        "Local v129 audio/water integration, verification or standalone build"
+      ],
+      "sha256": "335fb10ccbbbd3ce5a3353fb7a1695ee8bc6a320cbcb5e1261eb28a09d7db635"
+    },
+    {
       "path": "tools/mod/create_combat117_kit.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -4119,11 +4573,60 @@
       "sha256": "888dc637b38188770ecfa6ae69a570b33aedd47f5d74af03d6788a5a858f597f"
     },
     {
+      "path": "tools/mod/create_combat124_kit.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "205ee1fc04c06e25c7cc83de67ec0414c87b0867b823bb4b9da3abf29850751f"
+    },
+    {
+      "path": "tools/mod/create_features130_kit.py",
+      "reasons": [
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
+      ],
+      "sha256": "d6ff2a0dfebb15fb8e844771506a486dd9b45c3d28e6cca4adb45ddc8dfb7979"
+    },
+    {
       "path": "tools/mod/create_feedback_test_kit.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "d14fe62f3b24ce7915c608ea5d4c57043826196327441527eaad092e7161a387"
+    },
+    {
+      "path": "tools/mod/create_gadget133_kit.py",
+      "reasons": [
+        "v133 opt-in gadget combat, configuration, verification or local test packaging"
+      ],
+      "sha256": "72fd18080c19e458f3857c40fba307bf666d66f96bb15cd09745fd45f9058a96"
+    },
+    {
+      "path": "tools/mod/create_gadget134_kit.py",
+      "reasons": [
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
+      ],
+      "sha256": "80e9de2f6f756f6069f561bcc3859ea67b6215b4a48e60f991e229854ed04203"
+    },
+    {
+      "path": "tools/mod/create_gadget135_kit.py",
+      "reasons": [
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification"
+      ],
+      "sha256": "0b6faff59f1913402c6298d1faa83861044782d0eafc8d86cb9884803b619694"
+    },
+    {
+      "path": "tools/mod/create_gadget136_kit.py",
+      "reasons": [
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+      ],
+      "sha256": "a109b82ace3cc6a181125fdb8cb5a91736e36ec41e60a55ec47ba8e045ebc83c"
+    },
+    {
+      "path": "tools/mod/create_hoven131_kit.py",
+      "reasons": [
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility"
+      ],
+      "sha256": "a154542a05a59510814d72c405124f7dca5927465f0312219b924df52d6ced79"
     },
     {
       "path": "tools/mod/create_local_test_kit.py",
@@ -4147,6 +4650,13 @@
       "sha256": "c234aa1c8a795cd69b01549b989ba8fb3460633dc26878714309ebfdc0093336"
     },
     {
+      "path": "tools/mod/create_quickselect125_kit.py",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "39e78391c4fa7ed6360d65d01ca08f688d547d3f57024b5c226b38f63f37b610"
+    },
+    {
       "path": "tools/mod/create_runtime037_kit.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -4159,6 +4669,13 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "b51e851962a16008730486c8f5241589a8a2a90c7f9e778196b4fe7f14aa867b"
+    },
+    {
+      "path": "tools/mod/create_shop132_kit.py",
+      "reasons": [
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception"
+      ],
+      "sha256": "7fb2982f044d8af0eb90ffc33258da044718c04ffd168634c447ced53893ed17"
     },
     {
       "path": "tools/mod/create_slam_visual_test_kit.py",
@@ -4247,16 +4764,23 @@
     {
       "path": "tools/mod/runtime038_test.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility",
+        "v132: defer shop acquisition receipts until gameplay and preserve authored NPC prices with the All-mode Rilgar RYNO exception",
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ],
-      "sha256": "e4e05047c0e5aab374c355329b260f5be50a8825ea16a35ce1f441d6a53799d3"
+      "sha256": "466729fce32bd46fd981d05e5fc5d7717d1f73d6c13577abba70fc8d6fb70d64"
     },
     {
       "path": "tools/mod/rust_build_tools.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "0e131a78ea99e98966f329f250c3f05098db7858d7fb03777b446bc165afe1c1"
+      "sha256": "45cb8e394d7bf83b05573de5c25b400e42d2d90d18610ad907bd64bcbbaea000"
     },
     {
       "path": "tools/mod/rust_download.py",
@@ -4267,7 +4791,7 @@
     },
     {
       "path": "tools/mod/setup_msvc.bat",
-      "sha256": "8be97710283d8de93e149e4a27a3941f634c1f4be266970385ccea2b6d26065e",
+      "sha256": "30e2fac8d5f1f6fd439b9d7d36150d8e020f546d76e1350c4a6414f6bed60171",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
@@ -4282,9 +4806,10 @@
     {
       "path": "tools/mod/stage_feedback_profiles.py",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ],
-      "sha256": "7ee785e1fb33bf858102834b96889446d94b3d7808c78ae1ae668e0501cdd150"
+      "sha256": "64303dab82d66fe628250ab8f8c151422b8069068f468354aa12dc0721712e68"
     },
     {
       "path": "tools/mod/v106_slam_manifest.json",

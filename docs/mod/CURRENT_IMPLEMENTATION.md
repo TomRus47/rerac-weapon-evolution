@@ -1,3 +1,15 @@
+Current local test: see [v130 implementation and test notes](LOCAL_TEST_V130.md).
+
+# Current local v129 snapshot
+
+ReRAC 0.3.8-alpha, gameplay 0.1.6.129, capability 94 and retained launcher 0.29.7.
+The full supplied v128 source inventory is the base, including dual Quick Select
+rings, its world-pause option, v126 fixes and v128 Thruster-Pack preloading.
+See [the local audio/water update](LOCAL_TEST_V129.md) for the audio-only clock,
+liquid material fog policy, test steps and standalone build/export instructions.
+This snapshot has not been pushed or published. The earlier integration history
+below describes the remote draft and previous local implementations.
+
 # 0.4.2 integration
 
 See [reward handoffs and persistent shops](RANDOMIZER_REWARD_HANDOFFS.md) for

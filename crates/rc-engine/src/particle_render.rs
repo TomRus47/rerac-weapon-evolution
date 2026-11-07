@@ -301,7 +301,7 @@ impl Plugin for ParticlePlugin {
         app.add_plugins(MaterialPlugin::<ParticleMaterial>::default())
             .add_systems(crate::level_switch::LevelStartup, setup)
             .add_systems(crate::level_switch::LevelUnload, (crate::level_switch::remove::<ParticleSim>, crate::level_switch::remove::<ParticleMesh>))
-            .add_systems(FixedUpdate, tick)
+            .add_systems(FixedUpdate, tick.run_if(crate::menu_render::quick_select_world_runs).before(crate::menu_render::MenuFrameSet))
             .add_systems(PostUpdate, build_sprites.after(crate::fog_state::FogSet));
     }
 }

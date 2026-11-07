@@ -61,7 +61,7 @@ pub(crate) fn entry(h: &mut Hero, c: &mut Ctx, id: i32, play: bool, _old_sub: i3
             h.group = 1;
             h.f15d4 = 0;
             let l = len2(h.eff);
-            h.speed = DT * p(1.5);
+            h.speed = DT * p(1.5 * if crate::gadget_combat::published().holo_enabled {crate::gadget_combat::published().holo_movement}else{1.});
             if l <= h.speed { h.speed = l; }
             h.turn_to_target = 0;
             if play { h.set_anim(c.anim, c.rng, blend(8), 1, 0); }
@@ -125,6 +125,8 @@ fn gravity(h: &mut Hero, env: &Env) {
 
 /// The per-state physics of the disguise's states. False: not one of them.
 pub(crate) fn physics(h: &mut Hero, env: &Env, _anim: &mut dyn AnimCtl, _rng: &mut Rng) -> bool {
+    let gadget=crate::gadget_combat::published();
+    let movement=if gadget.holo_enabled {gadget.holo_movement}else{1.};
     match h.state {
         IDLE | DEATH | POSE => {
             h.edge_brake(env, Pf::b(0x406c_cccd), Pf::ZERO);
@@ -138,20 +140,20 @@ pub(crate) fn physics(h: &mut Hero, env: &Env, _anim: &mut dyn AnimCtl, _rng: &m
         }
         WALK => {
             let r = fast_diff_rots(h.rot[2], h.target_yaw);
-            h.stick_target(env, DT * p(1.5));
-            let floor = (DT * p(1.5)) * p(0.55);
+            h.stick_target(env, DT * p(1.5 * if crate::gadget_combat::published().holo_enabled {crate::gadget_combat::published().holo_movement}else{1.}));
+            let floor = (DT * p(1.5 * if crate::gadget_combat::published().holo_enabled {crate::gadget_combat::published().holo_movement}else{1.})) * p(0.55);
             if h.target_speed < floor { h.target_speed = floor; }
             let mut k = Pf::ONE - r * p(0.3);
             if k < Pf::ZERO { k = Pf::ZERO; }
             let s = h.stick_mag + p(0.35);
             h.turn_to((SCALE64 * p(0.035)) * s, SCALE64 * p(0.1), (DT * p(2.268_928)) * s);
-            h.speed_step((DT2 * p(7.5)) * k, DT2 * p(8.5));
+            h.speed_step((DT2 * p(7.5 * movement)) * k, DT2 * p(8.5 * movement));
             if h.turn_to_target == 0 || h.f658 != 0 { h.set_planar_vel(Pf::b(0x47c3_4f80)); } else { h.set_planar_vel(h.target_yaw); }
             h.wall_check(env, 1);
             gravity(h, env);
         }
         FALL => {
-            h.stick_target(env, DT * p(1.5));
+            h.stick_target(env, DT * p(1.5 * if crate::gadget_combat::published().holo_enabled {crate::gadget_combat::published().holo_movement}else{1.}));
             if h.lockout == 0 { h.air_control(env); }
             let z = h.vel[2];
             h.gravity_from(z, DT2 * p(21.0));
@@ -250,7 +252,8 @@ fn tr_idle(h: &mut Hero, c: &mut Ctx) {
 }
 
 fn tr_walk(h: &mut Hero, c: &mut Ctx) {
-    h.anim_speed = h.eff_len * p(54.0);
+    let settings=crate::gadget_combat::published();
+    h.anim_speed = h.eff_len * p(54.0 * if settings.holo_enabled {settings.holo_animation}else{1.});
     let low = h.height <= p(0.8) && h.slope <= p(0.872_664_6);
     let next = if (h.air_ticks as i32) < ticks(5) || low {
         if pressed(c, button::SQUARE, 7) {

@@ -12,7 +12,7 @@ from test_nanotech_ui import profile
 class EncounterUiTests(unittest.TestCase):
     def test_all_new_fields_default_neutral_and_require_the_correct_runtime(self):
         doc=core.profile_document(profile())
-        self.assertEqual(core.required_config(doc),92)
+        self.assertEqual(core.required_config(doc),95)
         for key in schema.MOTION_DEFAULTS:self.assertEqual(doc.entries['general',key],'1')
         self.assertEqual(doc.entries['general','golden_bolts_one_weapon_per_planet'],'false')
         for key in schema.MOTION_DEFAULTS:
@@ -34,7 +34,7 @@ class EncounterUiTests(unittest.TestCase):
         keys=list(schema.WORLD_DEFAULTS);at=keys.index('enemy_damage_multiplier')
         self.assertEqual(keys[at:at+4],['enemy_damage_multiplier','enemy_speed_multiplier','enemy_projectile_range_multiplier','enemy_projectile_speed_multiplier'])
         hud=[k for section,k in base if section=='hud'];self.assertEqual(hud[:2],['name_opacity_percent','nanotech_xp_bar_opacity_percent'])
-        general=[k for section,k in base if section=='general'];self.assertEqual(general[-5:],['golden_bolts_to_weapons','golden_bolts_early_bias_percent','golden_bolts_one_weapon_per_planet','dpad_quick_select','r1_experimental'])
+        general=[k for section,k in base if section=='general'];self.assertEqual(general[-6:],['golden_bolts_to_weapons','golden_bolts_early_bias_percent','golden_bolts_one_weapon_per_planet','dpad_quick_select','r1_experimental','pause_on_quick_select'])
 
     def test_new_controls_are_translated_in_all_languages(self):
         for key in [*schema.MOTION_DEFAULTS,'golden_bolts_one_weapon_per_planet']:

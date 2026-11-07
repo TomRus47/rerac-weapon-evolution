@@ -1,3 +1,240 @@
+# v136 grapple and Trespasser verification
+
+- 1,491 rc-game library tests passed; three unchanged large historical seed
+  surveys were filtered out. Five new regressions exercise actual palette
+  evaluation, incomplete decoded sequences, missing snapshot recovery, the native
+  hero update/back-attachment cache and a confirmed kill without replacement.
+- All 279 Python launcher/tool tests passed, including full-source v136 export,
+  translated help, retained Freezer settings and the checked Windows GUI workflow.
+- Palette fixtures first establish the identity-matrix fallback for a missing
+  source snapshot, then verify a real non-identity evaluated pose after recovery.
+  Hero-update fixtures compare Clank's cached back position to the same final
+  animation chain used by the renderer over twenty native movement updates.
+- Existing drill tests now verify no allocation after a confirmed defeat; native
+  corpse visibility/collision remain owned by the class death update. The former
+  clone spawner, projectile runtime and stored corpse model are removed.
+- INIs, approved default-profile descriptor, save-format implementation, seed
+  generation and custom icon are byte-identical to verified v135.
+- Main is synchronized with the full local development history; draft builds
+  require explicit workflow_dispatch. No tag, release, draft or asset upload to
+  GitHub is performed by this update. Existing public release metadata is retained.
+- These are native logic/geometry and Python checks. Windows engine linking,
+  real game assets, GPU appearance and Tk painting still require local/Windows
+  validation; no visual in-game playtest is claimed by this preparation host.
+
+Earlier records below retain their original version-specific scope.
+
+# v135 gadget poses and Freezer verification
+
+- 1,486 rc-game library tests passed, including nine new pose/grounding,
+  recharge, condensation and HUD regressions. Three unchanged large historical
+  seed surveys were filtered out. All 26 focused gadget tests passed.
+- All 275 Python launcher/tool tests passed. These cover additive/idempotent
+  migration, bounds, ordering before colors, localized labels/help, capability
+  checks, self-test metadata and full-source kit export with GUI rebuilding.
+- Animation fixtures use a real RatchetAnim binding with missing Swingshot
+  sequences and with one-frame sequences; the decoded pose remains available
+  and entry frames remain in bounds. Native jump/capture fixtures verify no
+  airborne sound/capture/standing-pose requests and release on leaving ground.
+- Recharge fixtures cover exact intervals, duplicate tick calls, full-capacity
+  credit, disabled/dead/cutscene timing, capacity changes, checkpoint retention
+  and a new planet visit. HUD fixtures verify the current/max count, icon-free
+  native ammo panel, shared fade and the full yellow weapon-style bar.
+- Condensation fixtures do not provide a particle pool or texture definitions:
+  emitted geometry follows a real frozen actor and vanishes at thaw. The generated
+  texture has a soft alpha boundary and opaque core in native GS alpha units.
+- Every pre-existing INI value is preserved. The sole added setting is
+  gadget.hydrodisplacer/recharge_seconds=10. Save-format code, seed generation
+  and the custom icon are byte-identical to verified v134.
+- A host rc-engine check could not proceed because the offline dependency cache
+  lacks ab_glyph 0.2.32. No successful engine type-check/Windows link, Tk painting,
+  real asset playback or GPU/gameplay test is claimed here. The local Windows
+  installer performs native tests, engine linking/version probing and the GUI
+  self-test before committing playable replacements.
+
+Earlier records below retain their original version-specific scope.
+
+# v134 local gadget verification
+
+- 1,477 rc-game library tests passed, including eight new lifecycle/physics
+  regressions. Three unchanged large historical seed surveys were filtered out.
+  The focused gadget run passed all 17 tests.
+- All 268 Python launcher/tool tests passed. The historical v106 updater fixture
+  now uses its own immutable manifest interfaces rather than assuming the current
+  renderer still matches v106; rollback/idempotence checks remain exercised.
+- Matrix tests use real scheduler matrix rebuilding, a live class-459 Novalis
+  trooper over 180 frames, allocation replacement and a confirmed death followed
+  through projectile expiry. They distinguish a live actor, despawn and defeat.
+- Swingshot checks exercise a Novalis trooper pull over 45 matrix updates and the
+  actual L1 hero physics path over 20 frames; upward travel remains active and
+  release disables the custom step. Native target priority remains covered.
+- Hydro tests start with a below-floor hand socket at nonzero world coordinates,
+  use a real floor-triangle query, then verify a ground impact, captured radius,
+  two frozen Novalis classes and leases surviving repeated matrix rebuilding.
+- All INIs, the default-profile descriptor, non-test launcher files, save decoder
+  and randomizer generator are byte-identical to verified v133. The existing
+  launcher 0.30.0 remains compatible; no source or playable file is changed before
+  the Windows build/identity checks succeed.
+- No Windows rc-engine link, real model playback, Tk painting or GPU/gameplay test
+  is claimed on this host. See LOCAL_TEST_V134.md for the remaining visual checks.
+
+Earlier verification records below retain their original version-specific scope.
+
+# v132 local verification
+
+- All 1,458 rc-game library tests in the final run passed, including the five
+  new receipt/pricing regressions and the 64-mask location-generation check.
+  Three unchanged large historical seed surveys were filtered out.
+- All 253 Python launcher/tool tests passed, including the new complete kit export.
+- Balance INIs, seed-generation code, save-format code and all 27 non-test launcher
+  files were checked byte-for-byte against the verified v131 input and retained.
+- Fixtures exercise a real randomized Metal Detector grant, closing-vendor world
+  frames, movie-mode suppression, one-shot receipt removal, and a repeated source
+  grant that cannot enqueue the reward a second time.
+- Talk fixtures run the actual NPC update through denied and accepted purchases:
+  499/500/501 bolts for Novalis, and 14,999/15,000/15,001/149,999/150,000 for Rilgar
+  in normal and All modes. Price tables remain byte-identical. All 43 payment
+  records are checked for the scoped RYNO exception, alongside all six game
+  language IDs and free/trade offer handling.
+- No Windows rc-engine link, real movie playback or GPU/gameplay test is claimed
+  on this host. The local installer runs its Windows build before replacing the
+  playable runtime. See LOCAL_TEST_V132.md for the in-game skip/completion checks.
+
+Earlier verification records below retain their original version-specific scope.
+
+# v131 Hoven fallback verification
+
+The two new native fallback/save-compatibility regression tests passed. The
+complete launcher/tool suite passed all 249 Python tests, including the five
+localized fallback descriptions and full GUI/runtime export checks.
+
+See LOCAL_TEST_V131.md for generation-only normalization and compatibility with
+existing v130 zero-site saves. Earlier verification records below retain their
+original scopes. No Windows game/GPU test is claimed by this preparation host.
+
+# v130 local verification
+
+- 1,450 rc-game tests passed in the main run; four tests were filtered there.
+- The 64-mask extra-site generation/solvability/serialization test passed separately,
+  bringing coverage to 1,451 distinct passing tests out of 1,454. Three unchanged
+  large historical seed surveys were not repeated. Route checks model requirements,
+  not every physical/cinematic path in the original disc.
+- Launcher/tool verification covers 244 Python tests, including all five UI
+  languages, profile preservation, live/restart policy, staging and full GUI/runtime
+  kit export.
+- Actual Taunter lure delivery was checked in both launcher and saved R1 modes:
+  pure mode keeps attraction/XP and queues no damage, stun or launch.
+- PDA refill tests cover remote prices, insufficient funds and exact affordability.
+- Save regression coverage includes v1-v10 loading, v11 round trips, unchanged
+  layout offsets, previous R1 choices, both rings, seeds and single-claim packs.
+- Blarg native AI timers advance at 1, 1.25, 2 and 4 times effective NG+ speed.
+  This does not reproduce or claim to fix all stationary-enemy reports.
+- Localized name/XP presentation fixtures cover all weapon IDs at V6-V8 and
+  English, Italian, French, German and Spanish bytes, plus native gold-name fallback.
+- The preparation host has only the rc-game/rc-formats dependency set. It does
+  not perform the native Windows rc-engine link, frozen GUI or GPU visual test.
+  The bundled installer runs the Windows build and frozen GUI self-test before
+  replacing installed executables. Source/ZIP integrity is checked separately.
+
+See LOCAL_TEST_V130.md for player checks and source changes. Earlier verification
+records below describe their original test scopes; they are not new v130 results.
+
+# Local v129 Quick Select audio and liquid-surface verification
+
+Base: the user-supplied v128 prepared source archive. All 1,424 inventoried file
+hashes matched before import. Runtime 0.1.6.129 / ReRAC 0.3.8-alpha, capability 94;
+launcher 0.29.7 retained. No GitHub operation, Windows deployment or release edit.
+
+- **1,441 rc-game library tests passed**, 0 failed; 3 unchanged expensive seed
+  surveys excluded from this repeat. The new synthetic audio regression
+  reproduces START_PENDING after IOP-only output and verifies immediate EE start
+  while no game frame runs, no extra samples are generated, and no start is
+  duplicated on the following update. The final test total is 1,444.
+- **234 Python launcher/build/export tests passed**, including 11 compiler-cache
+  and link/run-probe tests, 8 runtime installer tests and 4 standalone source-kit
+  export tests. The export includes every required helper and rejects changed or
+  incomplete inputs before producing a ZIP; unlisted private files stay out.
+- **rc-engine `cargo check --tests` passed** with locked dependencies and no
+  default features on the Linux host. Native dependency metadata was extracted
+  to the workspace only. This compiles the full engine interface and test code;
+  it is not a Windows linker or GPU/gameplay run.
+- The source inventory preserves every existing INI and ICO byte. Launcher
+  application Python modules remain byte-identical to v128. Only its build-tool
+  tests change; no GUI reconstruction or language/schema migration is required.
+- No game data, player saves, executable binaries, installation records or
+  personal logs are included. The complete kit has its own source SHA inventory
+  and builds without an older patch folder or a Git checkout.
+
+In-game confirmation remains necessary: audible R2/R1 confirmations while
+Triangle is held, no replay after release, and the remaining Pokitaru purple
+water surfaces under normal fog. World freezing and above-water fog must remain
+intact. See [local test instructions](LOCAL_TEST_V129.md).
+
+Earlier verification records follow; their version numbers describe those
+historical snapshots and do not replace the v129 inventory.
+
+# Local v125 dual Quick Select verification — 2026-11-04
+
+Base: complete main source 0dd5ad997a8678a8837a9af23e4ada0c931bd41c,
+including the local v124 fixes below. Runtime 0.1.6.125 / ReRAC 0.3.8-alpha,
+capability 94; launcher 0.29.7. Local source/test kit only; no remote mutations,
+release edits or publication. No player saves or installed Windows files accessed.
+
+- **1,435 final rc-game library tests passed**, locked offline dependencies, no
+  default features, release profile with host optimization disabled. Three
+  unchanged, expensive pure seed surveys were excluded from this final repeat;
+  all three already passed in the complete 1,436-test v125 run before the final
+  R2-pressure and second-ring ownership guards. Generator/placement logic is
+  unchanged. The final run includes both editor banks, independent ring ammo and
+  equip, held-button edges, empty-page drawing, all eight Pokitaru gadget subsets,
+  Survival re-unlocks, legacy v1–v9 readers, v10 validation/slot isolation and
+  progress updates retaining live XP/combat epochs.
+- **227 Python launcher/tool tests passed**; **8 focused updater tests passed**.
+  Migration preserves BOM/CRLF/comments and every previous value, default Off,
+  five-language metadata, older-runtime refusal when pause is enabled, rollback,
+  path-with-spaces handling and executable verification.
+- **rc-engine `cargo check` passed** on the Linux host with locked dependencies,
+  no default features and workspace-local build-time pkg-config metadata. This
+  type-checks the actual Bevy integration, separate paused menu input, world tick
+  gate, render-clock gates and mode/reset paths. It is not Windows linking or a
+  GPU/gameplay test. No dependency, Cargo.lock or OS installation was modified.
+- All **2,593 preceding default INI values** match main byte-for-value; the only
+  new setting is `pause_on_quick_select=false`. The supplied icon is unchanged.
+- Source export checks validate 1,422 tracked files and the reviewed mod hashes.
+  The local ZIP contains all source, an exact file hash inventory and three
+  Windows build/open/package scripts; no EXEs, game/disc assets or private files.
+- Windows compilation, the frozen Tk/EXE self-test and visual game checks must
+  still run on the player's Windows PC. The updater requires a successful actual
+  Off/On field-render test before replacing the launcher. Test instructions are
+  in [LOCAL_TEST_V125.md](LOCAL_TEST_V125.md).
+
+# Local v124 combat/render verification — 2026-11-04
+
+Base: complete main source 0dd5ad997a8678a8837a9af23e4ada0c931bd41c on
+ReRAC 0.3.8-alpha. Local runtime identity 0.1.6.124, capability 93; launcher
+0.29.6 and approved INI/default/icon bytes are unchanged. No GitHub mutations,
+draft edits, release publication or player-save changes were performed.
+
+- **1,426 rc-game library tests passed**, locked offline dependencies, no default
+  features, release profile with host optimization disabled. This includes all
+  damaging weapons/amoeboid sizes, special actions, zero/custom XP rates, health
+  and reward scaling, split descendants, intact crate poses/bounds, canceled
+  capture, cannon attribution and Veldin's actual beam-manager clock, plus the
+  retained mission/vendor/race and full randomizer layout survey.
+- **224 Python tests passed**, including the new runtime-only entry-point test,
+  which installs the verified runtime while retaining GUI, INI and presets.
+  The focused eight-test installer suite passed independently too.
+- Source-export checks and the real extracted kit's inventory/preflight pass.
+  The ZIP contains complete reviewed source and three local build/open/package
+  entry points, excluding build caches, private settings, logs, saves and disc
+  data. Both public and embedded defaults and the custom icon retain their bytes.
+
+See [behavior and local test instructions](LOCAL_TEST_V124.md). These are headless
+source tests, not native Windows linking or a GPU playtest. The local installer
+reruns Rust tests, compiles and checks the actual Windows EXE before replacing
+the installed runtime/shaders transactionally. GPU appearance still needs the
+player's in-game check; no Visibomb tuning is changed.
+
 # 0.4.2 candidate verification — 2026-10-30
 
 Runtime base **ReRAC 0.3.8-alpha**, gameplay **0.1.6.123**, capability **93**,
@@ -180,3 +417,31 @@ No audio probes were added.
 Weapon Evolution is an independent mod by TomRus47, not a ReRAC development
 project. The author owns no original-game rights or assets. Thanks to ReRAC's
 developers for their work. Existing licenses and contributor credits apply.
+
+## v133 — optional gadget combat and continuous lava
+
+The v133 source was derived from the user-attached, SHA-verified v132 kit.
+1,469 rc-game library tests passed, with no failures. Three unchanged large
+randomizer seed surveys were filtered from the final run; the 64-extra-mask
+progression generator regression and existing save round trips were included.
+New native coverage checks gadget settings, target/pad priority, floor rejection,
+ordinary enemy versus boss/ship pulling, ice ammunition across checkpoint init,
+freeze expiry and slot reuse, finite crystal geometry, committed drill HP and
+Nanotech XP, continuous lava through creature colliders and Umbris phase shields
+while frozen. Host release tests used unoptimized code generation for turnaround;
+the Windows installer performs its normal optimized release checks.
+
+264 launcher/tool tests passed, including four complete gadget pages, five
+language catalogs, numeric/color validation, idempotent profile migration,
+capability 96 when a gadget is enabled, local export integrity and updater
+rollback. All 2,609 preceding public profile values match v132; 27 neutral gadget
+settings were appended. The saved randomizer generator, WEVO save-format source
+and custom icon are byte-identical to v132. No GitHub operations were performed.
+
+The final artifact includes a fresh complete source inventory; ZIP CRC and every
+source digest are checked. Windows rc-engine linking, the actual Tk GUI paint,
+gadget joint layout, positional motor sound and GPU/in-game appearance were not
+available on this host. The kit's Windows installer builds and verifies both the
+runtime and GUI before transactionally replacing the playable files. Use
+LOCAL_TEST_V133.md for the required in-game checks and the conditional tip-joint
+and sound-asset details. No original game data or executable is included here.

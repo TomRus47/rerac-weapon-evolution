@@ -1,3 +1,29 @@
+> Current development v136: [grapple pose lifecycle and normal Trespasser kills](docs/mod/LOCAL_TEST_V136.md). Includes all preceding local tests. Main source update only; no release or draft is created.
+
+> Local v135: [gadget pose fixes and Freezer HUD/recharge](docs/mod/LOCAL_TEST_V135.md). Includes a matching launcher update. Local testing only; no public release.
+
+> Local v134 gadget corrections: see [LOCAL_TEST_V134.md](docs/mod/LOCAL_TEST_V134.md). Swingshot travel/poses, actor lifetime cleanup and Hydrodisplacer frost launch. No public release.
+
+> Local v133 gadget test: see [LOCAL_TEST_V133.md](docs/mod/LOCAL_TEST_V133.md). No public release is created by this kit.
+
+Current local v132 test: [shop video and NPC-price instructions](docs/mod/LOCAL_TEST_V132.md). Randomized acquisition media waits until the shop is closed. Native NPC prices are retained; Rilgar’s RYNO offer costs 15,000 bolts in Randomizer All.
+
+Local v131 test: [Hoven fallback instructions](docs/mod/LOCAL_TEST_V131.md). With all six extra-site switches Off, new All seeds keep only Hoven and retain all rewards. Existing seeds are unchanged.
+
+Local v130 test: see [test instructions](docs/mod/LOCAL_TEST_V130.md) for Taunter R1 modes, PDA refills, localized pause labels and saved randomizer site options. No release is published by this kit.
+
+# Local v129 test — ReRAC 0.3.8-alpha
+
+Gameplay **0.1.6.129**, configuration capability **94**, retained launcher
+**0.29.7**. Immediate ring/mode confirmation audio while Quick Select freezes
+the world, and a shared underwater fog policy for layered liquid surfaces.
+Includes the preceding v124–v128 local changes. No GitHub operations or release.
+
+See [standalone build and test instructions](docs/mod/LOCAL_TEST_V129.md) and
+[verification](docs/mod/VERIFICATION.md). Select only your playable mod folder;
+older patch folders are no longer required. Existing INIs, presets, saves,
+seeds, icon and launcher are retained. The public draft history below is unchanged.
+
 # ReRAC Weapon Evolution 0.4.2
 
 Independent mod for **ReRAC 0.3.8-alpha**. Gameplay **0.1.6.123**, configuration

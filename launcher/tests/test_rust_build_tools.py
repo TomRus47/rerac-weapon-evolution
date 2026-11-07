@@ -25,6 +25,41 @@ class RustBuildToolsTests(unittest.TestCase):
                 install.assert_not_called();self.assertEqual(os.environ['RUSTC'],'real-rustc')
                 self.assertFalse((bundle/'build-tools').exists())
 
+    def test_marked_short_recovery_is_reused_without_the_original_kit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source,bundle=self.fixture(folder)
+            local=Path(folder).resolve()/'local'
+            home=local/'WE-build/r126-0123456789';home.mkdir(parents=True)
+            (home/'.we126-copy.json').write_text(json.dumps({'source':'deleted old kit','channel':tools.CHANNEL}))
+            with patch.dict(os.environ,{'PATH':'original','LOCALAPPDATA':str(local)},clear=True):
+                def check(rustup,env,source):
+                    if env.get('RUSTUP_HOME')!=str(home):raise ValueError('global compiler missing')
+                    return dict(env),'rustc short verified'
+                with patch.object(tools.shutil,'which',return_value='/installed/rustup.exe'), \
+                     patch.object(tools,'checked_environment',side_effect=check), \
+                     patch.object(tools,'install_toolchain') as install:
+                    tools.ensure_rust_compiler(source,bundle)
+                    install.assert_not_called()
+                    self.assertEqual(os.environ['RUSTUP_HOME'],str(home))
+
+    def test_unmarked_short_folder_is_not_executed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source,bundle=self.fixture(folder)
+            local=Path(folder).resolve()/'local'
+            unknown=local/'WE-build/r126-0123456789';unknown.mkdir(parents=True)
+            checked=[]
+            def check(rustup,env,source):
+                checked.append(env.get('RUSTUP_HOME'))
+                if env.get('RUSTUP_HOME')==str(unknown):raise AssertionError('unmarked compiler executed')
+                if 'RUSTUP_HOME' not in env:raise ValueError('global compiler missing')
+                return dict(env),'rustc recovered'
+            with patch.dict(os.environ,{'PATH':'original','LOCALAPPDATA':str(local)},clear=True), \
+                 patch.object(tools.shutil,'which',return_value='/installed/rustup.exe'), \
+                 patch.object(tools,'checked_environment',side_effect=check), \
+                 patch.object(tools,'install_toolchain'):
+                tools.ensure_rust_compiler(source,bundle)
+                self.assertNotIn(str(unknown),checked)
+
     def test_missing_global_compiler_installs_in_separate_root_and_keeps_cargo_cache(self):
         with tempfile.TemporaryDirectory() as folder,patch.dict(os.environ,{'PATH':'original','CARGO_HOME':'existing-cache'},clear=True):
             source,bundle=self.fixture(folder)
@@ -80,10 +115,31 @@ class RustBuildToolsTests(unittest.TestCase):
                 self.assertEqual(dict(os.environ),{'PATH':'original'})
                 self.assertFalse((bundle/'build-tools/verified-rust.json').exists())
 
-    def test_probe_requires_real_metadata_output(self):
-        with patch.object(tools,'run',side_effect=['rustc test','']):
-            with self.assertRaisesRegex(ValueError,'probe metadata'):
-                tools.probe(Path('/rustc'),{},ROOT)
+    def test_probe_requires_linked_test_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);libs=root/'lib/rustlib/x86_64-pc-windows-msvc/lib';libs.mkdir(parents=True)
+            (libs/'libtest-probe.rlib').touch()
+            def command(args,env,source):
+                if '--version' in args:return 'rustc test'
+                if '--print' in args:return str(root)
+                return ''
+            with patch.object(tools,'run',side_effect=command):
+                with self.assertRaisesRegex(ValueError,'did not link'):
+                    tools.probe(root/'rustc',{},ROOT)
+
+    def test_probe_links_and_executes_a_real_test_binary(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);libs=root/'lib/rustlib/x86_64-pc-windows-msvc/lib';libs.mkdir(parents=True)
+            (libs/'libtest-probe.rlib').touch();calls=[]
+            def command(args,env,source):
+                calls.append(args)
+                if '--version' in args:return 'rustc test'
+                if '--print' in args:return str(root)
+                if '--test' in args:Path(args[-1]).touch()
+                return 'test result: ok'
+            with patch.object(tools,'run',side_effect=command):
+                self.assertEqual(tools.probe(root/'rustc',{},ROOT),'rustc test')
+            self.assertIn('--test',calls[-2]);self.assertEqual(len(calls[-1]),1)
 
     def test_real_binary_paths_replace_case_insensitive_environment_keys(self):
         with tempfile.TemporaryDirectory() as folder:

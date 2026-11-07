@@ -767,3 +767,54 @@ mod tests {
     }
 
 }
+
+
+/// Hide only Ratchet's palm/fingers inside the Walloper. The composing scale
+/// affects the rendered body pose, not the wrist parent, gameplay skeleton,
+/// attachment matrices or the weapon's own pose. Rebuilt each draw: no state
+/// survives a weapon swap, death, alternate body or load.
+pub fn body_draw_modifiers(body: u8, held: i32, modifiers: &[rc_formats::moby_anim::JointModifier])
+    -> std::borrow::Cow<'_, [rc_formats::moby_anim::JointModifier]>
+{
+    if body != 0 || held != WALLOPER { return std::borrow::Cow::Borrowed(modifiers); }
+    let mut result = modifiers.to_vec();
+    let mut cover = rc_formats::moby_anim::JointModifier::compose(super::items::GLOVE_JOINTS[0]);
+    cover.scale = [0.0; 3];
+    result.push(cover);
+    std::borrow::Cow::Owned(result)
+}
+
+
+#[cfg(test)]
+mod v126_tests {
+    use super::*;
+    use rc_formats::moby_anim::{self as ma,AnimState,JointModifier,MobyAnimClass,IDENTITY};
+    #[test]
+    fn hand_cover_collapses_only_the_palm_branch_preserving_wrist_and_gameplay_pose() {
+        let mut class=MobyAnimClass{joint_count:72,skeleton:vec![IDENTITY;72],rest:vec![[0.;3];72],parent_word:vec![0;72],sequences:vec![]};
+        class.rest[54]=[10.,20.,30.];class.rest[55]=[1.,2.,3.];class.rest[56]=[5.,0.,0.];
+        for joint in 55..=70 {class.parent_word[joint]=0x70000000+0x40*(joint as u32-1);}
+        let quats=vec![[0i16,0,0,0x7fff];72];
+        let payload=quats.iter().flat_map(|q|q.iter().flat_map(|v|v.to_le_bytes())).collect::<Vec<_>>();
+        let frame=ma::MobyFrame{header:ma::MobyFrameHeader{rate:1.,qwc:(payload.len()/16) as u16,
+            quat_bytes:payload.len() as u16,trans_offset:payload.len() as u16,..Default::default()},
+            quats,scales:vec![],trans:vec![],payload};
+        let mut state=AnimState::spawn(&class);state.seq_a=ma::SNAPSHOT_SEQ;
+        let original=vec![JointModifier::compose(54)];
+        let pose=ma::evaluate_posed(&class,&state,Some(&frame),&[],&original);
+        let mods=body_draw_modifiers(0,WALLOPER,&original);
+        let covered=ma::evaluate_posed(&class,&state,Some(&frame),&[],&mods);
+        assert_ne!(pose[55],IDENTITY,"fixture has an actual hand pose");
+        assert_eq!(covered[54],pose[54]);assert_eq!(covered[71],pose[71]);
+        for joint in 55..=70 {
+            for row in &covered[joint][..3] {assert_eq!(&row[..3],&[0.0;3]);}
+            assert_eq!(covered[joint][3],covered[55][3]);
+        }
+        assert_eq!(original[0].scale,[1.;3]);
+        for (body,item) in [(0,8),(0,16),(1,WALLOPER),(2,WALLOPER)] {
+            let restored=body_draw_modifiers(body,item,&original);
+            assert!(matches!(restored,std::borrow::Cow::Borrowed(_)));
+            assert_eq!(ma::evaluate_posed(&class,&state,Some(&frame),&[],&restored),pose);
+        }
+    }
+}

@@ -12,9 +12,9 @@ class Combat117Tests(unittest.TestCase):
         for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value)
         self.assertEqual(after.entries['general','enemy_burst_tracking'],'false')
         self.assertEqual(convert(convert(old)[0])[0],convert(old)[0])
-        self.assertEqual(core.required_config(after),92)
+        self.assertEqual(core.required_config(after),95)
         enabled=core.profile_document(after.render({('general','enemy_burst_tracking'):'true'}))
-        self.assertEqual(core.required_config(enabled),93)
+        self.assertEqual(core.required_config(enabled),95)
     def test_boolean_is_in_encounter_card_with_complete_localizations(self):
         key='enemy_burst_tracking';self.assertIn(key,schema.WORLD_DEFAULTS);self.assertIn(key,schema.BOOLEANS)
         fields=list(schema.WORLD_DEFAULTS)

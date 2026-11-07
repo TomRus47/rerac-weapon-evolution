@@ -1,8 +1,9 @@
-"""Build bundled v120 sources and transactionally update an existing playable mod.
+"""Build bundled v136 sources and transactionally update an existing playable mod.
 
 The old source checkout is never patched. Player INIs, presets and saves are
-retained. The working GUI icon is recovered before rebuilding the editor. Both
-native and GUI checks must succeed before installed files are changed.
+retained. Runtime-only updates keep the working launcher and icon. If an editor
+rebuild is requested, its icon is recovered and its GUI checks must also succeed
+before installed files are changed.
 """
 from __future__ import annotations
 import argparse
@@ -20,7 +21,7 @@ from verified_artifacts import build_engine, checked_launcher
 
 SOURCE = Path(__file__).resolve().parents[2]
 BUNDLE = SOURCE.parent
-PATCH = '0.1.6.123'
+PATCH = '0.1.6.136'
 
 
 def sha(data):
@@ -50,7 +51,7 @@ def safe(root, name):
 def verify_sources(source=SOURCE, bundle=BUNDLE):
     manifest = json.loads((bundle / 'source-files.json').read_text(encoding='utf-8'))
     if manifest['patch'] != PATCH or manifest['runtime_base'] != '0.3.8-alpha':
-        raise ValueError('This is not the v120 / ReRAC 0.3.8 source kit.')
+        raise ValueError(f'This is not the {PATCH} / ReRAC 0.3.8 source kit.')
     for name, digest in manifest['files'].items():
         path = safe(source, name)
         if not path.is_file() or sha(path.read_bytes()) != digest:
@@ -59,10 +60,10 @@ def verify_sources(source=SOURCE, bundle=BUNDLE):
 
 def validate_identity(identity):
     expected = {'name': 'rerac', 'game': 'rac1', 'version': '0.3.8',
-                'weapon_evolution_patch': PATCH, 'weapon_evolution_config': 93,
+                'weapon_evolution_patch': PATCH, 'weapon_evolution_config': 97,
                 'weapon_evolution_audio_diagnostics': False}
     if any(identity.get(key) != value for key, value in expected.items()):
-        raise ValueError('Expected editable Weapon Evolution v120 / ReRAC 0.3.8.')
+        raise ValueError(f'Expected editable Weapon Evolution {PATCH} / ReRAC 0.3.8.')
 
 
 def probe(exe):
@@ -103,7 +104,7 @@ def install_runtime(source, playable, launcher, identity, bundle=BUNDLE, executa
         changes[playable / 'runtime/assets/shaders' / path.name] = path.read_bytes()
     changes[playable / 'runtime/build-info.json'] = (json.dumps({
         'mode': 'editable', 'version': identity['version'], 'mod_version': PATCH,
-        'launcher_version': '0.29.6'}, indent=2) + '\n').encode()
+        'launcher_version': '0.30.2'}, indent=2) + '\n').encode()
     if launcher_executable is not None:
         changes[launcher]=launcher_executable.read_bytes()
         licenses=launcher_executable.parent/'licenses'
@@ -179,6 +180,7 @@ def installed():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['build', 'open', 'package', 'health'])
+    parser.add_argument('--runtime-only', action='store_true', help='Retain the installed launcher and icon; update the runtime and matching shaders only.')
     parser.add_argument('--playable', type=Path)
     parser.add_argument('--launcher', default='ReRAC_Weapon_Evolution.exe')
     parser.add_argument('--target-dir', type=Path)
@@ -198,14 +200,14 @@ def main():
             return
         sys.path.insert(0, str(SOURCE / 'launcher'))
         from launcher_core import package_distribution
-        output = BUNDLE / 'dist' / ('ReRAC_Weapon_Evolution_0.4_ReRAC_0.3.8_Test_' + str(time.time_ns()))
+        output = BUNDLE / 'dist' / ('ReRAC_Weapon_Evolution_0.4.2_v136_Local_Test_' + str(time.time_ns()))
         archive = package_distribution(SOURCE / 'launcher', output,
             (playable / 'weapons.ini').read_bytes(), playable / 'runtime/rerac.exe',
             include_presets=False, launcher_exe=launcher)
         print('Playable ZIP: ' + str(archive))
         return
     verify_sources()
-    print('Weapon Evolution v120 / ReRAC 0.3.8-alpha. Orxon shortcut fix 118. No GitHub operations.')
+    print(f'Weapon Evolution {PATCH} / ReRAC 0.3.8-alpha. No GitHub operations.')
     playable = args.playable or Path(input('EXISTING playable mod folder (launcher EXE, weapons.ini and runtime): ').strip().strip('"'))
     playable = playable.expanduser().resolve()
     launcher = (playable / args.launcher).resolve()
@@ -232,25 +234,27 @@ def main():
     common = ['--release', '--locked', '--no-default-features', '--target-dir', str(target)]
     # v120.2: build_engine rebuilds and tests the local workspace.
     exe = build_engine(SOURCE, target, validate_identity)
-    # Build from a private stage: preserve the actual installed EXE icon without
-    # mutating reviewed sources, INIs or the working GUI before all checks pass.
-    sys.path.insert(0,str(SOURCE/'launcher'))
-    import build_launcher_exe
-    from icon_assets import extract_ico
-    stage=BUNDLE/'launcher-build-input'
-    stage.mkdir(exist_ok=True)
-    for item in (SOURCE/'launcher').iterdir():
-        if item.is_file() and item.suffix in {'.py','.ini','.ico'}:
-            shutil.copyfile(item,stage/item.name)
-    try:
-        (stage/'launcher.ico').write_bytes(extract_ico(launcher))
-    except ValueError as error:
-        print('Installed EXE icon could not be recovered; using bundled icon: '+str(error))
-    gui = checked_launcher(stage, build_launcher_exe)
-    if gui is None:
-        gui = build_launcher_exe.build(stage)
+    gui = None
+    if not args.runtime_only:
+        # Build from a private stage: preserve the actual installed EXE icon without
+        # mutating reviewed sources, INIs or the working GUI before all checks pass.
+        sys.path.insert(0,str(SOURCE/'launcher'))
+        import build_launcher_exe
+        from icon_assets import extract_ico
+        stage=BUNDLE/'launcher-build-input'
+        stage.mkdir(exist_ok=True)
+        for item in (SOURCE/'launcher').iterdir():
+            if item.is_file() and item.suffix in {'.py','.ini','.ico'}:
+                shutil.copyfile(item,stage/item.name)
+        try:
+            (stage/'launcher.ico').write_bytes(extract_ico(launcher))
+        except ValueError as error:
+            print('Installed EXE icon could not be recovered; using bundled icon: '+str(error))
+        gui = checked_launcher(stage, build_launcher_exe)
+        if gui is None:
+            gui = build_launcher_exe.build(stage)
     backup = install_runtime(SOURCE, playable, launcher, probe(exe), executable=exe,launcher_executable=gui)
-    print('Runtime, matching shaders and launcher 0.29.6 updated. INI, presets and saves retained.')
+    print('Runtime and matching shaders updated. Installed launcher/icon, INI, presets and saves retained.' if args.runtime_only else 'Runtime, matching shaders and launcher 0.30.2 updated. INI, presets and saves retained.')
     print('Backup: ' + str(backup))
     print('Open this same launcher: ' + str(launcher))
     try:

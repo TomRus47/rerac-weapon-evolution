@@ -30,7 +30,7 @@
 
 use crate::determinism::FrameNumber;
 use crate::fly_cam::FlyCam;
-use crate::game_camera::{game_eye, GameFog, LevelFog};
+use crate::game_camera::{game_eye, GameFog, LevelFog, TfragFog};
 use crate::tfrag_render::game_to_bevy;
 use anyhow::{Context, Result};
 use bevy::core_pipeline::fullscreen_material::FullscreenMaterial;
@@ -49,6 +49,16 @@ use std::time::Instant;
 /// The per-frame fog update; every fog consumer runs after it.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FogSet;
+
+/// Water surfaces are layered reflections/overlays of an already fogged scene.
+/// Reapplying the short-range underwater fog to every layer creates a coloured
+/// ceiling (especially on Pokitaru). Exempt only liquid materials while the
+/// camera is submerged; world geometry, particles and the screen tint retain
+/// the normal underwater fog. Keep above-water and RC_FOG=0 values unchanged.
+pub(crate) fn liquid_surface_fog(mut fog: TfragFog, underwater: bool) -> TfragFog {
+    if underwater { fog.color.w = 0.0; }
+    fog
+}
 
 /// Level data for the fog state: gameplay section 0x80 and the collision mesh for the underwater test.
 pub struct FogLevelData {

@@ -56,6 +56,10 @@ def ensure_experimental_fields(raw):
             defaults={}
         values = {key: doc.entries[section,key] for sec,key in doc.entries if sec == section}
         original = dict(values)
+        # Before v130 the Taunter gate could only be zero. Upgrade that old
+        # placeholder once; an explicit gate in the new mode remains untouched.
+        if weapon == 'taunter' and 'offensive_taunt_enabled' not in original:
+            values['r1_experimental_max'] = '1'
         if 'experimental_max_ammo' in defaults:
             values.setdefault('experimental_max_ammo', values.get('capacity' if weapon == 'suck_cannon' else 'max_ammo', defaults['experimental_max_ammo']))
         if weapon == 'mine_glove':
@@ -220,7 +224,7 @@ def ensure_wrench_fields(raw,legacy_gold='false'):
 def order_profile(raw):
     """Reorder sections and settings without changing values or dropping comments."""
     from launcher_core import IniDocument
-    from schema import WEAPON_ORDER, WEAPONS, field_groups
+    from schema import WEAPON_ORDER, WEAPONS, field_groups, GADGET_DEFAULTS, gadget_field_groups
     doc=IniDocument(raw); nl='\r\n' if b'\r\n' in raw else '\n'
     blocks={}; preamble=[]; current=None
     for line in doc.lines:
@@ -234,7 +238,8 @@ def order_profile(raw):
         block=blocks.pop(section,None)
         if block is None:return
         match=re.fullmatch(r'weapon\.([a-z_]+)\.level[1-8]',section)
-        if not match:
+        gadget=section[7:] if section.startswith('gadget.') and section[7:] in GADGET_DEFAULTS else None
+        if not match and gadget is None:
             while block and not block[-1].strip():block.pop()
             block.append(nl)
             if section.startswith('weapon.') and section[7:] in WEAPONS:output.extend([nl,'; '+WEAPONS[section[7:]][1]+' - XP progression'+nl])
@@ -247,7 +252,7 @@ def order_profile(raw):
             if key:
                 records[key[1].lower()]=pending+[line if line.endswith(('\n','\r')) else line+nl];pending=[]
             else:pending.append(line)
-        standard,experimental=field_groups(match[1],records)
+        standard,experimental=gadget_field_groups(gadget,records) if gadget is not None else field_groups(match[1],records)
         output.append(block[0] if block[0].endswith(('\n','\r')) else block[0]+nl)
         for key in standard:output.extend(records[key])
         if experimental:
@@ -537,3 +542,24 @@ def convert(raw):
         lines.insert(at+1,'weapon_bar_behind_hud = true'+nl)
         result=(b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')
     return order_profile(upgrade_global_settings(result)),warnings
+
+_gadget_previous_convert=convert
+def convert(raw):
+    result,warnings=_gadget_previous_convert(raw)
+    from launcher_core import IniDocument
+    from schema import GADGET_DEFAULTS
+    doc=IniDocument(result);nl='\r\n' if b'\r\n' in result else '\n'
+    lines=list(doc.lines)
+    for gadget,defaults in GADGET_DEFAULTS.items():
+        section='gadget.'+gadget
+        missing=[key+' = '+value+nl for key,value in defaults.items() if (section,key) not in doc.entries]
+        if not missing:continue
+        if section in doc.sections:
+            at=next(i for i,line in enumerate(lines) if line.split(';',1)[0].strip().lower()=='['+section+']')
+            end=next((i for i in range(at+1,len(lines)) if lines[i].lstrip().startswith('[')),len(lines))
+            if end and not lines[end-1].endswith(('\n','\r')):lines[end-1]+=nl
+            lines[end:end]=missing
+        else:
+            if lines and not lines[-1].endswith(('\n','\r')):lines[-1]+=nl
+            lines.extend([nl,'['+section+']'+nl,*missing])
+    return order_profile((b'\xef\xbb\xbf' if doc.bom else b'')+''.join(lines).encode('utf-8')),warnings

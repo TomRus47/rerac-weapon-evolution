@@ -13,12 +13,12 @@ class SavedControlsTests(unittest.TestCase):
     def test_defaults_are_opt_in_last_in_base_card_and_not_survival(self):
         doc=core.profile_document((Path(__file__).resolve().parents[1]/'weapons.default.ini').read_bytes())
         base,survival=schema.global_field_groups(doc)
-        self.assertEqual(base[-2:],[('general','dpad_quick_select'),('general','r1_experimental')])
+        self.assertEqual(base[-3:],[('general','dpad_quick_select'),('general','r1_experimental'),('general','pause_on_quick_select')])
         for key in schema.CONTROL_DEFAULTS:
             # Public balance enables these controls; missing legacy keys remain
             # opt-in independently of the approved player profile.
             self.assertEqual(schema.CONTROL_DEFAULTS[key],'false')
-            self.assertEqual(doc.entries['general',key],'true')
+            self.assertEqual(doc.entries['general',key], 'false' if key == 'pause_on_quick_select' else 'true')
             self.assertIn(key,schema.BOOLEANS)
             self.assertNotIn(('general',key),survival)
             self.assertNotIn(key,schema.WORLD_DEFAULTS)
@@ -26,7 +26,7 @@ class SavedControlsTests(unittest.TestCase):
                 core.validate_value('general',key,value)
             for value in ['2','invalid']:
                 with self.assertRaises(ValueError):core.validate_value('general',key,value)
-        self.assertEqual(core.required_config(doc),92)
+        self.assertEqual(core.required_config(doc),95)
 
     def test_migration_keeps_balance_unknown_fields_comments_bom_and_crlf(self):
         raw=(Path(__file__).resolve().parents[1]/'weapons.default.ini').read_bytes()

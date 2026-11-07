@@ -17,6 +17,7 @@ impl Evolution {
         self.control_settings = next.control_settings;
         self.r1_experimental_max = next.r1_experimental_max;
         self.randomizer_bolt_multiplier=next.randomizer_bolt_multiplier;
+        self.randomizer_bolt_pack_value=next.randomizer_bolt_pack_value;
         self.bolt_multiplier_max=next.bolt_multiplier_max;
         self.pyro.enabled = next.pyro.enabled;
         self.pyro.stats = next.pyro.stats;

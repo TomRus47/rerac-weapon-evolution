@@ -1005,6 +1005,8 @@ impl EvoStunTracker {
 pub struct Services {
     /// Experimental Bomb Glove XP + editable weapon statistics.
     pub bomb_evo: crate::weapon_evo::Evolution,
+    pub gadget_combat:crate::gadget_combat::Runtime,
+    pub gadget_lifetimes:crate::gadget_combat::Lifetimes,
     pub enemies:crate::weapon_evo::world::Enemies,
     pub motion:crate::weapon_evo::world::motion::Motion,
     pub population: crate::weapon_evo::world::population::Population,
@@ -1201,6 +1203,8 @@ impl Services {
         self.draw_callbacks = Default::default();
         self.mouse = Default::default();
         self.evo_stuns = Default::default();
+        self.gadget_combat = Default::default();
+        self.gadget_lifetimes = Default::default();
         self.enemies=Default::default();
         self.motion=Default::default();
         self.population=Default::default();
@@ -1219,6 +1223,7 @@ impl Services {
             bomb_evo: crate::weapon_evo::Evolution::from_env(),
             motion:Default::default(),enemies:Default::default(), population:Default::default(), randomizer:Default::default(),golden:Default::default(), gold_shop:Default::default(),discovery:Default::default(),
             evo_stuns: EvoStunTracker::default(),
+            gadget_combat:Default::default(),gadget_lifetimes:Default::default(),
             timing: Timing::NTSC,
             class_scroll: Default::default(),
             level: 1,
@@ -2084,6 +2089,7 @@ impl<'a> World<'a> {
     pub fn create_moby(&mut self, o_class: i16) -> Option<MobyId> {
         let info = self.classes.info(o_class);
         let id = self.table.create(o_class, info.as_ref(), self.counter)?;
+        self.svc.gadget_lifetimes.spawned(id);
         crate::weapon_evo::world::population::forget(&mut self.svc.population,id);
         self.svc.motion.forget(id);
         self.svc.enemies.created(id,info.as_ref().is_none_or(|c|c.ty!=5));
@@ -2765,6 +2771,7 @@ impl crate::tick::MobySystem for SharedServices<'_, '_> {
         let id = table.create(o_class, Some(&info), counter)?;
         crate::moby_update::anim_sound::init(&mut table.mobys[id], self.classes.anim(o_class));
         let mut s = self.svc.borrow_mut();
+        s.gadget_lifetimes.spawned(id);
         s.hits.forget_doom_target(id);
         crate::weapon_evo::world::population::forget(&mut s.population,id);
         s.enemies.created(id,false);

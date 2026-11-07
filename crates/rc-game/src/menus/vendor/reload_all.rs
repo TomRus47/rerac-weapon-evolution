@@ -13,7 +13,7 @@ impl Vendor {
     pub fn reload_all_quote(&self, gs:&GameState) -> ReloadAllQuote {
         let mut quote=ReloadAllQuote {cost:0,items:Vec::new()};
         let golden=gs.weapon_progress.golden;
-        if self.remote || (!golden.active() && crate::weapon_evo::ammo_mode::enabled()) {return quote;}
+        if !golden.active() && crate::weapon_evo::ammo_mode::enabled() {return quote;}
         for item in 0..ITEMS {
             if gs.global.owned[item]==0 {continue;}
             if golden.active() && !golden.collected(item) {continue;}
@@ -52,7 +52,7 @@ impl Vendor {
     /// pixels keep it aligned in NTSC/PAL and widescreen without screen guesses.
     pub fn reload_all_draws(&self, a:&MenuAssets, gs:&GameState, strip:[f32;4]) -> Vec<MenuDraw> {
         let mut out=Vec::new();
-        if self.sub!=1 || self.buy!=0 || self.exit_req || self.remote
+        if self.sub!=1 || self.buy!=0 || self.exit_req
             || (!gs.weapon_progress.golden.active() && crate::weapon_evo::ammo_mode::enabled()) {return out;}
         let quote=self.reload_all_quote(gs);
         let label=match self.lang {

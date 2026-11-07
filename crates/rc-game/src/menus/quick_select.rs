@@ -272,6 +272,8 @@ pub struct QsEvents {
 /// The ring: slot-3 fields and the hero-block timers.
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuickSelect {
+    pub ring: u8,
+    ring_slots: Option<[i32; SLOTS]>,
     pub consts: QsConsts,
     pub tables: QsTables,
     pub items: QsItems,
@@ -323,6 +325,8 @@ fn stat(rec: &mut HelpRec, bump: bool, play_time: i32, level: i32) {
 impl QuickSelect {
     pub fn new(consts: QsConsts, tables: QsTables, items: QsItems) -> QuickSelect {
         QuickSelect {
+            ring: 0,
+            ring_slots: None,
             entries: tables.entries,
             consts,
             tables,
@@ -360,9 +364,24 @@ impl QuickSelect {
         self.arm = scale_ticks(30);
         self.fade = 0;
         for (k, e) in self.entries.iter_mut().enumerate() {
-            let item = g.quick_select[k];
+            let item = self.ring_slots.unwrap_or(g.quick_select)[k];
             e.item = item;
             e.icon = self.items.icon_of(item);
+        }
+    }
+
+    /// Called before hero/open and again after an R2 edge. The native eight-slot
+    /// selection geometry is reused, while empty pages remain switchable.
+    pub fn set_ring(&mut self, ring: u8, slots: [i32; SLOTS]) {
+        let changed = self.ring != ring || self.ring_slots != Some(slots);
+        self.ring = ring;
+        self.ring_slots = Some(slots);
+        if changed && !self.command_page {
+            for (e, item) in self.entries.iter_mut().zip(slots) {
+                e.item = item;
+                e.icon = self.items.icon_of(item);
+            }
+            if self.open { self.sel = -1; self.arm = 0x0100_00ff; self.text_fade = 0; }
         }
     }
 
@@ -627,7 +646,7 @@ impl QuickSelect {
     }
     pub fn draw_with_controls(&self, a: &MenuAssets, g: &Global, tick: u64, listeners: i32,
         controls:Option<&crate::weapon_evo::controls::State>,out: &mut Vec<MenuDraw>) {
-        let item=usize::try_from(self.sel).ok().and_then(|i|g.quick_select.get(i)).copied().unwrap_or(0);
+        let item=usize::try_from(self.sel).ok().and_then(|i|self.entries.get(i)).map_or(0,|e|e.item);
         self.draw_with_mode_limit(a,g,tick,listeners,controls,crate::weapon_evo::controls::supported_mode_max(item),out);
     }
     pub fn draw_with_mode_limit(&self,a:&MenuAssets,g:&Global,tick:u64,listeners:i32,
@@ -675,6 +694,12 @@ impl QuickSelect {
                 super::weapon_icon_sprite(out, fr, e.item, px - (tw >> 1), py - (th >> 1), tw, th, al, (tw, th));
             }
         }
+        // Always draw the page control, including a completely empty second ring.
+        let page = format!("\x17 {}/2", self.ring + 1);
+        let page_font = if a.width(Font::Small, b"\x17") > 0 { Font::Small } else { Font::Regular };
+        let page_width = a.width(page_font, page.as_bytes());
+        text(out, page_font, x0 + w/2 - page_width/2, y0 + h + 4,
+            (alpha as u32) << 24 | 0x00ffffff, page.as_bytes());
         let Ok(si) = usize::try_from(self.sel) else { return };
         let Some(e) = self.entries.get(si).filter(|e| e.icon != 0) else { return };
         let sf = (s * f).to_f32();
@@ -684,7 +709,7 @@ impl QuickSelect {
             let wd = a.width(Font::Regular, t);
             text(out, Font::Regular, x - (wd >> 1), y, rgba, t);
         };
-        let slot_item = g.quick_select[si];
+        let slot_item = e.item;
         let has_ammo = self.items.ammo_of(slot_item);
         if let Some(max) = has_ammo {
             let ammo = g.ammo.get(slot_item as usize).copied().unwrap_or(0);
@@ -770,6 +795,12 @@ impl QuickSelect {
             let (tw, th) = a.frame_size(fr);
             sprite(out, fr, px - (tw >> 1), py - (th >> 1), tw, th, al);
         }
+        // Always draw the page control, including a completely empty second ring.
+        let page = format!("\x17 {}/2", self.ring + 1);
+        let page_font = if a.width(Font::Small, b"\x17") > 0 { Font::Small } else { Font::Regular };
+        let page_width = a.width(page_font, page.as_bytes());
+        text(out, page_font, x0 + w/2 - page_width/2, y0 + h + 4,
+            (alpha as u32) << 24 | 0x00ffffff, page.as_bytes());
         let Ok(si) = usize::try_from(self.sel) else { return };
         if cmd.entries.get(si).is_none_or(|e| e.icon == 0) { return; }
         let label = a.msg(cmd.msgs[si]);
@@ -1030,6 +1061,35 @@ mod tests {
     }
 
     #[test]
+    fn second_ring_equips_and_displays_its_own_ammo_without_changing_native_ring() {
+        let mut q = ring();
+        let mut g = global([15; 8]);
+        let mut session = SessionState::default();
+        let bank = [10, 11, 13, 16, 17, 19, 20, 23];
+        q.set_ring(1, bank);
+        let input = MenuInput { pressed_u: button::TRIANGLE, held_u: button::TRIANGLE, ..Default::default() };
+        assert!(q.hero(&input, &HeroGate::default(), &mut g, &mut session).opened);
+        assert_eq!(q.entries.map(|entry| entry.item), bank);
+        q.sel = 0; q.arm = 0x0100_00ff; q.fade = 8; q.text_fade = 8;
+        g.ammo[10] = 7;
+        let mut glyphs = [[Glyph::default(); GLYPHS]; 3];
+        for table in &mut glyphs { for glyph in &mut table[0x20..0x7f] { glyph.advance = 10; } }
+        let assets = MenuAssets::new(HudAssets { icons: vec![], frame_sizes: vec![(32,32);4], glyphs, messages:vec![] }, Overlay::default());
+        let mut out = vec![];
+        q.draw(&assets, &g, 0, 0, &mut out);
+        assert!(out.iter().any(|draw| matches!(draw, MenuDraw::Hud(crate::hud::Draw::Text{text,..}) if text == b"7/40")));
+        let close = MenuInput::default();
+        assert_eq!(q.update(&close, &HeroGate::default(), &mut g, &mut session, 1, 0).request, Some(10));
+        assert_eq!(session.temp_hand, 10);
+        assert_eq!(g.quick_select, [15;8]);
+        q.set_ring(0, g.quick_select);
+        assert_eq!(q.entries[0].item, 15);
+        q.set_ring(1, [0;8]); q.sel = -1;
+        out.clear(); q.draw(&assets, &g, 2, 0, &mut out);
+        assert!(out.iter().any(|draw| matches!(draw, MenuDraw::Hud(crate::hud::Draw::Text{text,..}) if text == b"\x17 2/2")));
+    }
+
+    #[test]
     fn name_split_rules() {
         assert_eq!(split_name(b"Bomb Glove"), Some((4, 5)));
         assert_eq!(split_name(b"Morph-o-Ray"), Some((6, 6)));
@@ -1059,14 +1119,14 @@ mod tests {
         assert_eq!(sprites[6].4, 64);
         let texts = out.iter().filter(|d| matches!(d, MenuDraw::Hud(crate::hud::Draw::Text { .. }))).count();
         // Ammo + shadow, then the name: id 0 resolves to the "Paradox! …" fallback, split at its first space.
-        assert_eq!(texts, 6);
+        assert_eq!(texts, 7);
     }
     #[test]
     fn manual_mode_indicator_is_supported_only_and_uses_the_radial_fade_without_ammo() {
         let mut glyphs = [[Glyph::default(); GLYPHS]; 3];
         for table in &mut glyphs { for glyph in table { glyph.advance=5; } }
         let a=MenuAssets::new(HudAssets{icons:vec![],frame_sizes:vec![(32,32);4],glyphs,messages:vec![]},Overlay::default());
-        let state=crate::weapon_evo::controls::State{modes:[1,1,1,2],..Default::default()};
+        let state=crate::weapon_evo::controls::State{modes:[1,1,1,2,0],..Default::default()};
         for item in [16,17,13,23,19,10,24,25] {
             let mut g=global([item;8]);g.ammo[item as usize]=0;
             let mut q=ring();q.init(&g);q.open=true;q.sel=0;q.fade=8;q.text_fade=8;

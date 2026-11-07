@@ -13,9 +13,10 @@ pub fn enabled() -> bool {
 fn eligible(hero: &Hero) -> bool {
     // delete_hand clears the outgoing id for a few ticks before create_hand.
     // Keep L2 movement while the pending item is another weapon, including wrench.
-    let weapon = crate::weapon_evo::WEAPON_IDS.contains(&hero.items.slot.id)
+    let supported=|item| crate::weapon_evo::WEAPON_IDS.contains(&item) || super::gadgets::hand_item(item).is_some();
+    let weapon = supported(hero.items.slot.id)
         || (hero.items.slot.id == 0 && hero.items.slot.state == 0
-            && crate::weapon_evo::WEAPON_IDS.contains(&hero.items.target));
+            && supported(hero.items.target));
     hero.mode == 0 && hero.health > 0 && hero.frozen == 0 && hero.f13ff == 0
         && hero.gravity_mode == 0 && hero.f658 == 0
         && weapon
@@ -466,18 +467,20 @@ mod tests {
     }
 
     #[test]
-    fn empty_hand_gap_does_not_lock_gadgets_or_override_l1() {
+    fn empty_hand_gap_supports_hand_gadgets_without_overriding_l1() {
         let mut h = armed();
         h.items.slot.id = 0; h.items.slot.state = 0;
         let l2 = pad(PadInput::neutral().press(button::L2));
-        for target in [0, 0x1a, 0x1f] {
+        for target in [0, 28] {
             h.items.target = target;
             configure(&mut h, &l2, Pf::ZERO, true);
             assert!(!active(&h));
         }
-        h.items.target = 16;
-        configure(&mut h, &l2, Pf::ZERO, true);
-        assert!(active(&h));
+        for target in [12,22,26,31,16] {
+            h.items.target = target;
+            configure(&mut h, &l2, Pf::ZERO, true);
+            assert!(active(&h));
+        }
         configure(&mut h, &pad(PadInput::neutral().press(button::L1 | button::L2)), Pf::ZERO, true);
         assert!(!active(&h));
     }

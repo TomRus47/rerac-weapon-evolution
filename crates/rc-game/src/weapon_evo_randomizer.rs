@@ -10,6 +10,11 @@ pub const SLOTS:usize=192;
 pub const ENCODED_SIZE:usize=8+4+SLOTS*2+24+4;
 pub const RENDER_BASE:usize=1000;
 pub const KEY:&str="randomizer_mode";
+pub const PACK_REWARD:u16=190;
+pub const EXTRA_KEYS:[&str;6]=["randomizer_extra_gemlik", "randomizer_extra_kerwan",
+    "randomizer_extra_orxon", "randomizer_extra_pokitaru", "randomizer_extra_hoven", "randomizer_extra_novalis"];
+pub const PACK_KEY:&str="randomizer_bolt_pack_value";
+
 #[derive(Clone,Copy,Debug)]
 pub struct Location {
     pub id:usize,pub level:u32,pub name:&'static str,
@@ -21,13 +26,33 @@ impl Location {
     }
 }
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct State {pub seed:u64,pub version:u32,pub placements:[u16;SLOTS],pub claimed:[u64;3],pub pending_equip:u32}
-impl Default for State {fn default()->Self{Self{seed:0,version:0,placements:[0;SLOTS],claimed:[0;3],pending_equip:0}}}
+pub struct State {pub extra_mask:u8,pub seed:u64,pub version:u32,pub placements:[u16;SLOTS],pub claimed:[u64;3],pub pending_equip:u32}
+impl Default for State {fn default()->Self{Self{extra_mask:63,seed:0,version:0,placements:[0;SLOTS],claimed:[0;3],pending_equip:0}}}
 fn next(s:&mut u64)->u64 {
     *s=s.wrapping_add(0x9e3779b97f4a7c15);let mut z=*s;
     z=(z^(z>>30)).wrapping_mul(0xbf58476d1ce4e5b9);z=(z^(z>>27)).wrapping_mul(0x94d049bb133111eb);z^(z>>31)
 }
 fn pool()->Vec<u16>{let mut ids:Vec<_>=catalog::locations().into_iter().map(|l|l.id as u16).filter(|&i|i<176).collect();ids.push(10);ids}
+/// Keep the v130 zero-site reward pool readable for existing saves only.
+/// New seeds normalize an empty selection to Hoven before choosing this pool.
+/// User-facing switches are startup configuration. Persist the effective mask
+/// in a new seed; never apply this fallback when decoding an existing save.
+pub const HOVEN_EXTRA_MASK:u8=1<<4;
+pub const fn effective_extra_mask(requested:u8)->u8 {
+    let mask=requested&63;
+    if mask==0 {HOVEN_EXTRA_MASK}else{mask}
+}
+
+fn pool_with_extras(mask:u8)->Vec<u16> {
+    let mut rewards=pool();
+    if mask==0 {if let Some(i)=rewards.iter().rposition(|&r|r>=96){rewards.remove(i);}}
+    rewards
+}
+fn world_site(id:usize)->bool {
+    static SITES:std::sync::OnceLock<[bool;SLOTS]>=std::sync::OnceLock::new();
+    SITES.get_or_init(||{let mut out=[false;SLOTS];for l in catalog::locations(){if l.id>=96{out[l.id]=true;}}out})
+        .get(id).copied().unwrap_or(false)
+}
 fn is_new_planet(reward:u16)->bool{(66..=82).contains(&reward)}
 
 /// Keep coordinate concentration separate from the reward draw. Other reward
@@ -43,8 +68,17 @@ impl State {
     pub fn collect(&mut self,id:usize){if id<SLOTS{self.claimed[id/64]|=1<<(id%64);}}
     pub fn reward(self,id:usize)->Option<u16>{self.placements.get(id).copied().filter(|&i|i!=0)}
     pub fn owns(self,reward:u16)->bool{self.placements.iter().enumerate().any(|(s,&r)|r==reward&&self.collected(s))}
-    pub fn generate(seed:u64)->Self {
-        let seed=seed.max(1);let catalog=catalog::locations();let mut rng=seed;
+    /// Empty physical checks grant packs; their receipt uses the same saved bit.
+    pub fn world_reward(self,id:usize)->Option<u16> {
+        self.reward(id).or_else(||(self.active() && world_site(id)
+            && (id<176 || self.extra_mask & (1<<(id-176))!=0)).then_some(PACK_REWARD))
+    }
+    pub fn generate(seed:u64)->Self {Self::generate_with_extras(seed,63)}
+    pub fn generate_with_extras(seed:u64,extra_mask:u8)->Self {
+        let extra_mask=effective_extra_mask(extra_mask);
+        let seed=seed.max(1);let mut catalog=catalog::locations();let mut rng=seed;
+        catalog.retain(|l|l.id<176 || extra_mask & (1<<(l.id-176))!=0);
+        let reward_pool=pool_with_extras(extra_mask);
         // Start directly on Novalis; source 65 is its initial coordinate.
         let start=1usize;
         // Story, shop and coordinate sources stay active: their native scripts
@@ -52,7 +86,7 @@ impl State {
         // surveyed additions share one candidate pool. Five surplus sites stay
         // empty, selected afresh on each deterministic generation attempt.
         let mandatory=catalog.iter().filter(|l|l.id<96).count();
-        let optional_count=pool().len()-mandatory;
+        let optional_count=reward_pool.len()-mandatory;
         let mut starting_inventory=[false;SLOTS];starting_inventory[64]=true;starting_inventory[65]=true;
         // Sample the COMPLETE pool, including Gold Bolts. Always maximizing the
         // number of checks a reward opens forces high-fanout planet coordinates
@@ -70,10 +104,10 @@ impl State {
             for &id in optional.iter().take(optional_count){active[id]=true;}
             let eligible=|id:usize|active[id];
             let initial:Vec<_>=catalog.iter().filter(|l|eligible(l.id)&&l.id!=65&&l.accessible(&starting_inventory)).map(|l|l.id).collect();
-            let mut state=Self{seed,version:8,..Default::default()};
+            let mut state=Self{seed,extra_mask,version:9,..Default::default()};
             state.placements[65]=(64+start) as u16;
             let mut have=[false;SLOTS];have[64]=true;have[64+start]=true;
-            let mut remaining:Vec<_>=pool().into_iter().filter(|&r|r!=82&&r!=64+start as u16).collect();
+            let mut remaining:Vec<_>=reward_pool.iter().copied().filter(|&r|r!=82&&r!=64+start as u16).collect();
             let mut ranks=[0u16;SLOTS];let mut step=1;
             for l in &catalog {if eligible(l.id)&&l.accessible(&have){ranks[l.id]=step;}}
             while remaining.iter().any(|&r|r<96) {
@@ -167,7 +201,7 @@ impl State {
             let old=have;for l in catalog::locations(){if l.accessible(&old){if let Some(r)=self.reward(l.id){have[r as usize]=true;}}}
             if have==old{break;}
         }
-        pool().iter().all(|&r|have[r as usize])
+        (if self.version>=9 {pool_with_extras(self.extra_mask)}else{pool()}).iter().all(|&r|have[r as usize])
     }
     /// Validate pacing against actual reachability spheres, not the arbitrary
     /// order used while filling the seed. The player may collect accessible
@@ -202,7 +236,7 @@ impl State {
         true
     }
     pub fn valid(self)->bool {
-        if !self.active(){return self==Self::default();}if !matches!(self.version,1..=8){return false;}
+        if !self.active(){return self==Self::default();}if !matches!(self.version,1..=9)||self.extra_mask>63{return false;}
         if !matches!(self.placements[65],65..=81){return false;}
         if self.pending_equip!=0 && (!super::golden::ITEMS.contains(&(self.pending_equip as usize))||!self.owns(self.pending_equip as u16)){return false;}
         let catalog=catalog::locations();
@@ -214,14 +248,17 @@ impl State {
         for (id,&r) in self.placements.iter().enumerate(){
             if (r!=0||self.collected(id))&&!catalog.iter().any(|l|l.id==id){return false;}
             if r!=0{actual.push(r);}
-            if self.collected(id)&&r==0{return false;}
+            if self.collected(id)&&r==0&&self.world_reward(id)!=Some(PACK_REWARD){return false;}
+            if self.version>=9 && id>=176 && id<182 && self.extra_mask&(1<<(id-176))==0 && (r!=0||self.collected(id)){return false;}
         }
-        let mut expected=pool();actual.sort();expected.sort();actual==expected
+        let mut expected=if self.version>=9 {pool_with_extras(self.extra_mask)}else{pool()};actual.sort();expected.sort();actual==expected
     }
 }
 pub fn enabled()->bool{super::inspect_profile().is_some_and(|e|e.randomizer_mode)}
 pub fn initialize(gs:&mut GameState,on:bool,seed:u64){
-    if !on{return;}gs.weapon_progress.randomizer=State::generate(seed);
+    if !on{return;}
+    let mask=super::inspect_profile().map_or(63,|e|e.randomizer_extra_mask);
+    gs.weapon_progress.randomizer=State::generate_with_extras(seed,mask);
     gs.weapon_progress.golden=Default::default();gs.weapon_progress.ammo_mode=Default::default();
     gs.global.owned.fill(0);gs.global.acquired.fill(0);gs.global.ammo.fill(0);
     gs.global.owned[8]=1;gs.global.acquired[8]=1;gs.global.equipped=[8,0,0,0,0,0,0];
@@ -249,7 +286,7 @@ pub fn source_planet(w:&World,p:usize,native:bool)->bool {
 pub fn queue(w:&mut World,source:usize)->bool {
     if !w.svc.bomb_evo.randomizer_mode{return false;}
     let state=w.svc.bomb_evo.state_progress.randomizer;
-    if state.reward(source).is_none(){return false;}
+    if state.world_reward(source).is_none(){return false;}
     if !state.collected(source)&&!w.svc.randomizer.pending.contains(&source){
         w.svc.randomizer.pending.push(source);w.svc.interact.writes.push(GameWrite::RandomizerReward(source));
     }true
@@ -257,9 +294,13 @@ pub fn queue(w:&mut World,source:usize)->bool {
 /// Low-level grant bypasses source randomization exactly once. Never feed a
 /// randomized reward back into the source interceptor.
 pub fn grant(gs:&mut GameState,session:&mut SessionState,items:&ItemTables,source:usize,equip:bool)->Option<u16>{
+    grant_with_pack(gs,session,items,source,equip,5000)
+}
+pub fn grant_with_pack(gs:&mut GameState,session:&mut SessionState,items:&ItemTables,source:usize,equip:bool,pack_bolts:u32)->Option<u16>{
     let mut state=gs.weapon_progress.randomizer;if state.collected(source){return None;}
-    let reward=state.reward(source)?;state.collect(source);gs.weapon_progress.randomizer=state;
-    if reward<37 {
+    let reward=state.world_reward(source)?;state.collect(source);gs.weapon_progress.randomizer=state;
+    if reward==PACK_REWARD { gs.global.bolts=gs.global.bolts.saturating_add(pack_bolts.min(1_000_000) as i32); }
+    else if reward<37 {
         gs.give_item_native(reward as usize,equip,items,session);
         let item=reward as usize;
         if equip && items.slot_type[item]==1 {
@@ -384,14 +425,14 @@ impl WorldState {
                     1388 if level==15=>Some(34),
                     _=>None,
                 };
-                if let Some(source)=source.filter(|&s|state.reward(s).is_some()){
+                if let Some(source)=source.filter(|&s|state.world_reward(s).is_some()){
                     if !out.anchors.iter().any(|a|a.source==source){out.anchors.push(Anchor{source,position:m.position,mission:Some(i32::from(m.unknown_4 as u8)),infobot:m.o_class==750,shown:m.o_class!=750,no_cutaway:m.o_class==1134 && m.pvar(&vars).and_then(|v|v.get(12..14)).is_some_and(|v|v!=[0,0])});}
                 }
             }
         }
         for site in super::golden::locations::all_for_level(level,gemlik){
             let source=176+site.slot-80;
-            if state.reward(source).is_some(){out.anchors.push(Anchor{source,position:site.base,mission:None,infobot:false,shown:true,no_cutaway:false});}
+            if state.world_reward(source).is_some(){out.anchors.push(Anchor{source,position:site.base,mission:None,infobot:false,shown:true,no_cutaway:false});}
         }out
     }
     pub fn visuals(&self,state:State,alive:bool)->Vec<(usize,super::discovery::Visual)>{
@@ -454,7 +495,7 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
         let planet=["Veldin","Novalis","Aridia","Kerwan","Eudora","Rilgar","Blarg Station","Umbris","Batalia","Gaspar","Orxon","Pokitaru","Hoven","Gemlik Base","Oltanis","Quartu","Kalebo III","Drek's Fleet","Veldin II"][reward as usize-64];
         let prefix=match lang{2=>"Coordonnees : ",3=>"Koordinaten: ",4=>"Coordenadas: ",5=>"Coordinate: ",_=>"Coordinates: "};
         format!("{prefix}{planet}")
-    }else if reward>=96 {match lang{2=>"Boulon en or",3=>"Gold-Bolt",4=>"Guiton de oro",5=>"Bolt d'oro",_=>"Gold Bolt"}.into()}
+    }else if reward==PACK_REWARD {match lang{2=>"Pack de boulons",3=>"Bolt-Paket",4=>"Paquete de guitones",5=>"Pacchetto di bolt",_=>"Bolt pack"}.into()}else if reward>=96 {match lang{2=>"Boulon en or",3=>"Gold-Bolt",4=>"Guiton de oro",5=>"Bolt d'oro",_=>"Gold Bolt"}.into()}
     else{match reward {48=>"Zoomerator",49=>"Raritanium",50=>"Codebot",52=>"Premium Nanotech",53=>"Ultra Nanotech",_=>"Item acquired!"}.into()};
     text.into_bytes()
 }
@@ -490,7 +531,7 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
 
     #[test]
     fn surveyed_layouts_preserve_version_six_saves_without_rerolling() {
-        let mut state=State::generate(9701);assert_eq!(state.version,8);
+        let mut state=State::generate(9701);assert_eq!(state.version,9);
         state.version=6;state.collect(65);
         let mut progress=Progress::default();progress.randomizer=state;
         let bytes=progress.encode(b"v6 native card fixture").unwrap();
@@ -510,7 +551,7 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
         let mut unique:[std::collections::HashSet<u16>;4]=Default::default();
         for seed in 1..=256 {
             let state=State::generate(seed);
-            assert_eq!(state.version,8);assert!(state.valid()&&state.solvable()&&state.planet_discovery_balanced());
+            assert_eq!(state.version,9);assert!(state.valid()&&state.solvable()&&state.planet_discovery_balanced());
             for (i,source) in [16,100,101,102].into_iter().enumerate() {
                 let Some(reward)=state.reward(source)else{continue;};unique[i].insert(reward);
                 let category=if super::super::golden::ITEMS.contains(&(reward as usize)){0}
@@ -728,7 +769,7 @@ pub fn reward_name(reward:u16,lang:u32,names:&std::collections::HashMap<usize,Ve
     #[test]fn previous_v8_companions_decode_without_randomizer_or_changed_controls(){
         let mut p=Progress::default();p.controls.dpad=[15,0,0,0];p.tracks[0].xp=12.;
         let current=p.encode(b"old").unwrap();
-        let mut bytes=current[..current.len()-20-ENCODED_SIZE].to_vec();bytes[5]=8;
+        let mut bytes=current[..current.len()-20-ENCODED_SIZE-crate::weapon_evo::quick_select::State::ENCODED_SIZE-2].to_vec();bytes[5]=8;
         bytes.extend_from_slice(&rc_formats::sha1::sha1(&bytes));
         assert_eq!(Progress::decode(&bytes,b"old").unwrap(),p);
     }
@@ -804,5 +845,98 @@ mod v101_access_tests {
             let state=State::generate(seed);
             assert!(state.solvable());assert!(state.weapon_progression_safe());
         }
+    }
+}
+
+/// ASCII-compatible localized in-game receipt; no Gold Bolt total is changed.
+pub fn pack_notice(lang:u32)->Vec<u8> {match lang {
+    2=>b"Pack de boulons obtenu !".to_vec(),3=>b"Bolt-Paket erhalten!".to_vec(),
+    4=>b"Paquete de guitones obtenido!".to_vec(),5=>b"Bolt pack ottenuto!".to_vec(),
+    _=>b"Bolt pack obtained!".to_vec()}}
+
+#[cfg(test)]
+mod v130_sites {
+    use super::*;
+    use rc_formats::save_game::{ChunkTables,ItemRecord,ITEM_COUNT,VENDOR_TABLE_LEN};
+    #[test]
+    fn every_extra_site_mask_generates_reachable_progression_and_round_trips() {
+        for mask in 0..64 {
+            let state=State::generate_with_extras(9701,mask);
+            assert!(state.valid()&&state.solvable()&&state.weapon_progression_safe(),"mask {mask}");
+            assert_eq!(state.extra_mask,effective_extra_mask(mask));
+            for bit in 0..6 {assert_eq!(state.world_reward(176+bit).is_some(),effective_extra_mask(mask)&(1<<bit)!=0);}
+            let mut p=Progress::default();p.randomizer=state;
+            let bytes=p.encode(b"new masked seed").unwrap();
+            assert_eq!(Progress::decode(&bytes,b"new masked seed").unwrap(),p);
+        }
+    }
+    #[test]
+    fn grey_pack_is_once_only_standard_bolts_without_gold_bolts_items_or_xp() {
+        let mut gs=GameState::zeroed(ChunkTables{global:vec![],level:vec![]});
+        gs.weapon_progress.randomizer=State::generate(9701);
+        let source=catalog::locations().iter().find(|l|l.id>=96&&gs.weapon_progress.randomizer.reward(l.id).is_none()).unwrap().id;
+        let items=ItemTables{vendor_items:[0;VENDOR_TABLE_LEN],records:[ItemRecord([0;0x18]);ITEM_COUNT],slot_type:[0;ITEM_COUNT],item_defs_addr:0};
+        let before=gs.clone();let mut session=SessionState::default();
+        assert_eq!(grant_with_pack(&mut gs,&mut session,&items,source,true,12345),Some(PACK_REWARD));
+        assert_eq!(gs.global.bolts,before.global.bolts+12345);
+        assert_eq!(gs.global.owned,before.global.owned);assert_eq!(gs.weapon_progress.tracks,before.weapon_progress.tracks);
+        assert_eq!(gs.weapon_progress.nanotech,before.weapon_progress.nanotech);
+        for (a,b) in gs.levels.iter().zip(before.levels.iter()){assert_eq!(a.gold_bolts,b.gold_bolts);}
+        assert!(gs.weapon_progress.randomizer.valid());
+        assert_eq!(grant_with_pack(&mut gs,&mut session,&items,source,true,12345),None);
+        assert_eq!(gs.global.bolts,12345);
+        let bytes=gs.weapon_progress.encode(b"claimed pack").unwrap();
+        assert_eq!(Progress::decode(&bytes,b"claimed pack").unwrap(),gs.weapon_progress);
+        for lang in 0..=5 {assert!(!pack_notice(lang).is_empty());}
+    }
+    #[test]
+    fn existing_layout_uses_saved_extras_even_if_the_new_profile_disables_them() {
+        let mut old=State::generate(9701);old.version=8;assert!(old.valid());
+        let mut p=Progress::default();p.randomizer=old;
+        let encoded=p.encode(b"v10 source").unwrap();
+        let mut legacy=encoded[..encoded.len()-22].to_vec();legacy[5]=10;
+        let hash=rc_formats::sha1::sha1(&legacy);legacy.extend_from_slice(&hash);
+        let restored=Progress::decode(&legacy,b"v10 source").unwrap();
+        assert_eq!(restored.randomizer,p.randomizer);
+        let disabled=Evolution::parse(&format!("{}\n[general]\n{}",include_str!("weapon_evo_release.ini"),EXTRA_KEYS.map(|k|format!("{k}=false\n")).join(""))).unwrap();
+        assert_eq!(disabled.randomizer_extra_mask,0);
+        for source in 176..182 {assert!(restored.randomizer.world_reward(source).is_some());}
+        assert_eq!(restored.randomizer.placements,p.randomizer.placements);
+    }
+}
+
+#[cfg(test)]
+mod v131_hoven_fallback {
+    use super::*;
+    #[test]
+    fn only_an_empty_new_seed_selection_falls_back_to_hoven_without_losing_gold() {
+        for mask in 1..64 {assert_eq!(effective_extra_mask(mask),mask);}
+        assert_eq!(effective_extra_mask(0),HOVEN_EXTRA_MASK);
+        let fallback=State::generate_with_extras(9701,0);
+        let explicit=State::generate_with_extras(9701,HOVEN_EXTRA_MASK);
+        assert_eq!(fallback,explicit);
+        assert!(fallback.valid()&&fallback.solvable()&&fallback.weapon_progression_safe());
+        for source in 176..182 {assert_eq!(fallback.world_reward(source).is_some(),source==180);}
+        let mut actual=fallback.placements.iter().copied().filter(|&r|r!=0).collect::<Vec<_>>();
+        let mut expected=pool();actual.sort();expected.sort();assert_eq!(actual,expected);
+        assert_eq!(fallback.placements.iter().filter(|&&r|r>=96).count(),40);
+        let mut progress=Progress::default();progress.randomizer=fallback;
+        let bytes=progress.encode(b"Hoven fallback").unwrap();
+        assert_eq!(Progress::decode(&bytes,b"Hoven fallback").unwrap(),progress);
+    }
+    #[test]
+    fn existing_v130_zero_site_saves_keep_their_original_mask_and_mapping() {
+        let mut previous=State::generate_with_extras(9701,HOVEN_EXTRA_MASK);
+        // Reconstruct a structurally valid v130 zero-site layout: its finite
+        // pool omitted the final Gold Bolt filler. Do not regenerate it on load.
+        let last_gold=*pool().iter().filter(|&&r|r>=96).last().unwrap();
+        let victim=previous.placements.iter().position(|&r|r==last_gold).unwrap();
+        previous.placements[victim]=previous.placements[180];previous.placements[180]=0;
+        previous.extra_mask=0;assert!(previous.valid());
+        let mut progress=Progress::default();progress.randomizer=previous;
+        let bytes=progress.encode(b"Existing v130 seed").unwrap();
+        let loaded=Progress::decode(&bytes,b"Existing v130 seed").unwrap();
+        assert_eq!(loaded,progress);assert_eq!(loaded.randomizer.extra_mask,0);
+        for source in 176..182 {assert_eq!(loaded.randomizer.world_reward(source),None);}
     }
 }

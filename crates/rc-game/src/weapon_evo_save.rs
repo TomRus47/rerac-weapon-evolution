@@ -16,7 +16,9 @@ const MAGIC_V5: &[u8;8]=b"WEVO\0\x05\0\0";
 const MAGIC_V6: &[u8;8]=b"WEVO\0\x06\0\0";
 const MAGIC_V7: &[u8;8]=b"WEVO\0\x07\0\0";
 const MAGIC_V8:&[u8;8]=b"WEVO\0\x08\0\0";
-const MAGIC:&[u8;8]=b"WEVO\0\x09\0\0";
+const MAGIC_V9:&[u8;8]=b"WEVO\0\x09\0\0";
+const MAGIC_V10:&[u8;8]=b"WEVO\0\x0a\0\0";
+const MAGIC:&[u8;8]=b"WEVO\0\x0b\0\0";
 const SIZE_V1: usize = 8 + 20 + 15 * 12 + 20;
 const SIZE_V2:usize=SIZE_V1+56;
 const SIZE_V3:usize=SIZE_V2+12;
@@ -25,7 +27,10 @@ const SIZE_V5:usize=SIZE_V4+96;
 const SIZE_V6:usize=SIZE_V5+24;
 const SIZE_V7:usize=SIZE_V6+8;
 const SIZE_V8:usize=SIZE_V7+8;
-const SIZE:usize=SIZE_V8+super::randomizer::ENCODED_SIZE;
+const SIZE_V9:usize=SIZE_V8+super::randomizer::ENCODED_SIZE;
+const SIZE_V10:usize=SIZE_V9+super::quick_select::State::ENCODED_SIZE;
+// v11 appends Taunter mode; v1-v10 offsets and layouts remain unchanged.
+const SIZE:usize=SIZE_V10+2;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Track {
@@ -36,6 +41,7 @@ impl Default for Track { fn default() -> Self { Self { level: 1, xp: 0.0 } } }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Progress {
+    pub quick_select: super::quick_select::State,
     pub controls:super::controls::State,
     pub randomizer:super::randomizer::State,
     pub bolt_chain:super::bolt_chain::State,
@@ -51,7 +57,7 @@ fn invalid(message: &str) -> io::Error { io::Error::new(io::ErrorKind::InvalidDa
 
 impl Progress {
     pub fn valid(&self) -> bool {
-        self.randomizer.valid() && self.controls.valid() && self.golden.valid() && self.nanotech.valid() && self.ammo_mode.valid() && self.bolt_chain.valid() && self.gold_spent<=1_000_000 && self.tracks.iter().enumerate().all(|(i,t)| (1..=8).contains(&t.level) && t.xp.is_finite()
+        self.quick_select.valid() && self.randomizer.valid() && self.controls.valid() && self.golden.valid() && self.nanotech.valid() && self.ammo_mode.valid() && self.bolt_chain.valid() && self.gold_spent<=1_000_000 && self.tracks.iter().enumerate().all(|(i,t)| (1..=8).contains(&t.level) && t.xp.is_finite()
             && (0.0..=1_000_000.0).contains(&t.xp) && ((t.level!=8 && (t.level!=5 || i==15)) || t.xp == 0.0))
     }
 
@@ -80,12 +86,16 @@ impl Progress {
         out.extend_from_slice(&self.golden.pending_equip.to_le_bytes());
         out.extend_from_slice(&self.gold_spent.to_le_bytes());
         out.extend_from_slice(&[self.bolt_chain.kills,self.bolt_chain.remainder,u8::from(self.gold_shop_active),0]);
-        out.extend_from_slice(&self.controls.dpad);out.extend_from_slice(&self.controls.modes);
+        out.extend_from_slice(&self.controls.dpad);out.extend_from_slice(&self.controls.modes[..4]);
         out.extend_from_slice(&self.randomizer.seed.to_le_bytes());
         out.extend_from_slice(&self.randomizer.version.to_le_bytes());
         for r in self.randomizer.placements{out.extend_from_slice(&r.to_le_bytes());}
         for bits in self.randomizer.claimed{out.extend_from_slice(&bits.to_le_bytes());}
         out.extend_from_slice(&self.randomizer.pending_equip.to_le_bytes());
+        out.extend_from_slice(&self.quick_select.second);
+        out.push(self.quick_select.ring);
+        out.push(self.controls.modes[4]);
+        out.push(self.randomizer.extra_mask);
         let checksum = sha1(&out); out.extend_from_slice(&checksum);
         Ok(out)
     }
@@ -99,7 +109,9 @@ impl Progress {
         let v6=bytes.len()==SIZE_V6 && &bytes[..8]==MAGIC_V6;
         let v7=bytes.len()==SIZE_V7 && &bytes[..8]==MAGIC_V7;
         let v8=bytes.len()==SIZE_V8 && &bytes[..8]==MAGIC_V8;
-        if !legacy && !v2 && !v3 && !v4 && !v5 && !v6 && !v7 && !v8 && (bytes.len() != SIZE || &bytes[..8] != MAGIC) { return Err(invalid("weapon progress format/version")); }
+        let v9=bytes.len()==SIZE_V9 && &bytes[..8]==MAGIC_V9;
+        let v10=bytes.len()==SIZE_V10 && &bytes[..8]==MAGIC_V10;
+        if !legacy && !v2 && !v3 && !v4 && !v5 && !v6 && !v7 && !v8 && !v9 && !v10 && (bytes.len() != SIZE || &bytes[..8] != MAGIC) { return Err(invalid("weapon progress format/version")); }
         if bytes[8..28] != sha1(native) { return Err(invalid("weapon progress belongs to another save")); }
         let end = bytes.len()-20;
         if bytes[end..] != sha1(&bytes[..end]) { return Err(invalid("weapon progress checksum")); }
@@ -140,19 +152,19 @@ impl Progress {
                 pending_equip:if v5 {0} else {u32::from_le_bytes(bytes[at+116..at+120].try_into().unwrap())},
             };
         }
-        if v7 || v8 || (bytes.len()==SIZE && &bytes[..8]==MAGIC) {
+        if v7 || v8 || v9 || v10 || (bytes.len()==SIZE && &bytes[..8]==MAGIC) {
             let at=SIZE_V6-20;
             out.gold_spent=u32::from_le_bytes(bytes[at..at+4].try_into().unwrap());
             out.bolt_chain=super::bolt_chain::State{kills:bytes[at+4],remainder:bytes[at+5]};
             out.gold_shop_active=bytes[at+6]!=0;
             if bytes[at+6]>1 || bytes[at+7]!=0{return Err(invalid("invalid reward reserved bytes"));}
         }
-        if v8 || (bytes.len()==SIZE && &bytes[..8]==MAGIC) {
+        if v8 || v9 || v10 || (bytes.len()==SIZE && &bytes[..8]==MAGIC) {
             let at=SIZE_V7-20;
             out.controls.dpad.copy_from_slice(&bytes[at..at+4]);
-            out.controls.modes.copy_from_slice(&bytes[at+4..at+8]);
+            out.controls.modes[..4].copy_from_slice(&bytes[at+4..at+8]);
         }
-        if bytes.len()==SIZE && &bytes[..8]==MAGIC {
+        if v9 || v10 || (bytes.len()==SIZE && &bytes[..8]==MAGIC) {
             let mut at=SIZE_V8-20;
             out.randomizer.seed=u64::from_le_bytes(bytes[at..at+8].try_into().unwrap());at+=8;
             out.randomizer.version=u32::from_le_bytes(bytes[at..at+4].try_into().unwrap());at+=4;
@@ -160,6 +172,12 @@ impl Progress {
             for bits in &mut out.randomizer.claimed{*bits=u64::from_le_bytes(bytes[at..at+8].try_into().unwrap());at+=8;}
             out.randomizer.pending_equip=u32::from_le_bytes(bytes[at..at+4].try_into().unwrap());
         }
+        if v10 || bytes.len()==SIZE {
+            let at=SIZE_V9-20;
+            out.quick_select.second.copy_from_slice(&bytes[at..at+8]);
+            out.quick_select.ring=bytes[at+8];
+        }
+        if bytes.len()==SIZE { out.controls.modes[4]=bytes[SIZE_V10-20];out.randomizer.extra_mask=bytes[SIZE_V10-19]; }
         if !out.valid() { return Err(invalid("weapon progress level/XP")); }
         Ok(out)
     }
@@ -174,6 +192,7 @@ impl Evolution {
     pub fn sync_progress(&mut self, state: &mut Progress) {
         // Arsenal updates must not reset combat epochs or overwrite live XP.
         if state.randomizer != self.state_progress.randomizer || state.controls != self.state_progress.controls || state.tracks != self.state_progress.tracks || state.nanotech != self.state_progress.nanotech || state.golden.seed != self.state_progress.golden.seed || state.bolt_chain != self.state_progress.bolt_chain || state.gold_spent != self.state_progress.gold_spent { self.restore_progress(state); }
+        self.state_progress.quick_select = state.quick_select;
         let ammo_mode = state.ammo_mode;
         *state = self.progress();
         state.ammo_mode = ammo_mode;
@@ -181,7 +200,7 @@ impl Evolution {
     }
 
     pub fn progress(&self) -> Progress {
-        let mut out = Progress { randomizer:self.state_progress.randomizer,controls:self.state_progress.controls,gold_shop_active:self.enabled || self.state_progress.gold_shop_active,bolt_chain:self.bolt_chain,gold_spent:self.gold_spent,golden:self.state_progress.golden,nanotech:self.nanotech, ammo_mode: self.state_progress.ammo_mode, ..Default::default() };
+        let mut out = Progress { quick_select:self.state_progress.quick_select,randomizer:self.state_progress.randomizer,controls:self.state_progress.controls,gold_shop_active:self.enabled || self.state_progress.gold_shop_active,bolt_chain:self.bolt_chain,gold_spent:self.gold_spent,golden:self.state_progress.golden,nanotech:self.nanotech, ammo_mode: self.state_progress.ammo_mode, ..Default::default() };
         for (id, value) in IDS.into_iter().zip(&mut out.tracks) {
             let (level, xp) = match id {
                 10 => (self.level, self.xp),
@@ -244,7 +263,7 @@ pub fn load(slot: &Path, native: &[u8]) -> io::Result<Progress> {
     match std::fs::metadata(&path) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Progress::default()),
         Err(e) => return Err(e),
-        Ok(m) if m.len() != SIZE as u64 && m.len() != SIZE_V1 as u64 && m.len()!=SIZE_V2 as u64 && m.len()!=SIZE_V3 as u64 && m.len()!=SIZE_V4 as u64 && m.len()!=SIZE_V5 as u64 && m.len()!=SIZE_V6 as u64 && m.len()!=SIZE_V7 as u64 && m.len()!=SIZE_V8 as u64 => return Err(invalid("weapon progress size")),
+        Ok(m) if m.len() != SIZE as u64 && m.len() != SIZE_V1 as u64 && m.len()!=SIZE_V2 as u64 && m.len()!=SIZE_V3 as u64 && m.len()!=SIZE_V4 as u64 && m.len()!=SIZE_V5 as u64 && m.len()!=SIZE_V6 as u64 && m.len()!=SIZE_V7 as u64 && m.len()!=SIZE_V8 as u64 && m.len()!=SIZE_V9 as u64 => return Err(invalid("weapon progress size")),
         Ok(_) => {}
     }
     Progress::decode(&std::fs::read(path)?, native)
@@ -276,6 +295,39 @@ mod tests {
             t.xp = if t.level == 5 { 0.0 } else { i as f32 + 0.125 };
         }
         p
+    }
+
+    #[test]
+    fn v10_rings_round_trip_per_slot_and_v9_defaults_to_native_ring() {
+        let mut a=Progress::default();
+        a.quick_select=super::super::quick_select::State{second:[23,25,24,11,13,16,19,20],ring:1};
+        a.nanotech.xp=17.5;
+        let bytes=a.encode(b"slot A").unwrap();
+        assert_eq!(Progress::decode(&bytes,b"slot A").unwrap(),a);
+        assert!(Progress::decode(&bytes,b"slot B").is_err());
+        let b=Progress::default();
+        assert_eq!(Progress::decode(&b.encode(b"slot B").unwrap(),b"slot B").unwrap().quick_select,Default::default());
+        let mut old=bytes[..SIZE_V9-20].to_vec(); old[..8].copy_from_slice(MAGIC_V9);
+        old.extend_from_slice(&sha1(&old));
+        let restored=Progress::decode(&old,b"slot A").unwrap();
+        assert_eq!(restored.quick_select,Default::default());
+        assert_eq!(restored.nanotech,a.nanotech);
+        let mut invalid=a; invalid.quick_select.ring=2;
+        assert!(invalid.encode(b"slot A").is_err());
+        invalid.quick_select.ring=1; invalid.quick_select.second[2]=255;
+        assert!(invalid.encode(b"slot A").is_err());
+    }
+
+    #[test]
+    fn changing_ring_does_not_reset_combat_epoch_or_earned_xp() {
+        let mut evo=Evolution::default();
+        let mut saved=Progress::default(); evo.restore_progress(&saved);
+        let epoch=evo.combat_epoch; evo.xp=4.5;
+        saved.quick_select.ring=1; saved.quick_select.second[0]=23;
+        evo.sync_progress(&mut saved);
+        assert_eq!(evo.combat_epoch,epoch);
+        assert_eq!(evo.progress().quick_select,saved.quick_select);
+        assert_eq!(saved.tracks[IDS.iter().position(|&id|id==10).unwrap()].xp,4.5);
     }
 
     #[test]
@@ -342,7 +394,7 @@ mod tests {
         assert!(Progress::decode(&b[..SIZE-1], b"native slot").is_err());
         let mut bad = b.clone(); bad[30] ^= 1;
         assert!(Progress::decode(&bad, b"native slot").is_err());
-        let mut bad = b; bad[5] = 10;
+        let mut bad = b; bad[5] = 12;
         assert!(Progress::decode(&bad, b"native slot").is_err());
     }
 

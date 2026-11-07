@@ -272,9 +272,12 @@ type FxSlot = (Entity, Handle<Mesh>, Handle<FxPrimMaterial>, bool);
 /// The persistent entities of the callback draws: slot k = the k-th draw of the list this tick (Bevy's mesh
 /// allocator keeps no slab for an empty mesh, so an entity is made when its slot first has primitives).
 pub const SOLID_FX:usize=usize::MAX;
+/// Level-independent radial alpha mask used for freezing condensation.
+pub const SOFT_MIST_FX:usize=usize::MAX-1;
 #[derive(Default)]
 pub struct FxSlots {
     solid:Option<Handle<Image>>,
+    soft_mist:Option<Handle<Image>>,
     slots: Vec<Option<FxSlot>>,
     fx: Vec<Option<Handle<Image>>>,
     /// The render layer of the slots' entities (None: the default layer; the flight's draws are on the transition's
@@ -300,6 +303,18 @@ impl FxSlots {
                     TextureDimension::D2,&[128,128,128,128],TextureFormat::Rgba8Unorm,RenderAssetUsages::default())));
             }
             return self.solid.clone();
+        }
+        if i==SOFT_MIST_FX {
+            if self.soft_mist.is_none(){
+                let mut image=Image::new_fill(Extent3d{width:32,height:32,depth_or_array_layers:1},
+                    TextureDimension::D2,&[128,128,128,0],TextureFormat::Rgba8Unorm,RenderAssetUsages::default());
+                image.data=Some(rc_game::gadget_combat::freezer::mist_texture());
+                image.sampler=ImageSampler::Descriptor(ImageSamplerDescriptor{
+                    address_mode_u:ImageAddressMode::ClampToEdge,address_mode_v:ImageAddressMode::ClampToEdge,
+                    mag_filter:ImageFilterMode::Linear,min_filter:ImageFilterMode::Linear,..Default::default()});
+                self.soft_mist=Some(a.images.add(image));
+            }
+            return self.soft_mist.clone();
         }
         let t = a.fx?.get(i)?.as_ref()?;
         if self.fx.len() <= i { self.fx.resize(i + 1, None); }

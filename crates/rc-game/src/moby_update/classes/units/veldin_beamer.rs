@@ -609,7 +609,15 @@ pub fn manager(w: &mut World, id: MobyId) {
             for k in 0..3 {
                 match beams(w).slots[k].state {
                     1 | 0 => {}
-                    4 => release_slot(w, k),
+                    4 => {
+                        let owner=w.svc.units.veldin_beams.slots[k].owner;
+                        if owner.is_some_and(|id|crate::gadget_combat::frozen(w,id)) {
+                            // Keep the captured beam's matrix/end; never re-aim it
+                            // at Ratchet while its owner is frozen in this pose.
+                            w.svc.units.veldin_beams.slots[k].state=3;
+                            effects(w,k);n+=1;
+                        }else{release_slot(w,k);}
+                    },
                     _ => {
                         n += 1;
                         effects(w, k);

@@ -34,10 +34,10 @@ class V45Tests(unittest.TestCase):
             for grade in range(1,6):
                 keys=loaded.keys(f'weapon.{weapon}.level{grade}')
                 a,b=field_groups(weapon,keys);self.assertEqual(keys,a+b)
-        self.assertEqual(core.required_config(loaded),92)
+        self.assertEqual(core.required_config(loaded),95)
     def test_missing_new_keys_are_added_without_touching_user_values(self):
         keys={key for group in (EXPERIMENTAL_DEFAULTS,STANDARD_DEFAULTS) for weapon,fields in group.items() if weapon in {'ryno','mine_glove','drone_device','taunter','tesla_claw'} for key in fields}
-        old=b''.join(line for line in self.raw.splitlines(True) if line.split(b'=',1)[0].strip().decode() not in keys)
+        old=b''.join(line for line in self.raw.splitlines(True) if line.split(b'=',1)[0].strip().decode() not in keys or line.split(b'=',1)[0].strip()==b'damage_per_second')
         before=core.checked_document(old);after=core.checked_document(convert(old)[0])
         for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value)
         self.assertEqual(after.entries['weapon.tesla_claw.level5','secondary_beam_damage_percent'],'25')

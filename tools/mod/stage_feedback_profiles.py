@@ -13,7 +13,10 @@ for index,path in enumerate(dict.fromkeys(paths)):
     new=runtime_profile(raw) if path.name=='weapon_evo_release.ini' else convert(raw)[0]
     after=core.checked_document(new)
     for pair,value in before.entries.items():
-        if after.entries.get(pair)!=value:raise ValueError('An existing value would change: '+str(path)+' '+str(pair))
+        legacy_taunter_gate=(pair[0].startswith('weapon.taunter.level') and pair[1]=='r1_experimental_max'
+            and value=='0' and after.entries.get(pair)=='1'
+            and (pair[0],'offensive_taunt_enabled') not in before.entries)
+        if after.entries.get(pair)!=value and not legacy_taunter_gate:raise ValueError('An existing value would change: '+str(path)+' '+str(pair))
     if new!=raw:
         saved=stage/(str(index)+'.ini');saved.write_bytes(new)
         rows.append({'target':str(path),'staged':str(saved)})

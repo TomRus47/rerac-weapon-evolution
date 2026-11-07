@@ -96,7 +96,7 @@ fn supported_extra_stat(item: i32, key: &str) -> bool {
         9 => &["capacity", "suck_range_multiplier", "shot_damage_multiplier", "crate_suction_enabled", "suck_wooden_crates", "suck_explosive_crates", "suck_steel_crates", "suck_ammo_crates", "suck_nanotech_crates"],
         11 => &["fire_interval_ticks", "homing_strength_multiplier", "missile_speed_multiplier", "missile_range_multiplier", "explosion_radius_multiplier", "explosion_visual_size_multiplier", "explosion_color", "trail_color"],
         13 => &["duration_multiplier", "turn_multiplier", "damage_multiplier", "invulnerable_while_guiding", "explosion_damage_radius", "grenade_launcher_enabled", "grenade_size_percent", "grenade_arc_height", "grenade_max_range", "grenade_fire_interval_ticks", "grenade_damage_hp", "grenade_explosion_radius", "grenade_explosion_color", "grenade_color", "grenade_model", "grenade_mine_color", "grenade_mine_explosion_color", "grenade_missile_color", "grenade_missile_explosion_color"],
-        14 => &["lure_range", "lure_cone_degrees", "xp_attract_fraction", "stun_range", "stun_duration_ticks", "stun_efficiency_percent", "damage_range", "damage_per_second", "wave_speed_multiplier", "wave_size_multiplier", "wave_range_multiplier", "wave_interval_ticks", "wave_alpha", "wave_color", "stun_launch_distance"],
+        14 => &["offensive_taunt_enabled", "lure_range", "lure_cone_degrees", "xp_attract_fraction", "stun_range", "stun_duration_ticks", "stun_efficiency_percent", "damage_range", "damage_per_second", "wave_speed_multiplier", "wave_size_multiplier", "wave_range_multiplier", "wave_interval_ticks", "wave_alpha", "wave_color", "stun_launch_distance"],
         15 => &["fire_interval_ticks", "projectile_speed_multiplier", "projectile_range_multiplier", "projectile_color", "trail_color", "impact_color"],
         17 => &["throw_range_multiplier", "trajectory_height_multiplier", "activation_range_horizontal", "activation_range_vertical", "explosion_radius_multiplier", "max_active_mines", "mine_lifetime_seconds", "flame_mine_max_active_mines", "flame_mine_lifetime_seconds", "flame_core_color", "flame_outer_color", "burn_flame_color", "explosion_color", "light_color", "flame_mine_enabled", "mine_flame_range", "mine_flame_rotation_degrees_per_second", "mine_flame_damage_per_second", "flame_mine_size_percent", "flame_mine_model", "mine_model_color", "mine_bomb_color", "mine_bomb_core_color", "mine_bomb_outer_color", "mine_bomb_burn_color", "mine_sphere_color", "mine_sphere_core_color", "mine_sphere_outer_color", "mine_sphere_burn_color"],
         18 => &["held_lunge_duration_percent", "knockback_multiplier", "hit_radius_multiplier", "electric_fx_size_multiplier", "gold_electric_fx", "air_dash_enabled", "electric_core_color", "electric_glow_color", "fist_glow_color", "impact_color"],
@@ -530,7 +530,10 @@ impl PyroEvolution {
 
 #[derive(Clone, Debug)]
 pub struct Evolution {
+    pub gadget_settings:crate::gadget_combat::Settings,
     pub randomizer_mode:bool,
+    pub randomizer_extra_mask:u8,
+    pub randomizer_bolt_pack_value:u32,
     pub randomizer_bolt_multiplier:bool,
     pub bolt_multiplier_max:f32,
     pub control_settings:controls::Settings,
@@ -581,7 +584,7 @@ pub struct Evolution {
 }
 impl Default for Evolution {
     fn default() -> Self {
-        Self { randomizer_bolt_multiplier:false,bolt_multiplier_max:3.,r1_experimental_max:controls::default_mode_limits(),randomizer_mode:false,control_settings:Default::default(),golden_settings:Default::default(),hide_ryno:false,ng_plus:false,wrench_xp_feedback_serial:0,bolt_chain:Default::default(),gold_spent:0,refill_ammo_on_upgrade:false,upgrade_refills:0,world_settings:Default::default(),encounter_base:None,nanotech:Default::default(),nanotech_native_max:4,nanotech_pending_heal:0,ammo_unlock_mode: false, ammo_mode_settings: Default::default(), wrench_gold_texture: false, enabled: false, level: 1, level_cap: 5, applied_level: 0,
+        Self { gadget_settings:Default::default(), randomizer_bolt_multiplier:false,bolt_multiplier_max:3.,r1_experimental_max:controls::default_mode_limits(),randomizer_mode:false,randomizer_extra_mask:63,randomizer_bolt_pack_value:5000,control_settings:Default::default(),golden_settings:Default::default(),hide_ryno:false,ng_plus:false,wrench_xp_feedback_serial:0,bolt_chain:Default::default(),gold_spent:0,refill_ammo_on_upgrade:false,upgrade_refills:0,world_settings:Default::default(),encounter_base:None,nanotech:Default::default(),nanotech_native_max:4,nanotech_pending_heal:0,ammo_unlock_mode: false, ammo_mode_settings: Default::default(), wrench_gold_texture: false, enabled: false, level: 1, level_cap: 5, applied_level: 0,
             xp: 0.0, xp_per_damage: 1.0, real_hp: false, combat_epoch: 0, damage_hp: [[None; 8]; 37], stats: [Stats::default(); 8],
             xp_required: [6.0; 7], last_hit_xp: 0.0, pyro: PyroEvolution::default(), extras: extra_tracks(), hud: HudOptions::default(), award_once: HashSet::new(), pending_special: Default::default(), terminal_targets: HashSet::new(), state_progress: Default::default() }
     }
@@ -705,6 +708,7 @@ impl Evolution {
         values
     }
     fn publish_max_ammo(&self) {
+        crate::gadget_combat::publish(self.gadget_settings);
         if CONFIG_ACTIVE.load(Ordering::Relaxed) {
             controls::publish(self.control_settings);
             for icon in &ICON_LEVELS { icon.store(0, Ordering::Relaxed); }
@@ -793,7 +797,7 @@ impl Evolution {
         message.extend_from_slice(format!(" - V{level}").as_bytes());
         Some(message)
     }
-    fn award_nanotech(&mut self, amount:f32) {
+    pub(crate) fn award_nanotech(&mut self, amount:f32) {
         self.nanotech_pending_heal += self.nanotech.award(&self.world_settings,self.nanotech_native_max,amount);
     }
     pub fn award_extra_damage(&mut self, weapon:i32, damage:f32) {
@@ -814,28 +818,6 @@ impl Evolution {
             self.publish_max_ammo();
         }
         self.earned_upgrade(weapon,before);
-    }
-    /// An explicit weapon XP budget must not bypass the configured Nanotech rate.
-    /// `native_loss` is confirmed HP loss with the encounter health scale restored.
-    /// Keep reward-chain bonuses and the zero-XP switch common to both tracks.
-    pub(crate) fn award_fixed_xp(&mut self,weapon:i32,amount:f32,native_loss:f32) {
-        if self.xp_per_damage<=0. || !amount.is_finite() || amount<=0.
-            || !native_loss.is_finite() || native_loss<=0. {return;}
-        let bonus=self.reward_factor();
-        let nanotech_amount=self.hp_units(native_loss)*self.xp_per_damage*bonus;
-        let amount=amount*bonus;
-        match weapon {
-            10=>self.award_bomb_xp_split(amount,nanotech_amount),
-            16=>self.award_pyro_xp_split(amount,nanotech_amount),
-            _=>self.award_extra_xp_split(weapon,amount,nanotech_amount),
-        }
-    }
-    /// Swallow/morph share the per-life key with other special rewards. Their
-    /// fixed weapon budget still uses ordinary HP conversion for Nanotech.
-    pub(crate) fn award_fixed_special_once(&mut self,weapon:i32,target:usize,amount:f32,native_loss:f32) {
-        if !amount.is_finite() || amount<=0. || !native_loss.is_finite() || native_loss<=0.
-            || !self.extras.iter().any(|t|t.id==weapon&&t.enabled) {return;}
-        if self.award_once.insert((weapon,target)) {self.award_fixed_xp(weapon,amount,native_loss);}
     }
     pub fn drain_special(&mut self) {
         let messages = self.pending_special.0.lock().map(|mut q| std::mem::take(&mut *q)).unwrap_or_default();
@@ -940,6 +922,10 @@ impl Evolution {
             let (key, value) = line.split_once('=').ok_or_else(|| format!("line {} missing '='", lineno+1))?;
             let key = key.trim().to_ascii_lowercase();
             let val = value.trim();
+            if section.starts_with("gadget.") {
+                evo.gadget_settings.parse(&section,&key,val)?;
+                continue;
+            }
             if let Some((name, number)) = section.strip_prefix("weapon.").and_then(|s| s.rsplit_once(".level")) {
                 let item = if name == "bomb_glove" { Some(10) } else if name == "pyrocitor" { Some(16) }
                     else { evo.extras.iter().find(|t| t.section == name).map(|t| t.id as usize) };
@@ -1039,7 +1025,7 @@ impl Evolution {
                         t.enabled = true;
                         continue;
                     }
-                    let v = if matches!(key.as_str(), "show_hud" | "crate_breaker_enabled" | "moving_attacks_enabled" | "move_while_thrown" | "burn_on_hit" | "hud_quickselect_only" | "slam_explosion_enabled" | "grenade_launcher_enabled" | "continuous_missiles_enabled" | "shotgun_enabled" | "flame_mine_enabled" | "sand_mouse_enabled" | "crate_suction_enabled" | "suck_wooden_crates" | "suck_explosive_crates" | "suck_steel_crates" | "suck_ammo_crates" | "suck_nanotech_crates" | "dual_beam_enabled" | "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
+                    let v = if matches!(key.as_str(), "offensive_taunt_enabled" | "show_hud" | "crate_breaker_enabled" | "moving_attacks_enabled" | "move_while_thrown" | "burn_on_hit" | "hud_quickselect_only" | "slam_explosion_enabled" | "grenade_launcher_enabled" | "continuous_missiles_enabled" | "shotgun_enabled" | "flame_mine_enabled" | "sand_mouse_enabled" | "crate_suction_enabled" | "suck_wooden_crates" | "suck_explosive_crates" | "suck_steel_crates" | "suck_ammo_crates" | "suck_nanotech_crates" | "dual_beam_enabled" | "gold" | "gold_texture" | "gold_effects" | "fire_in_air" | "air_dash_enabled" | "allow_large_enemies" | "invulnerable_while_guiding" | "gold_electric_fx" | "explode_small_chickens" | "explosion_enabled") {
                         if parse_bool(val)? { 1.0 } else { 0.0 }
                     } else { parse_number(val, &key)? };
                     validate_v45_extra(t.id, &key, v).map_err(|e| format!("{e} in [{section}]"))?;
@@ -1092,6 +1078,14 @@ impl Evolution {
             }
             if section == "general" {
                 if key==randomizer::KEY {evo.randomizer_mode=parse_bool(val)?;continue;}
+                if let Some(i)=randomizer::EXTRA_KEYS.iter().position(|k|*k==key) {
+                    if parse_bool(val)? {evo.randomizer_extra_mask|=1<<i;}else{evo.randomizer_extra_mask&=!(1<<i);}continue;
+                }
+                if key==randomizer::PACK_KEY {
+                    let value=parse_number(val,&key)?;
+                    if !(0.0..=1_000_000.0).contains(&value)||value.fract()!=0.0 {return Err("randomizer_bolt_pack_value must be an integer 0..1000000".into());}
+                    evo.randomizer_bolt_pack_value=value as u32;continue;
+                }
                 if key=="randomizer_bolt_multiplier" {evo.randomizer_bolt_multiplier=parse_bool(val)?;continue;}
                 if key=="bolt_multiplier_max" {
                     let max=parse_number(val,&key)?;
@@ -1102,6 +1096,7 @@ impl Evolution {
                 }
                 if key==controls::DPAD_KEY {evo.control_settings.dpad=match val.to_ascii_lowercase().as_str(){"on"=>true,"off"=>false,_=>parse_bool(val)?};continue;}
                 if key==controls::R1_KEY {evo.control_settings.r1=match val.to_ascii_lowercase().as_str(){"on"=>true,"off"=>false,_=>parse_bool(val)?};continue;}
+                if key==controls::PAUSE_KEY {evo.control_settings.pause_quick_select=match val.to_ascii_lowercase().as_str(){"on"=>true,"off"=>false,_=>parse_bool(val)?};continue;}
                 if key == "hide_ryno" { evo.hide_ryno=parse_bool(val)?; continue; }
                 if key=="refill_ammo_on_upgrade" {evo.refill_ammo_on_upgrade=match val.to_ascii_lowercase().as_str(){"on"=>true,"off"=>false,_=>parse_bool(val)?};}
                 else if evo.golden_settings.parse_field(&key,val)? {}
@@ -2484,33 +2479,6 @@ mod alternate_override_tests {
         let text=profile().lines().filter(|line|!line.starts_with("lava_damage_bonus_percent=")).collect::<Vec<_>>().join("\n");
         let evo=Evolution::parse(&text).unwrap();
         assert_eq!(evo.effective_pyro().lava.damage_bonus_percent,25.);
-    }
-}
-
-#[cfg(test)]
-mod fixed_xp_nanotech_tests {
-    use super::*;
-    #[test]
-    fn explicit_weapon_budgets_keep_chain_bonus_zero_xp_and_nanotech_switch() {
-        for weapon in [8,9,10,14,16,21,25] {
-            let mut e=Evolution::default();
-            e.enabled=true;e.real_hp=true;e.xp_per_damage=0.12;e.xp_required=[10000.;7];
-            e.pyro.enabled=true;e.pyro.xp_required=[10000.;7];
-            for t in &mut e.extras {t.enabled=true;t.xp_required=[10000.;7];}
-            e.world_settings.enemy_damage_by_health=true;
-            e.world_settings.nanotech_xp_per_upgrade=10000.;
-            e.configure_ng_plus(true);e.bolt_chain.kills=30;
-            e.award_fixed_xp(weapon,300.,6.);
-            let xp=match weapon {10=>e.xp,16=>e.pyro.xp,_=>e.extras.iter().find(|t|t.id==weapon).unwrap().xp};
-            assert!((xp-900.).abs()<0.001);
-            let expected=if matches!(weapon,14|25) {0.}else{216.};
-            assert!((e.nanotech.xp-expected).abs()<0.001);
-            e.xp_per_damage=0.;e.award_fixed_xp(weapon,300.,6.);
-            assert!((e.nanotech.xp-expected).abs()<0.001);
-            e.xp_per_damage=0.12;e.world_settings.enemy_damage_by_health=false;
-            e.award_fixed_xp(weapon,300.,6.);
-            assert!((e.nanotech.xp-expected).abs()<0.001);
-        }
     }
 }
 

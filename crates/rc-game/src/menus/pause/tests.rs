@@ -574,3 +574,30 @@ fn gadget_shortcuts_do_not_enable_help_pages_or_add_a_gadgets_caption() {
     let mut out=vec![];super::shortcuts::draw(&m,&a,&mut out);
     assert!(out.is_empty());
 }
+
+
+#[test]
+fn two_ring_editor_commits_each_bank_and_remembers_last_page() {
+    let mut menu=menu(); let mut game=gs(); game.global.owned=[1;37];
+    game.global.quick_select=[10,11,13,15,16,17,19,20];
+    game.weapon_progress.quick_select.second=[23,24,25,0,0,0,0,0];
+    let widget=menu.widgets.get_mut(&SOUND_W).unwrap();
+    widget.data=Data::Slots{slots:[0;8],cursor:0};
+    pages::slots_enter(&mut menu,SOUND_W,&game);
+    let expected=game.global.quick_select;
+    let mut out=MenuOut::default();
+    pages::slots_update(&mut menu,SOUND_W,&press(button::R2),&mut game,&mut out);
+    assert_eq!(game.weapon_progress.quick_select.ring,1);
+    assert!(matches!(&menu.widgets[&SOUND_W].data,Data::Slots{slots,..} if *slots==[23,24,25,0,0,0,0,0]));
+    pages::slots_update(&mut menu,SOUND_W,&hold(button::R2),&mut game,&mut out);
+    assert_eq!(game.weapon_progress.quick_select.ring,1);
+    if let Data::Slots{slots,..}=&mut menu.widgets.get_mut(&SOUND_W).unwrap().data { slots[3]=14; }
+    pages::slots_update(&mut menu,SOUND_W,&press(button::R2),&mut game,&mut out);
+    assert_eq!(game.weapon_progress.quick_select.second,[23,24,25,14,0,0,0,0]);
+    assert_eq!(game.global.quick_select,expected);
+    pages::slots_update(&mut menu,SOUND_W,&press(button::R2),&mut game,&mut out);
+    pages::slots_leave(&mut menu,SOUND_W,&mut game);
+    pages::slots_enter(&mut menu,SOUND_W,&game);
+    assert_eq!(game.weapon_progress.quick_select.ring,1);
+    assert!(matches!(&menu.widgets[&SOUND_W].data,Data::Slots{slots,..} if slots[3]==14));
+}

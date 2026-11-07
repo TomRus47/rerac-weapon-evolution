@@ -19,6 +19,9 @@
 //!   camera, then renders exactly 800 samples (48 kHz stereo).
 //! * The mix is a pure function of the tick sequence and those inputs, so frame-exact runs give identical
 //!   audio. `RC_AUDIO=0` removes the sound layer's draws from the game stream (the game without sound).
+//! * **Frozen quick select**: missing game frames receive an audio-only EE
+//!   update before their normal IOP output. New ring/mode sounds start while the
+//!   world stays stopped; no emitters, gameplay RNG or extra sample frames run.
 //! * The samples go to a ring buffer read by [`MixerDecoder`], a `rodio::Source` behind the `Decodable` asset
 //!   [`MixerStream`] (bevy_audio 0.19, `add_audio_source`). The reader waits for 50 ms of audio before it
 //!   starts (and again after an underrun, outputting silence meanwhile); the ring is capped at 0.25 s.
@@ -385,6 +388,8 @@ fn run_audio(
     ticks: Res<GameTicks>,
     cams: Query<&Transform, With<crate::fly_cam::FlyCam>>,
     play: Option<Res<crate::gameplay::Play>>,
+    mode: Option<Res<crate::menu_render::MenuMode>>,
+    mut was_quick_select_paused: Local<bool>,
 ) {
     let Some(cam) = cams.iter().next() else { return };
     let eye = crate::game_camera::game_eye(cam);
@@ -394,9 +399,25 @@ fn run_audio(
     let out = &mut *out;
     // With the game tick the EE frames ran in its sound step; fill the ticks it did not run with IOP-only frames.
     let driven = play.is_some();
+    let gameplay = mode.as_ref().is_some_and(|m| m.state.mode == rc_game::menus::mode::Mode::Gameplay);
+    let paused = gameplay && mode.as_ref().is_some_and(|m| m.quick_select_paused);
+    // Include the close frame: GameTick was still held when that frame began.
+    // Other menu/scene modes already own their EE audio update.
+    let quick_select_audio = gameplay && (paused || *was_quick_select_paused);
+    *was_quick_select_paused = paused;
     while out.done < ticks.0 {
         out.buf.clear();
         if driven {
+            if quick_select_audio {
+                if let Some(p) = play.as_ref() {
+                    let game = &p.game;
+                    let h = game.hero.position();
+                    let listener = audio::class_sounds::listener_with_water(&game.camera.out, out.system.underwater, &game.hero);
+                    let frozen_input = FrameInput { listener, hero_pos: h };
+                    out.system.quick_select_frame(&frozen_input, out.done as u32,
+                        &|id| audio::class_sounds::owner_position(&game.mobys, id));
+                }
+            }
             out.system.render(audio::SAMPLES_PER_FRAME, &mut out.buf);
         } else {
             out.system.tick(&input, &mut out.buf);

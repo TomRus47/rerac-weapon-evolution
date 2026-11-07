@@ -1408,6 +1408,12 @@ impl PageMenu {
                 (None, Some(t)) if content >= 0 => t.get(content as usize).copied().unwrap_or(0),
                 _ => a.overlay.u32(addr).unwrap_or(0),
             };
+            if variant != 0 {
+                if let Some((_, native, gold)) = focused_weapon_name {
+                    let ordinary = a.overlay.u32(addr.wrapping_sub(variant as u32 * 4)).unwrap_or(0);
+                    id = weapon_xp::name_id(ordinary, id, native, gold, |name| a.msg_in(name, swapped));
+                }
+            }
             a.msg_in(id as i32, swapped).to_vec()
         } else {
             b"default".to_vec()

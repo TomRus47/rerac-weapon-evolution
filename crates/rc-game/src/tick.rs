@@ -409,7 +409,8 @@ impl Game {
         // environment, right after the body's update.
         if std::mem::take(&mut self.hero.gadgets.wrench_select) {
             if let Some(data) = self.item_data.as_ref() {
-                let ienv = ItemEnv { data, pad: &self.pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), mobys: None, camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &[] };
+                let item_pad=self.pad.clone();
+                let ienv = ItemEnv { data, pad: &item_pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), mobys: None, camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &[] };
                 crate::hero::items::update_hand_selected(&mut self.hero, &mut self.item_globals, &mut self.rng, &ienv);
             }
         }
@@ -439,7 +440,8 @@ impl Game {
                 // The thrown wrench's lines test the mobys' collision too (the doors: crate::hero::comet).
                 let scene = if self.hero.items.slot.detached != 0 { hooks.world.as_deref_mut().and_then(|w| w.scene(&self.mobys)) } else { None };
                 let scene = scene.as_ref().map(OwnedScene::scene);
-                let ienv = ItemEnv { data, pad: &self.pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), mobys: scene.as_ref(), camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &targets };
+                let item_pad=self.pad.clone();
+                let ienv = ItemEnv { data, pad: &item_pad, frame: self.counter as i32, hero_moby: self.hero_moby, coll: Some(coll), mobys: scene.as_ref(), camera: Some((self.camera.out.pos_f32(), self.camera.out.rows_f32()[0])), camera_up: Some(self.camera.out.rows_f32()[2]), targets: &targets };
                 items_update(&mut self.hero, &mut self.item_globals, &mut self.mobys, &*anim, &mut self.rng, &ienv, hits);
                 // The item updates' writes into the pad's released mask 0x13cae8 (the Suck Cannon's put-away with L1 / L2
                 // held: hero::gadgets::Gadgets::released_or).
@@ -471,6 +473,7 @@ impl Game {
                     let mut c = crate::hero::states::Ctx { env: &env, anim: &mut *anim, rng: &mut self.rng, voice: None };
                     crate::hero::gadgets::after_items(&mut self.hero, &mut c, data);
                 }
+                crate::gadget_combat::item_tick(&mut self.hero,&mut self.mobys,anim,&ienv,hits,&mut self.rng);
                 // The hand item's class sounds (the wrench's hit, the Swingshot's fire / hit / pull), right after its
                 // update.
                 crate::hero::gadgets::flush_item_sounds(&mut self.hero, &self.mobys.mobys[self.hero_moby], hero_sounds, &mut self.rng);

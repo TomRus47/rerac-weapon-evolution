@@ -26,8 +26,11 @@
 //! 3. with `f = min(1 − (cam z − sea z)/pvar 11, 1) ≥ 0`: the surface, per layer (FX `pvar 7 + layer + 0x28`, ALPHA
 //!    0x8000000048 additive): four rows of four S×S quads around the camera (x, y from −2S by S, at `cam + (x, y) + 1`),
 //!    ST `x/(2S)·scale + scroll`, colour `FastTweenColor(min(d/(2S), 1), tween(f, 0, pvar 3), tween(f, 0, pvar 4))`, d =
-//!    the vertex's distance to the camera. The callback's fog-intensity override (`0x16d668/c`) is restored before any
-//!    `UpdateViewContext` reads it, so the level fog applies [L].
+//!    the vertex's distance to the camera. The underwater ocean keeps its own authored distance colours: applying
+//!    the world's short-range coloured fog to these additive layers adds the fog colour again per layer, creating
+//!    a purple ceiling. Liquid surface draws share `fog_state::liquid_surface_fog`, including the separate pool
+//!    overlays; world geometry, particles and the full-screen underwater tint keep their existing fog/tint rules.
+//!    Above-water ocean rendering is unchanged.
 //!
 //! **The Hoven liquid 1901** (`0x30be68`, after-ties list): FIX 0x7f `0x64` blend with TEST 0x5360a (Z written) for group
 //! 1 (FX 0x2c, while the camera is in the moby's cuboid; ST + its scroll) and group 2 layer 0 (FX 0x2f, ST + scroll 0),
@@ -390,7 +393,7 @@ pub struct SeaRenderPlugin;
 impl Plugin for SeaRenderPlugin {
     fn build(&self, app: &mut App) {
         if !enabled() { return; }
-        app.init_resource::<SeaDraw>().add_systems(crate::level_switch::LevelUnload, crate::level_switch::reset::<SeaDraw>).add_systems(PostUpdate, draw.before(bevy::asset::AssetEventSystems));
+        app.init_resource::<SeaDraw>().add_systems(crate::level_switch::LevelUnload, crate::level_switch::reset::<SeaDraw>).add_systems(PostUpdate, draw.after(crate::fog_state::FogSet).before(bevy::asset::AssetEventSystems));
     }
 }
 
@@ -434,6 +437,7 @@ fn draw(
     mut materials: ResMut<Assets<FxPrimMaterial>>,
     mut vis: Query<&mut Visibility>,
     particles: Option<Res<crate::particle_render::ParticleSim>>,
+    underwater: Option<Res<crate::fog_state::FogState>>,
 ) {
     let st = state.into_inner();
     let Some(p) = play.as_deref() else { return };
@@ -557,7 +561,10 @@ fn draw(
     }
     // Show the groups in slots 0.., hide the rest.
     let n = groups.len();
-    for (k, g) in groups.into_iter().enumerate() {
+    let submerged = underwater.as_ref().is_some_and(|f| f.underwater_flag());
+    for (k, mut g) in groups.into_iter().enumerate() {
+        // Includes the separate pool overlays (1903/1919), not just ocean 1111.
+        g.fog = crate::fog_state::liquid_surface_fog(g.fog, submerged);
         let img = match g.tex {
             Tex::Fx(i, a) => fx_handle(st, &mut images, fx, i, a),
             Tex::Anim(a) => st.anim_images.get(&a).cloned(),
@@ -609,6 +616,21 @@ fn hide(vis: &mut Query<&mut Visibility>, s: &mut Option<Slot>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn v129_liquid_exemption_keeps_world_and_above_water_fog() {
+        let world = TfragFog {
+            color: Vec4::new(24.0 / 255.0, 48.0 / 255.0, 144.0 / 255.0, 1.0),
+            params: Vec4::new(-0.006, 255.0, 48.0, 255.0),
+        };
+        assert_eq!(crate::fog_state::liquid_surface_fog(world, false), world);
+        let ocean = crate::fog_state::liquid_surface_fog(world, true);
+        assert_eq!(ocean.color.w, 0.0);
+        assert_eq!(ocean.color.truncate(), world.color.truncate());
+        assert_eq!(ocean.params, world.params);
+        assert_eq!(world.color.w, 1.0, "only the ocean's copy is exempt");
+        assert_eq!(crate::fog_state::liquid_surface_fog(ocean, false), ocean, "an existing RC_FOG=0 remains off");
+    }
 
     #[test]
     fn tween_is_per_byte_and_truncates() {

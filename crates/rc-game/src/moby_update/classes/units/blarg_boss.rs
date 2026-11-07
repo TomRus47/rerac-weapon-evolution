@@ -648,3 +648,6 @@ pub fn update(w: &mut World, id: MobyId) {
         _ => {}
     }
 }
+
+/// HP intake for a frozen boss: retain native shields/phases without ticking AI.
+pub(crate) fn frozen_hits(w:&mut World,id:MobyId){hits(w,id);}

@@ -1590,6 +1590,19 @@ mod hit_origin_tests {
     }
 
     #[test]
+    fn frozen_boss_retains_native_phase_shield_and_does_not_bank_rejected_damage(){
+        world(|w|{
+            c::set_pu8(w,1,pv::SHIMMER_MODE,1);
+            let bullet=shot(w,305,15);w.delete_moby(bullet);
+            assert!(crate::gadget_combat::frozen_boss_damage(w,1));
+            assert_eq!(c::pf(w,1,pv::D),60.);assert_eq!(xp(w,15),0.);
+            c::set_pu8(w,1,pv::SHIMMER_MODE,0);
+            assert!(crate::gadget_combat::frozen_boss_damage(w,1));
+            assert_eq!(c::pf(w,1,pv::D),60.);assert_eq!(xp(w,15),0.);
+        });
+    }
+
+    #[test]
     fn umbris_phase_shimmer_still_blocks_damage_and_xp() {
         for mode in [1, 2] {
             world(|w| {
@@ -1619,3 +1632,6 @@ mod hit_origin_tests {
         });
     }
 }
+
+/// HP intake for a frozen boss: retain native shields/phases without ticking AI.
+pub(crate) fn frozen_hits(w:&mut World,id:MobyId){hits(w,id);}

@@ -25,6 +25,7 @@ struct ReactiveDraw {
     morph: FxSlots,
     lava: FxSlots,
     drawn: Option<u64>,
+    frost_mist:FxSlots,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -46,7 +47,15 @@ fn draw(
     let mut rings: Vec<FxGroup> = Vec::new();
     let mut morph: Vec<FxGroup> = Vec::new();
     let mut lava: Vec<FxGroup> = Vec::new();
+    let mut condensation=PrimBuf::default();
     if let Some(p) = play.as_deref().filter(|p| p.svc.game_mode != 2) {
+        for q in rc_game::gadget_combat::ice_quads(&p.svc.gadget_combat) {
+            if lava.last().is_none_or(|group|group.fx!=q.fx) {lava.push(FxGroup{fx:q.fx,additive:true,subtract:false,prims:PrimBuf::default()});}
+            lava.last_mut().unwrap().prims.quad(q.corners,q.st,q.rgba);
+        }
+        for q in rc_game::gadget_combat::condensation_quads(&p.svc.gadget_combat,p.game.counter,p.game.camera.out.pos_f32()) {
+            condensation.quad(q.corners,q.st,q.rgba);
+        }
         let last = p.game.counter.wrapping_sub(1);
         let r = &p.game.hero.weapons.reactive;
         let id = p.game.hero.items.slot.id;
@@ -78,6 +87,9 @@ fn draw(
     let fog = fog.map(|f| f.uniform).unwrap_or_else(|| TfragFog::new(&level.0.fog));
     let tex = level.0.particles.textures.as_ref().map(|t| t.fx_textures.as_slice());
     let mut a = FxAssets { meshes: &mut meshes, images: &mut images, materials: &mut materials, fx: tex, fog };
+    let condensation=if condensation.is_empty(){Vec::new()}else{vec![FxGroup{
+        fx:crate::fx_draw::SOFT_MIST_FX,additive:false,subtract:false,prims:condensation}]};
+    state.frost_mist.show(&mut commands,&mut vis,&mut a,condensation,LIST2_BIAS+114.,"frozen enemy condensation");
     state.vortex.show(&mut commands, &mut vis, &mut a, vortex, LIST2_BIAS + 64.0, "suck vortex");
     state.rings.show(&mut commands, &mut vis, &mut a, rings, LIST1_BIAS + 128.0, "taunter rings");
     state.lava.show(&mut commands, &mut vis, &mut a, lava, LIST2_BIAS + 112.0, "lava stream");

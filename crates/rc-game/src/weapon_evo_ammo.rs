@@ -191,7 +191,8 @@ pub fn reconcile_configured(gs: &mut GameState, session: &mut SessionState, on: 
     }
     let newly_available = available & !mode.available;
     for id in 0..gs.global.owned.len() {
-        if is_weapon(id) && newly_available & (1 << id) != 0 {
+        if is_weapon(id) && newly_available & (1 << id) != 0
+            && !gs.weapon_progress.quick_select.second.contains(&(id as u8)) {
             quick_insert(&mut gs.global.quick_select, id, &mut mode, gs.global.equipped[0]);
         }
     }
@@ -243,6 +244,20 @@ pub fn weighted_item(items: &[usize], ticket: i32) -> Option<usize> {
 mod tests {
     use super::*;
     fn game() -> GameState { GameState::zeroed(rc_formats::save_game::ChunkTables { global: vec![], level: vec![] }) }
+
+    #[test]
+    fn survival_reunlock_reuses_second_ring_without_a_duplicate_first_binding() {
+        let mut gs=game(); let mut session=SessionState::default();
+        gs.weapon_progress.quick_select.ring=1;
+        gs.weapon_progress.quick_select.second[0]=23;
+        for (ammo,visible) in [(1,23),(0,0),(1,23)] {
+            gs.global.ammo[23]=ammo;
+            reconcile(&mut gs,&mut session,true,0);
+            assert_eq!(super::super::quick_select::slots(&gs)[0],visible);
+            assert!(!gs.global.quick_select.contains(&23));
+            assert_eq!(gs.weapon_progress.quick_select.second[0],23);
+        }
+    }
 
     #[test]
     fn custom_thresholds_apply_to_each_weapon_and_never_spend_the_wallet() {

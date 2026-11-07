@@ -93,6 +93,7 @@ pub fn donor(m: &Moby) -> bool {
 }
 
 pub fn weapon(t: &HitTemplate, hero: Option<MobyId>) -> Option<i32> {
+    if t.w20 & crate::gadget_combat::DRILL_HIT!=0 && t.attacker.is_some() {return Some(26);}
     if t.h1a==121 && t.w20 & crate::weapon_evo::wrench::BLAST!=0 && hero.is_some() && t.attacker==hero {return Some(8);}
     Some(match t.h1a {
         0x47 if t.attacker==hero && hero.is_some() => 8,
@@ -146,7 +147,7 @@ impl Events {
         // Direct missile/grenade contact triggers the blast but must not double it.
         if sweep && matches!(item, 10 | 11 | 13 | 20 | 23) && !(item == 23 && t.h1a == 305) { return true; }
         let Some(attacker) = t.attacker else { return false; };
-        let stream = item == 16 || item == 19 || (item == 17 && t.b18 == 5);
+        let stream = item == 26 || item == 16 || item == 19 || (item == 17 && t.b18 == 5);
         let channel = u8::from(item == 19 && t.w20 & TESLA_SECONDARY != 0);
         let phase = if item==8 {self.wrench_serial.saturating_mul(2)+u64::from(t.w20 & crate::weapon_evo::wrench::BLAST!=0)} else if item == 18 { self.melee_serial } else if stream || item == 14 || t.h1a == 168 { self.frame.saturating_mul(2) + channel as u64 } else { u64::MAX };
         let key = (attacker, item, phase);
@@ -169,7 +170,7 @@ impl Events {
         }
         let snapshot = if item == 16 { self.stream_snapshot } else { None };
         let hp = snapshot.map(|s| s.damage_hp_per_second).unwrap_or_else(|| self.source_damage_hp.get(&(attacker, item)).or_else(|| self.values.get(&item)).copied().unwrap_or_else(|| t.damage.to_f32() * HP_SCALE));
-        let hp = if item==8 {t.damage.to_f32()*HP_SCALE} else if item == 19 && t.w20 & TESLA_OVERLAP != 0 {
+        let hp = if item==26 || item==8 {t.damage.to_f32()*HP_SCALE} else if item == 19 && t.w20 & TESLA_OVERLAP != 0 {
             hp * crate::weapon_evo::extra(19, "secondary_beam_damage_percent", 25.0) / 100.0
         } else { hp };
         // Preserve native AI health thresholds; effective HP and XP scale together.
@@ -178,7 +179,7 @@ impl Events {
         if !damage.is_finite() || damage <= 0.0 { return true; }
         if stream {
             if item==16 || item==17 {self.feedback.contact(target,self.frame);}
-            let interval = if item == 17 { 1 } else { snapshot.map(|s| s.interval).unwrap_or(self.stream_intervals[usize::from(item == 19)]).clamp(1, 600) };
+            let interval = if item == 17 || item == 26 { 1 } else { snapshot.map(|s| s.interval).unwrap_or(self.stream_intervals[usize::from(item == 19)]).clamp(1, 600) };
             let pulse = self.streams.entry((target, attacker, item, channel)).or_default();
             pulse.damage += damage;
             pulse.contact_ticks += 1;

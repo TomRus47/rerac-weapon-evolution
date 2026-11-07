@@ -1,6 +1,6 @@
 //! Filled, translucent bursts for earned weapon and Nanotech upgrades. They use
 //! renderer-owned meshes only: no explosion actors, hitboxes or point lights.
-//! Slam bursts use the damage query's captured centre and maximum radius.
+//! Slam and frost bursts use their captured gameplay centre and maximum radius.
 use crate::fx_draw::{FxAssets, FxGroup, FxSlots, PrimBuf};
 use bevy::prelude::*;
 use rc_game::weapon_evo::upgrade_wave::State;
@@ -60,7 +60,9 @@ fn draw(
         wave.appearance(now).map(|(radius,rgba)|(wave.origin,radius,rgba)));
     let slam=play.game.hero.melee.slam_visual.filter(|_| !play.death_pending && play.game.hero.health>0)
         .and_then(|visual|visual.appearance(now).map(|(radius,rgba)|(visual.centre,radius,rgba)));
-    for (origin,radius,rgba) in upgrades.chain(slam) {
+    let frost=play.svc.gadget_combat.frost_bursts.iter().filter_map(|burst|
+        burst.appearance(now).map(|(radius,rgba)|(burst.centre,radius,rgba)));
+    for (origin,radius,rgba) in upgrades.chain(slam).chain(frost) {
         // Filled, evenly colored spherical surface. A neutral texel preserves
         // exact grade RGB; regular alpha blending keeps the world visible.
         let point = |latitude: f32, longitude: f32| {
@@ -120,6 +122,6 @@ fn draw(
         &mut assets,
         groups,
         crate::fx_draw::LIST1_BIAS + 52.,
-        "Upgrade and wrench blast visuals",
+        "Upgrade, wrench and frost blast visuals",
     );
 }

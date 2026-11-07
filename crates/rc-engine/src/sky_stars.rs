@@ -158,7 +158,7 @@ impl Plugin for SkyStarsPlugin {
         app.add_plugins(MaterialPlugin::<SkyStarMaterial>::default())
             .add_systems(crate::level_switch::LevelPostStartup, setup)
             .add_systems(crate::level_switch::LevelUnload, crate::level_switch::remove::<StarSim>)
-            .add_systems(FixedUpdate, star_frame.after(crate::particle_render::tick).after(crate::gameplay::GameTick))
+            .add_systems(FixedUpdate, star_frame.after(crate::particle_render::tick).after(crate::gameplay::GameTick).before(crate::menu_render::MenuFrameSet).run_if(crate::menu_render::quick_select_world_runs))
             .add_systems(PostUpdate, build_meshes);
     }
 }

@@ -4,6 +4,7 @@ use crate::{game_state::{GameState, SessionState}, hero::Hero, inventory::{self,
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU8,Ordering};
 
+pub const PAUSE_KEY:&str="pause_on_quick_select";
 pub const DPAD_KEY:&str="dpad_quick_select";
 pub const R1_KEY:&str="r1_experimental";
 pub const R1_MAX_KEY:&str="r1_experimental_max";
@@ -13,8 +14,8 @@ pub const COLORS:[u32;4]=[0x8000ff00,0x800000ff,0x80ff0000,0x80d050ff];
 /// Mode 0 is native, modes 1/2 select mutually exclusive replacement behaviors.
 /// Optional improvements (triple flame, cluster bombs, dual Tesla, crates and
 /// companion drones) deliberately remain controlled exclusively by the INI.
-pub const MODE_ITEMS:[i32;4]=[16,17,13,23];
-pub const MODE_MAX:[u8;4]=[1,1,1,2];
+pub const MODE_ITEMS:[i32;5]=[16,17,13,23,14];
+pub const MODE_MAX:[u8;5]=[1,1,1,2,1];
 /// The engine's implemented behaviors cap the configurable per-grade ceiling.
 pub fn supported_mode_max(item:i32)->u8 {
     MODE_ITEMS.iter().position(|&id|id==item).map_or(0,|i|MODE_MAX[i])
@@ -27,9 +28,9 @@ pub const fn default_mode_limits()->[[u8;8];37] {
 /// Native backpack order: Heli-Pack, Thruster-Pack, Hydro-Pack.
 const CLANK_PACKS:[i32;3]=[2,3,4];
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
-pub struct Settings {pub dpad:bool,pub r1:bool}
+pub struct Settings {pub dpad:bool,pub r1:bool,pub pause_quick_select:bool}
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
-pub struct State {pub dpad:[u8;4],pub modes:[u8;4]}
+pub struct State {pub dpad:[u8;4],pub modes:[u8;5]}
 impl State {
     pub fn valid(&self)->bool {
         self.dpad.iter().all(|&id|id<=32) && self.modes.iter().zip(MODE_MAX).all(|(&value,max)|value<=max)
@@ -62,9 +63,9 @@ impl State {
 /// Simultaneous/diagonal presses are ignored rather than equipping two items.
 pub fn direction(raw_pressed:u32)->Option<usize>{let mask=raw_pressed&DIRECTION_MASK;(mask.count_ones()==1).then(||DIRECTIONS.iter().position(|&b|b==mask)).flatten()}
 static FLAGS:AtomicU8=AtomicU8::new(0);
-pub(super) fn publish(settings:Settings){FLAGS.store(1|u8::from(settings.dpad)*2|u8::from(settings.r1)*4,Ordering::Relaxed);}
+pub(super) fn publish(settings:Settings){FLAGS.store(1|u8::from(settings.dpad)*2|u8::from(settings.r1)*4|u8::from(settings.pause_quick_select)*8,Ordering::Relaxed);}
 pub(super) fn disable(){FLAGS.store(0,Ordering::Relaxed);}
-pub fn settings()->Settings{let f=FLAGS.load(Ordering::Relaxed);Settings{dpad:f&2!=0,r1:f&4!=0}}
+pub fn settings()->Settings{let f=FLAGS.load(Ordering::Relaxed);Settings{dpad:f&2!=0,r1:f&4!=0,pause_quick_select:f&8!=0}}
 pub fn active()->bool{FLAGS.load(Ordering::Relaxed)&1!=0}
 
 /// Native hold/vehicle/alternate-body states retain complete control of input.
@@ -129,12 +130,13 @@ pub fn equip(state:&State,raw_pressed:u32,gs:&GameState,sess:&mut SessionState,h
     };
     inventory::set_request(sess,slot,requested);true
 }
-/// Replace exactly four behavior switches. Every tuning parameter and every
+/// Replace the supported behavior switches. Every tuning parameter and every
 /// excluded weapon enhancement stays at the current grade's original INI value.
 pub(super) fn apply_registry(settings:Settings,state:&State,registry:&mut HashMap<(i32,String),f32>,max:impl Fn(i32)->u8){
     if !settings.r1{return;}
     for (item,key,on) in [(17,"flame_mine_enabled",state.mode_limited(17,max(17))==Some(1)),
         (13,"grenade_launcher_enabled",state.mode_limited(13,max(13))==Some(1)),
+        (14,"offensive_taunt_enabled",state.mode_limited(14,max(14))==Some(1)),
         (23,"continuous_missiles_enabled",state.mode_limited(23,max(23))==Some(1)),
         (23,"shotgun_enabled",state.mode_limited(23,max(23))==Some(2))] {
         registry.insert((item,key.into()),f32::from(u8::from(on)));
@@ -160,7 +162,7 @@ fn gadget_input_layout_allowed(h: &Hero) -> bool {
 /// Gadget-only phases do not widen `direct_control` or quick-equip permissions.
 pub fn hero_gameplay_pad(pad: &PadState, h: &Hero, enabled: bool, dpad: bool) -> PadState {
     let locked = crate::hero::combat_strafe::active(h);
-    if enabled && (input_layout_allowed(h) || gadget_input_layout_allowed(h)) {
+    let mut result=if enabled && (input_layout_allowed(h) || gadget_input_layout_allowed(h)) {
         let item = if h.items.slot.id > 0 { h.items.slot.id } else { h.items.target };
         // A disguise's Circle action is its salute, even if the hidden hand is
         // still the wrench. It must never become Square (leave the disguise).
@@ -168,7 +170,13 @@ pub fn hero_gameplay_pad(pad: &PadState, h: &Hero, enabled: bool, dpad: bool) ->
         gameplay_pad(pad, item, true, dpad && input_layout_allowed(h), locked)
     } else {
         crate::hero::combat_strafe::gameplay_pad_for_weapon(pad, locked, h.items.slot.id)
+    };
+    if h.gadget_combat.holding && h.items.slot.id==26 && pad.held&(button::CIRCLE|button::R2)!=0 {
+        result.lx=Pf::ZERO;result.ly=Pf::ZERO;
+        let movement=button::UP|button::DOWN|button::LEFT|button::RIGHT|button::CROSS;
+        result.held&=!movement;result.pressed&=!movement;result.raw&=!movement;result.raw_pressed&=!movement;
     }
+    result
 }
 
 /// Gameplay-only semantic pad. Physical R2 and Circle are one logical trigger;
@@ -180,7 +188,7 @@ pub fn gameplay_pad(pad:&PadState,item:i32,enabled:bool,dpad:bool,locked:bool)->
     let consumed=button::R2|fire|if locked{button::L2}else{0};
     let alias=|mask:u32| {
         let mut out=mask&!(button::R2|if locked{button::L2}else{0});
-        if mask&button::R2!=0{out|=fire;}
+        if pad.held_unmirrored & button::TRIANGLE == 0 && mask&button::R2!=0{out|=fire;}
         out
     };
     let mut out=pad.clone();
@@ -200,8 +208,10 @@ pub fn gameplay_pad(pad:&PadState,item:i32,enabled:bool,dpad:bool,locked:bool)->
         out.hist_pressed[newest]=(out.hist_pressed[newest]&!logical)|(out.pressed&logical);
     }
     let pressure=if item==8{7}else{5};
-    out.pressure[pressure]=out.pressure[pressure].max(pad.pressure[11]);
-    out.analog_copy[pressure+4]=out.analog_copy[pressure+4].max(pad.analog_copy[15]);
+    if pad.held_unmirrored & button::TRIANGLE == 0 {
+        out.pressure[pressure]=out.pressure[pressure].max(pad.pressure[11]);
+        out.analog_copy[pressure+4]=out.analog_copy[pressure+4].max(pad.analog_copy[15]);
+    }
     out.pressure[11]=Pf::ZERO;
     out.analog_copy[15]=Pf::ZERO;
     if dpad {

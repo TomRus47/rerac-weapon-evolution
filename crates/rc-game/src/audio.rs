@@ -695,6 +695,16 @@ impl AudioSystem {
         self.stats.max_slots = self.stats.max_slots.max(self.slots.slots.iter().filter(|s| s.state != voices::state::FREE).count());
     }
 
+    /// Audio-only EE update for the frozen quick-select ring. The caller owns
+    /// the 60 Hz output clock and still renders exactly one sample frame after
+    /// this call. No emitters, gameplay ticks or game RNG draws run here; audio
+    /// slots and music use the audio system's private random stream.
+    pub fn quick_select_frame(&mut self, input: &FrameInput, frame: u32, owner_pos: &dyn Fn(u32) -> Option<[f32; 3]>) {
+        let mut rng = self.rng;
+        self.sound_update_with(input, frame, &mut rng, owner_pos);
+        self.rng = rng;
+    }
+
     /// The IOP / SPU part: run the queued commands (their replies reach the EE next frame), then `n` samples
     /// with a 989snd tick every 200.
     pub fn render(&mut self, n: usize, out: &mut Vec<[i16; 2]>) {
@@ -865,6 +875,49 @@ pub fn wav_bytes(samples: &[[i16; 2]]) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn v129_quick_select_starts_menu_sounds_without_a_game_frame_or_duplicate_start() {
+        use rc_formats::sound_bank::{ClassSounds, SfxHeader, Sound, SoundDef};
+        use crate::menus::MenuSound;
+        let data = LevelAudio {
+            bank: Arc::new(Bank { file_type: 3, chunks: [(0, 0); 2],
+                header: SfxHeader::default(),
+                sounds: vec![Sound { vol: 127, vol_group: 1, pan: 0,
+                    instance_limit: 0, flags: 0, first_grain: 0, grains: 0..0 }],
+                grains: vec![], vags: vec![], samples: vec![] }),
+            sounds: LevelSounds { classes: vec![ClassSounds {
+                o_class: class_sounds::PRIVILEGED_CLASS as i32,
+                bank_ids: vec![0; 5], defs: vec![SoundDef::default(); 5], header_count: Some(5),
+            }], ..Default::default() },
+            instances: vec![], instance_pvars: vec![],
+            music: std::array::from_fn(|_| None), env_points: vec![], collision: None,
+        };
+        let input = FrameInput { listener: Listener::default(), hero_pos: [0.0; 3] };
+        for event in [MenuSound::Confirm, MenuSound::PageChange] {
+            let mut sys = AudioSystem::new(data.clone());
+            let mut event_rng = crate::rng::Rng { state: 1234 };
+            let slot = sys.play_class_sound(&event.event(100), None, &input.listener, &mut event_rng);
+            assert!(slot >= 0);
+            let slot = slot as usize;
+            assert_eq!(sys.slots.slots[slot].state, voices::state::START_PENDING);
+            // Reproduce v128: IOP-only output cannot start this EE-side slot.
+            sys.render(SAMPLES_PER_FRAME, &mut Vec::new());
+            assert_eq!(sys.stats.plays, 0);
+            assert_eq!(sys.slots.slots[slot].state, voices::state::START_PENDING);
+            let samples = sys.stats.samples;
+            sys.quick_select_frame(&input, 101, &|_| None);
+            assert_eq!(sys.stats.plays, 1, "the sound starts while world tick 100 stays frozen");
+            assert_eq!(sys.slots.slots[slot].state, voices::state::PLAYING);
+            assert_eq!(sys.stats.frames, 0, "no game frame, emitters or level start ran");
+            assert_eq!(sys.stats.samples, samples, "the output clock still owns rendering");
+            assert_eq!(sys.snd_cmds.iter().filter(|c| matches!(c, voices::SndCommand::Play { .. })).count(), 1);
+            sys.render(SAMPLES_PER_FRAME, &mut Vec::new());
+            sys.quick_select_frame(&input, 102, &|_| None);
+            assert_eq!(sys.stats.plays, 1, "resuming/updating cannot replay the selection sound");
+            assert_eq!(sys.stats.frames, 0);
+        }
+    }
 
     #[test]
     fn gauss_rows_sum_to_unity() {

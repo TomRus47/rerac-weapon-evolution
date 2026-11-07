@@ -25,7 +25,8 @@ def self_test(destination):
         root.update_idletasks()
         result = {'frozen': bool(getattr(sys,'frozen',False)), 'launcher_version': core.VERSION,
                   'application_folder': str(core.KIT), 'gui_ok': True,
-                  'saved_controls_ui': all(key in schema.BOOLEANS and key in schema.GLOBAL_STANDARD_DEFAULTS for key in ('dpad_quick_select','r1_experimental')),
+                  'freezer_recharge_ui': ('recharge_seconds' in schema.GADGET_DEFAULTS['hydrodisplacer'] and core.numeric_range('gadget.hydrodisplacer','recharge_seconds') == (0.1,3600)),
+                  'saved_controls_ui': all(key in schema.BOOLEANS and key in schema.GLOBAL_STANDARD_DEFAULTS for key in ('dpad_quick_select','r1_experimental','pause_on_quick_select')),
                   'wrench_trail_ui': 'trail_color' in schema.EXTRA[8].split(),
                   'ngplus_difficulty_ui': list(schema.WORLD_DEFAULTS)[0]=='ngplus_multiplier',
                   'eight_grade_ui': len(schema.XP)==7 and 'hide_ryno' in schema.GLOBAL_STANDARD_DEFAULTS,
@@ -71,6 +72,22 @@ def self_test(destination):
             assert all(v.get()=='false' for v in app.variables.values())
             frame.destroy()
         result['feedback_controls_ui'] = True
+        # Render and exercise the new global switch before accepting this EXE.
+        frame = ttk.Frame(root)
+        app.page = 'global'
+        pair = ('general', 'pause_on_quick_select')
+        app.variables = {pair: tk.StringVar(master=root, value='false')}
+        app.fields(frame, pair[0], [pair[1]])
+        root.update_idletasks()
+        controls = [w for w in descendants(frame) if isinstance(w, ttk.Combobox)]
+        assert len(controls) == 1 and tuple(controls[0]['values']) == ('Off', 'On')
+        for display, value in [('On', 'true'), ('Off', 'false')]:
+            controls[0].set(display)
+            controls[0].event_generate('<<ComboboxSelected>>')
+            root.update()
+            assert app.variables[pair].get() == value
+        frame.destroy()
+        result['dual_quick_select_ui'] = True
         result['moving_wrench_gui_grades'] = 8
         result['moving_wrench_gui_options'] = ['Off', 'On']
         progress('checking all preloaded pages')

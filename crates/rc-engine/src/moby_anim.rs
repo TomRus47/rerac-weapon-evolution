@@ -187,7 +187,7 @@ pub struct MobyAnimPlugin;
 impl Plugin for MobyAnimPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Time::<Fixed>::from_hz(60.0))
-            .add_systems(FixedUpdate, tick)
+            .add_systems(FixedUpdate, tick.run_if(crate::menu_render::quick_select_world_runs).before(crate::menu_render::MenuFrameSet))
             .add_systems(PostUpdate, upload_palette.after(crate::moby_render::update_moby_occlusion));
     }
 }

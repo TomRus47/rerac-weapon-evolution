@@ -397,6 +397,7 @@ const HELP_COLOUR: u32 = 0x00ff_a888;
 /// Per-tick game values the HUD elements read.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Inputs {
+    pub freezer:Option<crate::gadget_combat::freezer::Hud>,
     pub weapon_bar_alternative_position:bool,
     pub weapon_bar_height:i32,
     pub bolt_chain:u8,
@@ -479,7 +480,7 @@ pub struct Inputs {
 impl Default for Inputs {
     /// Before the first frame reads the game state: 4 / 4, no bolts, no slot, nothing under way.
     fn default() -> Self {
-        Inputs { weapon_bar_alternative_position:false,weapon_bar_height:5,bolt_chain:0,bolt_multiplier_tenths:10,
+        Inputs { freezer:None,weapon_bar_alternative_position:false,weapon_bar_height:5,bolt_chain:0,bolt_multiplier_tenths:10,
             hp: 4,
             max_hp: 4,
             bolts: 0,
@@ -1688,7 +1689,7 @@ impl HudState {
         if self.inputs.body != 0 || self.inputs.mode != 0 || self.weapon_evo_swimming() { return None; }
         if self.slots[0].slide > 0 {
             if let Element::Weapon { item } = self.slots[0].element {
-                if crate::weapon_evo::WEAPON_IDS.contains(&(item as i32)) { return Some(item as i32); }
+                if item==22 || crate::weapon_evo::WEAPON_IDS.contains(&(item as i32)) { return Some(item as i32); }
             }
         }
         if self.weapon_gate == 0 && without_ammo && self.evo_no_ammo_slide > 0 {
@@ -1715,7 +1716,10 @@ impl HudState {
         out.push(Self::sprite(cap, x - 0x1c, y, 32, 32, bar_a, Rot::None));
         out.push(Self::sprite(mid, x + 4, y, x0 + lw, 32, bar_a, Rot::None));
         out.push(Self::sprite(cap, x + 4 + x0 + lw, y, 32, 32, bar_a, Rot::R180));
-        self.hud_frame(i, self.assets.icon_frame(s.icon, 3), x, y, 0, a, out);
+        // Item 22 has no native ammo entry. Its Freezer panel has no ammo icon.
+        if s.element != (Element::Weapon{item:22}) {
+            self.hud_frame(i, self.assets.icon_frame(s.icon, 3), x, y, 0, a, out);
+        }
         let text = format!("{}/{}", s.shown, s.max).into_bytes();
         let colour = if s.shown != 0 { tween_color(sf, TEXT_FROM, TEXT_TO) } else { tween_color(sf, EMPTY_FROM, EMPTY_TO) };
         let shadow = tween_color(sf, 0, 0x8000_0000);

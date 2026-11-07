@@ -17,8 +17,8 @@
 //! vertex A = 0 (As = 0 fails, AFAIL RGB_ONLY: colour, never Z), ZTST GEQUAL, CLAMP 0 (repeat), TEX1 bilinear
 //! without mips, MODULATE, FGE. The blend is `GsPass::BlendNoZ` (SrcAlpha / OneMinusSrcAlpha, no depth write,
 //! GreaterEqual) with FIX/128 **baked into the fragment alpha** (not `BlendFactor::Constant`: Bevy's material
-//! draw has no per-draw blend constant). The GPU mixes in linear light, the GS on display bytes (as for every
-//! blended pass, gs_state.rs).
+//! draw has no per-draw blend constant). DisplayEffect routes both layers through the shared display-byte
+//! target, with premultiplied FIX blending; geometry, depth tests and callback ordering are unchanged.
 //!
 //! **Strips.** One static mesh per strip (the GS tri-strip as a `TriangleStrip`), two materials (layer 1 / 2).
 //! Per rendered frame (`FUN_002b96e0` runs in the draw callback, so once per frame on which a tick ran):
@@ -39,6 +39,8 @@
 //! emits water/env per sub-block; sub-blocks do not overlap, so per patch is the same image. A patch's FX / FIX
 //! are read every drawn frame (levels 11 / 12 set them when the patch's moby builds it, 07 / 13 copy the module's
 //! FIX every tick).
+//! While the camera is submerged, these layered liquid materials use the same
+//! surface-fog exemption as `sea_render`; world fog and the screen tint remain.
 //!
 //! **Buffers.** The materials never change after setup (except the fog uniform, on a fog change, and a patch's
 //! FX / FIX), so Bevy does not re-prepare them: the per-frame values live in two storage buffers every water
@@ -211,6 +213,9 @@ impl Material for WaterMaterial {
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.cull_mode = None;
         GsPass::BlendNoZ.specialize(descriptor);
+        // FIX blends display bytes on the GS. Linear-light blending lifts the
+        // dark surface/reflection layers, especially under Pokitaru water.
+        crate::display_blend::specialize(descriptor);
         descriptor.vertex.buffers = vec![layout.0.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             ATTRIBUTE_WATER_Z1.at_shader_location(1),
@@ -288,8 +293,8 @@ impl Plugin for WaterPlugin {
         app.add_plugins(MaterialPlugin::<WaterMaterial>::default())
             .add_systems(crate::level_switch::LevelStartup, (setup, fire_field_setup))
             .add_systems(crate::level_switch::LevelUnload, (crate::level_switch::remove::<WaterState>, crate::level_switch::remove::<FireFieldDraw>))
-            .add_systems(FixedUpdate, tick)
-            .add_systems(PostUpdate, (draw, draw_fire_fields).before(bevy::asset::AssetEventSystems));
+            .add_systems(FixedUpdate, tick.run_if(crate::menu_render::quick_select_world_runs).before(crate::menu_render::MenuFrameSet))
+            .add_systems(PostUpdate, (draw.after(crate::fog_state::FogSet), draw_fire_fields).before(bevy::asset::AssetEventSystems));
     }
 }
 
@@ -397,7 +402,7 @@ fn setup(
     let mut ripple_at = usize::MAX;
     let mut patch_mesh_handle: Option<Handle<Mesh>> = None;
     let spawn = |commands: &mut Commands, mesh: Handle<Mesh>, mat: Handle<WaterMaterial>, vis: Visibility, name: String| {
-        commands.spawn((Mesh3d(mesh), MeshMaterial3d(mat), Transform::IDENTITY, NoFrustumCulling, vis, Name::new(name))).id()
+        commands.spawn((Mesh3d(mesh), MeshMaterial3d(mat), Transform::IDENTITY, NoFrustumCulling, vis, crate::display_blend::DisplayEffect, Name::new(name))).id()
     };
     // The patch records as the manager's init hands them over (their FX and FIX; levels 11 / 12 set them later).
     let records = lw.data.as_ref().and_then(|d| d.patch_records()).map(<[_]>::to_vec).unwrap_or_default();
@@ -558,12 +563,15 @@ fn draw(
     mut buffers: ResMut<Assets<ShaderBuffer>>,
     mut vis: Query<&mut Visibility>,
     frame: Res<crate::display::GameFrame>,
+    underwater: Option<Res<crate::fog_state::FogState>>,
 ) {
     let Some(mut st) = state else { return };
     let st = &mut *st;
     if st.ticks == st.drawn_ticks { return; }
     st.drawn_ticks = st.ticks;
-    let fog = fog.map(|f| f.uniform).unwrap_or_else(|| TfragFog::new(&level.0.fog));
+    let fog = crate::fog_state::liquid_surface_fog(
+        fog.map(|f| f.uniform).unwrap_or_else(|| TfragFog::new(&level.0.fog)),
+        underwater.as_ref().is_some_and(|f| f.underwater_flag()));
     // The fog uniform is the only material field that changes: written only when the frame's fog differs.
     if fog != st.fog {
         st.fog = fog;

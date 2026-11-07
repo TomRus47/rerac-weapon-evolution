@@ -1370,3 +1370,6 @@ pub fn beam_quads(table: &crate::moby_runtime::MobyTable, svc: &crate::moby_upda
 }
 
 fn cross(a: [f32; 4], b: [f32; 4]) -> [f32; 4] { [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0], 0.0] }
+
+/// HP intake for a frozen boss: retain native shields/phases without ticking AI.
+pub(crate) fn frozen_hits(w:&mut World,id:MobyId){hits(w,id);}

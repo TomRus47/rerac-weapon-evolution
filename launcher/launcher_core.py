@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from schema import WEAPONS, XP, NAMES, BOOLEANS, COLORS, BOMB, PYRO, HUD, INTEGER, EXTRA
 
-VERSION = '0.29.6'
+VERSION = '0.30.2'
 KIT = application_folder(__file__)
 PREVIOUS = (
     'ReRAC_Weapon_Evolution_v0.1.6.36_Fix_Munizioni_Negozio_Editabile',
@@ -97,6 +97,8 @@ class IniDocument:
         return (b'\xef\xbb\xbf' if self.bom else b'') + ''.join(lines).encode('utf-8')
 
 def allowed_keys(section):
+    from schema import GADGET_DEFAULTS
+    if section.startswith('gadget.') and section[7:] in GADGET_DEFAULTS: return set(GADGET_DEFAULTS[section[7:]])
     if section == 'general':
         from schema import GLOBAL_EXPERIMENTAL_DEFAULTS, GLOBAL_STANDARD_DEFAULTS
         return {'xp_per_damage', 'damage_mode', *GLOBAL_EXPERIMENTAL_DEFAULTS, *GLOBAL_STANDARD_DEFAULTS}
@@ -379,7 +381,7 @@ def live_restart_fields(before, after):
             'extra_enemy_prefer_large','enemy_damage_by_health','nanotech_xp_per_upgrade','nanotech_max_health','nanotech_progression_max_health',
             'experimental_ammo_unlock_mode', 'golden_bolts_to_weapons',
             'golden_bolts_early_bias_percent', 'golden_bolts_one_weapon_per_planet',
-            'hide_ryno', 'randomizer_mode', 'damage_mode'}
+            'hide_ryno', 'randomizer_mode', 'damage_mode', *schema_randomizer_extra_keys()}
     cold.update(key for section,key in after.entries if section=='general' and key.startswith('ammo_'))
     return sorted(key for section,key in after.entries if section=='general' and key in cold
                   and after.entries[section,key]!=before.entries.get((section,key)))
@@ -633,3 +635,30 @@ _required_config_before_burst_tracking = required_config
 def required_config(doc):
     previous=_required_config_before_burst_tracking(doc)
     return max(93,previous) if doc.entries.get(('general','enemy_burst_tracking'),'false').lower() in {'true','on','1'} else previous
+
+
+_quick_select_required_config = required_config
+def required_config(doc):
+    previous = _quick_select_required_config(doc)
+    enabled = doc.entries.get(('general', 'pause_on_quick_select'), 'false').lower() in {'true','on','1'}
+    return max(94, previous) if enabled else previous
+
+_previous_required_config_v130 = required_config
+def required_config(doc):
+    from schema import RANDOMIZER_SITE_DEFAULTS
+    if any(key == 'offensive_taunt_enabled' or (section=='general' and key in RANDOMIZER_SITE_DEFAULTS) for section, key in doc.entries): return 95
+    return _previous_required_config_v130(doc)
+
+def schema_randomizer_extra_keys():
+    from schema import RANDOMIZER_EXTRA_KEYS
+    return RANDOMIZER_EXTRA_KEYS
+
+_gadget_previous_range=numeric_range
+def numeric_range(section,key):
+    if section.startswith('gadget.'):
+        from schema import GADGET_RANGES
+        return GADGET_RANGES.get(key,(0,1_000_000))
+    return _gadget_previous_range(section,key)
+_gadget_previous_required=required_config
+def required_config(doc):
+    return max(97 if doc.entries.get(('gadget.hydrodisplacer','enabled'),'false').lower() in {'true','on','1','yes'} else 0,96 if any(s.startswith('gadget.') and doc.entries.get((s,'enabled'),'false').lower() in {'true','1','yes'} for s in doc.sections) else 0,_gadget_previous_required(doc))

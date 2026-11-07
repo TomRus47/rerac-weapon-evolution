@@ -36,15 +36,22 @@ def run(args,env,source):
 
 
 def probe(compiler,env,source):
-    """Execute the real binary and compile metadata, not just a Rustup proxy."""
+    """Compile, link and run a test before Cargo clean, including libtest/MSVC."""
     version=run([compiler,'--version'],env,source)
     if not version.startswith('rustc '):raise ValueError('Unexpected Rust compiler identity: '+version)
+    if os.name=='nt':
+        sysroot=Path(run([compiler,'--print','sysroot'],env,source))
+        libraries=list((sysroot/'lib/rustlib/x86_64-pc-windows-msvc/lib').glob('libtest-*.rlib'))
+        if not libraries:raise ValueError('Rust libtest is missing from the selected toolchain.')
+        if any(len(str(p))>=250 for p in libraries):
+            raise ValueError('The Rust library path is too long for MSVC; selecting a short private toolchain.')
     with tempfile.TemporaryDirectory(prefix='rerac-rust-probe-') as folder:
         path=Path(folder);code=path/'compiler_probe.rs'
-        code.write_text('pub fn compiler_probe() -> usize { std::mem::size_of::<usize>() }\n')
-        run([compiler,'--crate-name','rerac_compiler_probe','--crate-type','lib',
-             '--emit=metadata',code,'-o',path/'compiler_probe.rmeta'],env,source)
-        if not (path/'compiler_probe.rmeta').is_file():raise ValueError('Rust did not produce probe metadata.')
+        code.write_text('#[test] fn compiler_probe() { assert_eq!(2 + 2, 4); }\n')
+        binary=path/('compiler_probe.exe' if os.name=='nt' else 'compiler_probe')
+        run([compiler,'--crate-name','rerac_compiler_probe','--test',code,'-o',binary],env,source)
+        if not binary.is_file():raise ValueError('Rust did not link the compiler test.')
+        run([binary],env,source)
     return version
 
 
@@ -77,7 +84,30 @@ def ensure_rust_compiler(source,bundle):
         os.environ.clear();os.environ.update(env)
         print('Rust compiler verified: '+version,flush=True)
         return
-    tools=bundle/'build-tools'
+    # v126.1/v128 kept the recovered compiler in a short, explicitly marked
+    # per-user copy. A standalone source kit can reuse it without the old kit
+    # folder and without downloading another full toolchain.
+    local=value(initial,'LOCALAPPDATA')
+    short_root=Path(local)/'WE-build' if local else None
+    if short_root and short_root.is_dir():
+        candidates=sorted(short_root.glob('r126-*'),key=lambda p:p.name)[:32]
+        for home in candidates:
+            try:
+                if not re.fullmatch(r'r126-[0-9a-f]{10}',home.name):continue
+                if home.is_symlink() or home.resolve().parent!=short_root.resolve():continue
+                record=json.loads((home/'.we126-copy.json').read_text(encoding='utf-8'))
+                if record.get('channel')!=CHANNEL or not isinstance(record.get('source'),str):continue
+                env=dict(initial);put(env,'RUSTUP_HOME',home);put(env,'RUSTUP_TOOLCHAIN',CHANNEL)
+                env,version=checked_environment(rustup,env,source)
+            except (OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError):
+                continue
+            os.environ.clear();os.environ.update(env)
+            print('Reusing short private Rust compiler: '+str(home),flush=True)
+            print('Rust compile/link/run probe passed: '+version,flush=True)
+            return
+    # A nested Desktop source kit can put libtest beyond MSVC's path limit.
+    # Keep recovery tools in a short per-user cache, never in global Rust.
+    tools=Path(value(initial,'LOCALAPPDATA'))/'WE-build/compiler' if value(initial,'LOCALAPPDATA') else bundle/'build-tools'
     # Reuse only explicitly marked compiler caches from sibling Weapon Evolution
     # test kits. This avoids downloading Rust again for every gameplay hotfix.
     cache_tools=[tools]
@@ -101,7 +131,7 @@ def ensure_rust_compiler(source,bundle):
         print('Reusing verified Rust toolchain: '+str(home),flush=True)
         print('Separate Rust compiler verified: '+version,flush=True)
         return
-    tools.mkdir(exist_ok=True)
+    tools.mkdir(parents=True,exist_ok=True)
     marker=tools/'verified-rust.json'
     home=tools/('rustup-'+str(time.time_ns()))
     env=dict(initial);put(env,'RUSTUP_HOME',home);put(env,'RUSTUP_TOOLCHAIN',CHANNEL)

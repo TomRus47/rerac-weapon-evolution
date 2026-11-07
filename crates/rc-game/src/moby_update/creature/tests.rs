@@ -1371,3 +1371,30 @@ fn burst_launch_option_preserves_speed_decoys_and_native_hoven_turret_exception(
     assert_eq!(burst::velocity(&w,1,None,origin,native),native);
     w.svc.game_mode=2;assert_eq!(burst::velocity(&w,1,Some(2),origin,native),native);
 }
+
+#[test]
+fn taunter_pure_mode_keeps_lure_and_xp_without_damage_stun_or_launch() {
+    for manual in [false,true] { for offensive in [false,true] {
+        let mut s=evolution_sim(749,0.75);enable_special_tracks(&mut s);
+        s.hero.rot[2]=Pf::f((-30.0f32).atan2(-30.0));
+        let e=&mut s.svc.bomb_evo;
+        let t=e.extras.iter_mut().find(|t|t.id==14).unwrap();
+        for (key,value) in [("offensive_taunt_enabled",f32::from(u8::from(offensive))),
+            ("damage_per_second",0.1),("damage_range",100.),("stun_range",100.),
+            ("stun_duration_ticks",45.),("stun_efficiency_percent",100.),("stun_launch_distance",4.)] {
+            t.params[0].insert(key.into(),value);
+        }
+        e.control_settings.r1=manual;e.r1_experimental_max[14][0]=1;
+        let mut choices=e.controls();choices.modes[4]=u8::from(offensive);e.set_controls(choices);
+        // With manual R1 On, the saved mode overrides the launcher switch.
+        if manual {e.extras.iter_mut().find(|t|t.id==14).unwrap().params[0].insert("offensive_taunt_enabled".into(),f32::from(u8::from(!offensive)));}
+        let mut w=World::new(&mut s.table,&s.hero,&mut s.rng,&s.classes,&mut s.svc,60);
+        w.hero_moby=Some(0);let mut crates=0;
+        let (lured,_)=crate::hero::taunter::lure(&mut w,&[1],[150.,150.,10.],100.,&mut crates);
+        assert_eq!(lured,vec![1]);assert!(special_xp(&w,14)>0.);
+        assert_eq!(w.svc.evo_stuns.frozen(1,749,60),offensive);
+        assert_eq!(w.svc.evo_stuns.launch_step(1).is_some(),offensive);
+        assert_eq!(w.svc.hits.next>0,offensive,"pure lure must not enqueue a zero-damage recoil either");
+        assert_eq!(pf(&w,1,0x20),0.75,"lure must not write HP outside the hit resolver");
+    }}
+}

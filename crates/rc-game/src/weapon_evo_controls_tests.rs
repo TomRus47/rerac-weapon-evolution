@@ -84,13 +84,13 @@ fn manual_modes_override_only_four_switches_and_leave_tuning_unchanged() {
         registry.insert((id,key.into()),73.);
     }
     let original=registry.clone();
-    let state=State{modes:[1,1,1,2],..Default::default()};
-    apply_registry(Settings{r1:false,dpad:false},&state,&mut registry,supported_mode_max);assert_eq!(registry,original);
-    apply_registry(Settings{r1:true,dpad:false},&state,&mut registry,supported_mode_max);
+    let state=State{modes:[1,1,1,2,0],..Default::default()};
+    apply_registry(Settings{r1:false,dpad:false,..Default::default()},&state,&mut registry,supported_mode_max);assert_eq!(registry,original);
+    apply_registry(Settings{r1:true,dpad:false,..Default::default()},&state,&mut registry,supported_mode_max);
     assert_eq!(registry[&(23,"shotgun_enabled".into())],1.);
     assert_eq!(registry[&(23,"continuous_missiles_enabled".into())],0.);
     for (k,v) in original{assert_eq!(registry[&k],v);}
-    apply_registry(Settings{r1:true,dpad:false},&State::default(),&mut registry,supported_mode_max);
+    apply_registry(Settings{r1:true,dpad:false,..Default::default()},&State::default(),&mut registry,supported_mode_max);
     assert_eq!(registry[&(17,"flame_mine_enabled".into())],0.);
 }
 #[test]
@@ -102,7 +102,7 @@ fn saved_modes_choose_grade_ammo_without_mutating_the_ini() {
     let mut e=Evolution::parse(&raw).unwrap();assert!(e.control_settings.r1 && e.control_settings.dpad);
     assert!(!e.effective_pyro().lava.enabled);
     let track=e.extras.iter().find(|t|t.id==23).unwrap();assert_eq!(e.track_ammo_capacity(track),Some(50));
-    let mut state=State::default();state.modes=[1,0,0,2];e.set_controls(state);
+    let mut state=State::default();state.modes=[1,0,0,2,0];e.set_controls(state);
     assert!(e.effective_pyro().lava.enabled);
     let track=e.extras.iter().find(|t|t.id==23).unwrap();assert_eq!(e.track_ammo_capacity(track),Some(7));
     assert_eq!(track.params[0]["shotgun_enabled"],1.);
@@ -111,14 +111,14 @@ fn saved_modes_choose_grade_ammo_without_mutating_the_ini() {
 }
 #[test]
 fn companion_v8_keeps_each_slots_choices_and_v7_loads_with_native_modes() {
-    let mut a=Progress::default();a.controls=State{dpad:[15,4,1,8],modes:[1,1,0,2]};
+    let mut a=Progress::default();a.controls=State{dpad:[15,4,1,8],modes:[1,1,0,2,0]};
     a.tracks[1].xp=17.;a.nanotech.xp=9.;a.gold_spent=4;
     let b=Progress::default();
     let bytes=a.encode(b"native A").unwrap();
     assert_eq!(Progress::decode(&bytes,b"native A").unwrap(),a);
     assert!(Progress::decode(&bytes,b"native B").is_err());
     assert_eq!(Progress::decode(&b.encode(b"native B").unwrap(),b"native B").unwrap(),b);
-    let mut old=bytes[..bytes.len()-28-crate::weapon_evo::randomizer::ENCODED_SIZE].to_vec();old[5]=7;
+    let mut old=bytes[..bytes.len()-28-crate::weapon_evo::randomizer::ENCODED_SIZE-crate::weapon_evo::quick_select::State::ENCODED_SIZE-2].to_vec();old[5]=7;
     let sum=rc_formats::sha1::sha1(&old);old.extend_from_slice(&sum);
     let loaded=Progress::decode(&old,b"native A").unwrap();
     assert_eq!(loaded.controls,State::default());assert_eq!(loaded.tracks,a.tracks);
@@ -246,7 +246,7 @@ fn aim_and_crouch_shoulders_keep_independent_edges_pressure_and_history() {
 #[test]
 fn grade_ceilings_gate_modes_capacity_and_never_modify_saved_choices() {
     let mut e=Evolution::default();e.control_settings.r1=true;
-    let mut saved=State::default();saved.modes=[1,1,1,2];e.set_controls(saved);
+    let mut saved=State::default();saved.modes=[1,1,1,2,0];e.set_controls(saved);
     for stats in &mut e.pyro.stats{stats.lava.enabled=true;stats.max_ammo=50;stats.experimental_max_ammo=Some(7);}
     e.r1_experimental_max[16]=[0,1,0,1,0,1,0,1];
     for grade in 1..=8 {
@@ -270,16 +270,16 @@ fn grade_ceilings_gate_modes_capacity_and_never_modify_saved_choices() {
 
 #[test]
 fn a_saved_mode_above_the_grade_ceiling_is_native_until_the_next_allowed_press() {
-    let mut state=State{modes:[1,1,1,2],..Default::default()};let original=state;
+    let mut state=State{modes:[1,1,1,2,0],..Default::default()};let original=state;
     for item in MODE_ITEMS {assert_eq!(state.mode_limited(item,0),None);assert_eq!(state.cycle_limited(item,0),None);}
     assert_eq!(state,original);assert_eq!(state.mode_limited(23,1),Some(0));
     assert_eq!(state.cycle_limited(23,1),Some(1));assert_eq!(state.cycle_limited(23,1),Some(0));
     assert_eq!(state.cycle_limited(23,2),Some(1));assert_eq!(state.cycle_limited(23,2),Some(2));assert_eq!(state.cycle_limited(23,2),Some(0));
     let mut registry=HashMap::from([((17,"flame_mine_enabled".into()),1.),((23,"shotgun_enabled".into()),1.),((16,"triple_flame_enabled".into()),1.)]);
-    apply_registry(Settings{r1:true,dpad:false},&original,&mut registry,|_|0);
+    apply_registry(Settings{r1:true,dpad:false,..Default::default()},&original,&mut registry,|_|0);
     assert_eq!(registry[&(17,"flame_mine_enabled".into())],0.);assert_eq!(registry[&(23,"shotgun_enabled".into())],0.);
     assert_eq!(registry[&(16,"triple_flame_enabled".into())],1.);
-    let before=registry.clone();apply_registry(Settings{r1:false,dpad:false},&original,&mut registry,supported_mode_max);assert_eq!(registry,before);
+    let before=registry.clone();apply_registry(Settings{r1:false,dpad:false,..Default::default()},&original,&mut registry,supported_mode_max);assert_eq!(registry,before);
 }
 
 #[test]
@@ -379,4 +379,71 @@ fn hologuise_r2_salutes_instead_of_selecting_the_hidden_wrench() {
         assert_eq!(p.held & button::SQUARE, 0);
         assert!(!direct_control(&h));
     }
+}
+
+
+#[test]
+fn r2_ring_switch_does_not_alias_a_shot_while_triangle_is_held() {
+    use crate::pad::{PadInput,PadState,button};
+    let mut pad=PadState::default();
+    pad.update(Some(&PadInput::neutral().press(button::TRIANGLE|button::R2).bytes()),false);
+    for item in [8,10,15,16,17,23] {
+        let semantic=gameplay_pad(&pad,item,true,false,false);
+        assert_eq!(semantic.held & (button::CIRCLE|button::SQUARE|button::R2),0);
+        assert_eq!(semantic.pressed & (button::CIRCLE|button::SQUARE|button::R2),0);
+        assert_ne!(pad.held_unmirrored & button::R2,0);
+        let pressure=if item==8{7}else{5};
+        assert_eq!(semantic.pressure[pressure],Pf::ZERO);
+        assert_eq!(semantic.analog_copy[pressure+4],Pf::ZERO);
+    }
+    pad.update(Some(&PadInput::neutral().press(button::R2).bytes()),false);
+    assert_ne!(gameplay_pad(&pad,15,true,false,false).held & button::CIRCLE,0);
+}
+
+#[test]
+fn pause_quick_select_ini_is_optional_and_accepts_launcher_switch_values() {
+    for (value,expected) in [("on",true),("true",true),("off",false),("false",false)] {
+        let evo=crate::weapon_evo::Evolution::parse(&format!("{}\n[general]\npause_on_quick_select={value}\n",include_str!("weapon_evo_release.ini"))).unwrap();
+        assert_eq!(evo.control_settings.pause_quick_select,expected);
+    }
+    assert!(!crate::weapon_evo::Evolution::parse(include_str!("weapon_evo_release.ini")).unwrap().control_settings.pause_quick_select);
+    assert!(crate::weapon_evo::Evolution::parse("[general]\npause_on_quick_select=maybe").is_err());
+}
+
+#[test]
+fn taunter_mode_is_grade_gated_and_does_not_rewrite_offensive_tuning() {
+    let raw = "[general]\nenabled=true\nr1_experimental=true\n[weapon.taunter]\nid=14\n[weapon.taunter.level1]\noffensive_taunt_enabled=true\nr1_experimental_max=0\ndamage_per_second=123\nstun_range=12\n[weapon.taunter.level2]\noffensive_taunt_enabled=true\nr1_experimental_max=1\ndamage_per_second=456\nstun_range=14\n";
+    let raw=format!("{}\n{raw}",include_str!("weapon_evo_release.ini"));
+    let mut e=Evolution::parse(&raw).unwrap();
+    assert_eq!(e.r1_mode_max(14),0);
+    let mut state=State::default();
+    assert_eq!(state.cycle_limited(14,e.r1_mode_max(14)),None);
+    e.extras.iter_mut().find(|t|t.id==14).unwrap().level=2;
+    assert_eq!(e.r1_mode_max(14),1);
+    let mut registry=HashMap::from([((14,"damage_per_second".into()),456.),((14,"stun_range".into()),14.)]);
+    for expected in [0.,1.,0.] {
+        apply_registry(Settings{r1:true,..Default::default()},&state,&mut registry,|id|e.r1_mode_max(id));
+        assert_eq!(registry[&(14,"offensive_taunt_enabled".into())],expected);
+        assert_eq!(registry[&(14,"damage_per_second".into())],456.);
+        assert_eq!(registry[&(14,"stun_range".into())],14.);
+        state.cycle_limited(14,e.r1_mode_max(14));
+    }
+}
+
+#[test]
+fn v11_taunter_mode_round_trip_preserves_v10_seed_bindings_and_other_modes() {
+    use rc_formats::sha1::sha1;
+    let native=b"native save identity";
+    let mut p=Progress::default();p.controls.modes=[1,1,1,2,1];
+    p.controls.dpad=[15,4,1,8];p.quick_select.second=[10,13,14,15,16,17,18,19];p.quick_select.ring=1;
+    p.randomizer=crate::weapon_evo::randomizer::State::generate(2700593938784343238);
+    let encoded=p.encode(native).unwrap();assert_eq!(encoded[5],11);
+    assert_eq!(Progress::decode(&encoded,native).unwrap(),p);
+    let mut old=encoded[..encoded.len()-22].to_vec();old[5]=10;
+    let checksum=sha1(&old);old.extend_from_slice(&checksum);
+    let legacy=Progress::decode(&old,native).unwrap();
+    let mut expected=p;expected.controls.modes[4]=0;assert_eq!(legacy,expected);
+    let mut invalid=encoded[..encoded.len()-20].to_vec();let last=invalid.len()-2;invalid[last]=2;
+    let checksum=sha1(&invalid);invalid.extend_from_slice(&checksum);
+    assert!(Progress::decode(&invalid,native).is_err());
 }

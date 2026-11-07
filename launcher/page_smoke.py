@@ -36,10 +36,10 @@ def verify(root, raw, *, languages=True, progress=None):
     import launcher
     import launcher_core as core
     import i18n
-    from schema import BOOLEANS, MODEL_COLOR_GROUPS, EDITOR_WEAPONS, NAMES
+    from schema import BOOLEANS, MODEL_COLOR_GROUPS, EDITOR_WEAPONS, NAMES, GADGET_DEFAULTS
 
     progress = progress or (lambda stage: None)
-    progress('creating all 17 complete editor pages')
+    progress('creating all weapon and gadget editor pages')
     # Closing the verification window is not a test failure. Input is not needed.
     root.protocol('WM_DELETE_WINDOW', lambda: None)
     callbacks = []
@@ -83,13 +83,15 @@ def verify(root, raw, *, languages=True, progress=None):
                     view = app._page_views[key]
                     assert view.frame.winfo_ismapped() and view.canvas.winfo_width() > 200
                     assert view.form.winfo_width() == view.canvas.winfo_width()
-                    assert len(view.cards) == (0 if key == 'global' else 8)
+                    assert len(view.cards) == (0 if key == 'global' or key in GADGET_DEFAULTS else 8)
                     assert identities[key] == (str(view.canvas), tuple(str(row.canvas) for row in view.rows))
                     for position in [0., 0.5, 1.]:
                         view.canvas.yview_moveto(position)
                         root.update()
                         assert all(row.canvas.winfo_exists() for row in view.rows)
-                    if key != 'global':
+                    if key in GADGET_DEFAULTS:
+                        assert {row.pair for row in view.rows}=={('gadget.'+key,k) for k in GADGET_DEFAULTS[key]}
+                    elif key != 'global':
                         expected_pairs=set()
                         for grade in range(1,9):
                             section=f'weapon.{key}.level{grade}'

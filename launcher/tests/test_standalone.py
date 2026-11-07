@@ -84,7 +84,7 @@ class StandaloneTests(unittest.TestCase):
         make.assert_not_called()
     def test_smoke_test_requires_frozen_python_tk_and_the_correct_folder(self):
         def report(args,**kwargs):
-            Path(args[2]).write_text(json.dumps({'experimental_overrides_ui':True,'scroll_repaint_ui':True,'preloaded_pages_ui':True,'saved_controls_ui':True,'wrench_trail_ui':True,'ngplus_difficulty_ui':True,'eight_grade_ui':True,'additive_nanotech_ui':True,'nanotech_xp_bar_ui':True,'encounter_motion_ui':True,'pursuit_ui':True,'location_test_ui':True,'frozen':True,'gui_ok':True,'launcher_version':c.VERSION,
+            Path(args[2]).write_text(json.dumps({'freezer_recharge_ui':True,'dual_quick_select_ui':True,'experimental_overrides_ui':True,'scroll_repaint_ui':True,'preloaded_pages_ui':True,'saved_controls_ui':True,'wrench_trail_ui':True,'ngplus_difficulty_ui':True,'eight_grade_ui':True,'additive_nanotech_ui':True,'nanotech_xp_bar_ui':True,'encounter_motion_ui':True,'pursuit_ui':True,'location_test_ui':True,'frozen':True,'gui_ok':True,'launcher_version':c.VERSION,
                 'application_folder':str(self.launcher.parent),'tcl_version':'8.6','tk_version':'8.6'}))
         def successful(exe,destination):
             report([str(exe),'--self-test',str(destination)])

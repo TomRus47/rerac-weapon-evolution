@@ -13,10 +13,11 @@
 //
 // Fragment: GS MODULATE (C = Ct·Cv >> 7), then fog (PRIM FGE, VU1 program 57843's F like the tfrag program),
 // then ALPHA = FIX<<32 | 0x64: C = Cd + (Cs − Cd)·FIX/128. FIX is baked into the output alpha and blended
-// with SrcAlpha / OneMinusSrcAlpha (gs_state::GS_BLEND). The vertex alpha is 0, so As = 0 always fails the
+// with premultiplied One / OneMinusSrcAlpha in the display-byte effect target. The vertex alpha is 0, so As = 0 always fails the
 // TEST (AREF 0x60, AFAIL RGB_ONLY): colour only, never Z (depth write off, GEQUAL test).
 
 #import bevy_pbr::view_transformations::{position_world_to_clip, position_world_to_view}
+#import rerac::display_blend::gs_mix
 
 struct WaterFog {
     color: vec4<f32>,
@@ -108,12 +109,6 @@ fn vertex(v: WaterVertex) -> WaterVertexOutput {
     return out;
 }
 
-fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
-    let lo = c / 12.92;
-    let hi = pow((c + 0.055) / 1.055, vec3<f32>(2.4));
-    return select(hi, lo, c <= vec3<f32>(0.04045));
-}
-
 @fragment
 fn fragment(in: WaterVertexOutput) -> @location(0) vec4<f32> {
     let t = textureSample(tex, tex_sampler, in.uv);
@@ -123,5 +118,7 @@ fn fragment(in: WaterVertexOutput) -> @location(0) vec4<f32> {
     if (fog.color.w > 0.5) {
         rgb = mix(fog.color.rgb, rgb, in.fog);
     }
-    return vec4<f32>(srgb_to_linear(rgb), params.misc.x);
+    // Keep the fragment in GS display bytes. The shared effect pass converts
+    // the completed framebuffer back to linear only after both water layers.
+    return gs_mix(rgb * 255.0, params.misc.x * 128.0);
 }

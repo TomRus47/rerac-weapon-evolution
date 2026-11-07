@@ -78,25 +78,35 @@ impl FlameTables {
 /// The tables and the mesh ST the draws scroll (the game writes it back into its table).
 type Loaded = (FlameTables, Mutex<Vec<[f32; 2]>>);
 
-/// The loaded level's tables (once per process).
-fn tables() -> Option<&'static Loaded> {
-    static T: crate::level_load::PerLevel<Option<Loaded>> = [const { OnceLock::new() }; 20];
-    crate::level_load::per_level(&T).get_or_init(|| {
-        let (root, index) = (crate::level_load::extracted_root(), crate::level_load::level_index());
-        let ov = |l: u32| crate::disc_source::level_file(&root, l, "overlay.bin").ok().and_then(|b| LevelOverlay::parse(&b).ok());
-        let (Some(target), Some(reference)) = (ov(index), ov(1)) else {
-            eprintln!("thruster flames: no level overlay: the flames draw only their particles");
-            return None;
-        };
-        let t = FlameTables::parse(&target, &Relocation::new(&reference, &target));
-        if t.is_none() { eprintln!("thruster flames: the callback's tables were not found on level {index:02}"); }
-        t.map(|t| {
+/// Destination-keyed tables. Only the loader initializes a cell; rendering may
+/// read it, but must never read/parse/relocate overlays on the first thrust.
+static TABLES: crate::level_load::PerLevel<Option<Loaded>> = [const { OnceLock::new() }; 20];
+
+/// Called by the existing loader-worker table preparation, using its explicit
+/// destination index and shared parsed overlays. No active-level store, game
+/// RNG, flame scroll or GPU state is changed while preparing another planet.
+pub(crate) fn prepare_tables(index: u32, target: Option<&LevelOverlay>, reference: Option<&LevelOverlay>) {
+    let Some(cell) = TABLES.get(index as usize) else { return };
+    cell.get_or_init(|| {
+        let tables = target.zip(reference)
+            .and_then(|(target, reference)| FlameTables::parse(target, &Relocation::new(reference, target)));
+        if tables.is_none() {
+            eprintln!("thruster flames: no callback tables on level {index:02}; particles remain available");
+        }
+        tables.map(|t| {
             let st = Mutex::new(t.st.clone());
             (t, st)
         })
-    })
-    .as_ref()
+    });
 }
+
+/// Read-only lookup: even a missing/unprepared level never starts disk I/O or
+/// instruction recognition from a draw callback.
+fn cached_tables(cell: &OnceLock<Option<Loaded>>) -> Option<&Loaded> {
+    cell.get()?.as_ref()
+}
+
+fn tables() -> Option<&'static Loaded> { cached_tables(crate::level_load::per_level(&TABLES)) }
 
 fn add3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] { [a[0] + b[0], a[1] + b[1], a[2] + b[2]] }
 fn sub3(a: [f32; 3], b: [f32; 3]) -> [f32; 3] { [a[0] - b[0], a[1] - b[1], a[2] - b[2]] }
@@ -203,6 +213,19 @@ pub fn flame_groups(game: &rc_game::tick::Game, id: rc_game::moby_runtime::MobyI
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn draw_lookup_never_initializes_missing_or_out_of_range_tables() {
+        // Slot 19 has no RAC1 level; using it avoids touching the game-data
+        // cells covered by tables_on_every_level and the active-level global.
+        assert!(cached_tables(&TABLES[19]).is_none());
+        assert!(TABLES[19].get().is_none(), "a render lookup cannot initialize a cache");
+        prepare_tables(19, None, None);
+        assert!(matches!(TABLES[19].get(), Some(None)), "failed loads are also prepared once");
+        assert!(cached_tables(&TABLES[19]).is_none());
+        prepare_tables(20, None, None);
+        prepare_tables(u32::MAX, None, None);
+    }
 
     /// The callback's tables are found through the relocation on all 19 levels and are the same data everywhere: the
     /// quads (0, ±2, ±2) / (±2, 0, ±2), the 196-vertex cone along −z (about 33 units long).

@@ -112,7 +112,8 @@ fn quote_counts_unlisted_owned_weapons_and_uses_wide_price_arithmetic() {
     assert_eq!(v.reload_all_quote(&gs).cost,275);
     for item in [10,15,16] {v.tables.shop.records[item][8..10].copy_from_slice(&u16::MAX.to_le_bytes());v.tables.shop.records[item][14..16].copy_from_slice(&u16::MAX.to_le_bytes());}
     assert!(v.reload_all_quote(&gs).cost>i64::from(i32::MAX));
-    v.remote=true;assert!(v.reload_all_quote(&gs).items.is_empty());
+    v.remote=true; // PDA refills are now supported at the PDA unit prices.
+    assert!(v.reload_all_quote(&gs).cost>=0);
 }
 #[test]
 fn reload_overlay_is_localized_above_strip_and_hidden_during_popup_and_exit() {
@@ -362,4 +363,17 @@ fn v123_cross_planet_purchase_keeps_source_price_and_claims_only_that_offer() {
         gs.global.level=planet;
         assert!(!build_list(&gs,&shop(),false).contains(&offer));
     }
+}
+
+#[test]
+fn pda_reload_all_uses_remote_prices_and_never_partially_spends() {
+    let (mut v,mut gs,a)=fixture();v.remote=true;
+    v.tables.shop.records[10][10..12].copy_from_slice(&7u16.to_le_bytes());
+    v.tables.shop.records[15][10..12].copy_from_slice(&9u16.to_le_bytes());
+    let quote=v.reload_all_quote(&gs);assert_eq!(quote.cost,5*7+10*9);
+    gs.global.bolts=124;let before=gs.global.clone();
+    v.reload_all(&mut gs,&a,&mut VendorOut::default());assert_eq!(gs.global,before);
+    gs.global.bolts=125;v.reload_all(&mut gs,&a,&mut VendorOut::default());
+    assert_eq!(gs.global.bolts,0);assert_eq!(gs.global.ammo[10],40);assert_eq!(gs.global.ammo[15],200);
+    assert!(!v.reload_all_draws(&a,&gs,[100.,330.,320.,60.]).is_empty());
 }

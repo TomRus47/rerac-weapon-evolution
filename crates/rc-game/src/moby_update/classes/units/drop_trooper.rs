@@ -394,18 +394,34 @@ fn turn_anim(w: &mut World, id: MobyId) {
 }
 
 /// `0x2dd4d8` (module table); false when the trooper is gone.
+/// Source identity, not the hero-origin class, determines wrench-only credit.
+/// The native hit marker remains usable when Weapon Evolution is disabled.
+fn wrench_hit(hit: &crate::moby_update::services::HitRecord, hero: Option<MobyId>) -> bool {
+    match hit.evolution {
+        Some(attack) => attack.weapon == 8,
+        None => hit.wrench || (hit.h2a == KEEPS_SKILL as u16 && (hit.attacker.is_none() || hit.attacker == hero)),
+    }
+}
+
 fn prologue(w: &mut World, id: MobyId) -> bool {
     let cs = w.classes.info(w.m(id).o_class).map_or(1.0, |i| i.scale);
     w.mm(id).scale = cs;
     let mut hit = w.get_hit(id, 0x33_0000, false);
-    let attacker = hit.and_then(|h| h.attacker_class(w.table));
+    // Independent wrench events carry Ratchet as their physical origin. That
+    // origin remains correct for position/knockback, but is not a foreign weapon.
+    let attacker = hit.and_then(|h| if wrench_hit(&h, w.hero_moby) {
+        Some(KEEPS_SKILL)
+    } else { h.attacker_class(w.table) });
     if attacker == Some(SHOT) { hit = None; }
     let res = damage::resolve(w, id, hit, pv::D, 0, 4);
-    if res.out5 != 1 && w.m(id).state != 9 && !res.settle_quiet_stream(w, id, pv::D) {
+    let accepted = res.out5 != 1 && w.m(id).state != 9;
+    // Quiet stream damage still disqualifies a wrench-only kill. Reaction
+    // throttling must not turn earlier flamethrower/Tesla damage into a clean kill.
+    if accepted && res.damage > 0.0 && attacker.is_some_and(|class| class != KEEPS_SKILL) {
+        c::set_pi32(w, id, pv::CLEAN, 0);
+    }
+    if accepted && !res.settle_quiet_stream(w, id, pv::D) {
         alert(w, id, 300.0, 360.0);
-        if let Some(class) = attacker.filter(|_| hit.is_some()) {
-            if class != KEEPS_SKILL { c::set_pi32(w, id, pv::CLEAN, 0); }
-        }
         let h = c::pf(w, id, pv::D) - res.damage;
         c::set_pf(w, id, pv::D, h);
         let reaction = if h <= 0.0 { 1 } else { res.reaction };
@@ -725,4 +741,67 @@ fn shot_trail(w: &mut World, id: MobyId) {
     let t: [i32; 3] = std::array::from_fn(|k| { let (a, b) = [(2.0, 2.0), (5.0, 10.0), (5.0, 10.0)][k]; let r = w.rng.randf(a, b); gscale(w, r) });
     let a = crate::particles::type02::Spawn { pos: c::pos(w, id), v1, v2, c1: 0x8000_c070, c2: 0x4000_c0c0, t, def: SHOT_TRAIL_FX };
     crate::moby_update::creature::fx::part02(w, &a);
+}
+
+
+#[cfg(test)]
+mod v126_tests {
+    use super::*;
+    use crate::{hero::Hero,moby_runtime::{Moby,MobyTable},moby_update::{ClassTable,services::{HitRecord,Services}},rng::Rng};
+    use crate::moby_update::real_hp::{Attack,Origin};
+    use crate::ps2v::Pf;
+
+    fn trooper() -> Moby {
+        let mut moby=Moby{o_class:638,state:2,mode:0x20,pvars:vec![0;0x30c],..Default::default()};
+        p::set_u32(&mut moby.pvars,0,0x20);
+        p::set_u32(&mut moby.pvars,0xc,0x60);
+        p::set_u32(&mut moby.pvars,0x10,0x70);
+        p::set_f(&mut moby.pvars,pv::D,Pf::f(3.0));
+        p::set_i32(&mut moby.pvars,pv::CLEAN,1);
+        moby.hit_slot=0;
+        moby
+    }
+    fn hit(weapon:i32,serial:u64,damage:f32,quiet:bool)->HitRecord {
+        HitRecord{target:1,attacker:Some(0),flags:0x10000,h2a:if weapon==8{0x47}else{176},
+            b28:if weapon==8{0}else{5},damage:Pf::f(damage),
+            dir:[Pf::ZERO,Pf::ZERO,Pf::ONE,Pf::f(crate::hero::damage::EXACT_PUSH_W)],
+            evolution:Some(Attack{origin:Some(Origin{class:0,position:[0.;4]}),instance:serial,
+                weapon,damage,damage_only:quiet,burn_color:None}),..Default::default()}
+    }
+    #[test]
+    fn ten_elite_wrench_kills_award_the_native_skill_once_with_hero_origin() {
+        let mut table=MobyTable::new(vec![Moby::default(),trooper()],0);
+        let hero=Hero::new();let classes=ClassTable::default();let mut rng=Rng::new();let mut svc=Services::new();svc.level=18;
+        for kill in 1..=11 {
+            table.mobys[1]=trooper();svc.hits.records[0]=hit(8,kill,3.,false);
+            let mut world=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,kill);world.hero_moby=Some(0);
+            prologue(&mut world,1);
+            assert_eq!(world.m(1).state,9);
+            assert_eq!(world.svc.units.word(KILLS_WORD),kill as u32);
+            assert_eq!(crate::moby_update::story::skill_point(&world,SKILL),kill>=10);
+        }
+        assert_eq!(svc.cinematic.banner.seq,1,"one native skill banner");
+    }
+    #[test]
+    fn native_wrench_marker_is_accepted_without_evolution() {
+        let record=HitRecord{wrench:true,h2a:0x47,..Default::default()};
+        assert!(wrench_hit(&record,Some(0)));
+        let record=HitRecord{attacker:Some(0),h2a:0x47,..Default::default()};
+        assert!(wrench_hit(&record,Some(0)));
+        let record=HitRecord{attacker:Some(2),h2a:0x47,..Default::default()};
+        assert!(!wrench_hit(&record,Some(0)));
+    }
+    #[test]
+    fn quiet_foreign_damage_disqualifies_a_later_wrench_kill() {
+        for weapon in [16,19] {
+            let mut table=MobyTable::new(vec![Moby::default(),trooper()],0);
+            let hero=Hero::new();let classes=ClassTable::default();let mut rng=Rng::new();let mut svc=Services::new();svc.level=18;
+            svc.hits.records[0]=hit(weapon,1,0.25,true);
+            {let mut world=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,1);world.hero_moby=Some(0);
+                prologue(&mut world,1);assert_eq!(c::pi32(&world,1,pv::CLEAN),0);}
+            table.mobys[1].hit_slot=0;svc.hits.records[0]=hit(8,2,3.,false);
+            let mut world=World::new(&mut table,&hero,&mut rng,&classes,&mut svc,2);world.hero_moby=Some(0);
+            prologue(&mut world,1);assert_eq!(world.svc.units.word(KILLS_WORD),0);
+        }
+    }
 }

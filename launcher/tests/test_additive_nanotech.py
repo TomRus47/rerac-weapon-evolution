@@ -21,7 +21,7 @@ class AdditiveNanotechTests(unittest.TestCase):
             raw=(Path(__file__).resolve().parents[1]/name).read_bytes()
             before=core.IniDocument(raw);after=core.profile_document(raw)
             for pair,value in before.entries.items():self.assertEqual(after.entries[pair],value,pair)
-            self.assertEqual(core.required_config(after),92)
+            self.assertEqual(core.required_config(after),95)
         legacy=b'\xef\xbb\xbf[general]\r\nnanotech_max_health = 22 ; personal cap\r\nxp_per_damage = 0.12\r\n'
         migrated=migrate_health_cap(legacy)
         self.assertEqual(migrated,b'\xef\xbb\xbf[general]\r\nnanotech_progression_max_health = 26 ; personal cap\r\nxp_per_damage = 0.12\r\n')

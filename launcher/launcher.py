@@ -11,6 +11,7 @@ from pathlib import Path
 import launcher_core as core
 import i18n
 from i18n import tr
+from schema import RANDOMIZER_EXTRA_KEYS
 from schema import WORLD_DEFAULTS
 from schema import WEAPONS, EDITOR_WEAPONS, XP, NAMES, BOOLEANS, COLORS, title, help_text, field_groups, global_field_groups, AMMO_DROP_DEFAULTS, normalized_ammo_chances, MODEL_OPTIONS, visible_model_field
 
@@ -591,9 +592,10 @@ class Launcher:
             self.ttk.Label(self.form, text=tr('Load a valid weapons.ini to get started.'), padding=20).pack(); return
         if self.page == 'global':
             base_fields, mode_fields = global_field_groups(self.doc)
-            base_keys = ['xp_per_damage', 'dpad_quick_select', 'r1_experimental',
+            base_keys = ['xp_per_damage', 'dpad_quick_select', 'r1_experimental', 'pause_on_quick_select',
                          'refill_ammo_on_upgrade', 'hide_ryno']
             random_keys = ['randomizer_mode', 'randomizer_bolt_multiplier',
+                           'randomizer_bolt_pack_value', *RANDOMIZER_EXTRA_KEYS,
                            'golden_bolts_to_weapons', 'golden_bolts_early_bias_percent',
                            'golden_bolts_one_weapon_per_planet']
             difficulty_keys = ['bolt_multiplier_max', *WORLD_DEFAULTS]
@@ -638,8 +640,19 @@ class Launcher:
                            wraplength=700).pack(anchor='w', pady=(8,0))
             self.update_ammo_chance_summary()
 
+        elif self.page in __import__('schema').GADGET_DEFAULTS:
+            from schema import GADGET_HELP, gadget_field_groups
+            section='gadget.'+self.page
+            card=self.card(self.form,i18n.weapon_name(self.page));card.pack(fill='x',padx=5,pady=6)
+            self.ttk.Label(card,text=tr(GADGET_HELP[self.page]),style='CardSmall.TLabel',wraplength=700).pack(anchor='w',pady=(0,10))
+            standard,experimental=gadget_field_groups(self.page,self.doc.keys(section))
+            frame=self.ttk.LabelFrame(card,text=tr('Standard settings'),padding=8);frame.pack(fill='x',pady=(0,8))
+            self.fields(frame,section,standard)
+            if experimental:
+                frame=self.ttk.LabelFrame(card,text=tr('Experimental settings'),padding=8);frame.pack(fill='x',pady=(0,8))
+                self.fields(frame,section,experimental)
         else:
-            section = f'weapon.{self.page}'
+            section = f'weapon.{self.page}' 
             profile = self.card(self.form, tr('XP progression'), '#597c9f'); profile.pack(fill='x', padx=5, pady=6)
             if section in self.doc.sections:
                 self.ttk.Label(profile, text=tr('Game ID: ')+self.doc.entries.get((section, 'id'), '?')+tr('  ·  XP required for each upgrade'), style='CardSmall.TLabel').pack(anchor='w', pady=(0, 7))
@@ -673,7 +686,7 @@ class Launcher:
                 if not keys:
                     self.ttk.Label(card, text=tr('No settings for this grade in the INI.'), style='CardSmall.TLabel', wraplength=230).pack(anchor='w')
             self.arrange_cards()
-        self.context.set(tr('All eight grades are on this page. Scroll to see them all. Right-click a value to copy it to the other grades.') if self.page != 'global' else tr('Global XP, HUD and level-up settings. In-game weapon names follow the game language.'))
+        self.context.set(tr(__import__('schema').GADGET_HELP[self.page]) if self.page in __import__('schema').GADGET_DEFAULTS else tr('All eight grades are on this page. Scroll to see them all. Right-click a value to copy it to the other grades.') if self.page != 'global' else tr('Global XP, HUD and level-up settings. In-game weapon names follow the game language.'))
 
     def update_ammo_chance_summary(self):
         if not hasattr(self, 'ammo_chance_summary'): return
@@ -807,6 +820,7 @@ class Launcher:
 
     def randomizer_field_label(self, key):
         prefix = {'randomizer_bolt_multiplier': 'All: ',
+                  **{key:'All: ' for key in ('randomizer_bolt_pack_value', *RANDOMIZER_EXTRA_KEYS)},
                   'golden_bolts_early_bias_percent': 'Weapons: ',
                   'golden_bolts_one_weapon_per_planet': 'Weapons: '}.get(key, '')
         return prefix + i18n.label(key)
@@ -842,7 +856,7 @@ class Launcher:
                      RANDOMIZER_RESTART_DESCRIPTION):
             self.ttk.Label(card, text=tr(text), style='CardSmall.TLabel',
                            wraplength=720).pack(anchor='w', fill='x', pady=(4, 6))
-        for key in ('randomizer_bolt_multiplier', 'golden_bolts_early_bias_percent',
+        for key in ('randomizer_bolt_multiplier', 'randomizer_bolt_pack_value', *RANDOMIZER_EXTRA_KEYS, 'golden_bolts_early_bias_percent',
                     'golden_bolts_one_weapon_per_planet'):
             if ('general', key) in self.variables and self.matches('general', key):
                 self.ttk.Separator(card, orient='horizontal').pack(fill='x', pady=5)
@@ -853,3 +867,4 @@ class Launcher:
 
 
 if __name__ == '__main__': raise SystemExit(main())
+

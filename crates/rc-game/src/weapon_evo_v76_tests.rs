@@ -99,7 +99,7 @@ fn version_six_saves_keep_levels_xp_and_nanotech_and_initialize_new_fields() {
     old.nanotech = world::NanotechProgress { bonus: 9, xp: 17. };
     let mut bytes = old.encode(b"native").unwrap();
     // Discard the v7 reward fields and v8 control choices, plus checksum.
-    bytes.truncate(bytes.len() - 36-super::randomizer::ENCODED_SIZE);
+    bytes.truncate(bytes.len() - 36-super::randomizer::ENCODED_SIZE-super::quick_select::State::ENCODED_SIZE-2);
     bytes[5] = 6;
     let checksum = rc_formats::sha1::sha1(&bytes);
     bytes.extend_from_slice(&checksum);
