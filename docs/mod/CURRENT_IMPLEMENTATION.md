@@ -1,3 +1,11 @@
+# Current v137 gadget follow-up
+
+ReRAC 0.3.8-alpha; gameplay 0.1.6.137; capability 97; launcher 0.30.2 retained.
+See [v137 ownership, input, pivot and equip-gate design](LOCAL_TEST_V137.md).
+The complete source includes all prior local changes. No release is created.
+Older versioned sections below describe their original integration snapshots;
+`mod/development.json` identifies the present code.
+
 Current local test: see [v130 implementation and test notes](LOCAL_TEST_V130.md).
 
 # Current local v129 snapshot
@@ -30,7 +38,7 @@ Normal new games retain four starting HP. The explicit Veldin II test starts at
 
 # Current implementation map
 
-Main is the Weapon Evolution 0.4.2 draft candidate on ReRAC 0.3.8-alpha, gameplay 0.1.6.123 and launcher 0.29.6. `mod/development.json` is authoritative for this snapshot. The separate `mod/draft.json` requests a checked, unpublished build; historical published-release metadata is retained.
+The original 0.4.2 integration below described gameplay 0.1.6.123 and launcher 0.29.6. `mod/development.json` is authoritative for this snapshot. The separate `mod/draft.json` requests a checked, unpublished build; historical published-release metadata is retained.
 
 | Area | Primary source | Responsibilities |
 | --- | --- | --- |

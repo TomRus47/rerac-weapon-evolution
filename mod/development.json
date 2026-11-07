@@ -1,10 +1,10 @@
 {
   "public_mod_version": "0.4.2",
-  "status": "v136 grapple pose lifecycle and native Trespasser death; main update, no release",
+  "status": "v137 grapple locomotion, centred drill capture and Freezer equip gate; main update, no release",
   "runtime_base": "0.3.8-alpha",
-  "patch": "0.1.6.136",
+  "patch": "0.1.6.137",
   "config_capability": 97,
   "launcher": "0.30.2",
   "release_created": false,
-  "notes": "docs/mod/LOCAL_TEST_V136.md"
+  "notes": "docs/mod/LOCAL_TEST_V137.md"
 }

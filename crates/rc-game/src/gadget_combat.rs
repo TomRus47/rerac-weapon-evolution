@@ -74,7 +74,15 @@ fn config()->&'static RwLock<Settings>{static CONFIG:OnceLock<RwLock<Settings>>=
 pub fn publish(s:Settings){*config().write().unwrap_or_else(|p|p.into_inner())=s;}
 pub fn published()->Settings{*config().read().unwrap_or_else(|p|p.into_inner())}
 #[derive(Clone,Debug,Default,PartialEq)]
-pub struct HeroOutput {pub spin:f32,pub holding:bool,pub previous_holding:bool,pub rope:Option<V>,pub cable_pose:u8,pub previous_cable_pose:u8,pub grapple_step:Option<V>}
+pub struct HeroOutput {
+    pub spin:f32,pub holding:bool,pub previous_holding:bool,
+    pub rope:Option<V>,pub cable_pose:u8,pub previous_cable_pose:u8,
+    pub grapple_step:Option<V>,pub cable_latched:bool,
+    /// Only this sequence may be replaced when returning to locomotion.
+    pub pose_sequence:Option<u8>,pub pose_item:i32,
+    /// Transient equip input latch; independent of ammunition and saved state.
+    pub freezer_ready:bool,pub freezer_armed:bool,
+}
 /// Allocation lifetime is independent of uid_hi: its low half is the native
 /// matrix revision, and its high half is merely the array index. Neither is a
 /// reliable allocation-generation counter.
@@ -96,7 +104,7 @@ impl Lease {
     fn valid(self,w:&World)->bool{self.same(w)&&w.m(self.id).state<0x80}
 }
 #[derive(Clone,Debug)]
-struct Frozen {lease:Lease,until:u64,ice_until:u64,rotation:[f32;4],ambient:Option<[u8;4]>,color:Option<u32>,drill:bool}
+struct Frozen {lease:Lease,until:u64,ice_until:u64,rotation:[f32;4],ambient:Option<[u8;4]>,color:Option<u32>,drill:bool,keep_rows:bool,saved_rows:[[f32;4];3]}
 #[derive(Clone,Debug)]
 struct Cable {target:Option<Lease>,point:V,tip:V,phase:u8,age:u16}
 #[derive(Clone,Debug)]
@@ -105,7 +113,7 @@ struct Upright {lease:Lease,base:[f32;4],start:f32,left:u8,yaw:f32}
 struct Ice {pos:V,vel:V,travel:f32,age:u16,settings:Settings}
 #[derive(Clone,Debug,Default)]
 pub struct Runtime {
-    upright:Vec<Upright>,frozen:HashMap<MobyId,Frozen>,cable:Option<Cable>,drill:Option<Lease>,
+    upright:Vec<Upright>,frozen:HashMap<MobyId,Frozen>,cable:Option<Cable>,drill:Option<Lease>,drill_pivot:Option<(Lease,V,f32)>,
     ice:Vec<Ice>,
     pub ice_ammo:Option<u16>,pub ice_visit:Option<u32>,next_ice:u64,spin:f32,sound:Option<(MobyId,i32)>,
     pub drawn_ice:Vec<(V,f32,u32)>,
@@ -143,19 +151,26 @@ fn ground_class(h:&Hero,t:&MobyTable,class:i16)->bool{
 }
 fn allowed(h:&Hero)->bool{h.health>0&&h.mode==0&&h.frozen==0&&h.f13ff==0&&h.items.slot.state==2
     &&matches!(h.group,0|1|2|4|5|0xc)&&!h.in_water_groups()}
+fn restore_frozen_transform(w:&mut World,f:&Frozen){
+    let m=w.mm(f.lease.id);m.rotation=f.rotation;
+    if f.keep_rows{m.mode|=mode::KEEP_ROWS;for n in 0..3{m.rows[n]=f.saved_rows[n];}}
+}
 fn clear_tint(w:&mut World,rt:&mut Runtime){for f in rt.frozen.values_mut(){if f.lease.valid(w){if let Some(a)=f.ambient.take(){w.mm(f.lease.id).ambient=a;}}}}
 fn hold(rt:&mut Runtime,w:&World,id:MobyId,until:u64,color:Option<u32>,drill:bool){
     let m=w.m(id);let lease=Lease::of(w,id);
-    let f=rt.frozen.entry(id).or_insert(Frozen{lease,until,ice_until:if color.is_some(){until}else{0},rotation:m.rotation,ambient:None,color,drill});
-    if f.lease!=lease{*f=Frozen{lease,until,ice_until:if color.is_some(){until}else{0},rotation:m.rotation,ambient:None,color,drill};}
+    let f=rt.frozen.entry(id).or_insert(Frozen{lease,until,ice_until:if color.is_some(){until}else{0},rotation:m.rotation,ambient:None,color,drill,keep_rows:m.mode&mode::KEEP_ROWS!=0,saved_rows:[m.rows[0],m.rows[1],m.rows[2]]});
+    if f.lease!=lease{*f=Frozen{lease,until,ice_until:if color.is_some(){until}else{0},rotation:m.rotation,ambient:None,color,drill,keep_rows:m.mode&mode::KEEP_ROWS!=0,saved_rows:[m.rows[0],m.rows[1],m.rows[2]]};}
     f.until=f.until.max(until);if color.is_some(){f.color=color;f.ice_until=f.ice_until.max(until);}f.drill=drill;
 }
 fn sound_stop(rt:&mut Runtime,w:&mut World){if let Some((id,slot))=rt.sound.take(){w.release_sound(slot,id);}}
 fn release_drill(rt:&mut Runtime,w:&mut World,throw:bool){
+    rt.drill_pivot=None;
     if let Some(lease)=rt.drill.take(){
         if lease.valid(w){
             if let Some(f)=rt.frozen.remove(&lease.id){
                 if let Some(ambient)=f.ambient{w.mm(lease.id).ambient=ambient;}
+                if f.keep_rows{let m=w.mm(lease.id);m.mode|=mode::KEEP_ROWS;for n in 0..3{m.rows[n]=f.saved_rows[n];}}
+
                 if throw{
                     // Six frames to return upright; only the victim moves.
                     let start=w.m(lease.id).rotation[0];
@@ -187,12 +202,12 @@ pub fn world_tick(w:&mut World){
     let mut rt=std::mem::take(&mut w.svc.gadget_combat);clear_tint(w,&mut rt);
     rt.recharge.tick(&mut rt.ice_ammo,w.svc.bomb_evo.gadget_settings,w.counter,w.hero.health>0&&w.svc.game_mode==0);
     if w.hero.health<=0{
-        for f in rt.frozen.values(){if f.lease.valid(w){w.mm(f.lease.id).rotation=f.rotation;}}
+        for f in rt.frozen.values(){if f.lease.valid(w){restore_frozen_transform(w,f);}}
         sound_stop(&mut rt,w);release_drill(&mut rt,w,false);rt.frozen.clear();rt.upright.clear();rt.cable=None;rt.ice.clear();rt.drawn_ice.clear();rt.frost_bursts.clear();rt.frost_mist.clear();}
     if w.hero.mode!=0{sound_stop(&mut rt,w);release_drill(&mut rt,w,false);rt.cable=None;}
     rt.frozen.retain(|_,f|{
         let keep=f.lease.valid(w)&&w.counter<f.until&&enemy(w,f.lease.id);
-        if !keep&&f.lease.valid(w){w.mm(f.lease.id).rotation=f.rotation;}
+        if !keep&&f.lease.valid(w){restore_frozen_transform(w,f);}
         keep
     });
     rt.upright.retain_mut(|u|{
@@ -246,11 +261,14 @@ fn mist(w:&mut World,point:V,color:u32,size:f32){
 }
 fn rgba(c:u32,a:u8)->u32{let r=(c>>16)&255;let g=(c>>8)&255;let b=c&255;((a as u32)<<24)|((b/2)<<16)|((g/2)<<8)|(r/2)}
 /// Called after native gadgets: real targets/pads have already claimed their action.
-pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,anim:&mut dyn AnimCtl,env:&ItemEnv,hits:&mut dyn HitSink,rng:&mut Rng){
+pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:&ItemEnv,hits:&mut dyn HitSink,rng:&mut Rng){
     let id=hero.items.slot.id;let fire=env.pad.held&(button::CIRCLE|button::R2)!=0;
+    // Menu handoff can suppress gameplay buttons for one frame while the
+    // physical equip button is still held. That is not a real fire release.
+    let equip_fire=fire||env.pad.physical_buttons.is_some_and(|(held,_)|held&(button::CIRCLE|button::R2)!=0);
     let direction=aim_direction(hero,env);
-    let start=launch_origin(hero,env,direction);
-    let mut out=HeroOutput{previous_holding:hero.gadget_combat.holding,previous_cable_pose:hero.gadget_combat.cable_pose,..Default::default()};
+    let start=if matches!(id,12|26){hand_origin(hero,env)}else{launch_origin(hero,env,direction)};
+    let mut out=HeroOutput{previous_holding:hero.gadget_combat.holding,previous_cable_pose:hero.gadget_combat.cable_pose,pose_sequence:hero.gadget_combat.pose_sequence,pose_item:hero.gadget_combat.pose_item,..Default::default()};
     hits.world(table,hero,rng,env.frame as u64,&mut |w|{
         let s=w.svc.bomb_evo.gadget_settings;let mut rt=std::mem::take(&mut w.svc.gadget_combat);
         rt.sync_ammo(w.svc.level,None,s);
@@ -258,6 +276,8 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,anim:&mut dyn AnimCtl,env:&
         let native_drill=ground_class(hero,w.table,615);
         let native_hydro=ground_class(hero,w.table,341)||matches!(hero.state,0x38..=0x3a);
         let can=allowed(hero)&&w.svc.game_mode==0;
+        out.freezer_ready=can&&id==22&&s.ice_enabled&&!native_hydro;
+        out.freezer_armed=out.freezer_ready&&(!equip_fire||(hero.gadget_combat.freezer_ready&&hero.gadget_combat.freezer_armed));
         let drill_grounded=can&&grounded_drill(hero);
         if !drill_grounded||!fire||id!=26||!s.drill_enabled||native_drill{
             sound_stop(&mut rt,w);release_drill(&mut rt,w,can&&id==26&&!native_drill);
@@ -269,7 +289,8 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,anim:&mut dyn AnimCtl,env:&
                 let slot=w.play_sound_as(2,4,owner,crate::hero::suck_cannon::CLASS);if slot>=0{rt.sound=Some((owner,slot));}
             }}
             if rt.drill.is_none(){if let Some(target)=seek(w,start,direction,s.drill_range,false).filter(|&i|!crate::weapon_evo::world::boss(w.m(i).o_class)){
-                rt.drill=Some(Lease::of(w,target));
+                let lease=Lease::of(w,target);let (pivot,radius)=drill_bounds(w,target);
+                rt.drill=Some(lease);rt.drill_pivot=Some((lease,pivot,radius));
                 // Capture one real idle pose when available, without touching AI state.
                 let m=w.mm(target);m.anim.seq_a=0;m.anim.seq_b=0;m.anim.frame_a=0;m.anim.frame_b=0;m.anim.t=0.;
             }}
@@ -284,10 +305,9 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,anim:&mut dyn AnimCtl,env:&
                     release_drill(&mut rt,w,false);
                 }else{
                     hold(&mut rt,w,lease.id,w.counter+2,None,true);
-                    let anchor=add(start,scale(direction,1.5));
-                    let base=rt.frozen[&lease.id].rotation;
-                    let m=w.mm(lease.id);m.position=[anchor[0],anchor[1],anchor[2]-0.7,1.];
-                    m.rotation=base;m.rotation[0]=rt.spin;m.rotation[1]=0.;m.rotation[2]=direction[1].atan2(direction[0]);
+                    let (pivot,radius)=rt.drill_pivot.filter(|(p,_,_)|*p==lease).map(|(_,p,r)|(p,r)).unwrap_or(([0.,0.,0.7],0.5));
+                    let anchor=add(start,scale(direction,(radius*0.65).clamp(0.2,1.)));
+                    place_drill_target(w,lease.id,anchor,direction,rt.spin,pivot);
                     let t=drill_hit(w,s.drill_dps);w.deliver_hit(lease.id,&t);out.holding=true;
                 }
             }
@@ -328,11 +348,11 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,anim:&mut dyn AnimCtl,env:&
                         }
                     }
                 }else{let d=sub(start,c.tip);c.tip=add(c.tip,scale(unit(d),(80.*DT).min(length(d))));}
-                out.rope=Some(c.tip);out.cable_pose=if c.target.is_none()&&c.phase==1{2}else{1};
+                out.rope=Some(c.tip);out.cable_latched=c.phase==1;out.cable_pose=if c.phase==2{0}else if c.target.is_none()&&c.phase==1{2}else{1};
                 if c.phase!=2||length(sub(start,c.tip))>0.1{rt.cable=Some(c);}
             }
         }
-        if can&&fire&&id==22&&s.ice_enabled&&!native_hydro&&w.counter>=rt.next_ice&&rt.ice_ammo.unwrap_or(0)>0&&rt.ice.len()<32{
+        if can&&fire&&out.freezer_armed&&id==22&&s.ice_enabled&&!native_hydro&&w.counter>=rt.next_ice&&rt.ice_ammo.unwrap_or(0)>0&&rt.ice.len()<32{
             rt.ice_ammo=rt.ice_ammo.map(|a|a-1);rt.next_ice=w.counter+s.ice_interval as u64;
             rt.ice.push(Ice{pos:start,vel:scale(direction,s.ice_speed),travel:0.,age:0,settings:s});
             if let Some(owner)=w.hero_moby{w.play_sound_as(1,0,owner,208);}
@@ -341,12 +361,6 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,anim:&mut dyn AnimCtl,env:&
     });
     if out.holding{
         hero.vel=[Pf::ZERO;4];hero.momentum=[Pf::ZERO;4];hero.speed=Pf::ZERO;hero.fwd_speed=Pf::ZERO;
-        let seq=hero.weapons.defs.get(16).map(|d|d.anims[0]).unwrap_or(-1);
-        if let Some(seq)=valid_pose(anim,&[seq,hero.idle_seq() as i32]){
-            if !out.previous_holding||anim.view().seq_b!=seq{hero.set_anim(anim,rng,Pf::f(5.),seq,0);}
-        }
-    }else if out.previous_holding&&grounded_drill(hero){
-        if let Some(seq)=valid_pose(anim,&[hero.idle_seq() as i32]){hero.set_anim(anim,rng,Pf::f(5.),seq,0);}
     }
     if let Some(to)=out.rope{
         if let Some(hook)=hero.swing.item.hook.as_mut(){hook.pos=to;}
@@ -404,6 +418,7 @@ mod tests {
         h.items.slot.item=Some(HandItem{o_class:match item{12=>208,26=>188,_=>1251},mstate:2,anim:crate::moby_runtime::Moby::default().anim,snapshot:None,scale:1.,position:[0.,0.,1.],rows:[[0;4];3],hit_timer:0,flight:Default::default()});h
     }
     fn fire(h:&mut Hero,t:&mut MobyTable,s:&mut Sink,frame:i32,held:bool){
+        if h.items.slot.id==22&&frame==1&&held{fire(h,t,s,0,false);}
         let data=ItemData::default();let pad=PadState{held:if held{button::CIRCLE}else{0},pressed:if frame==1&&held{button::CIRCLE}else{0},..Default::default()};
         let e=ItemEnv{data:&data,pad:&pad,frame,hero_moby:0,coll:None,mobys:None,camera:Some(([0.;3],[1.,0.,0.])),camera_up:None,targets:&[]};
         item_tick(h,t,&mut RecordingAnim::default(),&e,s,&mut Rng::new());
@@ -528,6 +543,70 @@ fn launch_origin(hero:&Hero,env:&ItemEnv,direction:V)->V{
         p[2]=p[2].max(feet[2]+0.65);p
     }
 }
+/// Hand gadgets use the native item chain, even when the muzzle is below the
+/// chest. The raised fallback belongs only to thrown ice, not to the cable.
+fn hand_origin(hero:&Hero,env:&ItemEnv)->V{
+    let raw=crate::hero::guns::item_point(hero,env,0);
+    let feet=to_f32x3(hero.pos);
+    if hero.items.slot.item.is_some()&&raw.into_iter().all(f32::is_finite)&&length(sub(raw,feet))<4.{return raw;}
+    let yaw=hero.rot[2].to_f32();add(feet,[yaw.cos()*0.5,yaw.sin()*0.5,0.45])
+}
+/// Remember a model-space centre once per allocation. Re-reading its rotated
+/// world bound each tick would make the pivot chase itself around the drill.
+fn drill_bounds(w:&World,id:MobyId)->(V,f32){
+    let m=w.m(id);let k=m.scale.abs()/1024.;
+    if let Some(s)=w.classes.anim(m.o_class).and_then(|c|c.sequence(0)).map(|q|q.header.sphere){
+        if s.into_iter().all(f32::is_finite)&&s[3]>0.{return ([s[0]*k,s[1]*k,s[2]*k],(s[3]*k).max(0.1));}
+    }
+    let centre=sub([m.bsphere[0]/1024.,m.bsphere[1]/1024.,m.bsphere[2]/1024.],pos(m));
+    let rows=[m.rows[0],m.rows[1],m.rows[2]];
+    if centre.into_iter().all(f32::is_finite)&&length(centre)<20.&&m.bsphere[3]>0.
+        &&rows.iter().all(|r|((r[0]*r[0]+r[1]*r[1]+r[2]*r[2])-1.).abs()<0.02){
+        return (rows.map(|r|dot([r[0],r[1],r[2]],centre)),(m.bsphere[3].abs()/1024.).max(0.1));
+    }
+    ([0.,0.,0.7],0.5)
+}
+/// Root compensation keeps the same visible centre at the nozzle through a
+/// complete turn. Publish the matrix now: the scheduler already ran this frame.
+fn place_drill_target(w:&mut World,id:MobyId,centre:V,direction:V,spin:f32,pivot:V){
+    let pitch=-direction[2].atan2(direction[0].hypot(direction[1]));
+    let yaw=direction[1].atan2(direction[0]);
+    let rows=rc_formats::moby_light::instance_rows([spin,pitch,yaw],w.m(id).mode).map(|r|r.map(f32::from_bits));
+    let offset:V=std::array::from_fn(|axis|(0..3).map(|row|rows[row][axis]*pivot[row]).sum());
+    let class=w.classes.anim(w.m(id).o_class);
+    let m=&mut w.table.mobys[id];m.mode&=!mode::KEEP_ROWS;
+    m.rotation=[spin,pitch,yaw,0.];
+    let root=sub(centre,offset);m.position=[root[0],root[1],root[2],1.];
+    crate::moby_update::scheduler::rebuild_matrix(m,class);
+}
+/// A latch suppresses voluntary translation; surface pull still supplies its
+/// own collision-resolved displacement. Extending/retracting cables do not lock.
+pub(crate) fn cable_holds_motion(hero:&Hero,pad:&crate::pad::PadState)->bool{
+    allowed(hero)&&hero.items.slot.id==12&&hero.gadget_combat.cable_latched
+        &&pad.held&(button::CIRCLE|button::R2)!=0
+}
+/// Filter only the native movement copy, never the camera/menu input record.
+/// Releasing fire clears the pose before locomotion, so an unchanged run state
+/// cannot keep the custom idle or launch animation for one additional frame.
+pub(crate) fn prepare_hero_input(hero:&mut Hero,pad:&mut crate::pad::PadState){
+    let fire=pad.held&(button::CIRCLE|button::R2)!=0;
+    if !fire{
+        hero.gadget_combat.cable_pose=0;hero.gadget_combat.cable_latched=false;
+        hero.gadget_combat.grapple_step=None;hero.gadget_combat.holding=false;
+    }
+    let cable=cable_holds_motion(hero,pad);
+    let drill=allowed(hero)&&hero.items.slot.id==26&&hero.gadget_combat.holding&&fire;
+    if !(cable||drill){return;}
+    let mask=button::UP|button::DOWN|button::LEFT|button::RIGHT|button::FLICK
+        |if cable{button::CROSS}else{0};
+    pad.lx=Pf::ZERO;pad.ly=Pf::ZERO;pad.analog_copy[2]=Pf::ZERO;pad.analog_copy[3]=Pf::ZERO;
+    for bits in [&mut pad.held,&mut pad.pressed,&mut pad.released,&mut pad.prev_held,
+        &mut pad.raw,&mut pad.raw_pressed,&mut pad.raw_released,&mut pad.prev_raw,
+        &mut pad.held_unmirrored,&mut pad.pressed_unmirrored,&mut pad.released_unmirrored,&mut pad.held_store]{*bits&=!mask;}
+    for p in &mut pad.pressure[..4]{*p=Pf::ZERO;}
+    if cable{pad.pressure[6]=Pf::ZERO;}
+    pad.no_direction=true;pad.stick_active=false;pad.nothing_held=pad.held==0;
+}
 fn aim_direction(hero:&Hero,env:&ItemEnv)->V{
     let yaw=hero.rot[2].to_f32();
     if hero.fixed_combat_aim&&crate::hero::combat_strafe::active(hero){return [yaw.cos(),yaw.sin(),0.];}
@@ -553,22 +632,30 @@ fn grounded_drill(hero:&Hero)->bool {
 }
 fn cable_animation(hero:&mut Hero,anim:&mut dyn AnimCtl,rng:&mut Rng,pose:u8){
     if pose!=0{
-        // Custom pulls do not enter native state 0x25. Keep its stable launch/
-        // cable-holding pose instead of forcing that state's full-body 0x30 pose.
-        let preferred=0x2f;
         let fallback=hero.weapons.defs.get(16).map(|d|d.anims[0]).unwrap_or(-1);
-        // Novalis and other class variants can omit native Swingshot poses.
-        let Some(seq)=valid_pose(anim,&[preferred,fallback,hero.idle_seq() as i32,0xb])else{return};
-        let frame=if seq==preferred as u8{2}else{0};
-        let frame=frame.min(anim.frame_count(seq).saturating_sub(1) as i32);
+        let Some(seq)=valid_pose(anim,&[0x2f,fallback,hero.idle_seq() as i32,0xb])else{return};
+        let frame=(if seq==0x2f{2}else{0}).min(anim.frame_count(seq).saturating_sub(1) as i32);
         if !anim.prepare_gadget_pose(seq,frame as u8){return;}
-        if hero.gadget_combat.previous_cable_pose!=pose||anim.view().seq_b!=seq||anim.view().flags&2!=0{
+        if hero.gadget_combat.pose_item!=12||anim.view().seq_b!=seq||anim.view().flags&2!=0{
             hero.set_anim(anim,rng,Pf::f(5.),seq,frame);
         }
+        hero.gadget_combat.pose_sequence=Some(seq);hero.gadget_combat.pose_item=12;
         if seq==0x2f&&anim.frame_count(seq)>14{anim.set_loop(10,14);}else{anim.clear_loop();}
-    }else if hero.gadget_combat.previous_cable_pose!=0&&allowed(hero){
-        anim.clear_loop();let desired=if hero.air_ticks>0{0xb}else{hero.idle_seq()};
-        if let Some(seq)=valid_pose(anim,&[desired as i32]){if anim.prepare_gadget_pose(seq,0){hero.set_anim(anim,rng,Pf::f(6.),seq,0);}}
+    }else{restore_motion_pose(hero,anim,rng);}
+}
+/// Only replace a pose still owned by our gadget. Native jumps, damage and
+/// cinematics already chose their own animations and must never be reset here.
+fn restore_motion_pose(hero:&mut Hero,anim:&mut dyn AnimCtl,rng:&mut Rng){
+    let owned=hero.gadget_combat.pose_sequence.take();hero.gadget_combat.pose_item=0;
+    let Some(owned)=owned else{return};hero.anim_speed=Pf::ONE;
+    if anim.view().seq_b!=owned{return;}
+    anim.clear_loop();
+    let seq=match hero.state{
+        2=>Some(3+hero.substate.clamp(0,1) as u8),0x73=>Some(0x60),0x3f=>Some(0x5b),
+        0=>Some(hero.idle_seq()),_=>None,
+    };
+    if let Some(seq)=seq.filter(|&seq|anim.gadget_sequence_valid(seq)){
+        if anim.prepare_gadget_pose(seq,0){hero.set_anim(anim,rng,Pf::f(5.),seq,0);}
     }
 }
 
@@ -602,10 +689,32 @@ mod v135_tests;
 /// The same final pose must drive the rendered body and the back/hand chains.
 /// Apply after native movement transitions, before combat layers and fx::end.
 pub(crate) fn apply_hero_pose(hero:&mut Hero,anim:&mut dyn AnimCtl,rng:&mut Rng){
-    if !allowed(hero)||hero.items.slot.id!=12{return;}
-    cable_animation(hero,anim,rng,hero.gadget_combat.cable_pose);
+    if !allowed(hero){
+        if let Some(seq)=hero.gadget_combat.pose_sequence.take(){
+            hero.anim_speed=Pf::ONE;if anim.view().seq_b==seq{anim.clear_loop();}
+        }
+        hero.gadget_combat.pose_item=0;return;
+    }
+    match hero.items.slot.id{
+        12=>cable_animation(hero,anim,rng,hero.gadget_combat.cable_pose),
+        26 if hero.gadget_combat.holding&&grounded_drill(hero)=>{
+            let native=hero.weapons.defs.get(16).map(|d|d.anims[0]).unwrap_or(-1);
+            if let Some(seq)=valid_pose(anim,&[native,hero.idle_seq() as i32]){
+                let key=anim.frame_count(seq)/2;
+                if hero.hold_gadget_anim(anim,rng,seq,key){
+                    hero.gadget_combat.pose_sequence=Some(seq);hero.gadget_combat.pose_item=26;
+                }
+            }
+        }
+        26=>restore_motion_pose(hero,anim,rng),
+        _=>restore_motion_pose(hero,anim,rng),
+    }
 }
 
 #[cfg(test)]
 #[path="gadget_combat_v136_tests.rs"]
 mod v136_tests;
+
+#[cfg(test)]
+#[path="gadget_combat_v137_tests.rs"]
+mod v137_tests;

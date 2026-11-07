@@ -1,3 +1,32 @@
+# v137 gadget input, animation and pivot verification
+
+- 1,502 rc-game library tests passed; three unchanged large historical seed
+  surveys were filtered out. Eleven new regressions cover native walk/run pose
+  ownership, retained jump/damage poses, movement-only latch filtering, vertical
+  collision-resolved pull, the real low animated item chain, fixed capture
+  centres with mirrored/scaled models, authored-row restoration, stable decoded
+  aim keys, Circle/R2 equip input, repeat intervals and masked menu handoffs.
+- All 283 Python launcher/tool tests passed, including complete standalone v137
+  export with CRLF batch scripts, runtime identity checks, preservation of the
+  existing launcher and rejection of incomplete/modified source inventories.
+- Native palette regressions from v136 still pass, including missing-snapshot
+  repair and agreement between Ratchet's final pose and Clank's cached chain.
+- Source-only gadget changes add no saved fields and do not alter damage/XP
+  accounting. Trespasser still kills through accepted native damage without
+  allocating a replacement actor. Freezer ammo/recharge remain separate from
+  the transient equip-input latch.
+- All INIs, approved default descriptor, save-format code, randomizer generator,
+  launcher/icon, published release metadata and manual-only draft workflow are
+  byte-identical to the supplied v136 baseline. The test kit builds the runtime
+  only; the existing 0.30.2 editor exposes all unchanged controls.
+- Windows engine linking, actual disc assets, GPU appearance and Tk painting
+  cannot be verified on this host. Native logic/geometry tests and Python tool
+  checks are not a claim of an in-game visual playthrough. Use LOCAL_TEST_V137.md.
+- Main source synchronization creates no tag, release, draft or GitHub asset.
+  Existing credits, original-game rights notices and licenses are retained.
+
+Earlier records below retain their version-specific scope.
+
 # v136 grapple and Trespasser verification
 
 - 1,491 rc-game library tests passed; three unchanged large historical seed

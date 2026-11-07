@@ -1006,6 +1006,10 @@ impl Hero {
     /// The move `0x233de0`: the platform carry `HeroPlatformUpdate` 0x249618 (super::platform), clamp,
     /// integrate, capsule, ground probe, snap, effective velocity, the platform step, slope ratio, speed cap.
     pub fn move_collide(&mut self, env: &Env) {
+        if crate::gadget_combat::cable_holds_motion(self,env.pad){
+            self.vel[0]=Pf::ZERO;self.vel[1]=Pf::ZERO;self.momentum=[Pf::ZERO;4];
+            self.speed=Pf::ZERO;self.fwd_speed=Pf::ZERO;self.target_speed=Pf::ZERO;
+        }
         if let Some(step)=crate::gadget_combat::grapple_step(self,env.pad) {
             self.vel=from_f32x3(step);self.momentum=[Pf::ZERO;4];self.speed=Pf::ZERO;self.fwd_speed=Pf::ZERO;
         }

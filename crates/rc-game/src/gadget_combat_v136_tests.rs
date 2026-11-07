@@ -7,7 +7,7 @@ use crate::hero::{anim::{RatchetAnim,RecordingAnim},physics,testkit};
 use crate::moby_update::Services;
 use crate::pad::{PadInput,PadState};
 use rc_formats::moby_anim::{self,SNAPSHOT_SEQ};
-fn swing_class()->moby_anim::MobyAnimClass{
+pub(super) fn swing_class()->moby_anim::MobyAnimClass{
     let mut c=minimal_class();c.skeleton=vec![moby_anim::IDENTITY;c.joint_count];let seq=c.sequences[0].clone();c.sequences.resize(0x31,seq);c
 }
 #[test]

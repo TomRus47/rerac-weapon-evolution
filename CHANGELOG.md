@@ -1,3 +1,14 @@
+## Local development v137 — ReRAC 0.3.8-alpha
+
+- Restore native run/walk after early Swingshot release; do not force idle while moving.
+- Attach the cable to the native animated item muzzle, including low hand poses.
+- Block voluntary translation only while hooked; preserve collision-resolved surface pull and camera/release input.
+- Rotate a Trespasser victim about its cached model-space centre and immediately rebuild the render matrix.
+- Hold a decoded aiming key during grounded capture; release the pose/playback lock on interruption.
+- Require releasing equip-fire before the Freezer can shoot. Normal hold-to-fire intervals remain intact.
+- Keep launcher 0.30.2, INI values, defaults, presets, saves, seeds and custom icon unchanged.
+- Supply a standalone runtime-only test/update kit with a playable-ZIP packaging command. No release or draft.
+
 # Weapon Evolution 0.4.2 — unpublished draft
 
 ReRAC **0.3.8-alpha**, gameplay **0.1.6.123**, capability **93**, launcher **0.29.6**.

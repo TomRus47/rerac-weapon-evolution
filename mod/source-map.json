@@ -1,5 +1,5 @@
 {
-  "gameplay_version": "0.1.6.136",
+  "gameplay_version": "0.1.6.137",
   "launcher_version": "0.30.2",
   "files": [
     {
@@ -27,9 +27,10 @@
     {
       "path": "CHANGELOG.md",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "6754a8f65b3947ec54667c445dd9a690c7617e01937bba9f2899c359799ba479"
+      "sha256": "67f857786f90197a38d2ad89ca354f9bcdc238030064ba5fa70fb8326dbb42f1"
     },
     {
       "path": "Cargo.lock",
@@ -62,9 +63,10 @@
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "0439b402204c2f83c01b2f1044c62969e5410785213ffc7b7ade8bee980a86d1"
+      "sha256": "1351e9c80374fa2a57992b7e7314e4b64fdfb60d90871b6544917b13e90d2b0c"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -145,7 +147,7 @@
     },
     {
       "path": "crates/rc-engine/src/disc_source.rs",
-      "sha256": "e5948cfdfc957ef5d1fcaa9ef2b878255c19f5c54ce7b9f2d243e9943536728a",
+      "sha256": "0b0d37416bf73270056c4754dab2a6958c330414d3bcaeedd8866f990eda174c",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -155,7 +157,8 @@
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ]
     },
     {
@@ -326,10 +329,11 @@
     },
     {
       "path": "crates/rc-engine/src/moby_attach.rs",
-      "sha256": "078f378f6183bb5f916ea9fe215ad1d5cbe59dc7565e08da061bb61e307695a7",
+      "sha256": "71fae755bd6bb0961c6d1ec2647374a5a691aeaea71cc6e96aa7ffe37bb9adc5",
       "reasons": [
         "Weapon Evolution implementation or integration",
-        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ]
     },
     {
@@ -870,9 +874,10 @@
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "56c93199b8f20c5ee8e029eb8706565f380c2a06a5c3d924af874ca3c520292c"
+      "sha256": "0f652fceb1f13a0259235236669088d6c2f822ac8d26937e7e5c8040b9f0ea25"
     },
     {
       "path": "crates/rc-game/src/gadget_combat_freezer.rs",
@@ -886,9 +891,10 @@
       "reasons": [
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "4181b1ea0635405181fe17fe929ce80e71d9a0e49ad0977be451d7d5914d2b90"
+      "sha256": "ac45aa1d04b894a9b013fa7687551acb82b4197972966651e03af0110e59bf56"
     },
     {
       "path": "crates/rc-game/src/gadget_combat_v135_tests.rs",
@@ -901,9 +907,17 @@
     {
       "path": "crates/rc-game/src/gadget_combat_v136_tests.rs",
       "reasons": [
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "654dee5a4781c5e92db19f6ba9694b9e8e2e96db442662886d04f1e053abde9e"
+      "sha256": "666523603b7ff260ba0d47fe5d7d06153f748b051868dad4d660f7d2a41511d4"
+    },
+    {
+      "path": "crates/rc-game/src/gadget_combat_v137_tests.rs",
+      "reasons": [
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
+      ],
+      "sha256": "7ae28efa20eedc2a3bab0b62af8fd53ae91c95e2cb3a252b12a458cb9434688e"
     },
     {
       "path": "crates/rc-game/src/game_state.rs",
@@ -918,12 +932,13 @@
     },
     {
       "path": "crates/rc-game/src/hero.rs",
-      "sha256": "dfa0a21c5b2f53b5dd341f383f9254712ae8efd842a0499e7b8736d6de431d25",
+      "sha256": "525466baf0307e4aa3b3a7730b20fc84172a1ff563053aff7505d8f82ac40b27",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ]
     },
     {
@@ -935,11 +950,12 @@
     },
     {
       "path": "crates/rc-game/src/hero/anim.rs",
-      "sha256": "a001e75ded26eb8af5aff840c576a1db4a2fb10fca6432e7bfa2647834e1f53b",
+      "sha256": "d3ee6ce89c95c209c1a29d74cfc2fbca803a5e6fad44e9a803390f5afbe1fb33",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ]
     },
     {
@@ -1125,12 +1141,13 @@
     },
     {
       "path": "crates/rc-game/src/hero/physics.rs",
-      "sha256": "53c1e7119f1aff60d3423564ecce1c3d0fea8b809de5598827ef0eb173e2b9d6",
+      "sha256": "fbb36125b1a6366d12561f64b315b2f9407d7dcf397255efd618796206ab0473",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
-        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification"
+        "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ]
     },
     {
@@ -3371,9 +3388,10 @@
       "path": "docs/mod/CURRENT_IMPLEMENTATION.md",
       "reasons": [
         "Weapon Evolution implementation or integration",
-        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
+        "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "95d6d845ea7041d13a98d0c6b2cf47524cd0bac69a902f6c19ba056284a723ea"
+      "sha256": "e107c51c8e8fe6c0bff2445228e347d9fab108818c8201d0a5015260fa36b524"
     },
     {
       "path": "docs/mod/DEVELOPER_GUIDE.md",
@@ -3537,6 +3555,13 @@
       "sha256": "a8294bfc6a37a48f2af7b43f4c0ccdba224d39e2f02adfd2f4eb1da312583781"
     },
     {
+      "path": "docs/mod/LOCAL_TEST_V137.md",
+      "reasons": [
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
+      ],
+      "sha256": "722f2eab3f26478a99114102a7305302600aa2f22959ac2d7ddd12d3f8be7b66"
+    },
+    {
       "path": "docs/mod/MINE_AMMO_UI_V57.md",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -3665,9 +3690,10 @@
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "0d20b0edf2dac584fef42a82d52414da202676251941efd291c27a5abf77828b"
+      "sha256": "52f4561efcc8611ea21dc7096883a628d979b24b16ac0bc98f0834f81ba4c347"
     },
     {
       "path": "docs/mod/VERIFICATION_V115.md",
@@ -4093,9 +4119,10 @@
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "0379c16bdcb7efdbea5e41970ccc0e3d6755714b2aff1caba967c0a0be83506a"
+      "sha256": "6c33bdd209276be5ebd76a351224fdf11444a7bfdc64cb51870b09d3ece86911"
     },
     {
       "path": "launcher/tests/test_intervals.py",
@@ -4310,6 +4337,13 @@
       "sha256": "1b3b9d0b78385df1685cc8549402f5031732d18c2ede6604499902c729696806"
     },
     {
+      "path": "launcher/tests/test_v137_export.py",
+      "reasons": [
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
+      ],
+      "sha256": "308a53d5cbf4054dce8ac478928707b8794aba7c22e216f1f7021123718aa24d"
+    },
+    {
       "path": "launcher/tests/test_v44.py",
       "sha256": "7d2770b5f3a0e28ffc42ee9cac2d90cfb24c81821e3956c4fc17560fc26cddf3",
       "reasons": [
@@ -4470,9 +4504,10 @@
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "e848342e19ac51e92bf43bef2562afb90ef17d95b3b0b06d080936054264e114"
+      "sha256": "7667970b181f17863ee94f0be801bc5790a4bcbb7b94625d750f9ae0fe6f3536"
     },
     {
       "path": "mod/draft.json",
@@ -4484,9 +4519,10 @@
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "1d0826e03bc8abb30df95f877065de07a4c09e35df2357760a713a13aebb61be"
+      "sha256": "8926a06dd9cdc1d6d5d3e6f94ac29a8b66f50ffac335d6569126cc38ffd174c9"
     },
     {
       "path": "mod/provenance.json",
@@ -4620,6 +4656,13 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
       ],
       "sha256": "a109b82ace3cc6a181125fdb8cb5a91736e36ec41e60a55ec47ba8e045ebc83c"
+    },
+    {
+      "path": "tools/mod/create_gadget137_kit.py",
+      "reasons": [
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
+      ],
+      "sha256": "2ca065d13fcbde90b6a47d827bf8b376baf484759e12f3965b54f41f100da3e2"
     },
     {
       "path": "tools/mod/create_hoven131_kit.py",
@@ -4771,9 +4814,10 @@
         "v133 opt-in gadget combat, configuration, verification or local test packaging",
         "v134 gadget actor lifetimes, grapple physics and poses, frost launch or verification",
         "v135 safe gadget poses, grounded drill, Freezer HUD/recharge, portable condensation or verification",
-        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging"
+        "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
       ],
-      "sha256": "466729fce32bd46fd981d05e5fc5d7717d1f73d6c13577abba70fc8d6fb70d64"
+      "sha256": "df47da8f94c204a066a0e2fd456b4211da7d5d8bc1effc0048547f0e3768c09e"
     },
     {
       "path": "tools/mod/rust_build_tools.py",

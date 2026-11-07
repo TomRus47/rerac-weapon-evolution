@@ -9,7 +9,7 @@ class IntegrationTests(unittest.TestCase):
   import runtime038_test
   validate_source_apis(ROOT)
   runtime038_test.validate_identity({'name':'rerac','game':'rac1','version':'0.3.8',
-      'weapon_evolution_patch':'0.1.6.136','weapon_evolution_config':97,'weapon_evolution_audio_diagnostics':False})
+      'weapon_evolution_patch':'0.1.6.137','weapon_evolution_config':97,'weapon_evolution_audio_diagnostics':False})
  def test_gadget_hooks_are_in_shared_tick_not_planet_specific_scripts(self):
   tick=(ROOT/'crates/rc-game/src/tick.rs').read_text()
   self.assertIn('crate::gadget_combat::item_tick(',tick)

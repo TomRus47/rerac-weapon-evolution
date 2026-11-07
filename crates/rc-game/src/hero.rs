@@ -645,6 +645,16 @@ impl Hero {
         hoverboard::link_anim(self, blend, seq, frame);
     }
 
+    /// A stable capture key avoids idle/weapon blend oscillation. The back
+    /// follower still uses its own valid entry key, then attaches to this pose.
+    pub(crate) fn hold_gadget_anim(&mut self,anim:&mut dyn AnimCtl,rng:&mut crate::rng::Rng,seq:u8,frame:u8)->bool{
+        let entering=self.gadget_combat.pose_item!=self.items.slot.id
+            ||self.gadget_combat.pose_sequence!=Some(seq)||anim.view().seq_b!=seq;
+        if !anim.hold_gadget_pose(seq,frame){return false;}
+        self.anim_speed=Pf::ZERO;
+        if entering{self.back_follow_anim(1,seq,0,rng);}true
+    }
+
     /// `HeroTeleport(pos, euler, state, reset_cam)` 0x2368e0 from the hero code (the Hoverboard's respawns): position and
     /// Euler (rows, the moby's rows), 0x13f4e0 / 0x13f4e4 = 0, the after-images ended, airborne (0x13f65e = 1), the
     /// platform carry dropped, the motion block (0x13f430 / 440 / 450 / 460 / 470 / 4a0) and the straightening's
@@ -846,10 +856,11 @@ pub(crate) fn hero_update_with_combat_mode(
     combat_enabled: bool,
 ) -> HeroTick {
     combat_strafe::configure(hero, env.pad, env.cam_yaw, combat_enabled);
-    let gameplay_pad = crate::weapon_evo::controls::hero_gameplay_pad(
+    let mut gameplay_pad = crate::weapon_evo::controls::hero_gameplay_pad(
         env.pad, hero, crate::weapon_evo::controls::active(),
         crate::weapon_evo::controls::settings().dpad,
     );
+    crate::gadget_combat::prepare_hero_input(hero,&mut gameplay_pad);
     let env = &Env { pad: &gameplay_pad, ..*env };
     // L2 can take over after releasing L1 without leaving Ratchet hidden.
     if combat_strafe::active(hero) && matches!(hero.state, 1 | 0x1e) {

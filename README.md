@@ -1,4 +1,4 @@
-> Current development v136: [grapple pose lifecycle and normal Trespasser kills](docs/mod/LOCAL_TEST_V136.md). Includes all preceding local tests. Main source update only; no release or draft is created.
+> Current development v137: [grapple locomotion, centred drill capture and Freezer equip gating](docs/mod/LOCAL_TEST_V137.md). Complete standalone source; existing launcher, icon, balance and saves retained. No release or draft is created.
 
 > Local v135: [gadget pose fixes and Freezer HUD/recharge](docs/mod/LOCAL_TEST_V135.md). Includes a matching launcher update. Local testing only; no public release.
 

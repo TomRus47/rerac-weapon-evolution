@@ -28,6 +28,11 @@ impl HitSink for Sink{
     }
 }
 pub(super) fn fire(h:&mut Hero,table:&mut MobyTable,sink:&mut Sink,frame:i32,anim:&mut dyn AnimCtl){
+    if h.items.slot.id==22&&frame==1{
+        let data=ItemData::default();let pad=PadState::default();
+        let env=ItemEnv{data:&data,pad:&pad,frame:0,hero_moby:0,coll:None,mobys:None,camera:None,camera_up:None,targets:&[]};
+        item_tick(h,table,anim,&env,sink,&mut Rng::new());
+    }
     let data=ItemData::default();let pad=PadState{held:button::CIRCLE,pressed:if frame==1{button::CIRCLE}else{0},..Default::default()};
     let env=ItemEnv{data:&data,pad:&pad,frame,hero_moby:0,coll:None,mobys:None,camera:Some(([100.,100.,11.],[1.,0.,0.])),camera_up:None,targets:&[]};
     item_tick(h,table,anim,&env,sink,&mut Rng::new());
