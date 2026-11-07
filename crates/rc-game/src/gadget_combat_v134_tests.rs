@@ -15,6 +15,7 @@ pub(super) fn classes()->ClassTable{
 }
 pub(super) fn hero(item:i32)->Hero{
     let mut h=Hero::new();h.pos=from_f32x3([100.,100.,10.]);h.body_point=from_f32x3([100.,100.,10.7]);
+    if item==26{h.cap_moby=Some(1);h.cap_hit=1;} // Simulated native body contact. 
     h.ground_z=Pf::f(10.);h.ground_point=h.pos;h.items.slot.id=item;h.items.slot.state=2;
     h.items.slot.item=Some(crate::hero::items::HandItem{o_class:match item{12=>208,26=>188,_=>1251},
         mstate:2,anim:Moby::default().anim,snapshot:None,scale:1.,position:[100.,100.,9.8],rows:[[0;4];3],hit_timer:0,flight:Default::default()});h

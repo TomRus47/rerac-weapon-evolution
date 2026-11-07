@@ -1,3 +1,34 @@
+# v139 airborne release and contact acquisition verification
+
+- 1,516 rc-game library tests passed; three unchanged large historical seed
+  surveys were filtered out. Six new regressions cover decoded fall recovery
+  after release, missing-source repair when native fall is already sequence B,
+  real hero falling updates with Clank's cached back chain, no acquisition for
+  nearby/distant/stale unconfirmed contacts, selecting the actually contacted
+  enemy, and native capsule collision followed by sustained capture at the
+  one-unit-forward model centre through repeated full rotations.
+- All 291 Python launcher/tool tests passed, including complete v139 export,
+  exact prepared runtime identity, CRLF scripts and source-integrity checks.
+- Earlier focused tests model a contact notification explicitly; the new
+  capsule fixture drives the native collision resolver against a real moby
+  primitive and passes its resulting cap_moby/cap_hit to item acquisition.
+- Palette tests first establish the missing-source identity-matrix fallback,
+  then check valid non-identity matrices after recovery. The native hero test
+  checks continuing descent and Clank's attachment over fifteen airborne ticks.
+- v138 collision ownership, accepted HP/Nanotech XP and motor/frost sound tests
+  remain passing. Audio importer/engine files are unchanged by this update.
+- All INIs, approved defaults, save format, randomizer generator, launcher schema,
+  language catalogs, core/icon, release metadata and manual draft workflow are
+  byte-identical to the supplied v138 baseline. No save/config fields are added.
+- The independently extracted complete kit is checked against every source
+  SHA256 and the prepared source API validator. Windows engine linking, actual
+  disc assets, GPU alignment and audible output still require the local test;
+  no visual playthrough is claimed by the preparation host.
+- Main synchronization creates no tag, release, draft or GitHub asset. Existing
+  original-game rights notices, ReRAC credits and licenses are retained.
+
+Earlier records below retain their version-specific scope.
+
 # v138 capture collision and frost audio verification
 
 - 1,510 rc-game library tests passed; three unchanged large historical seed

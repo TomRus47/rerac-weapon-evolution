@@ -1,3 +1,10 @@
+## Local development v139 — ReRAC 0.3.8-alpha
+
+- Restore the native fall animation when a custom surface grapple is released in the air. Repair a missing source snapshot even when native fall is already sequence B; preserve independently chosen jump/hit animations.
+- Require a contact reported by Ratchet's native capsule/wall resolver before Trespasser acquisition. Nearby enemies alone no longer qualify. Configured drill_range remains an upper bound; native pads retain priority.
+- Move the captured model centre one game unit farther forward along the drill axis, retaining root compensation and collision suppression while held.
+- Keep capture-owned motor audio, Hoven frost impact audio, damage/XP clocks, balance, launcher/icon, INIs and saves unchanged. Supply a standalone runtime-only test/update and playable-ZIP packaging kit.
+
 ## Local development v138 — ReRAC 0.3.8-alpha
 
 - Temporarily remove a captured Trespasser victim's physical collision so it cannot push Ratchet and break capture. Restore the prior state when releasing a living victim; never restore an old lease onto a dead or reused slot.

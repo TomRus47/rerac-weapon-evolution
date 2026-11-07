@@ -1,3 +1,11 @@
+# Current v139 gadget follow-up
+
+ReRAC 0.3.8-alpha; gameplay 0.1.6.139; capability 97; retained launcher 0.30.2.
+See [airborne grapple handoff and physical-contact drill capture](LOCAL_TEST_V139.md).
+The captured model centre is one game unit farther forward than v138. Collision
+suppression, capture-only motor audio and native frost detonation sound remain.
+Previous sections below keep their version-specific scope. No release is created.
+
 # Current v138 gadget follow-up
 
 ReRAC 0.3.8-alpha; gameplay 0.1.6.138; capability 97; launcher 0.30.2 retained.

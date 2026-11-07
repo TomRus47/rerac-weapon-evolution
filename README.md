@@ -1,4 +1,4 @@
-> Current development v138: [collision-safe Trespasser capture and native Freezer impact audio](docs/mod/LOCAL_TEST_V138.md). Complete standalone source; existing launcher, icon, balance and saves retained. No release or draft is created.
+> Current development v139: [airborne grapple release and contact-only Trespasser capture](docs/mod/LOCAL_TEST_V139.md). Complete source; installed launcher, icon, balance and saves retained. No release or draft is created.
 
 > Local v135: [gadget pose fixes and Freezer HUD/recharge](docs/mod/LOCAL_TEST_V135.md). Includes a matching launcher update. Local testing only; no public release.
 

@@ -205,6 +205,17 @@ fn seek(w:&World,origin:V,direction:V,range:f32,pull:bool)->Option<MobyId>{
             Some((id,d*(2.-facing)))})
         .min_by(|a,b|a.1.total_cmp(&b.1)).map(|v|v.0)
 }
+/// Acquisition requires a collision reported by this tick's native hero
+/// capsule/wall resolver. Range remains a defensive upper bound, not a vacuum.
+/// Once held, collision is deliberately absent and acquisition is not repeated.
+fn drill_contact(w:&World,direction:V,range:f32)->Option<MobyId>{
+    let capsule=(w.hero.cap_hit!=0).then_some(w.hero.cap_moby).flatten();
+    [capsule,w.hero.wall_moby].into_iter().flatten().find(|&id|{
+        if id>=w.table.mobys.len()||!enemy(w,id)||crate::weapon_evo::world::boss(w.m(id).o_class){return false;}
+        let delta=sub(target_point(w.m(id)),to_f32x3(w.hero.body_point));
+        length(delta)<=range&&dot(unit(delta),direction)>0.2
+    })
+}
 /// True freeze skips the scheduler's animation and AI, but never its HP inbox.
 pub fn frozen(w:&World,id:MobyId)->bool{w.svc.gadget_combat.frozen.get(&id)
     .is_some_and(|f|f.lease.valid(w)&&w.counter<f.until&&enemy(w,id))}
@@ -308,7 +319,7 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:
         }
         if drill_grounded&&fire&&id==26&&s.drill_enabled&&!native_drill{
             rt.spin=(rt.spin+s.drill_spin.to_radians()*DT)%std::f32::consts::TAU;
-            if rt.drill.is_none(){if let Some(target)=seek(w,start,direction,s.drill_range,false).filter(|&i|!crate::weapon_evo::world::boss(w.m(i).o_class)){
+            if rt.drill.is_none(){if let Some(target)=drill_contact(w,direction,s.drill_range){
                 let lease=Lease::of(w,target);let (pivot,radius)=drill_bounds(w,target);
                 rt.drill=Some(lease);rt.drill_pivot=Some((lease,pivot,radius));
                 rt.drill_collision=Some(DrillCollision{lease,enabled:w.m(target).has_collision});
@@ -330,7 +341,7 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:
                     w.mm(lease.id).has_collision=false;
                     hold(&mut rt,w,lease.id,w.counter+2,None,true);
                     let (pivot,radius)=rt.drill_pivot.filter(|(p,_,_)|*p==lease).map(|(_,p,r)|(p,r)).unwrap_or(([0.,0.,0.7],0.5));
-                    let anchor=add(start,scale(direction,(radius*0.65).clamp(0.2,1.)));
+                    let anchor=add(start,scale(direction,1.+(radius*0.65).clamp(0.2,1.)));
                     place_drill_target(w,lease.id,anchor,direction,rt.spin,pivot);
                     let t=drill_hit(w,s.drill_dps);w.deliver_hit(lease.id,&t);out.holding=true;
                 }
@@ -444,6 +455,7 @@ mod tests {
     }
     fn hero(item:i32)->Hero{
         let mut h=Hero::new();h.health=4;h.items.slot.id=item;h.items.slot.state=2;
+        if item==26{h.cap_moby=Some(1);h.cap_hit=1;} // Simulated native body contact. 
         h.body_point=from_f32x3([0.,0.,1.]);h.ground_point=from_f32x3([0.,0.,-50.]);
         h.items.slot.item=Some(HandItem{o_class:match item{12=>208,26=>188,_=>1251},mstate:2,anim:crate::moby_runtime::Moby::default().anim,snapshot:None,scale:1.,position:[0.,0.,1.],rows:[[0;4];3],hit_timer:0,flight:Default::default()});h
     }
@@ -676,14 +688,18 @@ fn cable_animation(hero:&mut Hero,anim:&mut dyn AnimCtl,rng:&mut Rng,pose:u8){
 /// Only replace a pose still owned by our gadget. Native jumps, damage and
 /// cinematics already chose their own animations and must never be reset here.
 fn restore_motion_pose(hero:&mut Hero,anim:&mut dyn AnimCtl,rng:&mut Rng){
+    let cable=hero.gadget_combat.pose_item==12;
     let owned=hero.gadget_combat.pose_sequence.take();hero.gadget_combat.pose_item=0;
     let Some(owned)=owned else{return};hero.anim_speed=Pf::ONE;
-    if anim.view().seq_b!=owned{return;}
+    let falling=cable&&hero.air_ticks>0&&matches!(hero.state,0|1|2|6|0x1e|0x2d);
+    // Native fall may already be sequence B while its source snapshot is absent.
+    // Repair that handoff too; preserve independently chosen jump/hit poses.
+    if anim.view().seq_b!=owned&&!(falling&&matches!(hero.state,6|0x2d)){return;}
     anim.clear_loop();
-    let seq=match hero.state{
+    let seq=if falling{Some(0xb)}else{match hero.state{
         2=>Some(3+hero.substate.clamp(0,1) as u8),0x73=>Some(0x60),0x3f=>Some(0x5b),
         0=>Some(hero.idle_seq()),_=>None,
-    };
+    }};
     if let Some(seq)=seq.filter(|&seq|anim.gadget_sequence_valid(seq)){
         if anim.prepare_gadget_pose(seq,0){hero.set_anim(anim,rng,Pf::f(5.),seq,0);}
     }
@@ -752,3 +768,7 @@ mod v137_tests;
 #[cfg(test)]
 #[path="gadget_combat_v138_tests.rs"]
 mod v138_tests;
+
+#[cfg(test)]
+#[path="gadget_combat_v139_tests.rs"]
+mod v139_tests;
