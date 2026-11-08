@@ -10,7 +10,7 @@ No GitHub operations or release publication are performed.
 2. Extract this new kit to its own folder. Close the game and mod launcher.
 3. Run **01_COMPILE_AND_UPDATE.bat**.
 4. First select the **existing v126 UPDATE folder**, for example
-   `C:\Users\YourName\Desktop\ReRAC_Weapon_Evolution_v126_Walloper_Water_Skill_Points_Test`.
+   `C:\Users\USERNAME\Desktop\ReRAC_Weapon_Evolution_v126_Walloper_Water_Skill_Points_Test`.
    This first selection is neither the playable mod nor the v125 kit.
 5. For the second selection, accept/select the **playable mod folder** containing
    `ReRAC_Weapon_Evolution.exe`, `weapons.ini` and `runtime/rerac.exe`.

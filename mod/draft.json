@@ -1,15 +1,15 @@
 {
-  "tag": "v0.4.2-rerac-0.3.8-alpha",
-  "title": "Weapon Evolution 0.4.2 \u2014 ReRAC 0.3.8-alpha",
-  "public_mod_version": "0.4.2",
+  "tag": "v0.5-candidate",
+  "title": "Weapon Evolution 0.5 candidate \u2014 ReRAC 0.3.8-alpha",
+  "public_mod_version": "0.5",
   "runtime_base": "0.3.8-alpha",
   "patch": "0.1.6.140",
   "config_capability": 97,
   "launcher": "0.30.2",
-  "notes": "docs/mod/LOCAL_TEST_V140.md",
-  "asset": "ReRAC_Weapon_Evolution_0.4.2_ReRAC_0.3.8_alpha_windows_x64",
+  "notes": "docs/releases/v0.5.md",
+  "asset": "ReRAC_Weapon_Evolution_0.5_candidate_windows_x64",
   "build_revision": 2,
   "draft": true,
   "publish": false,
-  "status": "v140 final-frame grapple release recovery and half-unit drill clearance; main update, no release"
+  "status": "Reserved for manual unpublished candidates; public 0.5 uses mod/release-0.5.json"
 }

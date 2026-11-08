@@ -1,114 +1,96 @@
-> Current development v140: [final-frame Swingshot release recovery and half-unit drill clearance](docs/mod/LOCAL_TEST_V140.md). Complete source; launcher, icon, INIs and saves retained. No release or draft is created.
+# ReRAC Weapon Evolution 0.5
 
-> Local v135: [gadget pose fixes and Freezer HUD/recharge](docs/mod/LOCAL_TEST_V135.md). Includes a matching launcher update. Local testing only; no public release.
+Independent mod for **ReRAC 0.3.8-alpha**. This repository contains the complete
+Rust workspace, modified runtime integrations, standalone launcher, approved
+configuration, build tools, tests and implementation documentation.
 
-> Local v134 gadget corrections: see [LOCAL_TEST_V134.md](docs/mod/LOCAL_TEST_V134.md). Swingshot travel/poses, actor lifetime cleanup and Hydrodisplacer frost launch. No public release.
+**To play, download the Windows x64 ZIP from the [0.5 release](https://github.com/TomRus47/rerac-weapon-evolution/releases/tag/v0.5).**
+Extract everything and open `ReRAC_Weapon_Evolution.exe`. Use its included
+modified `runtime/rerac.exe`; select your extracted Ratchet & Clank data if
+needed. The data folder must contain `toc.bin` and `extract-info.json`.
+Players do not need Python, Rust or older patches. Game data is not distributed.
 
-> Local v133 gadget test: see [LOCAL_TEST_V133.md](docs/mod/LOCAL_TEST_V133.md). No public release is created by this kit.
+GitHub's **Source code** archives are for reading, modifying or building the
+project, not for starting the game. The release has no extra JSON/checksum or
+duplicate source attachments. See [release notes and update instructions](docs/releases/v0.5.md).
 
-Current local v132 test: [shop video and NPC-price instructions](docs/mod/LOCAL_TEST_V132.md). Randomized acquisition media waits until the shop is closed. Native NPC prices are retained; Rilgar’s RYNO offer costs 15,000 bolts in Randomizer All.
+## Features
 
-Local v131 test: [Hoven fallback instructions](docs/mod/LOCAL_TEST_V131.md). With all six extra-site switches Off, new All seeds keep only Hoven and retain all rewards. Existing seeds are unchanged.
+- Independent weapon XP and eight configurable grades, with native localized
+  names, bright grade icons, Gold textures and NG+ Gold purchase progression.
+- Real-HP damage, accepted-loss XP, per-instance projectile/explosion hits and
+  independent continuous-damage, ammunition and reaction clocks.
+- Editable weapon stats, colors, ammo capacities and optional experiments,
+  including lava streams, flame mines, cluster bombs, crate ammunition,
+  electrical rays, R.Y.N.O. shotgun/continuous missiles and companions.
+- Locked-camera combat, directional leg animation, R2/Circle activation, saved
+  D-pad gadget shortcuts, two Quick Select rings, optional world pause and
+  per-grade contextual R1 experimental modes.
+- Configurable encounters, enemy HP/movement/attacks, extra enemies, NG+ scaling,
+  bolt/XP chains and XP-driven Nanotech progression with compact layered HUD.
+- Ammo-Survival, weapons-only discoveries and a mixed Randomizer All mode with
+  saved layouts, route constraints, optional extra sites and grey Bolt Packs.
+- Optional Swingshot grappling/enemy pull, contact-based Trespasser capture,
+  Hydrodisplacer Freezer and Hologuise speed settings, preserving native puzzle
+  interactions. See [gadget implementation and current release handoff](docs/mod/LOCAL_TEST_V140.md).
+- Five-language standalone configuration editor (English, Italian, French,
+  German, Spanish), lossless profiles, optional presets and supported live tuning.
 
-Local v130 test: see [test instructions](docs/mod/LOCAL_TEST_V130.md) for Taunter R1 modes, PDA refills, localized pause labels and saved randomizer site options. No release is published by this kit.
+## Randomizer testing
 
-# Local v129 test — ReRAC 0.3.8-alpha
+**Randomizer All is still being tested and may generate an incompletable seed.**
+Code-level route checks do not establish every physical path or mission script.
+If blocked, save and close the game, then ZIP the complete randomizer memory card,
+including native saves and matching `.wev` companions. The default Windows path:
 
-Gameplay **0.1.6.129**, configuration capability **94**, retained launcher
-**0.29.7**. Immediate ring/mode confirmation audio while Quick Select freezes
-the world, and a shared underwater fog policy for layered liquid surfaces.
-Includes the preceding v124–v128 local changes. No GitHub operations or release.
+```text
+%APPDATA%\rerac\memcard\randomizer\
+```
 
-See [standalone build and test instructions](docs/mod/LOCAL_TEST_V129.md) and
-[verification](docs/mod/VERIFICATION.md). Select only your playable mod folder;
-older patch folders are no longer required. Existing INIs, presets, saves,
-seeds, icon and launcher are retained. The public draft history below is unchanged.
+Use the startup log's actual memory-card path if a custom save root is configured.
+Keep the region-specific folder and companions together. Include your mod/runtime
+version, planet, equipment and routes checked in a repository issue. Existing
+saves keep their saved seed, placements, receipts and location selection.
 
-# ReRAC Weapon Evolution 0.4.2
+## Build and modify
 
-Independent mod for **ReRAC 0.3.8-alpha**. Gameplay **0.1.6.123**, configuration
-capability **93**, standalone launcher **0.29.6**. This is an **unpublished 0.4.2
-draft candidate**; the existing 0.4.1 release and downloads remain unchanged.
-[Release notes](docs/releases/v0.4.2.md) · [Nanotech behavior and compatibility](docs/mod/NANOTECH_V116.md).
+Start with the [developer guide](docs/mod/DEVELOPER_GUIDE.md),
+[configuration reference](docs/mod/CONFIG_REFERENCE.md),
+[implementation map](docs/mod/CURRENT_IMPLEMENTATION.md) and
+[source map](MOD_FILES.md). Upstream integration boundaries are recorded in
+[ReRAC 0.3.8 notes](docs/mod/RUNTIME_038.md). Historical `LOCAL_TEST_V*.md`
+documents retain their original scope; the current source and release notes
+identify the shipped behavior.
 
-The complete prepared v123 source has been reconciled with main, including
-the preceding local v117–v122 fixes. See
-[combat and pickup changes](docs/mod/COMBAT_PICKUPS_V117.md),
-[the scoped Orxon shortcut](docs/mod/ORXON_SHORTCUT_V118.md) and
-[reward handoffs and persistent shops](docs/mod/RANDOMIZER_REWARD_HANDOFFS.md).
-The checked Windows workflow builds the player and exact-commit source ZIPs
-before attaching them to the private draft. It never publishes that draft.
-
-**Authorship and rights:** Weapon Evolution is an unofficial, independent mod by TomRus47. TomRus47 develops this mod only, not ReRAC or the original Ratchet & Clank games, owns no rights to their games, characters, trademarks or game assets, and is not affiliated with their rights holders. Upstream licenses and contributor credits remain applicable. See [credits](docs/mod/CREDITS.md) and [LICENSE](LICENSE).
-
-This repository includes the complete supplied Rust workspace, mod integrations, launcher source, approved default profile, tests and build tools. It does not include compiled executables, game data, saves or personal settings. It can be built directly without installing previous mod patches. Upstream source is included to make the modified runtime reproducible, not to claim authorship of the port.
-
-See the [v95 route audit](docs/mod/RANDOMIZER_ROUTE_AUDIT.md) for corrected Blarg/Orxon access, conservative Gold Bolt gates and the saved-layout inspector. These are modeled access checks; physical gameplay verification remains necessary.
-
-See [v106 wrench blast geometry](docs/mod/SLAM_VISUAL_V106.md) for the current correction and [v102 combat feedback and HUD](docs/mod/FEEDBACK_HUD_V102.md) for the new controls, local test/update workflow and verification boundaries.
-
-## Current development features
-
-- Accepted-hit red feedback and finite repeating body-fire cycles independent of stun; per-grade wrench visual ignition and an optional independent ground-slam explosion.
-- Swimming-safe weapon HUD, per-grade Triangle-only wrench HUD, alternative weapon-bar positioning and model-free randomizer rewards represented by a Gadgetron ammo crate.
-- Independent weapon XP, eight configurable grades, localized game names and bright grade icons. Weapons reach V5 through XP, require their NG+ Gold purchase for V6, then progress to V8. The wrench uses XP for its upper grades in NG+.
-- Real HP, per-attack projectile/explosion identity, actual accepted health-loss XP, independent damage/ammo clocks and separate enemy reaction cooldowns.
-- Per-grade ammo, damage, targeting, ranges, colors, Gold appearance and optional weapon replacements/enhancements, including lava streams, flame mines, grenade Visibomb and RYNO shotgun.
-- Enemy health, population, movement, perception, pursuit and projectile tuning, with optional health-class damage to Ratchet and XP-driven Nanotech progression.
-- Seeded weapon discoveries at registered collectible locations, isolated randomizer save state, access constraints and underwater collection; optional Ammo-Survival Mode.
-- NG+ Gold shop progression, shared bolt/weapon-XP/Nanotech-XP reward chain and separate NG+ encounter scaling.
-- Locked-camera movement and directional legs; R2/Circle firing and equipped-gadget activation during ordinary or locked movement; **L1 uses first-person aiming and R1 crouches** in direct Ratchet gameplay.
-- Optional **D-pad Quick Select** for weapons and all equippable gadgets. Hold L1+direction in paused Weapons/Gadgets to bind the highlighted owned item. Colored borders identify assignments; the help caption appears only in Weapons. Repeating a boots/helmet shortcut removes that equipped item. Repeating a Clank-pack shortcut cycles owned Heli-Pack → Thruster-Pack → Hydro-Pack after its first selection.
-- Optional **R1_Experimental**: hold Triangle and cycle Pyrocitor normal/lava, Mine Glove normal/fire, Visibomb guided/grenade, or RYNO native/continuous/shotgun. Other enhancements remain launcher-only. Modes and bindings are saved per slot; confirmations use normal weapon-menu audio.
-- Synchronized weapon HUD, pause-menu weapon XP and a separate Nanotech XP HUD bar. Multilingual launcher (English, Italian, French, German, Spanish), Off/On selectors, optional named presets and a standalone Windows EXE builder.
-
-The arena experiment was removed; it is not part of this snapshot. Temporary audio diagnostics are not enabled.
-
-See [current implementation](docs/mod/CURRENT_IMPLEMENTATION.md), [saved controls](docs/mod/SAVED_CONTROLS.md), [configuration reference](docs/mod/CONFIG_REFERENCE.md) and [source map](MOD_FILES.md). Earlier versioned notes remain historical; current source/configuration documentation takes precedence.
-
-## Build and test on Windows x64
-
-Authoring requires the Rust MSVC toolchain, Visual Studio C++ x64 tools and a Windows SDK, plus 64-bit Python 3.10+ with Tcl/Tk. Dependencies are pinned in `Cargo.lock`; Rust 1.99.1 is the validation toolchain. Build from an x64 Native Tools command prompt:
+Windows authoring requires Rust MSVC, Visual Studio C++ x64 tools/Windows SDK and
+64-bit Python 3.10+ with Tcl/Tk. Dependencies are pinned in Cargo.lock; the
+validated toolchain is Rust 1.99.1. From an x64 Native Tools prompt:
 
 ```bat
 01_BUILD_GAME.bat
 02_OPEN_LAUNCHER.bat
 ```
 
-The first command tests rc-game, builds this checkout's editable ReRAC 0.3.8-alpha runtime and stages it in `launcher/runtime/`. The editor bootstraps a missing personal `launcher/weapons.ini` from the tracked example; existing personal values and presets remain local. Select extracted game data containing `toc.bin` and `extract-info.json`. Existing ReRAC data under `%LOCALAPPDATA%\rerac\games\rac1\data` can be detected automatically.
+The build stages this checkout's editable runtime in `launcher/runtime`.
+The editor initializes a missing personal `weapons.ini` from the public example;
+existing profiles are not overwritten. `BUILD_FINAL_WINDOWS_EXE.bat` builds a
+local player ZIP after the runtime. See [release workflow](docs/mod/RELEASE_05.md)
+for exact Windows/source identity and publication checks.
 
-To build a local standalone player ZIP after compiling the game:
+The 0.5 gameplay snapshot is **0.1.6.140**, capability **97**, with launcher
+**0.30.2**. Component versions are independent from the public mod version.
+Host gameplay checks passed 1,521 tests with three unchanged heavy seed surveys
+filtered; release CI separately tests/builds the Windows runtime and frozen GUI.
+See [verification details and limitations](docs/mod/VERIFICATION.md).
 
-```bat
-BUILD_FINAL_WINDOWS_EXE.bat
-```
+## Authorship and rights
 
-This creates a local package only; it does not publish a GitHub release. It includes the patched runtime, launcher, shaders, configuration and licenses. Players extract the entire package and open `ReRAC_Weapon_Evolution.exe` directly; they do not need Python, Rust or earlier patches. Do not import a standalone player ZIP into the official ReRAC launcher. Game data is supplied separately by the player.
-
-The tracked custom `launcher/launcher.ico` is included in the EXE build fingerprint. See [build layout](docs/mod/BUILD_LAYOUT.md) for source/launcher/player folder distinctions.
-
-## Configuration and saves
-
-`launcher/weapons.default.ini` and `launcher/weapons.example.ini` are identical public defaults. The approved default is the root `weapons.ini` from the author-supplied player ZIP; `mod/default-profile.json` records its source and all-value fingerprint. Personal `weapons.ini`, presets, runtime, logs and launcher settings are ignored by Git. With no preset selected the launcher uses the current `weapons.ini`; named presets are optional and an explicitly selected preset is remembered. The internal real-HP marker is injected only into private runtime profiles.
-
-The optional embedded-profile feature uses the same reviewed default, with its internal session marker. Normal builds remain editable with `--no-default-features`.
-
-Weapon/health/randomizer progression and shortcut bindings/modes are stored in the existing content-addressed `.wev` save companions. Format v9 reads previous formats 1–8 without replacing their progression. Normal equipped items remain in native saves. See [saved controls](docs/mod/SAVED_CONTROLS.md) for slot isolation, repeat actions and input restrictions.
-
-## Verification and maintenance
-
-```sh
-python tools/mod/check_source.py
-python -m unittest discover -s launcher/tests -v
-cargo test --release --locked --no-default-features -p rc-game --lib
-cargo test --release --locked --no-default-features -p rc-game --test controls_api --test golden_render_api --test encounter_effects_api
-cargo build --release --locked --no-default-features -p rc-engine --bin rerac
-```
-
-See [verification](docs/mod/VERIFICATION.md) for completed checks and remaining Windows/gameplay validation. Start extensions with the [developer guide](docs/mod/DEVELOPER_GUIDE.md), [configuration reference](docs/mod/CONFIG_REFERENCE.md) and [module index](MOD_FILES.md). Preserve damage/XP attribution, native phase shields, loader ownership and per-save boundaries when rebasing onto newer runtimes.
-
-`mod/development.json` describes this main-branch snapshot. `mod/release.json` still describes the previous published release; it has deliberately not been advanced. Release packaging/publication scripts reject a runtime that does not match an explicitly prepared release descriptor. Ordinary source pushes never publish releases. An explicitly requested change to `mod/draft.json` starts a checked Windows build and saves an unpublished draft only; that workflow cannot publish it. See [draft preparation](docs/mod/DRAFT_RELEASE.md).
-
-## Source provenance
-
-The supplied source archives already contain earlier mod work. The original archive did not identify an official commit; the 0.3.6→0.3.7 integration is pinned to exact official release commits in `mod/upstream_037.json`. [Provenance](mod/provenance.json) records the supplied baseline and preserves historical export information. The historical port README is retained as [README.ReRAC.md](README.ReRAC.md); the current complete workspace uses ReRAC 0.3.8-alpha, including its separate rc-game2 module.
+Weapon Evolution is an unofficial, independent mod by **TomRus47**, who develops
+this mod only and is **not associated with the development of ReRAC or the
+original Ratchet & Clank games**. No rights to the original games, characters,
+trademarks or game assets are claimed. They belong to their respective owners.
+Huge thanks to the ReRAC developers and contributors: their work on the port and
+continuing improvements make mods like this possible. Upstream licenses and
+contributor attribution remain applicable. See [credits](docs/mod/CREDITS.md)
+and [LICENSE](LICENSE). This repository contains no original disc data, saves,
+compiled game executables or personal launcher settings.

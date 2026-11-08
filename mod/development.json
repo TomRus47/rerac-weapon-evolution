@@ -1,10 +1,10 @@
 {
-  "public_mod_version": "0.4.2",
-  "status": "v140 final-frame grapple release recovery and half-unit drill clearance; main update, no release",
+  "public_mod_version": "0.5",
+  "status": "0.5 publication approved; exact Windows/source identity verified by release workflow",
   "runtime_base": "0.3.8-alpha",
   "patch": "0.1.6.140",
   "config_capability": 97,
   "launcher": "0.30.2",
   "release_created": false,
-  "notes": "docs/mod/LOCAL_TEST_V140.md"
+  "notes": "docs/releases/v0.5.md"
 }

@@ -1,3 +1,11 @@
+## Weapon Evolution 0.5 — ReRAC 0.3.8-alpha
+
+Public release of the approved v140 gameplay and launcher 0.30.2. See
+[the complete changes since 0.4.2](docs/releases/v0.5.md). The release exposes
+only the Windows player ZIP plus GitHub's matching source archives; verification
+reports/checksums stay inside the package or Actions. Approved INI/default values,
+custom icon and gameplay remain unchanged by release preparation.
+
 ## Local development v140 — ReRAC 0.3.8-alpha
 
 - Extend custom Swingshot release recovery to jump, running jump, double jump and hover states as well as fall. Enter native fall while retaining residual velocity, momentum and effective displacement.

@@ -11,6 +11,13 @@
       "sha256": "bd694a3e88b77b28d121913592e228ee21a5c8c0abfa752bbc51edb87fb96ec5"
     },
     {
+      "path": ".github/workflows/release-0.5.yml",
+      "reasons": [
+        "0.5 release documentation, two-category downloads and verified Windows publication"
+      ],
+      "sha256": "32696654df6338ef51e8b9a4ec6a75373ee0022946aac4a0d2e8b980267d271a"
+    },
+    {
       "path": ".github/workflows/windows-release.yml",
       "sha256": "0eb80d5325e7420af9496cd2d19a0943806d44b6e42cdee0fcf271dbd90f6d3f",
       "reasons": [
@@ -31,9 +38,10 @@
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
         "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
-        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification",
+        "0.5 release documentation, two-category downloads and verified Windows publication"
       ],
-      "sha256": "4a537ef161a3f2a1d5f256a3733c5b3a8fc78d592a5b1ae9de451f41625829f5"
+      "sha256": "f3cb50c3b756fa7fe8c78d1e9688e60ff22d45662357d384d6fb8c973f7674f8"
     },
     {
       "path": "Cargo.lock",
@@ -70,9 +78,10 @@
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
         "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
-        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification",
+        "0.5 release documentation, two-category downloads and verified Windows publication"
       ],
-      "sha256": "d172714e27262d0369100d410cdf001b64ffb9ceef9a4b1a4146b6d268e1eab9"
+      "sha256": "087cd2cda36df58366aa59fd2c19b0f11a9951e5558806547be17dec7bc81ab7"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -3054,7 +3063,7 @@
     },
     {
       "path": "crates/rc-game/src/weapon_evo_release.ini",
-      "sha256": "e1cc2f0c5d25779aadffb9f41727a3508c62efa8983f6008168b646635b4591e",
+      "sha256": "e333f3c4ff431d59d8c9bd6ba3a431b2adba7912ead7c7b6eeba3eacccda2ee2",
       "reasons": [
         "added since supplied snapshot",
         "Weapon Evolution configuration or module",
@@ -3541,7 +3550,7 @@
       "reasons": [
         "Local v128 rendering or build integration"
       ],
-      "sha256": "012adaf06f19cd093c5d438915144da905cc7ca2c1d5a1c84cc0a6012b904e8a"
+      "sha256": "4324ac36deeeb98f5b9124217ecc01417a16da2dd20fe56ad9a5170642d2655a"
     },
     {
       "path": "docs/mod/LOCAL_TEST_V129.md",
@@ -3717,6 +3726,13 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "e2ae679aeb5cef24bc8863d2eaaed7a12412062b221cc7e5e9f4a20298d766cc"
+    },
+    {
+      "path": "docs/mod/RELEASE_05.md",
+      "reasons": [
+        "0.5 release documentation, two-category downloads and verified Windows publication"
+      ],
+      "sha256": "a98657f35cfe422f83c10da7f36bbba51da6ca302e273136b655313e9dcebce4"
     },
     {
       "path": "docs/mod/RUNTIME_037.md",
@@ -3898,6 +3914,13 @@
       "sha256": "54e4fc86f4e6c226d9bbd449a4bd74c7b1f4ba1775d3b867f1d8b3bfc728cc2a"
     },
     {
+      "path": "docs/releases/v0.5.md",
+      "reasons": [
+        "0.5 release documentation, two-category downloads and verified Windows publication"
+      ],
+      "sha256": "ace377e0cc39a971988972f505152e15792f2610207b493b7d6f221a9d649c21"
+    },
+    {
       "path": "docs/weapon-evolution/V81_SAVED_CONTROLS.md",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
@@ -3930,21 +3953,21 @@
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "3ba514e3feb36980cf536c242eb5f08cdb51592114a3dad0251027df9f31d9f4"
+      "sha256": "31678f5cc897aa913ac9b0188b3003c399555bb82fda9435bf18f6bd4fefd300"
     },
     {
       "path": "launcher/CREA_LAUNCHER_EXE.bat",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "3ba514e3feb36980cf536c242eb5f08cdb51592114a3dad0251027df9f31d9f4"
+      "sha256": "31678f5cc897aa913ac9b0188b3003c399555bb82fda9435bf18f6bd4fefd300"
     },
     {
       "path": "launcher/Editor.bat",
       "reasons": [
         "Weapon Evolution implementation, integration or documentation"
       ],
-      "sha256": "41ffcdb787d1d508aea10f47794d6dd4f3dbc883f417238347b77edd9996538d"
+      "sha256": "86a7744d02909d132fd08fe4a9feba469e44947b3a6edbcf165686a816a4cb1c"
     },
     {
       "path": "launcher/LEGGIMI.txt",
@@ -4267,6 +4290,13 @@
         "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility"
       ],
       "sha256": "367f98d5ddb1429d68e37ccce137c16f95b2a76af3fd3169cd2c6ed4648e1c79"
+    },
+    {
+      "path": "launcher/tests/test_release_05.py",
+      "reasons": [
+        "0.5 release documentation, two-category downloads and verified Windows publication"
+      ],
+      "sha256": "21ba14ec84e465bbf281881e845f0f2095a963e60b893838316f2e53673aa74d"
     },
     {
       "path": "launcher/tests/test_release_behaviour.py",
@@ -4601,9 +4631,10 @@
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
         "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
-        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification",
+        "0.5 release documentation, two-category downloads and verified Windows publication"
       ],
-      "sha256": "f74a379e4183426a742f5ee95280b1a92cee14d601c3c77ef7eda46a9e18af88"
+      "sha256": "cffcd84ed449039e3152a7a418afee33679d7f76ba200b1a07fe6f1e52f6492a"
     },
     {
       "path": "mod/draft.json",
@@ -4619,9 +4650,10 @@
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
         "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
-        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification",
+        "0.5 release documentation, two-category downloads and verified Windows publication"
       ],
-      "sha256": "e404ff046772105f09e6590211a69446fe56daa156b196a4859a49e66690263d"
+      "sha256": "980c70a8e2c61bf650711c0974ca1bd198bb385bb77281f5aa626b329d4301c7"
     },
     {
       "path": "mod/provenance.json",
@@ -4629,6 +4661,13 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "5bd757db936b8901d9db2d65f8c54079537aa5c06af9fc3d61de3a70c918fda4"
+    },
+    {
+      "path": "mod/release-0.5.json",
+      "reasons": [
+        "0.5 release documentation, two-category downloads and verified Windows publication"
+      ],
+      "sha256": "79c0d85e9191934914770de55c07089f081514f2a81855caa153ea16bd9bfe0d"
     },
     {
       "path": "mod/release.json",
@@ -4918,6 +4957,13 @@
       ]
     },
     {
+      "path": "tools/mod/release_05.py",
+      "reasons": [
+        "0.5 release documentation, two-category downloads and verified Windows publication"
+      ],
+      "sha256": "74855c6f7a77da5b32922f4166ea00dcedb0339449b974f64b15083730044d6f"
+    },
+    {
       "path": "tools/mod/runtime037_test.py",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -4958,7 +5004,7 @@
     },
     {
       "path": "tools/mod/setup_msvc.bat",
-      "sha256": "30e2fac8d5f1f6fd439b9d7d36150d8e020f546d76e1350c4a6414f6bed60171",
+      "sha256": "8be97710283d8de93e149e4a27a3941f634c1f4be266970385ccea2b6d26065e",
       "reasons": [
         "Weapon Evolution implementation or integration"
       ]
