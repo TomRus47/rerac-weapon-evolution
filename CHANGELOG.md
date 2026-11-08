@@ -1,3 +1,11 @@
+## Local development v140 — ReRAC 0.3.8-alpha
+
+- Extend custom Swingshot release recovery to jump, running jump, double jump and hover states as well as fall. Enter native fall while retaining residual velocity, momentum and effective displacement.
+- Retain a transient handoff marker through the final deferred item pass. Recover late idle/invalid pose writes before drawing, without depending on an earlier ownership flag that has already been cleared.
+- Snap the release to a complete decoded native fall key; refresh hero animation fields and hand/back attachments together. Attachment refresh does not advance hand animation or emit triggers twice.
+- Reduce the additional Trespasser model-centre clearance from one unit to half a unit. Preserve contact-only acquisition, centred rotation, temporary collision ownership and capture-only audio.
+- Retain all balance, INIs/defaults, launcher/icon, saves, seeds and v138 Hoven frost audio. Include a complete runtime-only test/update and playable-ZIP packaging kit.
+
 ## Local development v139 — ReRAC 0.3.8-alpha
 
 - Restore the native fall animation when a custom surface grapple is released in the air. Repair a missing source snapshot even when native fall is already sequence B; preserve independently chosen jump/hit animations.

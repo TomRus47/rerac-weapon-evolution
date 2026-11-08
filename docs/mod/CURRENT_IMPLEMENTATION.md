@@ -1,3 +1,12 @@
+# Current v140 grapple handoff
+
+ReRAC 0.3.8-alpha; gameplay 0.1.6.140; capability 97; retained launcher 0.30.2.
+See [complete tick-order recovery and half-unit clearance](LOCAL_TEST_V140.md).
+The early pose-only v139 correction did not cover every jump/hover state or
+writes made by deferred native item updates. The current handoff also publishes
+valid fall/body/back/hand state after those updates. Previous sections below
+retain their version-specific scope. No release is created.
+
 # Current v139 gadget follow-up
 
 ReRAC 0.3.8-alpha; gameplay 0.1.6.139; capability 97; retained launcher 0.30.2.

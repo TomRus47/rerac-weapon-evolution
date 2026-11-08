@@ -1,10 +1,10 @@
 {
   "public_mod_version": "0.4.2",
-  "status": "v139 airborne grapple release and contact-only drill acquisition; main update, no release",
+  "status": "v140 final-frame grapple release recovery and half-unit drill clearance; main update, no release",
   "runtime_base": "0.3.8-alpha",
-  "patch": "0.1.6.139",
+  "patch": "0.1.6.140",
   "config_capability": 97,
   "launcher": "0.30.2",
   "release_created": false,
-  "notes": "docs/mod/LOCAL_TEST_V139.md"
+  "notes": "docs/mod/LOCAL_TEST_V140.md"
 }

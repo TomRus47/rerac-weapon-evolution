@@ -1,3 +1,35 @@
+# v140 final-tick release recovery and half-unit placement verification
+
+- 1,521 rc-game library tests passed; three unchanged large historical seed
+  surveys were filtered out. Five new regressions cover jump/running-jump/
+  double-jump/hover handoff to native fall with retained motion; recovery after
+  an actual deferred native ItemCall pass; complete Game ticks with a later
+  native idle request; synchronized body/back palettes; hand attachment refresh
+  without a second animation advance; and recovery cancellation on landing,
+  damage, native swing and a new jump press.
+- The complete Game fixture runs the ordinary hero, native hand/deferred item,
+  custom gadget and final-publication paths over twenty ticks. It checks a valid
+  evaluated pose each frame, continued descent, and Clank's cached chain against
+  the same final pose. This extends the narrower v139 HeroUpdate-only fixture.
+- All 295 Python launcher/tool tests passed, including complete v140 export,
+  exact runtime identity, CRLF scripts and source-integrity validation.
+- The native capsule-contact regression now checks the requested 0.5-unit
+  additional clearance through repeated complete victim rotations. Existing
+  collision restoration, accepted HP/Nanotech XP, capture-owned motor and Hoven
+  frost one-shot tests remain passing.
+- All INIs, approved default profile, save format, randomizer generator, launcher
+  schema/languages/core/icon, release metadata, manual-only draft workflow and
+  native frost-audio importer are byte-identical to supplied v139. The release
+  marker is transient hero state, not a new save/config field.
+- Every source hash and source-map entry is checked against an independently
+  extracted kit, with prepared source API/identity validation. Windows engine
+  linking, real disc assets, GPU appearance and audible output still require
+  local testing; no visual in-game playthrough is claimed by this host.
+- Main synchronization creates no tag, release, draft or GitHub asset. Existing
+  original-game rights notices, ReRAC credits and licenses are retained.
+
+Earlier records below retain their version-specific scope.
+
 # v139 airborne release and contact acquisition verification
 
 - 1,516 rc-game library tests passed; three unchanged large historical seed

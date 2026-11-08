@@ -1,5 +1,5 @@
 {
-  "gameplay_version": "0.1.6.139",
+  "gameplay_version": "0.1.6.140",
   "launcher_version": "0.30.2",
   "files": [
     {
@@ -30,9 +30,10 @@
         "Weapon Evolution implementation or integration",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "721b82981d7488235bd40431d8321d36ab595d9af46a84f651df6f24ffec26e8"
+      "sha256": "4a537ef161a3f2a1d5f256a3733c5b3a8fc78d592a5b1ae9de451f41625829f5"
     },
     {
       "path": "Cargo.lock",
@@ -68,9 +69,10 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "8f458a76595e4938358f50627ab40cb3ab42b8032441543cd97f6ff7647d962e"
+      "sha256": "d172714e27262d0369100d410cdf001b64ffb9ceef9a4b1a4146b6d268e1eab9"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -153,7 +155,7 @@
     },
     {
       "path": "crates/rc-engine/src/disc_source.rs",
-      "sha256": "cd1ba7baad8bd37746d6534a22f9d0430ad53139db5cfb4445a2930fe3baa15b",
+      "sha256": "69532861916db3e0804ab12d8a24ebac09fd7a44d9942245a2783d29bdee4f1c",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -166,7 +168,8 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ]
     },
     {
@@ -885,9 +888,10 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "6b11dc96b9e998b7973acea1b5c32af702571f70bda8d1c7659910baf5f768f4"
+      "sha256": "9a9b4af7b35c4e193d9cd300550e347b7c18f32da5af6d8f2beaf2a0b6b4cc87"
     },
     {
       "path": "crates/rc-game/src/gadget_combat_freezer.rs",
@@ -941,9 +945,17 @@
     {
       "path": "crates/rc-game/src/gadget_combat_v139_tests.rs",
       "reasons": [
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "dfa6e5bd025b27294349698af50ed05ab10e9434fccd8637e3315546966525a2"
+      "sha256": "f21803201200d60c3e7f4ee368760c051957399ce0bf6342c514a62ae2155ae2"
+    },
+    {
+      "path": "crates/rc-game/src/gadget_combat_v140_tests.rs",
+      "reasons": [
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
+      ],
+      "sha256": "61183a467ff837109425b100a0a02b255ac2eec020430093b0f06b69cc8058b0"
     },
     {
       "path": "crates/rc-game/src/game_state.rs",
@@ -976,12 +988,13 @@
     },
     {
       "path": "crates/rc-game/src/hero/anim.rs",
-      "sha256": "d3ee6ce89c95c209c1a29d74cfc2fbca803a5e6fad44e9a803390f5afbe1fb33",
+      "sha256": "a7da21d0b8745cbb240a8b9f53d0097434858b76569099716222c59a4001c0bc",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
-        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification"
+        "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ]
     },
     {
@@ -1062,9 +1075,10 @@
     {
       "path": "crates/rc-game/src/hero/fx.rs",
       "reasons": [
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "3e163cb0131598133444fe1a00edd8e7257ccc8bbcd35641310d160f1ea6fba3"
+      "sha256": "43dca6c8f279bef5e280f1f4f6511a32bc5e5039b35ae8fc5f631d44ee9ec51c"
     },
     {
       "path": "crates/rc-game/src/hero/gadgets.rs",
@@ -1128,10 +1142,11 @@
     },
     {
       "path": "crates/rc-game/src/hero/items.rs",
-      "sha256": "36ab3a262d14858dbc94828074837489899b1dc8e06762531d16bc8ebfbb052c",
+      "sha256": "7c2ecbc391574e61fe9f3a49fe7cbc043fb109b1bba0671cecb4298fce614e7f",
       "reasons": [
         "changed since supplied snapshot",
-        "Weapon Evolution implementation or integration"
+        "Weapon Evolution implementation or integration",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ]
     },
     {
@@ -2804,9 +2819,10 @@
       "path": "crates/rc-game/src/tick.rs",
       "reasons": [
         "ReRAC 0.3.6-alpha supplied base synchronization",
-        "v133 opt-in gadget combat, configuration, verification or local test packaging"
+        "v133 opt-in gadget combat, configuration, verification or local test packaging",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "d9f9360dfb48008468e57251418140bbdbc4eda4631a6b61b933f705f4dcec85"
+      "sha256": "a2e8f4cc0fa88ac7a0178b94c49538d77c101c0e1efc718db9badd7129cdbe97"
     },
     {
       "path": "crates/rc-game/src/travel/cards.rs",
@@ -3417,9 +3433,10 @@
         "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "92c6dde8bdfff4518ad1891a25a8863f1743c2095b2773cda79de11363ad1ec1"
+      "sha256": "07ea93280ba3c492ae81193475adbebf44f085d8afd0cd711ed695d4da2bf650"
     },
     {
       "path": "docs/mod/DEVELOPER_GUIDE.md",
@@ -3604,6 +3621,13 @@
       "sha256": "0053ac003419b32e4013c0a2b78b6b9edc4587a4aa4908ab4412d67e0957f557"
     },
     {
+      "path": "docs/mod/LOCAL_TEST_V140.md",
+      "reasons": [
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
+      ],
+      "sha256": "7f71c7564d8d2a6649d1bdb55b6550e53279bcf60f3d16c9ace172496217cda6"
+    },
+    {
       "path": "docs/mod/MINE_AMMO_UI_V57.md",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -3735,9 +3759,10 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "33700833fe5e00804659006fd27d1c8c7f8f78cd3e413220cfb885998f5ccef4"
+      "sha256": "85d1d7f49d079b3742ba4ae1b59a299274993ff8f49329b9eccfeb19010848e6"
     },
     {
       "path": "docs/mod/VERIFICATION_V115.md",
@@ -4166,9 +4191,10 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "cb7f4a7d94f0260eeb9efe88328f2d53f4a4a4be50147d21aa4c592041d48b8b"
+      "sha256": "e4a2eaaf43a7170f272a0b3276d1be6180a4fef252734c9a10baa67caf68e246"
     },
     {
       "path": "launcher/tests/test_intervals.py",
@@ -4404,6 +4430,13 @@
       "sha256": "9aa7e54964a681593ab9233e92bf810105ec9ae7b3fc70ce9f7f23fc448589c7"
     },
     {
+      "path": "launcher/tests/test_v140_export.py",
+      "reasons": [
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
+      ],
+      "sha256": "81873c52f22c0af9f94c03a8447a74bcdeec4e720c9f3bd6bb86123ee15084c8"
+    },
+    {
       "path": "launcher/tests/test_v44.py",
       "sha256": "7d2770b5f3a0e28ffc42ee9cac2d90cfb24c81821e3956c4fc17560fc26cddf3",
       "reasons": [
@@ -4567,9 +4600,10 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "eb38f06d0d627b20e302b17625bc07e4b41450a4596fa7589502b26e8a3bba1c"
+      "sha256": "f74a379e4183426a742f5ee95280b1a92cee14d601c3c77ef7eda46a9e18af88"
     },
     {
       "path": "mod/draft.json",
@@ -4584,9 +4618,10 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "1130e460f64bea7a3c3b9a02777ca6da9120adc038e882d3a8f0287e320361ee"
+      "sha256": "e404ff046772105f09e6590211a69446fe56daa156b196a4859a49e66690263d"
     },
     {
       "path": "mod/provenance.json",
@@ -4743,6 +4778,13 @@
       "sha256": "d43895037537bc1ca56b141b600543ac5c5fa3d3a7e5af4fa7c1373f50b39030"
     },
     {
+      "path": "tools/mod/create_gadget140_kit.py",
+      "reasons": [
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
+      ],
+      "sha256": "0ea78300e6147e01eecb4bec2ecf73d32fa4571ebeed34c5cd7980cf95ab1e13"
+    },
+    {
       "path": "tools/mod/create_hoven131_kit.py",
       "reasons": [
         "Local v131 Hoven-only fallback for empty new-seed site selections; existing save compatibility"
@@ -4895,9 +4937,10 @@
         "v136 custom grapple pose lifecycle, normal Trespasser death, validation or packaging",
         "v137 gadget locomotion ownership, hand nozzle, centred drill pose, Freezer equip gate or standalone verification",
         "v138 temporary drill collision, capture-owned audio, native frost sound or standalone verification",
-        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification"
+        "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
+        "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "ec3ce51e8d783aadb38851a1dbe83127464717a805f39f431c6dbd6db4c09125"
+      "sha256": "8c31217147fd0d59a82786212063113a419206405f65dbf64477c5b19d84f339"
     },
     {
       "path": "tools/mod/rust_build_tools.py",

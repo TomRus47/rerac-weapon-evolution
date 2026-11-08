@@ -92,6 +92,12 @@ pub trait AnimCtl {
     fn prepare_gadget_pose(&mut self,seq:u8,frame:u8)->bool {
         self.gadget_sequence_valid(seq)&&frame<self.frame_count(seq)
     }
+    /// Publish one decoded native key without a source snapshot, then resume
+    /// ordinary playback. Used only for a custom gadget's interrupted handoff.
+    fn snap_gadget_pose(&mut self,seq:u8,frame:u8)->bool {
+        if !self.prepare_gadget_pose(seq,frame){return false;}
+        self.set_anim(Pf::ONE,seq,frame as i32);true
+    }
     /// A stationary gadget capture uses one decoded key, not an idle blend.
     fn hold_gadget_pose(&mut self,seq:u8,frame:u8)->bool {
         if !self.prepare_gadget_pose(seq,frame){return false;}
@@ -549,6 +555,7 @@ impl AnimCtl for HeroAnimCtl<'_> {
     fn frame_count(&self, seq: u8) -> u8 { self.r().frame_count(seq) }
     fn gadget_sequence_valid(&self,seq:u8)->bool {gadget_sequence_valid(self.r().class,seq)}
     fn prepare_gadget_pose(&mut self,seq:u8,frame:u8)->bool {self.with(|a|a.prepare_gadget_pose(seq,frame))}
+    fn snap_gadget_pose(&mut self,seq:u8,frame:u8)->bool {self.with(|a|a.snap_gadget_pose(seq,frame))}
     fn hold_gadget_pose(&mut self,seq:u8,frame:u8)->bool {self.with(|a|a.hold_gadget_pose(seq,frame))}
     fn set_loop(&mut self, start: i32, end: i32) { self.with(|a| a.set_loop(start, end)) }
     fn clear_loop(&mut self) { self.with(|a| a.clear_loop()) }
@@ -767,8 +774,12 @@ impl AnimCtl for RatchetAnimCtl<'_> {
     fn prepare_gadget_pose(&mut self,seq:u8,frame:u8)->bool {
         if !gadget_sequence_valid(self.class,seq)||self.class.frame(seq,frame).is_none(){return false;}
         if self.r().pose_frame().is_some(){return true;}
-        // Repeated transitions can otherwise keep snapshot-seq 0xff with no
-        // source key forever: the renderer returns identity matrices (T-pose).
+        self.snap_gadget_pose(seq,frame)
+    }
+
+    fn snap_gadget_pose(&mut self,seq:u8,frame:u8)->bool {
+        if !gadget_sequence_valid(self.class,seq)||self.class.frame(seq,frame).is_none(){return false;}
+        // A release handoff must not interpolate a malformed/launch snapshot.
         let key=self.class.frame(seq,frame).unwrap();let a=&mut *self.a;
         a.snapshot=None;a.state.seq_a=seq;a.state.seq_b=seq;
         a.state.frame_a=frame;a.state.frame_b=frame;a.state.t=0.;

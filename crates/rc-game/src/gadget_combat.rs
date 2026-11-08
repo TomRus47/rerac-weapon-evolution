@@ -78,6 +78,9 @@ pub struct HeroOutput {
     pub spin:f32,pub holding:bool,pub previous_holding:bool,
     pub rope:Option<V>,pub cable_pose:u8,pub previous_cable_pose:u8,
     pub grapple_step:Option<V>,pub cable_latched:bool,
+    /// 0 = inactive, 1 = airborne release pending, 2 = final fall published.
+    /// Retained until landing/interruption so late item writes cannot erase it.
+    pub cable_exit:u8,
     /// Only this sequence may be replaced when returning to locomotion.
     pub pose_sequence:Option<u8>,pub pose_item:i32,
     /// Transient equip input latch; independent of ammunition and saved state.
@@ -303,7 +306,7 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:
     let equip_fire=fire||env.pad.physical_buttons.is_some_and(|(held,_)|held&(button::CIRCLE|button::R2)!=0);
     let direction=aim_direction(hero,env);
     let start=if matches!(id,12|26){hand_origin(hero,env)}else{launch_origin(hero,env,direction)};
-    let mut out=HeroOutput{previous_holding:hero.gadget_combat.holding,previous_cable_pose:hero.gadget_combat.cable_pose,pose_sequence:hero.gadget_combat.pose_sequence,pose_item:hero.gadget_combat.pose_item,..Default::default()};
+    let mut out=HeroOutput{previous_holding:hero.gadget_combat.holding,previous_cable_pose:hero.gadget_combat.cable_pose,pose_sequence:hero.gadget_combat.pose_sequence,pose_item:hero.gadget_combat.pose_item,cable_exit:hero.gadget_combat.cable_exit,..Default::default()};
     hits.world(table,hero,rng,env.frame as u64,&mut |w|{
         let s=w.svc.bomb_evo.gadget_settings;let mut rt=std::mem::take(&mut w.svc.gadget_combat);
         rt.sync_ammo(w.svc.level,None,s);
@@ -341,7 +344,7 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:
                     w.mm(lease.id).has_collision=false;
                     hold(&mut rt,w,lease.id,w.counter+2,None,true);
                     let (pivot,radius)=rt.drill_pivot.filter(|(p,_,_)|*p==lease).map(|(_,p,r)|(p,r)).unwrap_or(([0.,0.,0.7],0.5));
-                    let anchor=add(start,scale(direction,1.+(radius*0.65).clamp(0.2,1.)));
+                    let anchor=add(start,scale(direction,0.5+(radius*0.65).clamp(0.2,1.)));
                     place_drill_target(w,lease.id,anchor,direction,rt.spin,pivot);
                     let t=drill_hit(w,s.drill_dps);w.deliver_hit(lease.id,&t);out.holding=true;
                 }
@@ -390,6 +393,7 @@ pub fn item_tick(hero:&mut Hero,table:&mut MobyTable,_anim:&mut dyn AnimCtl,env:
                     }
                 }else{let d=sub(start,c.tip);c.tip=add(c.tip,scale(unit(d),(80.*DT).min(length(d))));}
                 out.rope=Some(c.tip);out.cable_latched=c.phase==1;out.cable_pose=if c.phase==2{0}else if c.target.is_none()&&c.phase==1{2}else{1};
+                if c.phase!=2{out.cable_exit=0;}
                 if c.phase!=2||length(sub(start,c.tip))>0.1{rt.cable=Some(c);}
             }
         }
@@ -633,6 +637,10 @@ pub(crate) fn cable_holds_motion(hero:&Hero,pad:&crate::pad::PadState)->bool{
 pub(crate) fn prepare_hero_input(hero:&mut Hero,pad:&mut crate::pad::PadState){
     let fire=pad.held&(button::CIRCLE|button::R2)!=0;
     if !fire{
+        if hero.items.slot.id==12&&hero.air_ticks>0
+            &&(hero.gadget_combat.pose_item==12||hero.gadget_combat.cable_latched){
+            hero.gadget_combat.cable_exit=1;
+        }
         hero.gadget_combat.cable_pose=0;hero.gadget_combat.cable_latched=false;
         hero.gadget_combat.grapple_step=None;hero.gadget_combat.holding=false;
     }
@@ -674,6 +682,7 @@ fn grounded_drill(hero:&Hero)->bool {
 }
 fn cable_animation(hero:&mut Hero,anim:&mut dyn AnimCtl,rng:&mut Rng,pose:u8){
     if pose!=0{
+        hero.gadget_combat.cable_exit=0;
         let fallback=hero.weapons.defs.get(16).map(|d|d.anims[0]).unwrap_or(-1);
         let Some(seq)=valid_pose(anim,&[0x2f,fallback,hero.idle_seq() as i32,0xb])else{return};
         let frame=(if seq==0x2f{2}else{0}).min(anim.frame_count(seq).saturating_sub(1) as i32);
@@ -691,7 +700,8 @@ fn restore_motion_pose(hero:&mut Hero,anim:&mut dyn AnimCtl,rng:&mut Rng){
     let cable=hero.gadget_combat.pose_item==12;
     let owned=hero.gadget_combat.pose_sequence.take();hero.gadget_combat.pose_item=0;
     let Some(owned)=owned else{return};hero.anim_speed=Pf::ONE;
-    let falling=cable&&hero.air_ticks>0&&matches!(hero.state,0|1|2|6|0x1e|0x2d);
+    let falling=cable&&hero.air_ticks>0&&matches!(hero.group,0|1|2|4|5|0xc);
+    if falling{hero.gadget_combat.cable_exit=1;}
     // Native fall may already be sequence B while its source snapshot is absent.
     // Repair that handoff too; preserve independently chosen jump/hit poses.
     if anim.view().seq_b!=owned&&!(falling&&matches!(hero.state,6|0x2d)){return;}
@@ -701,7 +711,8 @@ fn restore_motion_pose(hero:&mut Hero,anim:&mut dyn AnimCtl,rng:&mut Rng){
         0=>Some(hero.idle_seq()),_=>None,
     }};
     if let Some(seq)=seq.filter(|&seq|anim.gadget_sequence_valid(seq)){
-        if anim.prepare_gadget_pose(seq,0){hero.set_anim(anim,rng,Pf::f(5.),seq,0);}
+        if falling{anim.snap_gadget_pose(seq,0);}
+        else if anim.prepare_gadget_pose(seq,0){hero.set_anim(anim,rng,Pf::f(5.),seq,0);}
     }
 }
 
@@ -772,3 +783,45 @@ mod v138_tests;
 #[cfg(test)]
 #[path="gadget_combat_v139_tests.rs"]
 mod v139_tests;
+
+/// Last handoff check AFTER native deferred item updates. Early hero-pose
+/// recovery alone cannot protect against SetState/SetAnim later in the tick.
+/// Return true when the caller must rebuild the hero moby's published matrix.
+pub(crate) fn finish_hero_items(hero:&mut Hero,table:&mut MobyTable,anim:&mut dyn AnimCtl,env:&ItemEnv,rng:&mut Rng)->bool{
+    if hero.gadget_combat.cable_exit==0{return false;}
+    if !allowed(hero)||hero.items.slot.id!=12||hero.air_ticks==0
+        ||matches!(hero.group,0xd|0xe)||env.pad.pressed&button::CROSS!=0{
+        hero.gadget_combat.cable_exit=0;return false;
+    }
+    let Some(coll)=env.coll else{return false;};
+    let normalize=hero.state!=6&&hero.state!=0x2d;
+    if normalize{
+        let motion=(hero.vel,hero.momentum,hero.eff);
+        let physics=crate::hero::physics::Env{coll,pad:env.pad,cam_yaw:hero.rot[2],
+            cam_rows:hero.aim_rows,mirror:false,death_z:Pf::ZERO,mobys:env.mobys,
+            hero_moby:Some(env.hero_moby),water:None,world:None};
+        hero.set_state(&mut crate::hero::states::Ctx{env:&physics,anim,rng,voice:None},6,false);
+        // Entering native fall initializes its gravity, but must not erase
+        // the cable's collision-resolved residual motion.
+        (hero.vel,hero.momentum,hero.eff)=motion;
+    }
+    let broken=anim.view().seq_b!=0xb||anim.pose_frame().is_none();
+    if hero.gadget_combat.cable_exit!=1&&!normalize&&!broken{return false;}
+    if !anim.snap_gadget_pose(0xb,0){return false;}
+    hero.anim_speed=Pf::ONE;hero.gadget_combat.pose_sequence=None;hero.gadget_combat.pose_item=0;
+    hero.gadget_combat.cable_exit=2;
+    hero.fx.view=anim.view();anim.combat_pose(hero);
+    let m=&mut table.mobys[env.hero_moby];hero.write_back(m);
+    let v=anim.view();(m.anim.seq_a,m.anim.seq_b,m.anim.frame_a,m.anim.frame_b,m.anim.t)=
+        (v.seq_a,v.seq_b,v.frame_a,v.frame_b,v.t);
+    crate::hero::fx::end(hero,m,anim);
+    crate::hero::items::refresh_hand_pose(hero,table,anim,env);
+    if hero.swing.item.rope.is_some(){
+        let from=crate::hero::guns::item_point(hero,env,0);
+        if let Some(rope)=hero.swing.item.rope.as_mut(){rope.from=from;}
+    }
+    true
+}
+#[cfg(test)]
+#[path="gadget_combat_v140_tests.rs"]
+mod v140_tests;

@@ -80,7 +80,7 @@ fn capture_requires_real_native_capsule_overlap_and_keeps_the_shifted_pivot_fixe
     h.body_point=from_f32x3(add(to_f32x3(h.pos),[0.,0.,0.7]));
     let mut anim=RecordingAnim::default();fire(&mut h,&mut t,&mut s,1,&mut anim);assert!(h.gadget_combat.holding);
     let (_,pivot,radius)=s.svc.gadget_combat.drill_pivot.unwrap();
-    let start=h.items.slot.item.as_ref().unwrap().position;let expected=add(start,[1.+(radius*0.65).clamp(0.2,1.),0.,0.]);
+    let start=h.items.slot.item.as_ref().unwrap().position;let expected=add(start,[0.5+(radius*0.65).clamp(0.2,1.),0.,0.]);
     for frame in 2..60{fire(&mut h,&mut t,&mut s,frame,&mut anim);
         let m=&t.mobys[1];let actual:V=std::array::from_fn(|k|m.position[k]+(0..3).map(|r|m.rows[r][k]*pivot[r]).sum::<f32>());
         for k in 0..3{assert!((actual[k]-expected[k]).abs()<0.0002);}

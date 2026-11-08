@@ -1,4 +1,4 @@
-> Current development v139: [airborne grapple release and contact-only Trespasser capture](docs/mod/LOCAL_TEST_V139.md). Complete source; installed launcher, icon, balance and saves retained. No release or draft is created.
+> Current development v140: [final-frame Swingshot release recovery and half-unit drill clearance](docs/mod/LOCAL_TEST_V140.md). Complete source; launcher, icon, INIs and saves retained. No release or draft is created.
 
 > Local v135: [gadget pose fixes and Freezer HUD/recharge](docs/mod/LOCAL_TEST_V135.md). Includes a matching launcher update. Local testing only; no public release.
 

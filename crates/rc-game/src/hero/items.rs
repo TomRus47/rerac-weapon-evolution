@@ -530,7 +530,15 @@ fn refresh_seq_loop(fx: &mut super::fx::HeroFx, lp: u8, frame: i32) {
 /// from Ratchet's current pose); not a glove: `MobyAnimAdvance`, rows = `W.r0..r2`, columns normalised;
 /// a glove: rows = W, no advance, no normalisation, and its pose is Ratchet's hand ([`glove_frame`]; frame
 /// A = B = that keyframe, t = 0: the port shows it as the snapshot key).
-fn attach_hand(hero: &mut Hero, table: &MobyTable, anim: &dyn AnimCtl, env: &ItemEnv) {
+fn attach_hand(hero:&mut Hero,table:&MobyTable,anim:&dyn AnimCtl,env:&ItemEnv){
+    attach_hand_pose(hero,table,anim,env,true);
+}
+/// Re-evaluate attachment after a final custom pose; do not advance the hand
+/// animation or emit its triggers a second time in the same simulation tick.
+pub(crate) fn refresh_hand_pose(hero:&mut Hero,table:&MobyTable,anim:&dyn AnimCtl,env:&ItemEnv){
+    attach_hand_pose(hero,table,anim,env,false);
+}
+fn attach_hand_pose(hero:&mut Hero,table:&MobyTable,anim:&dyn AnimCtl,env:&ItemEnv,advance:bool){
     let id = hero.items.slot.id;
     let detached = hero.items.slot.detached != 0;
     let Some(it) = hero.items.slot.item.as_mut() else { return };
@@ -546,14 +554,14 @@ fn attach_hand(hero: &mut Hero, table: &MobyTable, anim: &dyn AnimCtl, env: &Ite
     if detached {
         // A detached item (the thrown wrench): the hand point 0x1403c0 only, `MobyAnimAdvance`; the moby keeps its
         // own position and rotation.
-        if let Some(c) = env.data.class(it.o_class) { advance_item(&mut it.anim, &c.anim, &mut hero.fx, env.frame, id == super::blaster::BLASTER); }
+        if let Some(c) = env.data.class(it.o_class).filter(|_|advance) { advance_item(&mut it.anim, &c.anim, &mut hero.fx, env.frame, id == super::blaster::BLASTER); }
         hero.items.slot.hand_point = hp;
         return;
     }
     it.position = hp;
     let glove = is_glove(id);
     if !glove {
-        if let Some(c) = env.data.class(it.o_class) { advance_item(&mut it.anim, &c.anim, &mut hero.fx, env.frame, id == super::blaster::BLASTER); }
+        if let Some(c) = env.data.class(it.o_class).filter(|_|advance) { advance_item(&mut it.anim, &c.anim, &mut hero.fx, env.frame, id == super::blaster::BLASTER); }
     }
     let mut rows: [moby_anim::V4; 3] = [0, 1, 2].map(|i| w[i].map(f32::to_bits));
     if !glove { moby_anim::normalise_columns(&mut rows); }

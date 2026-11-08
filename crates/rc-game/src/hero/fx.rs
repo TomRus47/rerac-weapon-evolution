@@ -590,7 +590,7 @@ pub fn joint_world_point(rows: &[[f32; 4]; 3], position: [f32; 4], scale: f32, t
 
 /// End of the hero update, after the back items' update: `HeroItemsAttach`'s placement of the back pack from Ratchet's
 /// joint list [`BACK_LIST`] in his pose now and his moby as the write-back left it ([`BackFrame`]).
-pub(super) fn end(h: &mut Hero, moby: &Moby, anim: &dyn super::AnimCtl) {
+pub(crate) fn end(h: &mut Hero, moby: &Moby, anim: &dyn super::AnimCtl) {
     h.fx.view = anim.view();
     let Some(chain) = h.fx.joints.hero.get(BACK_LIST).filter(|c| !c.is_empty()) else { return };
     let Some(p) = anim.eval_chains_with(&[chain.as_slice()], &h.weapons.layers, &moby.joint_mods).into_iter().next() else { return };

@@ -474,6 +474,9 @@ impl Game {
                     crate::hero::gadgets::after_items(&mut self.hero, &mut c, data);
                 }
                 crate::gadget_combat::item_tick(&mut self.hero,&mut self.mobys,anim,&ienv,hits,&mut self.rng);
+                if crate::gadget_combat::finish_hero_items(&mut self.hero,&mut self.mobys,anim,&ienv,&mut self.rng){
+                    if let Some(world)=hooks.world.as_deref_mut(){world.build_matrix(&mut self.mobys,self.hero_moby);}
+                }
                 // The hand item's class sounds (the wrench's hit, the Swingshot's fire / hit / pull), right after its
                 // update.
                 crate::hero::gadgets::flush_item_sounds(&mut self.hero, &self.mobys.mobys[self.hero_moby], hero_sounds, &mut self.rng);
