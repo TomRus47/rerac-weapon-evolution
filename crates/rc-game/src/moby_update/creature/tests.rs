@@ -13,6 +13,8 @@ use crate::rng::{Rng, LEVEL_SEED};
 use rc_formats::collision::Collision;
 #[path="duplication_tests.rs"]
 mod duplication_tests;
+#[path="xp_attribution_tests.rs"]
+mod xp_attribution_tests;
 
 fn seeded() -> Rng { let mut r = Rng::new(); r.srand(LEVEL_SEED); r }
 

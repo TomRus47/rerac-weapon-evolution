@@ -1,10 +1,10 @@
 {
-  "public_mod_version": "0.5",
-  "status": "0.5 publication approved; exact Windows/source identity verified by release workflow",
+  "public_mod_version": "0.5.1",
+  "status": "0.5.1 source synchronization: v141 explosion attribution and v142 recalled-weapon HUD fixes",
   "runtime_base": "0.3.8-alpha",
-  "patch": "0.1.6.140",
+  "patch": "0.1.6.142",
   "config_capability": 97,
   "launcher": "0.30.2",
   "release_created": false,
-  "notes": "docs/releases/v0.5.md"
+  "notes": "docs/releases/v0.5.1.md"
 }

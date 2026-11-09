@@ -11,7 +11,17 @@ use crate::{hero::{Hero,items::{HitSink,ItemEnv},anim::AnimCtl,physics::{from_f3
 pub mod freezer;
 type V=[f32;3];
 const DT:f32=1./60.;
-pub const DRILL_HIT:u32=1<<23;
+/// Private attack metadata, outside native low-24-bit area/collision flags.
+/// Bit 23 is the native explosion flag and must never identify the drill.
+pub const DRILL_HIT:u32=1<<26;
+const DRILL_SOURCE_CLASS:u16=188;
+
+/// A private bit alone is not ownership: native/environment hits can carry
+/// copied flags. Require the actual gadget class and Ratchet as the source.
+pub(crate) fn is_drill_hit(hit:&HitTemplate,hero:Option<MobyId>)->bool {
+    hero.is_some() && hit.attacker==hero && hit.h1a==DRILL_SOURCE_CLASS
+        && hit.w20 & DRILL_HIT!=0
+}
 #[derive(Clone,Copy,Debug,PartialEq)]
 pub struct Settings {
     pub swing_enabled:bool,pub pull_range:f32,pub pull_speed:f32,pub stun_seconds:f32,
@@ -280,7 +290,7 @@ fn frost_impact_sound(w:&mut World,point:V){
     w.svc.sounds.push(event);
     if let Some(sound)=w.sound.as_deref_mut(){sound.play_class_sound(&event,w.rng);}
 }
-fn drill_hit(w:&World,dps:f32)->HitTemplate{HitTemplate{attacker:w.hero_moby,flags:0x10000,b18:0,b19:1,h1a:188,
+fn drill_hit(w:&World,dps:f32)->HitTemplate{HitTemplate{attacker:w.hero_moby,flags:0x10000,b18:0,b19:1,h1a:DRILL_SOURCE_CLASS,
     damage:Pf::f(dps/100.),dir:[Pf::ZERO,Pf::ZERO,Pf::ONE,Pf::b(0x45af_df66)],w20:1|DRILL_HIT}}
 fn mist(w:&mut World,point:V,color:u32,size:f32){
     w.part60(size,[point[0],point[1],point[2],1.],[0.,0.,0.015,0.],rgba(color,0x38),18,0,-1);

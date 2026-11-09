@@ -1,10 +1,10 @@
-# ReRAC Weapon Evolution 0.5
+# ReRAC Weapon Evolution 0.5.1
 
 Independent mod for **ReRAC 0.3.8-alpha**. This repository contains the complete
 Rust workspace, modified runtime integrations, standalone launcher, approved
 configuration, build tools, tests and implementation documentation.
 
-**To play, download the Windows x64 ZIP from the [0.5 release](https://github.com/TomRus47/rerac-weapon-evolution/releases/tag/v0.5).**
+**To play, download the Windows x64 ZIP from the [0.5.1 release](https://github.com/TomRus47/rerac-weapon-evolution/releases/tag/v0.5).**
 Extract everything and open `ReRAC_Weapon_Evolution.exe`. Use its included
 modified `runtime/rerac.exe`; select your extracted Ratchet & Clank data if
 needed. The data folder must contain `toc.bin` and `extract-info.json`.
@@ -12,7 +12,23 @@ Players do not need Python, Rust or older patches. Game data is not distributed.
 
 GitHub's **Source code** archives are for reading, modifying or building the
 project, not for starting the game. The release has no extra JSON/checksum or
-duplicate source attachments. See [release notes and update instructions](docs/releases/v0.5.md).
+duplicate source attachments. See [0.5.1 fixes and source notes](docs/releases/v0.5.1.md)
+and the [0.5 release notes and update instructions](docs/releases/v0.5.md).
+
+## Fixes in 0.5.1
+
+- Restore native explosion damage and weapon XP attribution for Bomb Glove,
+  Mine Glove, guided Visibomb and exploding chickens. The experimental
+  Trespasser now uses separate, ownership-checked attack metadata.
+- Return the name/XP panel to the recalled weapon after wrench XP feedback
+  when Circle/R2 or another equipment path completes a hand-item change.
+
+The current `main` source includes both fixes through runtime **0.1.6.142**.
+The existing release is named 0.5.1 but still uses the historical `v0.5` tag;
+its automatic Source code archives remain tied to that tag. Download the
+[current main source](https://github.com/TomRus47/rerac-weapon-evolution/archive/refs/heads/main.zip)
+to obtain these fixes. This source synchronization does not retag the release
+or replace its player download.
 
 ## Features
 
@@ -77,10 +93,12 @@ existing profiles are not overwritten. `BUILD_FINAL_WINDOWS_EXE.bat` builds a
 local player ZIP after the runtime. See [release workflow](docs/mod/RELEASE_05.md)
 for exact Windows/source identity and publication checks.
 
-The 0.5 gameplay snapshot is **0.1.6.140**, capability **97**, with launcher
+The 0.5.1 gameplay snapshot is **0.1.6.142**, capability **97**, with launcher
 **0.30.2**. Component versions are independent from the public mod version.
-Host gameplay checks passed 1,521 tests with three unchanged heavy seed surveys
-filtered; release CI separately tests/builds the Windows runtime and frozen GUI.
+The supplied v142 kit records 1,528 host gameplay tests passing with three
+unchanged heavy seed surveys filtered. See the
+[source synchronization checks](docs/mod/SOURCE_SYNC_051.md) for checks rerun on
+this integration and their scope. Windows runtime/GUI builds remain separate.
 See [verification details and limitations](docs/mod/VERIFICATION.md).
 
 ## Authorship and rights

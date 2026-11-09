@@ -1230,6 +1230,7 @@ fn tick_and_build(
         let alive=p.game.hero.health>0 && !matches!(p.game.hero.state,0x7b|0x7f);
         rt.wrench_xp.update(p.game.counter,evo.wrench_xp_feedback_serial,
             evo.weapon_level(8).unwrap_or(1),evo.ng_plus,alive);
+        rt.wrench_xp.observe_hand(p.game.hero.items.slot.item.as_ref().map(|_|p.game.hero.items.slot.id));
         let started=rt.evo_notice.update(p.game.counter,alive,evo.hud.level_up_popup || evo.world_settings.enemy_damage_by_health,levels,duration);
         evo_notice_sound=started && if rt.evo_notice.popup().is_some_and(|p|p.0==0){evo.world_settings.nanotech_upgrade_sound}else{evo.hud.level_up_sound};
     }

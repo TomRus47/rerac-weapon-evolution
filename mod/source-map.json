@@ -1,5 +1,5 @@
 {
-  "gameplay_version": "0.1.6.140",
+  "gameplay_version": "0.1.6.142",
   "launcher_version": "0.30.2",
   "files": [
     {
@@ -41,7 +41,7 @@
         "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification",
         "0.5 release documentation, two-category downloads and verified Windows publication"
       ],
-      "sha256": "f3cb50c3b756fa7fe8c78d1e9688e60ff22d45662357d384d6fb8c973f7674f8"
+      "sha256": "07a3f01ad25c6ae6f4518d0e75e1a98c837cf597272b55a0f4b23a4ae987bd0d"
     },
     {
       "path": "Cargo.lock",
@@ -81,7 +81,7 @@
         "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification",
         "0.5 release documentation, two-category downloads and verified Windows publication"
       ],
-      "sha256": "087cd2cda36df58366aa59fd2c19b0f11a9951e5558806547be17dec7bc81ab7"
+      "sha256": "b65d43cc7eeceb050dbe314629baca719796b7e062e40dd011c0fb4724c5b1ce"
     },
     {
       "path": "crates/rc-engine/Cargo.toml",
@@ -164,7 +164,7 @@
     },
     {
       "path": "crates/rc-engine/src/disc_source.rs",
-      "sha256": "69532861916db3e0804ab12d8a24ebac09fd7a44d9942245a2783d29bdee4f1c",
+      "sha256": "8d7e55a9a035b6f45160ff3b68741e863fd5b920396fd4dd6626fc8287e440f1",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -275,7 +275,7 @@
     },
     {
       "path": "crates/rc-engine/src/hud_render.rs",
-      "sha256": "4425c91aaca92957465da102adcb78eac32492a671597ec990ee714ead638e1a",
+      "sha256": "039b55bbc92f1ab7739974916170f56e857c9294c897ad65e1a920da01bfd29e",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -900,7 +900,7 @@
         "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
         "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "9a9b4af7b35c4e193d9cd300550e347b7c18f32da5af6d8f2beaf2a0b6b4cc87"
+      "sha256": "261a09dbe39e53984275edc8c5ed750277b5e31b74d0fa010c63997bcd70e2d3"
     },
     {
       "path": "crates/rc-game/src/gadget_combat_freezer.rs",
@@ -1324,7 +1324,7 @@
     },
     {
       "path": "crates/rc-game/src/hud.rs",
-      "sha256": "ad268c0ec3c2ae2345ff154704784f9175bb40da06283c92ff90dfbc9a4ff756",
+      "sha256": "e6dac46e265e65441e9b073bb247f779b49f827ec54be5ada78d382104022f90",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
@@ -1357,7 +1357,7 @@
       "reasons": [
         "Weapon Evolution implementation or integration"
       ],
-      "sha256": "ead4445175c163a0070b347f6c61e59654b786c47a2880202cd5a53b22593d70"
+      "sha256": "cfe4a0e39566b820c987cd75c886093415e4d8c4b30f78b723187964c6e9fb52"
     },
     {
       "path": "crates/rc-game/src/hud/xp_bar.rs",
@@ -2696,12 +2696,19 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/creature/tests.rs",
-      "sha256": "5038cf2512049f922c55d7b5d889d3c70eccdbdae4f7c5d61e5c43329e1a5c1d",
+      "sha256": "0d5244fbf28773106572e7998d70cd4ce5fc0d849ac2b015709968bdb1227501",
       "reasons": [
         "changed since supplied snapshot",
         "Weapon Evolution implementation or integration",
         "Local v130 Taunter, localized labels, PDA and saved randomizer-site integration"
       ]
+    },
+    {
+      "path": "crates/rc-game/src/moby_update/creature/xp_attribution_tests.rs",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "bf5696179ef23b60f3c0e35aa27c7c9dd567a40ace4a594bd8c7cd9b6f4f7673"
     },
     {
       "path": "crates/rc-game/src/moby_update/feedback.rs",
@@ -2720,7 +2727,7 @@
     },
     {
       "path": "crates/rc-game/src/moby_update/real_hp.rs",
-      "sha256": "cd125f672b144c322a7b9a75d6dbc456244a1ad3fada1ad7537fac4d6d2396b8",
+      "sha256": "252bff92c3766bf367e9ef4a9b7882d465a7620dbb251a4c4c91a7f809866549",
       "reasons": [
         "added since supplied snapshot",
         "v133 opt-in gadget combat, configuration, verification or local test packaging"
@@ -3637,6 +3644,20 @@
       "sha256": "7f71c7564d8d2a6649d1bdb55b6550e53279bcf60f3d16c9ace172496217cda6"
     },
     {
+      "path": "docs/mod/LOCAL_TEST_V141.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "0043b5b156aa244ed9b96d30382bef642b001843b9615e2831dd5dc571c0019e"
+    },
+    {
+      "path": "docs/mod/LOCAL_TEST_V142.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "f17dab5c6744cd72689fee6376e15c4f86e90c2c41e8aa6f8cf61efb65e40e93"
+    },
+    {
       "path": "docs/mod/MINE_AMMO_UI_V57.md",
       "reasons": [
         "Weapon Evolution implementation or integration"
@@ -3761,6 +3782,13 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "49130577e9b645ff3201565995117f42e4a9b3f5986ec0b41f9c203de45eb061"
+    },
+    {
+      "path": "docs/mod/SOURCE_SYNC_051.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "0cb52f9d496d676d12234aa692dd23fd7369104234e90e1ae78ab1509af2e5e8"
     },
     {
       "path": "docs/mod/VERIFICATION.md",
@@ -3912,6 +3940,13 @@
         "Weapon Evolution implementation or integration"
       ],
       "sha256": "54e4fc86f4e6c226d9bbd449a4bd74c7b1f4ba1775d3b867f1d8b3bfc728cc2a"
+    },
+    {
+      "path": "docs/releases/v0.5.1.md",
+      "reasons": [
+        "Weapon Evolution implementation or integration"
+      ],
+      "sha256": "f1f09fee7a7d9df34e961c9576b01674da3b130a3e4d2ca90b9fb650e5caf262"
     },
     {
       "path": "docs/releases/v0.5.md",
@@ -4217,7 +4252,7 @@
         "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
         "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "e4a2eaaf43a7170f272a0b3276d1be6180a4fef252734c9a10baa67caf68e246"
+      "sha256": "685aa516e796d6da8bb97c56ad3456271e7fa3bb111ff679021e02eaf3ebfc04"
     },
     {
       "path": "launcher/tests/test_intervals.py",
@@ -4634,7 +4669,7 @@
         "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification",
         "0.5 release documentation, two-category downloads and verified Windows publication"
       ],
-      "sha256": "cffcd84ed449039e3152a7a418afee33679d7f76ba200b1a07fe6f1e52f6492a"
+      "sha256": "0eb26c700ee1e7d78de259b2c5e269907414433b33b00d3f991a01807fabd6f0"
     },
     {
       "path": "mod/draft.json",
@@ -4653,7 +4688,7 @@
         "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification",
         "0.5 release documentation, two-category downloads and verified Windows publication"
       ],
-      "sha256": "980c70a8e2c61bf650711c0974ca1bd198bb385bb77281f5aa626b329d4301c7"
+      "sha256": "a599bc70cbf65a87b668db14d2e67eff28560cb76495fe7d4e578e8a4a62aa24"
     },
     {
       "path": "mod/provenance.json",
@@ -4986,7 +5021,7 @@
         "v139 airborne fall handoff, physical-contact drill acquisition, one-unit placement or verification",
         "v140 complete-tick cable release recovery, non-advancing attachment refresh, half-unit placement or verification"
       ],
-      "sha256": "8c31217147fd0d59a82786212063113a419206405f65dbf64477c5b19d84f339"
+      "sha256": "9cfdcda138adf7bbe4dde6c13a083175167b901531f186f467336017b7fd6bcb"
     },
     {
       "path": "tools/mod/rust_build_tools.py",

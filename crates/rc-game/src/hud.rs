@@ -2153,6 +2153,37 @@ mod tests {
     fn inputs(hp: i32, bolts: i32) -> Inputs { Inputs { hp, bolts, ..Default::default() } }
 
     #[test]
+    fn recalled_weapon_panel_takes_over_after_accepted_wrench_xp() {
+        let mut hud=HudState::new(assets());
+        let mut feedback=wrench_xp::Lease::default();
+        let mut ammo=[0;37];ammo[10]=25;
+        let weapon=Inputs {held_item:10,weapon:Some((10,25,40)),ammo,..inputs(4,0)};
+        let wrench=Inputs {held_item:8,weapon:None,ammo,..inputs(4,0)};
+        for tick in 0..40 {
+            hud.tick(weapon);
+            feedback.update(tick,0,1,false,true);feedback.observe_hand(Some(10));
+        }
+        assert_eq!(hud.weapon_evo_display_item(true),Some(10));
+        for tick in 40..80 {
+            hud.tick(wrench);
+            feedback.update(tick,1,1,false,true);feedback.observe_hand(Some(8));
+        }
+        assert_eq!(feedback.alpha(),1.);
+        // No ring or HUD request is issued: the held-item feed alone recalls it.
+        for tick in 80..120 {
+            hud.tick(weapon);
+            feedback.update(tick,1,1,false,true);feedback.observe_hand(Some(10));
+            assert_eq!(feedback.alpha(),0.);
+            if hud.weapon_evo_panel(10).is_some() {
+                assert_eq!(hud.weapon_evo_display_item(true),Some(10));
+                assert!(hud.weapon_evo_fade(10,true)>0.);
+            }
+        }
+        assert_eq!(hud.weapon_evo_display_item(true),Some(10));
+        assert_eq!(hud.weapon_evo_fade(10,true),1.);
+    }
+
+    #[test]
     fn swimming_hides_all_weapon_hud_and_triangle_is_the_only_wrench_lease(){
         let mut h=HudState::new(assets());
         let mut held=Inputs{held_item:8,..inputs(4,0)};

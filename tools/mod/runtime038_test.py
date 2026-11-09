@@ -1,4 +1,4 @@
-"""Build bundled v140 sources and transactionally update an existing playable mod.
+"""Build bundled v142 sources and transactionally update an existing playable mod.
 
 The old source checkout is never patched. Player INIs, presets and saves are
 retained. Runtime-only updates keep the working launcher and icon. If an editor
@@ -21,7 +21,7 @@ from verified_artifacts import build_engine, checked_launcher
 
 SOURCE = Path(__file__).resolve().parents[2]
 BUNDLE = SOURCE.parent
-PATCH = '0.1.6.140'
+PATCH = '0.1.6.142'
 
 
 def sha(data):
@@ -200,7 +200,7 @@ def main():
             return
         sys.path.insert(0, str(SOURCE / 'launcher'))
         from launcher_core import package_distribution
-        output = BUNDLE / 'dist' / ('ReRAC_Weapon_Evolution_0.4.2_v140_Local_Test_' + str(time.time_ns()))
+        output = BUNDLE / 'dist' / ('ReRAC_Weapon_Evolution_0.5_v142_Local_Test_' + str(time.time_ns()))
         archive = package_distribution(SOURCE / 'launcher', output,
             (playable / 'weapons.ini').read_bytes(), playable / 'runtime/rerac.exe',
             include_presets=False, launcher_exe=launcher)

@@ -93,7 +93,7 @@ pub fn donor(m: &Moby) -> bool {
 }
 
 pub fn weapon(t: &HitTemplate, hero: Option<MobyId>) -> Option<i32> {
-    if t.w20 & crate::gadget_combat::DRILL_HIT!=0 && t.attacker.is_some() {return Some(26);}
+    if crate::gadget_combat::is_drill_hit(t,hero) {return Some(26);}
     if t.h1a==121 && t.w20 & crate::weapon_evo::wrench::BLAST!=0 && hero.is_some() && t.attacker==hero {return Some(8);}
     Some(match t.h1a {
         0x47 if t.attacker==hero && hero.is_some() => 8,

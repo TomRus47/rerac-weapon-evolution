@@ -1,3 +1,20 @@
+## Weapon Evolution 0.5.1 — ReRAC 0.3.8-alpha
+
+- Integrate the v141 native explosion attribution fix: separate the private
+  Trespasser marker from native explosion flags and require the real gadget
+  source class plus Ratchet ownership. Restore the owning weapon's configured
+  per-hit damage and accepted-loss XP for Bomb Glove, Mine Glove, guided
+  Visibomb and chicken explosions, retaining per-instance deduplication.
+- Integrate the v142 wrench HUD fix: retire old wrench feedback and its fade
+  tail after a completed hand-item change, including native Circle/R2 recall.
+  Preserve eight-second feedback, empty draw gaps, delayed thrown-wrench hits,
+  pause/death handling and V5/V8 caps.
+- Include native attribution and HUD regression fixtures, runtime identity
+  0.1.6.142 and source documentation. Keep launcher 0.30.2, capability 97,
+  approved INIs, icon, balance, save formats and randomizer seeds unchanged.
+- Synchronize main only; the existing release assets and v0.5 tag are retained.
+  See [0.5.1 source notes](docs/releases/v0.5.1.md).
+
 ## Weapon Evolution 0.5 — ReRAC 0.3.8-alpha
 
 Public release of the approved v140 gameplay and launcher 0.30.2. See
